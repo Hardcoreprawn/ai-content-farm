@@ -1,0 +1,66 @@
+name: Deploy Infrastructure (Manual Approval)
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      bypass_security:
+        description: 'Bypass security check'
+        required: false
+        default: false
+        type: boolean
+      bypass_cost:
+        description: 'Bypass cost check'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
+    
+    permissions:
+      id-token: write
+      contents: read
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Azure Login with OIDC
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.5.7
+        
+    - name: Deploy Infrastructure
+      run: |
+        cd infra
+        terraform init
+        
+        echo "🚀 Deploying to ${{ github.event.inputs.environment }}..."
+        terraform plan -out=tfplan
+        terraform apply -auto-approve tfplan
+        
+        echo "✅ Infrastructure deployed successfully!"
+        
+    - name: Output Deployment Info
+      run: |
+        cd infra
+        echo "📊 Deployment Summary:"
+        echo "Environment: ${{ github.event.inputs.environment }}"
+        echo "Terraform State:"
+        terraform show -json tfplan | jq -r '.planned_values.root_module.resources[] | "\(.address): \(.values.location // "global")"' | head -10
