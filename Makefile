@@ -9,6 +9,8 @@ help:
 	@echo "  infra           - Validate Terraform setup (init & validate)"
 	@echo "  verify-functions - Run full verification pipeline for Functions"
 	@echo "  deploy-functions - Deploy Azure Functions after verification"
+	@echo "  test-womble      - Test the HTTP Summary Womble function"
+	@echo "  test-womble-verbose - Test the HTTP Summary Womble with verbose output"
 	@echo "  verify          - Run full verification pipeline (no deploy)"
 	@echo "  apply           - Deploy infrastructure after verification"
 	@echo "  destroy         - Destroy infrastructure"
@@ -58,8 +60,10 @@ verify-functions:
 	@echo "🔧 Verifying Azure Functions deployment..."
 	@echo "✅ Checking Python syntax..."
 	cd azure-function-deploy && python -m py_compile GetHotTopics/__init__.py
-	@echo "✅ Validating function.json..."
+	cd azure-function-deploy && python -m py_compile SummaryWomble/__init__.py
+	@echo "✅ Validating function.json files..."
 	cd azure-function-deploy/GetHotTopics && python -c "import json; json.load(open('function.json'))"
+	cd azure-function-deploy/SummaryWomble && python -c "import json; json.load(open('function.json'))"
 	@echo "✅ Checking requirements.txt exists..."
 	cd azure-function-deploy && test -f requirements.txt && echo "requirements.txt found" || echo "⚠️  requirements.txt not found"
 	@echo "✅ Azure Functions verification complete."
@@ -68,6 +72,28 @@ deploy-functions: verify-functions
 	@echo "🚀 Deploying Azure Functions..."
 	cd azure-function-deploy && func azure functionapp publish hot-topics-func --python
 	@echo "✅ Azure Functions deployment complete."
+
+# Test the HTTP Summary Womble function
+test-womble:
+	@echo "🧪 Testing Summary Womble HTTP function..."
+	@echo "📤 Sending test request with technology subreddit only..."
+	curl -X POST \
+		-H "Content-Type: application/json" \
+		-d '{"source": "reddit", "topics": ["technology"], "limit": 5, "credentials": {"source": "keyvault"}}' \
+		"https://hot-topics-func.azurewebsites.net/api/SummaryWomble" \
+		| jq '.' || echo "⚠️  Response is not valid JSON or jq not available"
+	@echo "✅ Test request sent. Check Azure logs for results."
+
+# Test the HTTP Summary Womble function with local curl (more detailed)
+test-womble-verbose:
+	@echo "🧪 Testing Summary Womble HTTP function (verbose)..."
+	@echo "📤 Request payload:"
+	@echo '{"source": "reddit", "topics": ["technology", "programming"], "limit": 3, "credentials": {"source": "keyvault"}}' | jq '.'
+	@echo "📤 Sending request..."
+	curl -v -X POST \
+		-H "Content-Type: application/json" \
+		-d '{"source": "reddit", "topics": ["technology", "programming"], "limit": 3, "credentials": {"source": "keyvault"}}' \
+		"https://hot-topics-func.azurewebsites.net/api/SummaryWomble"
 
 # Validate devcontainer by listing versions of key tools
 devcontainer:

@@ -1,160 +1,83 @@
 import logging
 import azure.functions as func
-import praw
 import json
+import requests
 import os
 from datetime import datetime
-from azure.storage.blob import BlobServiceClient
-from azure.identity import DefaultAzureCredential
-from azure.keyvault.secrets import SecretClient
 
 
 def main(mytimer: func.TimerRequest) -> None:
-    logging.info('🚀 Summary Wombles timer trigger function started.')
+    logging.info('� Timer trigger started - calling Summary Womble.')
 
-    # Configuration
-    SUBREDDITS = [
-        "technology",
-        "programming",
-        "MachineLearning",
-        "datascience",
-        "computerscience",
-        "gadgets",
-        "Futurology"
-    ]
-    LIMIT = 10
-    SOURCE_NAME = "reddit"
-
-    # Azure Storage configuration
-    storage_account_name = os.environ.get("OUTPUT_STORAGE_ACCOUNT")
-    container_name = os.environ.get("OUTPUT_CONTAINER", "hot-topics")
-
-    logging.info(f"🔧 Storage account name: {storage_account_name}")
-    logging.info(f"🔧 Container name: {container_name}")
-
-    if not storage_account_name:
-        logging.error(
-            "❌ OUTPUT_STORAGE_ACCOUNT not found in environment variables")
-        return
+    # Configuration for the scheduled run
+    womble_config = {
+        "source": "reddit",
+        "topics": [
+            "technology",
+            "programming", 
+            "MachineLearning",
+            "datascience",
+            "computerscience",
+            "gadgets",
+            "Futurology"
+        ],
+        "limit": 10,
+        "credentials": {
+            "source": "keyvault"  # Use default Key Vault setup
+        },
+        "storage": {
+            # Use environment variables (set by Azure Function App settings)
+        }
+    }
 
     try:
-        # Use managed identity to authenticate to storage
-        credential = DefaultAzureCredential()
-        blob_service_client = BlobServiceClient(
-            account_url=f"https://{storage_account_name}.blob.core.windows.net",
-            credential=credential
-        )
-        logging.info(
-            "✅ Blob service client created successfully with managed identity")
-    except Exception as e:
-        logging.error(f"❌ Failed to create blob service client: {e}")
-        return
-
-    # Get Reddit API credentials from Key Vault
-    try:
-        # Key Vault URL - using the same Key Vault we configured
-        key_vault_url = f"https://hottopicskvib91ea.vault.azure.net"
-        secret_client = SecretClient(vault_url=key_vault_url, credential=credential)
+        # Get the function app URL
+        function_app_name = os.environ.get("WEBSITE_SITE_NAME", "hot-topics-func")
+        womble_url = f"https://{function_app_name}.azurewebsites.net/api/SummaryWomble"
         
-        reddit_client_id = secret_client.get_secret("reddit-client-id").value
-        reddit_client_secret = secret_client.get_secret("reddit-client-secret").value
+        # Get the function key for authorization
+        # In production, you'd get this from Key Vault or app settings
+        # For now, we'll make the call without the key (will work within the same function app)
         
-        logging.info("✅ Successfully retrieved Reddit API credentials from Key Vault")
-    except Exception as e:
-        logging.error(f"❌ Failed to retrieve Reddit credentials from Key Vault: {e}")
-        return
-
-    # Initialize Reddit API client (PRAW)
-    try:
-        reddit = praw.Reddit(
-            client_id=reddit_client_id,
-            client_secret=reddit_client_secret,
-            user_agent="Summary Wombles/1.0 by AI Content Farm"
+        logging.info(f"🔗 Calling Summary Womble at: {womble_url}")
+        
+        # Make the HTTP request to the womble function
+        headers = {
+            "Content-Type": "application/json",
+            "User-Agent": "Summary Wombles Timer/1.0"
+        }
+        
+        response = requests.post(
+            womble_url,
+            json=womble_config,
+            headers=headers,
+            timeout=300  # 5 minutes timeout
         )
-        logging.info("✅ PRAW Reddit client initialized successfully")
+        
+        if response.status_code == 200:
+            result_data = response.json()
+            total_topics = result_data.get('total_topics', 0)
+            total_subreddits = result_data.get('total_subreddits', 0)
+            
+            logging.info(f"✅ Summary Womble completed successfully: {total_topics} topics from {total_subreddits} subreddits")
+            
+            # Log individual results
+            for result in result_data.get('results', []):
+                if result.get('status') == 'success':
+                    logging.info(f"  ✅ r/{result['subreddit']}: {result['topics_count']} topics -> {result['blob_name']}")
+                else:
+                    logging.error(f"  ❌ r/{result['subreddit']}: {result.get('status')} - {result.get('error', 'Unknown error')}")
+                    
+        else:
+            error_text = response.text
+            logging.error(f"❌ Summary Womble failed with status {response.status_code}: {error_text}")
+            
+    except requests.exceptions.Timeout:
+        logging.error("❌ Summary Womble request timed out after 5 minutes")
     except Exception as e:
-        logging.error(f"❌ Failed to initialize Reddit client: {e}")
-        return
-
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    total_topics = 0
-
-    for subreddit_name in SUBREDDITS:
-        try:
-            logging.info(f"🌐 Fetching hot topics from r/{subreddit_name}")
-            
-            # Use PRAW to get hot posts from subreddit
-            subreddit = reddit.subreddit(subreddit_name)
-            hot_posts = list(subreddit.hot(limit=LIMIT))
-            
-            logging.info(
-                f"📡 Successfully fetched {len(hot_posts)} posts from r/{subreddit_name}")
-
-            # Extract detailed topic information
-            topics = []
-            for post in hot_posts:
-                # Get both external URL and Reddit discussion URL
-                external_url = post.url if hasattr(post, 'url') else ""
-                reddit_url = f"https://www.reddit.com{post.permalink}"
-                
-                topic = {
-                    "title": post.title,
-                    "external_url": external_url,
-                    "reddit_url": reddit_url,
-                    "reddit_id": post.id,
-                    "score": post.score,
-                    "created_utc": int(post.created_utc),
-                    "num_comments": post.num_comments,
-                    "author": str(post.author) if post.author else "",
-                    "subreddit": subreddit_name,
-                    "fetched_at": timestamp,
-                    "selftext": post.selftext[:500] if hasattr(post, 'selftext') and post.selftext else ""
-                }
-                topics.append(topic)
-
-            logging.info(
-                f"📝 Processed {len(topics)} topics from r/{subreddit_name}")
-
-            # Create individual file for each subreddit
-            blob_data = {
-                "source": SOURCE_NAME,
-                "subject": subreddit_name,
-                "fetched_at": timestamp,
-                "count": len(topics),
-                "topics": topics
-            }
-
-            # Upload to Azure Storage
-            blob_name = f"{timestamp}_{SOURCE_NAME}_{subreddit_name}.json"
-            logging.info(f"📤 Attempting to upload to blob: {blob_name}")
-
-            try:
-                blob_client = blob_service_client.get_blob_client(
-                    container=container_name,
-                    blob=blob_name
-                )
-
-                blob_client.upload_blob(
-                    json.dumps(blob_data, indent=2),
-                    overwrite=True,
-                    content_type="application/json"
-                )
-                logging.info(
-                    f"✅ Successfully uploaded {len(topics)} topics from r/{subreddit_name} -> {blob_name}")
-            except Exception as blob_error:
-                logging.error(
-                    f"❌ Blob upload failed for r/{subreddit_name}: {blob_error}")
-                raise
-
-            total_topics += len(topics)
-
-        except Exception as e:
-            logging.error(f"❌ Failed to fetch topics from r/{subreddit_name}: {e}")
-
-    logging.info(
-        f"🎉 Summary Wombles completed: {total_topics} total topics from {len(SUBREDDITS)} subreddits at {timestamp}")
+        logging.error(f"❌ Failed to call Summary Womble: {e}")
 
     if mytimer.past_due:
         logging.info('⚠️ The timer is past due!')
 
-    logging.info('✅ Summary Wombles function execution completed successfully.')
+    logging.info('✅ Timer trigger completed.')
