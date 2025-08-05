@@ -1,0 +1,5 @@
+requests
+azure-identity
+azure-keyvault-secrets
+azure-data-tables
+mkdocs
