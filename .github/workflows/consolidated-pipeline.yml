@@ -140,7 +140,9 @@ jobs:
       run: |
         # Install Infracost for accurate Azure cost estimation
         curl -fsSL https://raw.githubusercontent.com/infracost/infracost/master/scripts/install.sh | sh
-        sudo mv /tmp/infracost* /usr/local/bin/infracost
+        
+        # Verify installation
+        infracost --version
         
         # Configure Infracost (using free tier)
         infracost configure set api_key ico-free-tier-key || echo "Using free tier"
