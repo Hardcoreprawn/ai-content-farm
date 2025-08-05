@@ -1,0 +1,196 @@
+name: Security and Cost Validation
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths: 
+      - 'infra/**'
+      - 'azure-function-deploy/**'
+      - '.github/workflows/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'infra/**'
+      - 'azure-function-deploy/**'
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    name: Security & Compliance Scan
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install Checkov
+      run: pip install checkov
+
+    - name: Install TFSec
+      run: |
+        curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+        sudo mv tfsec /usr/local/bin/
+
+    - name: Install Terrascan
+      run: |
+        curl -L "$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.+?_Linux_x86_64.tar.gz")" > terrascan.tar.gz
+        tar -xf terrascan.tar.gz terrascan && rm terrascan.tar.gz
+        sudo mv terrascan /usr/local/bin
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: latest
+
+    - name: Run Terraform Init
+      run: |
+        cd infra
+        terraform init
+
+    - name: Run Security Scans
+      run: make security-scan
+      continue-on-error: true
+
+    - name: Upload Security Results
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-scan-results
+        path: |
+          infra/*-results.json
+          infra/security-summary.txt
+        retention-days: 30
+
+    - name: Check Critical Security Issues
+      run: |
+        # Fail if there are critical/high severity issues
+        CRITICAL_ISSUES=0
+        if [ -f infra/checkov-results.json ]; then
+          CRITICAL_ISSUES=$(jq -r '.summary.failed // 0' infra/checkov-results.json)
+        fi
+        if [ -f infra/tfsec-results.json ]; then
+          TFSEC_CRITICAL=$(jq -r '[.results[] | select(.severity == "CRITICAL" or .severity == "HIGH")] | length' infra/tfsec-results.json)
+          CRITICAL_ISSUES=$((CRITICAL_ISSUES + TFSEC_CRITICAL))
+        fi
+        
+        echo "Critical security issues found: $CRITICAL_ISSUES"
+        if [ $CRITICAL_ISSUES -gt 0 ]; then
+          echo "❌ Deployment blocked due to critical security issues"
+          echo "Review the security scan results and fix critical/high severity issues before proceeding"
+          exit 1
+        else
+          echo "✅ No critical security issues found"
+        fi
+
+  cost-estimation:
+    runs-on: ubuntu-latest
+    name: Cost Estimation
+    if: github.event_name == 'pull_request'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: latest
+
+    - name: Setup Infracost
+      uses: infracost/actions/setup@v2
+      with:
+        api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+    - name: Run Terraform Init
+      run: |
+        cd infra
+        terraform init
+
+    - name: Generate Infracost cost estimate
+      run: |
+        cd infra
+        infracost breakdown --path=. \
+          --format=json \
+          --out-file=/tmp/infracost-base.json
+
+    - name: Post Infracost comment
+      uses: infracost/actions/comment@v2
+      with:
+        path: /tmp/infracost-base.json
+        behavior: update
+
+  sbom-generation:
+    runs-on: ubuntu-latest
+    name: Generate SBOM
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install Syft
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+    - name: Generate Python SBOM
+      run: |
+        cd azure-function-deploy
+        syft . -o json=sbom-python.json
+
+    - name: Generate Node.js SBOM
+      run: |
+        if [ -f site/package.json ]; then
+          cd site
+          npm install
+          npm list --json > ../sbom-nodejs.json 2>/dev/null || true
+        fi
+
+    - name: Upload SBOM artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: software-bill-of-materials
+        path: |
+          azure-function-deploy/sbom-python.json
+          sbom-nodejs.json
+        retention-days: 90
+
+  terraform-validate:
+    runs-on: ubuntu-latest
+    name: Terraform Validation
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: latest
+
+    - name: Terraform Format Check
+      run: |
+        cd infra
+        terraform fmt -check -recursive
+
+    - name: Terraform Init
+      run: |
+        cd infra
+        terraform init
+
+    - name: Terraform Validate
+      run: |
+        cd infra
+        terraform validate
+
+    - name: Terraform Plan
+      run: |
+        cd infra
+        terraform plan -input=false
+      env:
+        ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+        ARM_CLIENT_SECRET: ${{ secrets.ARM_CLIENT_SECRET }}
+        ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+        ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}

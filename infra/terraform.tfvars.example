@@ -1,0 +1,11 @@
+# Development Environment Variables
+environment = "development"
+resource_prefix = "ai-content-dev"
+
+# Reddit API Configuration (can be overridden by Key Vault)
+# reddit_client_id = ""        # Set via Key Vault or terraform apply -var
+# reddit_client_secret = ""    # Set via Key Vault or terraform apply -var
+reddit_user_agent = "ai-content-farm:v1.0-dev (by /u/your-username)"
+
+# CI/CD Configuration
+# infracost_api_key = ""       # Set via Key Vault or terraform apply -var

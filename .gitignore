@@ -1,3 +1,14 @@
+# Security scan results and sensitive reports
+infra/*-results.json
+infra/security-summary.txt
+infra/deployment-report.txt
+infra/infracost-*.json
+infra/infracost-*.html
+azure-function-deploy/sbom-*.json
+sbom-*.json
+tfsec
+terrascan
+
 # Python
 __pycache__/
 *.py[cod]
