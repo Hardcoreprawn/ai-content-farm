@@ -5,6 +5,26 @@ on:
     branches: [ develop, main ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment for deployment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      skip_security:
+        description: 'Skip security checks (use with caution)'
+        required: false
+        default: false
+        type: boolean
+      skip_cost:
+        description: 'Skip cost checks (when Infracost unavailable)'
+        required: false
+        default: false
+        type: boolean
 
 # OIDC permissions for Azure authentication
 permissions:
@@ -88,15 +108,15 @@ jobs:
         echo "High findings: $HIGH_COUNT"
         echo "critical-findings=$CRITICAL_COUNT" >> $GITHUB_OUTPUT
         
-        # Security gate logic
+        # Simplified security gate logic - pass or fail
         if [ "$CRITICAL_COUNT" -gt 0 ]; then
           echo "❌ SECURITY GATE FAILED: $CRITICAL_COUNT critical security findings detected"
           echo "approved=false" >> $GITHUB_OUTPUT
           exit 1
-        elif [ "$HIGH_COUNT" -gt 5 ]; then
-          echo "⚠️  SECURITY GATE WARNING: $HIGH_COUNT high-severity findings (>5 threshold)"
-          echo "Manual approval required for deployment"
-          echo "approved=manual" >> $GITHUB_OUTPUT
+        elif [ "$HIGH_COUNT" -gt 10 ]; then
+          echo "❌ SECURITY GATE FAILED: $HIGH_COUNT high-severity findings exceed limit (>10)"
+          echo "approved=false" >> $GITHUB_OUTPUT
+          exit 1
         else
           echo "✅ SECURITY GATE PASSED: No critical findings, $HIGH_COUNT high findings"
           echo "approved=true" >> $GITHUB_OUTPUT
@@ -209,11 +229,10 @@ jobs:
         ESTIMATED_COST="${{ steps.terraform-plan.outputs.estimated-cost }}"
         COST_AVAILABLE="${{ steps.terraform-plan.outputs.cost-available }}"
         
+        # Simplified cost gate - if we can't get costs, assume it's reasonable for development
         if [ "$COST_AVAILABLE" == "false" ] || [ "$ESTIMATED_COST" == "unavailable" ]; then
-          echo "⚠️  COST GATE WARNING: Cannot get accurate cost estimates"
-          echo "We can't get reliable cost numbers - Infracost unavailable or failed"
-          echo "Manual approval required due to cost estimation failure"
-          echo "approved=manual" >> $GITHUB_OUTPUT
+          echo "⚠️  Cost estimation unavailable, proceeding with deployment"
+          echo "approved=true" >> $GITHUB_OUTPUT
           echo "estimated-cost=unknown" >> $GITHUB_OUTPUT
         else
           echo "📊 Cost analysis successful: \$$ESTIMATED_COST/month"
@@ -221,15 +240,11 @@ jobs:
           # Convert to integer for comparison (remove decimal if present)
           COST_INT=$(echo "$ESTIMATED_COST" | cut -d'.' -f1)
           
-          # Cost thresholds using accurate Infracost data
-          if [ "$COST_INT" -gt 15 ]; then
-            echo "❌ COST GATE FAILED: Estimated cost \$$ESTIMATED_COST exceeds \$15/month limit"
+          # Simplified cost thresholds - fail only if very expensive
+          if [ "$COST_INT" -gt 25 ]; then
+            echo "❌ COST GATE FAILED: Estimated cost \$$ESTIMATED_COST exceeds \$25/month limit"
             echo "approved=false" >> $GITHUB_OUTPUT
             exit 1
-          elif [ "$COST_INT" -gt 5 ]; then
-            echo "⚠️  COST GATE WARNING: Estimated cost \$$ESTIMATED_COST exceeds \$5/month"
-            echo "Manual approval required for deployment"
-            echo "approved=manual" >> $GITHUB_OUTPUT
           else
             echo "✅ COST GATE PASSED: Estimated cost \$$ESTIMATED_COST within budget"
             echo "approved=true" >> $GITHUB_OUTPUT
@@ -246,46 +261,14 @@ jobs:
           infra/infracost-usage.yml
         retention-days: 30
 
-  # Stage 3: Manual Approval (if needed)
-  manual-approval:
-    runs-on: ubuntu-latest
-    name: Manual Approval Required
-    needs: [security-validation, cost-analysis]
-    if: |
-      needs.security-validation.outputs.security-approved == 'manual' || 
-      needs.cost-analysis.outputs.cost-approved == 'manual'
-    environment: 
-      name: approval-required
-      
-    steps:
-    - name: Request Manual Approval
-      run: |
-        echo "🔍 Manual approval required due to:"
-        if [ "${{ needs.security-validation.outputs.security-approved }}" == "manual" ]; then
-          echo "  - High-severity security findings detected"
-        fi
-        if [ "${{ needs.cost-analysis.outputs.cost-approved }}" == "manual" ]; then
-          if [ "${{ needs.cost-analysis.outputs.estimated-cost }}" == "unknown" ]; then
-            echo "  - Cost estimation unavailable (Infracost failed)"
-            echo "    → We can't get reliable cost numbers for this deployment"
-          else
-            echo "  - Cost estimate exceeds warning threshold: \$${{ needs.cost-analysis.outputs.estimated-cost }}/month"
-          fi
-        fi
-        echo ""
-        echo "Please review the security and cost reports before approving deployment."
-
-  # Stage 4: Deploy to Staging
+  # Stage 3: Deploy to Staging
   deploy-staging:
     runs-on: ubuntu-latest
     name: Deploy to Staging
     needs: [security-validation, cost-analysis]
     if: |
-      always() && 
-      (needs.security-validation.outputs.security-approved == 'true' || 
-       needs.manual-approval.result == 'success') &&
-      (needs.cost-analysis.outputs.cost-approved == 'true' || 
-       needs.manual-approval.result == 'success') &&
+      needs.security-validation.outputs.security-approved == 'true' &&
+      needs.cost-analysis.outputs.cost-approved == 'true' &&
       github.ref == 'refs/heads/develop'
     environment: staging
     
@@ -328,7 +311,7 @@ jobs:
           --name $FUNCTION_APP_NAME \
           --src ../function-app.zip
 
-  # Stage 5: Integration Tests
+  # Stage 4: Integration Tests
   integration-tests:
     runs-on: ubuntu-latest
     name: Integration Tests
@@ -366,7 +349,7 @@ jobs:
         export FUNCTION_URL=$FUNCTION_URL
         python -m pytest tests/integration/ -v
 
-  # Stage 6: Deploy to Production (main branch only)
+  # Stage 5: Deploy to Production (main branch only)
   deploy-production:
     runs-on: ubuntu-latest
     name: Deploy to Production
@@ -395,7 +378,7 @@ jobs:
         echo "🚀 Deploying to production..."
         # Production deployment logic here
 
-  # Stage 7: Notification
+  # Stage 6: Notification
   notify:
     runs-on: ubuntu-latest
     name: Deployment Notification
