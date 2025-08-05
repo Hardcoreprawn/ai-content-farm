@@ -40,6 +40,10 @@ help:
 	@echo "  publish-articles - Generate markdown articles for site"
 	@echo "  content-status   - Show content processing status"
 	@echo "  cleanup-articles - Remove duplicate articles from site"
+	@echo "  setup-github-secrets - Configure GitHub secrets for Azure auth (deprecated)"
+	@echo "  setup-azure-oidc - Setup Azure OIDC for GitHub Actions (recommended)"
+	@echo "  bootstrap-azure  - Bootstrap infrastructure with OIDC via Terraform"
+	@echo "  setup-azure-sp   - Show Azure Service Principal setup instructions"
 
 # Terraform targets
 terraform-format:
@@ -544,3 +548,46 @@ cleanup-articles:
 	cd content_processor && python3 -m pip install -r requirements.txt --quiet
 	cd content_processor && python3 content_publisher.py --cleanup-only
 	@echo "✅ Cleanup complete!"
+
+# Setup GitHub secrets for Azure authentication  
+setup-github-secrets:
+	@echo "⚠️  DEPRECATED: Use OIDC setup instead for better security"
+	@echo "🔐 Setting up GitHub secrets for Azure authentication..."
+	@echo "This will configure the minimal secrets needed for Key Vault integration"
+	./scripts/setup-github-secrets.sh
+
+# Setup Azure OIDC for GitHub Actions (recommended)
+setup-azure-oidc:
+	@echo "🔐 Setting up Azure OIDC for GitHub Actions..."
+	@echo "This is the modern, secure approach using managed identity"
+	./scripts/setup-azure-oidc.sh
+
+# Bootstrap Azure infrastructure with OIDC (IaC approach)
+bootstrap-azure:
+	@echo "🚀 Bootstrapping Azure infrastructure with OIDC..."
+	@echo "This will create the Azure AD app and infrastructure via Terraform"
+	cd infra && terraform init
+	cd infra && terraform plan -var-file="staging.tfvars"
+	cd infra && terraform apply -var-file="staging.tfvars" -auto-approve
+	@echo ""
+	@echo "✅ Infrastructure deployed! Now setting GitHub variables:"
+	cd infra && terraform output github_variables_setup_command
+
+# Show required Azure service principal setup
+setup-azure-sp:
+	@echo "🔧 Azure Service Principal Setup"
+	@echo "================================="
+	@echo ""
+	@echo "1. Create a service principal:"
+	@echo "   az ad sp create-for-rbac --name 'ai-content-farm-github' \\"
+	@echo "     --role contributor \\"
+	@echo "     --scopes /subscriptions/YOUR_SUBSCRIPTION_ID"
+	@echo ""
+	@echo "2. Note down these values for GitHub secrets:"
+	@echo "   - appId (ARM_CLIENT_ID)"
+	@echo "   - password (ARM_CLIENT_SECRET)"
+	@echo "   - tenant (ARM_TENANT_ID)"
+	@echo "   - Your subscription ID (ARM_SUBSCRIPTION_ID)"
+	@echo ""
+	@echo "3. Run: make setup-github-secrets"
+	@echo ""

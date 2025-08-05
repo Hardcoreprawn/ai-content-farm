@@ -19,6 +19,12 @@ variable "environment" {
   }
 }
 
+variable "github_repository" {
+  description = "GitHub repository in the format owner/repo"
+  type        = string
+  default     = "Hardcoreprawn/ai-content-farm"
+}
+
 variable "resource_prefix" {
   description = "Prefix for all resource names"
   type        = string
