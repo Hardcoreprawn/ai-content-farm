@@ -202,12 +202,12 @@ jobs:
           COST_INT=$(echo "$ESTIMATED_COST" | cut -d'.' -f1)
           
           # Cost thresholds using accurate Infracost data
-          if [ "$COST_INT" -gt 1000 ]; then
-            echo "❌ COST GATE FAILED: Estimated cost \$$ESTIMATED_COST exceeds \$1000/month limit"
+          if [ "$COST_INT" -gt 15 ]; then
+            echo "❌ COST GATE FAILED: Estimated cost \$$ESTIMATED_COST exceeds \$15/month limit"
             echo "approved=false" >> $GITHUB_OUTPUT
             exit 1
-          elif [ "$COST_INT" -gt 300 ]; then
-            echo "⚠️  COST GATE WARNING: Estimated cost \$$ESTIMATED_COST exceeds \$300/month"
+          elif [ "$COST_INT" -gt 5 ]; then
+            echo "⚠️  COST GATE WARNING: Estimated cost \$$ESTIMATED_COST exceeds \$5/month"
             echo "Manual approval required for deployment"
             echo "approved=manual" >> $GITHUB_OUTPUT
           else

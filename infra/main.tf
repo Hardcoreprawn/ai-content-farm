@@ -66,6 +66,134 @@ resource "azurerm_resource_group" "main" {
   }
 }
 
+# Action Group for Cost Alerts
+resource "azurerm_monitor_action_group" "cost_alerts" {
+  name                = "${var.resource_prefix}-cost-alerts"
+  resource_group_name = azurerm_resource_group.main.name
+  short_name          = "costalertz"
+
+  email_receiver {
+    name          = "cost-alert-email"
+    email_address = var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
+  }
+
+  tags = {
+    Environment = var.environment
+    Project     = "ai-content-farm"
+    ManagedBy   = "terraform"
+  }
+}
+
+# Budget for Cost Monitoring - Warning at $5
+resource "azurerm_consumption_budget_resource_group" "warning" {
+  name              = "${var.resource_prefix}-budget-warning"
+  resource_group_id = azurerm_resource_group.main.id
+
+  amount     = 5
+  time_grain = "Monthly"
+
+  time_period {
+    start_date = formatdate("YYYY-MM-01'T'00:00:00Z", timestamp())
+    end_date   = formatdate("YYYY-MM-01'T'00:00:00Z", timeadd(timestamp(), "8760h")) # 1 year from now
+  }
+
+  filter {
+    dimension {
+      name = "ResourceGroupName"
+      values = [azurerm_resource_group.main.name]
+    }
+  }
+
+  notification {
+    enabled        = true
+    threshold      = 80  # Alert at 80% of $5 = $4
+    operator       = "GreaterThan"
+    threshold_type = "Actual"
+
+    contact_emails = [
+      var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
+    ]
+  }
+
+  notification {
+    enabled        = true
+    threshold      = 100  # Alert at 100% of $5 = $5
+    operator       = "GreaterThan"
+    threshold_type = "Actual"
+
+    contact_emails = [
+      var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
+    ]
+  }
+
+  # Forecast alert at 110% = $5.50
+  notification {
+    enabled        = true
+    threshold      = 110
+    operator       = "GreaterThan"
+    threshold_type = "Forecasted"
+
+    contact_emails = [
+      var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
+    ]
+  }
+}
+
+# Budget for Cost Monitoring - Critical at $15
+resource "azurerm_consumption_budget_resource_group" "critical" {
+  name              = "${var.resource_prefix}-budget-critical"
+  resource_group_id = azurerm_resource_group.main.id
+
+  amount     = 15
+  time_grain = "Monthly"
+
+  time_period {
+    start_date = formatdate("YYYY-MM-01'T'00:00:00Z", timestamp())
+    end_date   = formatdate("YYYY-MM-01'T'00:00:00Z", timeadd(timestamp(), "8760h")) # 1 year from now
+  }
+
+  filter {
+    dimension {
+      name = "ResourceGroupName"
+      values = [azurerm_resource_group.main.name]
+    }
+  }
+
+  notification {
+    enabled        = true
+    threshold      = 80  # Alert at 80% of $15 = $12
+    operator       = "GreaterThan"
+    threshold_type = "Actual"
+
+    contact_emails = [
+      var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
+    ]
+  }
+
+  notification {
+    enabled        = true
+    threshold      = 100  # Alert at 100% of $15 = $15
+    operator       = "GreaterThan"
+    threshold_type = "Actual"
+
+    contact_emails = [
+      var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
+    ]
+  }
+
+  # Forecast alert at 110% = $16.50
+  notification {
+    enabled        = true
+    threshold      = 110
+    operator       = "GreaterThan"
+    threshold_type = "Forecasted"
+
+    contact_emails = [
+      var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
+    ]
+  }
+}
+
 
 resource "azurerm_key_vault" "main" {
   # checkov:skip=CKV_AZURE_189: Public access is acceptable for this use case

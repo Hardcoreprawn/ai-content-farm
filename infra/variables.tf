@@ -59,3 +59,10 @@ variable "infracost_api_key" {
   default     = ""
   sensitive   = true
 }
+
+variable "cost_alert_email" {
+  description = "Email address for cost alerts and budget notifications"
+  type        = string
+  default     = ""
+  sensitive   = false
+}
