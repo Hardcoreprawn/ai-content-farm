@@ -1,0 +1,42 @@
+{
+  "results": {
+    "scan_errors": [
+      {
+        "iac_type": "terraform",
+        "directory": "/home/runner/work/ai-content-farm/ai-content-farm/infra/terraform.tfstate.d",
+        "errMsg": "directory '/home/runner/work/ai-content-farm/ai-content-farm/infra/terraform.tfstate.d' has no terraform config files"
+      },
+      {
+        "iac_type": "terraform",
+        "directory": "/home/runner/work/ai-content-farm/ai-content-farm/infra/terraform.tfstate.d/staging",
+        "errMsg": "directory '/home/runner/work/ai-content-farm/ai-content-farm/infra/terraform.tfstate.d/staging' has no terraform config files"
+      }
+    ],
+    "violations": [
+      {
+        "rule_name": "reme_resourceGroupLock",
+        "description": "Ensure that Azure Resource Group has resource lock enabled",
+        "rule_id": "AC_AZURE_0389",
+        "severity": "LOW",
+        "category": "Identity and Access Management",
+        "resource_name": "main",
+        "resource_type": "azurerm_resource_group",
+        "module_name": "root",
+        "file": "main.tf",
+        "plan_root": "./",
+        "line": 58
+      }
+    ],
+    "skipped_violations": null,
+    "scan_summary": {
+      "file/folder": "/home/runner/work/ai-content-farm/ai-content-farm/infra",
+      "iac_type": "terraform",
+      "scanned_at": "2025-08-05 14:23:01.547254912 +0000 UTC",
+      "policies_validated": 9,
+      "violated_policies": 1,
+      "low": 1,
+      "medium": 0,
+      "high": 0
+    }
+  }
+}

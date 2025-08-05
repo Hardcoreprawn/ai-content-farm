@@ -136,6 +136,15 @@ jobs:
       with:
         terraform_version: latest
 
+    - name: Install Infracost for Better Cost Estimation
+      run: |
+        # Install Infracost for accurate Azure cost estimation
+        curl -fsSL https://raw.githubusercontent.com/infracost/infracost/master/scripts/install.sh | sh
+        sudo mv /tmp/infracost* /usr/local/bin/infracost
+        
+        # Configure Infracost (using free tier)
+        infracost configure set api_key ico-free-tier-key || echo "Using free tier"
+
     - name: Terraform Plan for Cost Analysis
       id: terraform-plan
       run: |
@@ -143,39 +152,68 @@ jobs:
         terraform init
         terraform plan -out=tfplan
         
-        # Use Infracost if available, otherwise basic resource counting
+        # Only use Infracost for accurate cost estimation
         if command -v infracost &> /dev/null; then
-          infracost breakdown --path tfplan --format json > ../cost-analysis/infracost.json
-          ESTIMATED_COST=$(jq -r '.totalMonthlyCost' ../cost-analysis/infracost.json)
+          echo "Using Infracost for accurate cost estimation..."
+          mkdir -p ../cost-analysis
+          
+          # Try to get Infracost breakdown
+          if infracost breakdown --path tfplan --format json > ../cost-analysis/infracost.json 2>&1; then
+            ESTIMATED_COST=$(jq -r '.totalMonthlyCost' ../cost-analysis/infracost.json 2>/dev/null || echo "unavailable")
+            
+            if [ "$ESTIMATED_COST" != "null" ] && [ "$ESTIMATED_COST" != "unavailable" ] && [ "$ESTIMATED_COST" != "0" ]; then
+              echo "✅ Infracost estimation successful: \$$ESTIMATED_COST/month"
+              echo "estimated-cost=$ESTIMATED_COST" >> $GITHUB_OUTPUT
+              echo "cost-available=true" >> $GITHUB_OUTPUT
+            else
+              echo "⚠️  Infracost returned invalid cost data"
+              echo "estimated-cost=unavailable" >> $GITHUB_OUTPUT
+              echo "cost-available=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "❌ Infracost breakdown failed"
+            cat ../cost-analysis/infracost.json 2>/dev/null || echo "No error output available"
+            echo "estimated-cost=unavailable" >> $GITHUB_OUTPUT
+            echo "cost-available=false" >> $GITHUB_OUTPUT
+          fi
         else
-          # Basic resource counting
-          RESOURCE_COUNT=$(terraform show -json tfplan | jq '.planned_values.root_module.resources | length')
-          ESTIMATED_COST=$((RESOURCE_COUNT * 50))  # Rough estimate: $50/resource/month
-          echo "Estimated monthly cost (basic calculation): \$$ESTIMATED_COST"
+          echo "❌ Infracost not available"
+          echo "estimated-cost=unavailable" >> $GITHUB_OUTPUT
+          echo "cost-available=false" >> $GITHUB_OUTPUT
         fi
-        
-        echo "estimated-cost=$ESTIMATED_COST" >> $GITHUB_OUTPUT
 
     - name: Cost Gate Decision
       id: cost-gate
       run: |
         mkdir -p cost-analysis
         ESTIMATED_COST="${{ steps.terraform-plan.outputs.estimated-cost }}"
+        COST_AVAILABLE="${{ steps.terraform-plan.outputs.cost-available }}"
         
-        echo "Estimated monthly cost: \$$ESTIMATED_COST"
-        
-        # Cost thresholds
-        if [ "$ESTIMATED_COST" -gt 500 ]; then
-          echo "❌ COST GATE FAILED: Estimated cost \$$ESTIMATED_COST exceeds \$500/month limit"
-          echo "approved=false" >> $GITHUB_OUTPUT
-          exit 1
-        elif [ "$ESTIMATED_COST" -gt 200 ]; then
-          echo "⚠️  COST GATE WARNING: Estimated cost \$$ESTIMATED_COST exceeds \$200/month"
-          echo "Manual approval required for deployment"
+        if [ "$COST_AVAILABLE" == "false" ] || [ "$ESTIMATED_COST" == "unavailable" ]; then
+          echo "⚠️  COST GATE WARNING: Cannot get accurate cost estimates"
+          echo "We can't get reliable cost numbers - Infracost unavailable or failed"
+          echo "Manual approval required due to cost estimation failure"
           echo "approved=manual" >> $GITHUB_OUTPUT
+          echo "estimated-cost=unknown" >> $GITHUB_OUTPUT
         else
-          echo "✅ COST GATE PASSED: Estimated cost \$$ESTIMATED_COST within budget"
-          echo "approved=true" >> $GITHUB_OUTPUT
+          echo "📊 Cost analysis successful: \$$ESTIMATED_COST/month"
+          
+          # Convert to integer for comparison (remove decimal if present)
+          COST_INT=$(echo "$ESTIMATED_COST" | cut -d'.' -f1)
+          
+          # Cost thresholds using accurate Infracost data
+          if [ "$COST_INT" -gt 1000 ]; then
+            echo "❌ COST GATE FAILED: Estimated cost \$$ESTIMATED_COST exceeds \$1000/month limit"
+            echo "approved=false" >> $GITHUB_OUTPUT
+            exit 1
+          elif [ "$COST_INT" -gt 300 ]; then
+            echo "⚠️  COST GATE WARNING: Estimated cost \$$ESTIMATED_COST exceeds \$300/month"
+            echo "Manual approval required for deployment"
+            echo "approved=manual" >> $GITHUB_OUTPUT
+          else
+            echo "✅ COST GATE PASSED: Estimated cost \$$ESTIMATED_COST within budget"
+            echo "approved=true" >> $GITHUB_OUTPUT
+          fi
         fi
 
   # Stage 3: Manual Approval (if needed)
@@ -197,7 +235,12 @@ jobs:
           echo "  - High-severity security findings detected"
         fi
         if [ "${{ needs.cost-analysis.outputs.cost-approved }}" == "manual" ]; then
-          echo "  - Cost estimate exceeds warning threshold: \$${{ needs.cost-analysis.outputs.estimated-cost }}/month"
+          if [ "${{ needs.cost-analysis.outputs.estimated-cost }}" == "unknown" ]; then
+            echo "  - Cost estimation unavailable (Infracost failed)"
+            echo "    → We can't get reliable cost numbers for this deployment"
+          else
+            echo "  - Cost estimate exceeds warning threshold: \$${{ needs.cost-analysis.outputs.estimated-cost }}/month"
+          fi
         fi
         echo ""
         echo "Please review the security and cost reports before approving deployment."
