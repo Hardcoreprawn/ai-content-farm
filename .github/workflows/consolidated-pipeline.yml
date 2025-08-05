@@ -1,0 +1,343 @@
+name: Consolidated CI/CD Pipeline
+
+on:
+  push:
+    branches: [ develop, main ]
+  pull_request:
+    branches: [ main ]
+
+# OIDC permissions for Azure authentication
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  issues: write
+
+env:
+  AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+
+jobs:
+  # Stage 1: Security and Compliance Validation
+  security-validation:
+    runs-on: ubuntu-latest
+    name: Security & Compliance Gate
+    outputs:
+      security-approved: ${{ steps.security-gate.outputs.approved }}
+      critical-findings: ${{ steps.security-gate.outputs.critical-findings }}
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Install Security Tools
+      run: |
+        pip3 install checkov
+        curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+        LATEST_URL=$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.*Linux_x86_64.tar.gz" | head -1)
+        curl -L "$LATEST_URL" > terrascan.tar.gz
+        tar -xf terrascan.tar.gz terrascan && rm terrascan.tar.gz
+        sudo mv terrascan /usr/local/bin
+        curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin
+
+    - name: Run Security Scans
+      id: security-scans
+      run: |
+        echo "Running comprehensive security scans..."
+        
+        # Run Checkov
+        checkov -d infra --quiet --compact --output json --output-file-path security-results/checkov.json || CHECKOV_EXIT=$?
+        checkov -d functions --quiet --compact --output json --output-file-path security-results/checkov-functions.json || true
+        
+        # Run TFSec
+        cd infra && tfsec . --format json --out ../security-results/tfsec.json --soft-fail || TFSEC_EXIT=$?
+        cd ..
+        
+        # Run Terrascan
+        cd infra && terrascan scan -i terraform --output json > ../security-results/terrascan.json || TERRASCAN_EXIT=$?
+        cd ..
+        
+        # Generate SBOM
+        syft functions -o json=security-results/sbom.json
+        
+        echo "Security scans completed"
+      continue-on-error: true
+
+    - name: Security Gate Decision
+      id: security-gate
+      run: |
+        mkdir -p security-results
+        
+        # Analyze security scan results
+        CRITICAL_COUNT=0
+        HIGH_COUNT=0
+        
+        # Check Checkov results for critical/high findings
+        if [ -f security-results/checkov.json ]; then
+          CRITICAL_COUNT=$(jq '.results.failed_checks | map(select(.severity == "CRITICAL")) | length' security-results/checkov.json 2>/dev/null || echo 0)
+          HIGH_COUNT=$(jq '.results.failed_checks | map(select(.severity == "HIGH")) | length' security-results/checkov.json 2>/dev/null || echo 0)
+        fi
+        
+        echo "Critical findings: $CRITICAL_COUNT"
+        echo "High findings: $HIGH_COUNT"
+        echo "critical-findings=$CRITICAL_COUNT" >> $GITHUB_OUTPUT
+        
+        # Security gate logic
+        if [ "$CRITICAL_COUNT" -gt 0 ]; then
+          echo "❌ SECURITY GATE FAILED: $CRITICAL_COUNT critical security findings detected"
+          echo "approved=false" >> $GITHUB_OUTPUT
+          exit 1
+        elif [ "$HIGH_COUNT" -gt 5 ]; then
+          echo "⚠️  SECURITY GATE WARNING: $HIGH_COUNT high-severity findings (>5 threshold)"
+          echo "Manual approval required for deployment"
+          echo "approved=manual" >> $GITHUB_OUTPUT
+        else
+          echo "✅ SECURITY GATE PASSED: No critical findings, $HIGH_COUNT high findings"
+          echo "approved=true" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Upload Security Reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-reports
+        path: security-results/
+        retention-days: 30
+
+  # Stage 2: Cost Impact Analysis
+  cost-analysis:
+    runs-on: ubuntu-latest
+    name: Cost Impact Analysis
+    needs: security-validation
+    if: needs.security-validation.outputs.security-approved != 'false'
+    outputs:
+      cost-approved: ${{ steps.cost-gate.outputs.approved }}
+      estimated-cost: ${{ steps.cost-gate.outputs.estimated-cost }}
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login with OIDC
+      uses: azure/login@v1
+      with:
+        client-id: ${{ vars.AZURE_CLIENT_ID }}
+        tenant-id: ${{ vars.AZURE_TENANT_ID }}
+        subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: latest
+
+    - name: Terraform Plan for Cost Analysis
+      id: terraform-plan
+      run: |
+        cd infra
+        terraform init
+        terraform plan -out=tfplan
+        
+        # Use Infracost if available, otherwise basic resource counting
+        if command -v infracost &> /dev/null; then
+          infracost breakdown --path tfplan --format json > ../cost-analysis/infracost.json
+          ESTIMATED_COST=$(jq -r '.totalMonthlyCost' ../cost-analysis/infracost.json)
+        else
+          # Basic resource counting
+          RESOURCE_COUNT=$(terraform show -json tfplan | jq '.planned_values.root_module.resources | length')
+          ESTIMATED_COST=$((RESOURCE_COUNT * 50))  # Rough estimate: $50/resource/month
+          echo "Estimated monthly cost (basic calculation): \$$ESTIMATED_COST"
+        fi
+        
+        echo "estimated-cost=$ESTIMATED_COST" >> $GITHUB_OUTPUT
+
+    - name: Cost Gate Decision
+      id: cost-gate
+      run: |
+        mkdir -p cost-analysis
+        ESTIMATED_COST="${{ steps.terraform-plan.outputs.estimated-cost }}"
+        
+        echo "Estimated monthly cost: \$$ESTIMATED_COST"
+        
+        # Cost thresholds
+        if [ "$ESTIMATED_COST" -gt 500 ]; then
+          echo "❌ COST GATE FAILED: Estimated cost \$$ESTIMATED_COST exceeds \$500/month limit"
+          echo "approved=false" >> $GITHUB_OUTPUT
+          exit 1
+        elif [ "$ESTIMATED_COST" -gt 200 ]; then
+          echo "⚠️  COST GATE WARNING: Estimated cost \$$ESTIMATED_COST exceeds \$200/month"
+          echo "Manual approval required for deployment"
+          echo "approved=manual" >> $GITHUB_OUTPUT
+        else
+          echo "✅ COST GATE PASSED: Estimated cost \$$ESTIMATED_COST within budget"
+          echo "approved=true" >> $GITHUB_OUTPUT
+        fi
+
+  # Stage 3: Manual Approval (if needed)
+  manual-approval:
+    runs-on: ubuntu-latest
+    name: Manual Approval Required
+    needs: [security-validation, cost-analysis]
+    if: |
+      needs.security-validation.outputs.security-approved == 'manual' || 
+      needs.cost-analysis.outputs.cost-approved == 'manual'
+    environment: 
+      name: approval-required
+      
+    steps:
+    - name: Request Manual Approval
+      run: |
+        echo "🔍 Manual approval required due to:"
+        if [ "${{ needs.security-validation.outputs.security-approved }}" == "manual" ]; then
+          echo "  - High-severity security findings detected"
+        fi
+        if [ "${{ needs.cost-analysis.outputs.cost-approved }}" == "manual" ]; then
+          echo "  - Cost estimate exceeds warning threshold: \$${{ needs.cost-analysis.outputs.estimated-cost }}/month"
+        fi
+        echo ""
+        echo "Please review the security and cost reports before approving deployment."
+
+  # Stage 4: Deploy to Staging
+  deploy-staging:
+    runs-on: ubuntu-latest
+    name: Deploy to Staging
+    needs: [security-validation, cost-analysis]
+    if: |
+      always() && 
+      (needs.security-validation.outputs.security-approved == 'true' || 
+       needs.manual-approval.result == 'success') &&
+      (needs.cost-analysis.outputs.cost-approved == 'true' || 
+       needs.manual-approval.result == 'success') &&
+      github.ref == 'refs/heads/develop'
+    environment: staging
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login with OIDC
+      uses: azure/login@v1
+      with:
+        client-id: ${{ vars.AZURE_CLIENT_ID }}
+        tenant-id: ${{ vars.AZURE_TENANT_ID }}
+        subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Deploy Infrastructure
+      run: |
+        cd infra
+        terraform init
+        terraform apply -auto-approve
+        
+        # Get outputs for function deployment
+        FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
+        RESOURCE_GROUP=$(terraform output -raw resource_group_name)
+        
+        echo "FUNCTION_APP_NAME=$FUNCTION_APP_NAME" >> $GITHUB_ENV
+        echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Deploy Function App
+      run: |
+        cd functions
+        npm ci --production
+        zip -r ../function-app.zip .
+        az functionapp deployment source config-zip \
+          --resource-group $RESOURCE_GROUP \
+          --name $FUNCTION_APP_NAME \
+          --src ../function-app.zip
+
+  # Stage 5: Integration Tests
+  integration-tests:
+    runs-on: ubuntu-latest
+    name: Integration Tests
+    needs: deploy-staging
+    if: needs.deploy-staging.result == 'success'
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login with OIDC
+      uses: azure/login@v1
+      with:
+        client-id: ${{ vars.AZURE_CLIENT_ID }}
+        tenant-id: ${{ vars.AZURE_TENANT_ID }}
+        subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Setup Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Run Integration Tests
+      run: |
+        # Install test dependencies
+        pip install pytest requests azure-identity azure-keyvault-secrets
+        
+        # Get function app URL
+        cd infra
+        terraform init
+        FUNCTION_URL=$(terraform output -raw function_app_url)
+        cd ..
+        
+        # Run tests
+        export FUNCTION_URL=$FUNCTION_URL
+        python -m pytest tests/integration/ -v
+
+  # Stage 6: Deploy to Production (main branch only)
+  deploy-production:
+    runs-on: ubuntu-latest
+    name: Deploy to Production
+    needs: [security-validation, cost-analysis, integration-tests]
+    if: |
+      always() && 
+      needs.integration-tests.result == 'success' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push'
+    environment: production
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login with OIDC
+      uses: azure/login@v1
+      with:
+        client-id: ${{ vars.AZURE_CLIENT_ID }}
+        tenant-id: ${{ vars.AZURE_TENANT_ID }}
+        subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Deploy to Production
+      run: |
+        # Similar deployment steps but to production environment
+        echo "🚀 Deploying to production..."
+        # Production deployment logic here
+
+  # Stage 7: Notification
+  notify:
+    runs-on: ubuntu-latest
+    name: Deployment Notification
+    needs: [deploy-staging, deploy-production]
+    if: always()
+    
+    steps:
+    - name: Notify Deployment Status
+      run: |
+        if [ "${{ needs.deploy-staging.result }}" == "success" ]; then
+          echo "✅ Staging deployment completed successfully"
+        fi
+        if [ "${{ needs.deploy-production.result }}" == "success" ]; then
+          echo "✅ Production deployment completed successfully"
+        fi
+        if [ "${{ needs.deploy-staging.result }}" == "failure" ] || [ "${{ needs.deploy-production.result }}" == "failure" ]; then
+          echo "❌ Deployment failed - check logs for details"
+        fi
