@@ -159,14 +159,18 @@ jobs:
           echo "Using Infracost for accurate cost estimation..."
           mkdir -p ../cost-analysis
           
-          # Try to get Infracost breakdown
-          if infracost breakdown --path tfplan --format json > ../cost-analysis/infracost.json 2>&1; then
+          # Try to get Infracost breakdown with usage file
+          if infracost breakdown --path tfplan --usage-file infracost-usage.yml --format json > ../cost-analysis/infracost.json 2>&1; then
             ESTIMATED_COST=$(jq -r '.totalMonthlyCost' ../cost-analysis/infracost.json 2>/dev/null || echo "unavailable")
             
             if [ "$ESTIMATED_COST" != "null" ] && [ "$ESTIMATED_COST" != "unavailable" ] && [ "$ESTIMATED_COST" != "0" ]; then
-              echo "✅ Infracost estimation successful: \$$ESTIMATED_COST/month"
+              echo "✅ Infracost estimation successful with usage data: \$$ESTIMATED_COST/month"
               echo "estimated-cost=$ESTIMATED_COST" >> $GITHUB_OUTPUT
               echo "cost-available=true" >> $GITHUB_OUTPUT
+              
+              # Show cost breakdown for transparency
+              echo "📊 Cost breakdown by service:"
+              jq -r '.projects[0].breakdown.resources[] | "\(.name): $\(.monthlyCost // 0)"' ../cost-analysis/infracost.json | head -10
             else
               echo "⚠️  Infracost returned invalid cost data"
               echo "estimated-cost=unavailable" >> $GITHUB_OUTPUT
@@ -217,6 +221,16 @@ jobs:
             echo "approved=true" >> $GITHUB_OUTPUT
           fi
         fi
+
+    - name: Upload Cost Analysis Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cost-analysis-results
+        path: |
+          cost-analysis/
+          infra/infracost-usage.yml
+        retention-days: 30
 
   # Stage 3: Manual Approval (if needed)
   manual-approval:

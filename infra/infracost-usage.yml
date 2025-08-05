@@ -1,0 +1,86 @@
+# Infracost usage file for AI Content Farm
+# This defines realistic usage patterns for accurate cost estimation
+
+version: 0.1
+
+resource_usage:
+  # Azure Function App - Content processing functions
+  azurerm_linux_function_app.main:
+    monthly_requests: 100000          # ~3,300 requests/day for content processing
+    average_request_duration_ms: 2000 # 2 seconds per request (AI processing)
+    memory_mb: 1024                   # 1GB memory for AI processing
+
+  # Storage Account - For content and logs
+  azurerm_storage_account.main:
+    monthly_tier_1_requests: 50000    # Frequent access for active content
+    monthly_tier_2_requests: 20000    # Less frequent access for archives
+    storage_gb: 10                    # 10GB for content, logs, and temp files
+    monthly_data_retrieval_gb: 5      # Data retrieval for content serving
+
+  # Key Vault - Secrets management
+  azurerm_key_vault.main:
+    monthly_requests: 10000           # Moderate usage for API keys and secrets
+
+  # Application Insights - Monitoring and telemetry
+  azurerm_application_insights.main:
+    monthly_data_ingestion_gb: 2      # 2GB/month telemetry data
+    monthly_data_retention_days: 90   # 3 months retention
+
+  # Log Analytics Workspace - Centralized logging
+  azurerm_log_analytics_workspace.main:
+    monthly_data_ingestion_gb: 1      # 1GB/month application logs
+    monthly_data_retention_days: 30   # 1 month retention
+
+  # Service Plan - Consumption plan for functions
+  azurerm_service_plan.main:
+    # Consumption plan - costs based on executions and memory
+    monthly_executions: 100000        # Matches function app requests
+    average_execution_time_ms: 2000   # 2 seconds average
+    memory_mb: 1024                   # 1GB memory allocation
+
+# Resource-specific configurations
+resource_type_usage:
+  # Azure Functions on Linux Consumption Plan
+  azurerm_linux_function_app:
+    monthly_executions: 100000
+    average_execution_time_ms: 2000
+    memory_mb: 1024
+
+  # Storage accounts with realistic usage
+  azurerm_storage_account:
+    storage_gb: 10
+    monthly_tier_1_requests: 50000
+    monthly_tier_2_requests: 20000
+    monthly_data_retrieval_gb: 5
+
+  # Key Vault standard tier usage
+  azurerm_key_vault:
+    monthly_requests: 10000
+
+# Global usage patterns
+usage_patterns:
+  # Content processing workload characteristics
+  content_processing:
+    peak_hours: 8                     # 8 hours peak processing per day
+    peak_multiplier: 3                # 3x normal load during peak
+    weekend_factor: 0.5               # 50% load on weekends
+
+  # Data retention policies
+  data_retention:
+    logs_retention_days: 30
+    telemetry_retention_days: 90
+    content_archive_months: 12
+
+# Cost optimization assumptions
+cost_optimizations:
+  # Use consumption-based pricing where possible
+  serverless_first: true
+  
+  # Standard storage tiers for cost efficiency
+  storage_tier: "Standard"
+  
+  # Minimal redundancy for development/staging
+  geo_redundancy: false
+  
+  # Conservative scaling assumptions
+  auto_scaling_factor: 1.5
