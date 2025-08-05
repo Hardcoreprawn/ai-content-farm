@@ -145,17 +145,42 @@ Staging Success + Integration Tests Pass + main branch = DEPLOY TO PRODUCTION
 3. **🧪 Check integration test results** once staging deploys
 4. **📊 Validate cost monitoring and alerts**
 
-### **Optimization (Medium Priority)**
-1. **🔑 Set up proper Infracost API key** for accurate cost estimates
-2. **📧 Configure email notifications** for cost alerts
-3. **🔒 Review security scan results** and address any findings
-4. **📈 Add performance monitoring** for function execution
+### **Strategic Improvements (Medium Priority)**
+1. **🧹 Review & Refactor Scripts/Makefile**
+   - Audit all scripts for complexity and duplication
+   - Ensure clean environment setup (subscription, GitHub, secrets)
+   - Simplify remote state and secret management
+   - Make Azure changes primarily repo-driven
 
-### **Production Readiness (Low Priority)**
-1. **🚀 Create production deployment** via main branch PR
-2. **📋 Document operational procedures**
-3. **⚡ Optimize function performance** and costs
-4. **🔄 Set up automated content scheduling**
+2. **🤖 Enhanced Content Publishing Pipeline**
+   - Replace basic summaries with AI agent-generated engaging content
+   - Add relevant image generation/sourcing
+   - Include links back to source articles and summaries
+   - Implement proper source attribution and citations
+
+3. **� Decompose Monolithic Functions**
+   - Split current functions into focused, decoupled services
+   - Each function app handles single responsibility
+   - Improve scalability and maintainability
+   - Enable independent deployment and testing
+
+4. **� Automated Maintenance System**
+   - Set up alerts that auto-create GitHub PRs
+   - Enable MCP agents to pick up and process maintenance tasks
+   - Automatic site updates and content management
+   - Self-healing infrastructure monitoring
+
+5. **📊 MCP Agent Integration Planning**
+   - Design MCP agent workflows for content management
+   - Auto-PR creation for content updates and fixes
+   - Intelligent site maintenance and optimization
+   - Automated response to monitoring alerts
+
+### **Infrastructure Optimization (Low Priority)**
+1. **� Set up proper Infracost API key** for accurate cost estimates
+2. **� Configure email notifications** for cost alerts
+3. **🔒 Review security scan results** and address any findings
+4. **� Add performance monitoring** for function execution
 
 ---
 
