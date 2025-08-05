@@ -144,8 +144,22 @@ jobs:
         # Verify installation
         infracost --version
         
-        # Configure Infracost (using free tier)
-        infracost configure set api_key ico-free-tier-key || echo "Using free tier"
+        # Get Infracost API key from Azure Key Vault
+        echo "🔑 Retrieving Infracost API key from Azure Key Vault..."
+        KEYVAULT_NAME=$(az keyvault list --resource-group "ai-content-dev-rg" --query "[0].name" -o tsv 2>/dev/null || echo "")
+        if [ -n "$KEYVAULT_NAME" ]; then
+          INFRACOST_API_KEY=$(az keyvault secret show --vault-name "$KEYVAULT_NAME" --name "infracost-api-key" --query "value" -o tsv 2>/dev/null || echo "")
+          if [ -n "$INFRACOST_API_KEY" ] && [ "$INFRACOST_API_KEY" != "placeholder-get-from-infracost-io" ]; then
+            echo "✅ Using Infracost API key from Key Vault"
+            infracost configure set api_key "$INFRACOST_API_KEY"
+          else
+            echo "⚠️  Infracost API key not found in Key Vault, using free tier"
+            infracost configure set api_key ico-free-tier-key || echo "Using free tier"
+          fi
+        else
+          echo "⚠️  Key Vault not found, using free tier"
+          infracost configure set api_key ico-free-tier-key || echo "Using free tier"
+        fi
 
     - name: Terraform Plan for Cost Analysis
       id: terraform-plan

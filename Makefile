@@ -499,6 +499,21 @@ validate-secrets:
 		echo "🎉 All required secrets are configured!"; \
 	fi
 
+get-infracost-key:
+	@echo "🔍 Retrieving Infracost API key from Azure Key Vault..."
+	@KEYVAULT_NAME=$$(az keyvault list --resource-group "ai-content-dev-rg" --query "[0].name" -o tsv 2>/dev/null || echo ""); \
+	if [ -z "$$KEYVAULT_NAME" ]; then \
+		echo "❌ Key Vault not found. Please deploy infrastructure first."; \
+		exit 1; \
+	fi; \
+	INFRACOST_KEY=$$(az keyvault secret show --vault-name "$$KEYVAULT_NAME" --name "infracost-api-key" --query "value" -o tsv 2>/dev/null || echo ""); \
+	if [ -z "$$INFRACOST_KEY" ]; then \
+		echo "❌ Infracost API key not found in Key Vault"; \
+		echo "Please run 'make setup-keyvault' to configure it"; \
+		exit 1; \
+	fi; \
+	echo "$$INFRACOST_KEY"
+
 # Content processing targets
 collect-topics:
 	@echo "🕷️ Running content wombles to collect topics..."

@@ -15,6 +15,24 @@ terraform plan -out=tfplan > /dev/null
 
 echo "💰 Running Infracost with usage model..."
 if command -v infracost &> /dev/null; then
+    # Try to get Infracost API key from Key Vault
+    if [ -z "$INFRACOST_API_KEY" ]; then
+        echo "🔑 Checking for Infracost API key in Azure Key Vault..."
+        KEYVAULT_NAME=$(az keyvault list --resource-group "ai-content-dev-rg" --query "[0].name" -o tsv 2>/dev/null || echo "")
+        if [ -n "$KEYVAULT_NAME" ]; then
+            export INFRACOST_API_KEY=$(az keyvault secret show --vault-name "$KEYVAULT_NAME" --name "infracost-api-key" --query "value" -o tsv 2>/dev/null || echo "")
+            if [ -n "$INFRACOST_API_KEY" ] && [ "$INFRACOST_API_KEY" != "placeholder-get-from-infracost-io" ]; then
+                echo "✅ Using Infracost API key from Key Vault"
+                infracost configure set api_key "$INFRACOST_API_KEY"
+            else
+                echo "⚠️  No valid Infracost API key in Key Vault. Get one from https://infracost.io"
+                echo "   Then run: make setup-keyvault to store it"
+            fi
+        else
+            echo "⚠️  Key Vault not found. Deploy infrastructure first or set INFRACOST_API_KEY manually"
+        fi
+    fi
+    
     echo ""
     echo "📊 Monthly Cost Estimate:"
     echo "========================"
