@@ -26,6 +26,22 @@ resource "azurerm_key_vault" "main" {
   # No access policy for user-assigned identity; add as needed for future use
 }
 
+resource "azurerm_log_analytics_workspace" "main" {
+  name                = "hot-topics-logs"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  sku                 = "PerGB2018"
+  retention_in_days   = 30
+}
+
+resource "azurerm_application_insights" "main" {
+  name                = "hot-topics-insights"
+  location            = azurerm_resource_group.main.location
+  resource_group_name = azurerm_resource_group.main.name
+  workspace_id        = azurerm_log_analytics_workspace.main.id
+  application_type    = "web"
+}
+
 resource "azurerm_storage_account" "main" {
   # checkov:skip=CKV_AZURE_33: Not using queues
   # checkov:skip=CKV_AZURE_35: Needed for initial setup
@@ -86,14 +102,18 @@ resource "azurerm_linux_function_app" "main" {
   }
 
   app_settings = {
-    AzureWebJobsStorage      = azurerm_storage_account.main.primary_connection_string
-    OUTPUT_CONTAINER         = azurerm_storage_container.topics.name
-    OUTPUT_STORAGE_ACCOUNT   = azurerm_storage_account.main.name
-    FUNCTIONS_WORKER_RUNTIME = "python"
-    WEBSITE_RUN_FROM_PACKAGE = "1"
+    AzureWebJobsStorage                   = azurerm_storage_account.main.primary_connection_string
+    OUTPUT_CONTAINER                      = azurerm_storage_container.topics.name
+    OUTPUT_STORAGE_ACCOUNT                = azurerm_storage_account.main.name
+    FUNCTIONS_WORKER_RUNTIME              = "python"
+    WEBSITE_RUN_FROM_PACKAGE              = "1"
+    APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.main.instrumentation_key
+    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.main.connection_string
   }
   #zip_deploy_file = filebase64("${path.module}/function.zip")
   site_config {
+    application_insights_connection_string = azurerm_application_insights.main.connection_string
+    application_insights_key               = azurerm_application_insights.main.instrumentation_key
     application_stack {
       python_version = "3.11"
     }
@@ -113,6 +133,37 @@ resource "azurerm_role_assignment" "storage_account_contributor" {
   role_definition_name = "Storage Account Contributor"
   principal_id         = azurerm_linux_function_app.main.identity[0].principal_id
   depends_on           = [azurerm_linux_function_app.main]
+}
+
+# Key Vault access policy for Function App managed identity
+resource "azurerm_key_vault_access_policy" "function_app" {
+  key_vault_id = azurerm_key_vault.main.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = azurerm_linux_function_app.main.identity[0].principal_id
+
+  secret_permissions = [
+    "Get",
+    "List"
+  ]
+
+  depends_on = [azurerm_linux_function_app.main]
+}
+
+# Key Vault access policy for current user to manage secrets
+resource "azurerm_key_vault_access_policy" "current_user" {
+  key_vault_id = azurerm_key_vault.main.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = data.azurerm_client_config.current.object_id
+
+  secret_permissions = [
+    "Get",
+    "List",
+    "Set",
+    "Delete",
+    "Recover",
+    "Backup",
+    "Restore"
+  ]
 }
 
 # Optionally add Cognitive Account and Key Vault secret if OpenAI integration is needed
