@@ -148,8 +148,71 @@ Alert → PR → Agent Workflow:
 | 9:00 AM | Fix OIDC & deploy to staging | 30 min | 🔴 Critical |
 | 9:30 AM | Script audit & refactoring | 2 hours | 🟡 High |
 | 11:30 AM | Content pipeline enhancement design | 1 hour | 🟡 High |
-| 12:30 PM | MCP agent planning & research | 30 min | 🟢 Medium |
-| 1:00 PM | Documentation updates | 30 min | 🟢 Medium |
+| 12:30 PM | **Testing infrastructure improvements** | **1.5 hours** | **🟡 High** |
+| 2:00 PM | MCP agent planning & research | 30 min | 🟢 Medium |
+| 2:30 PM | Documentation updates | 30 min | 🟢 Medium |
+
+---
+
+## 🧪 **Testing Infrastructure Improvements (Added Task)**
+
+### **Current State: Inadequate Test Coverage**
+```bash
+# What we have:
+tests/integration/test_pipeline.py  # 97 lines - basic endpoint checks only
+
+# What's missing:
+- Unit tests for core logic
+- Performance benchmarks  
+- Comprehensive security testing
+- Contract testing for external APIs
+- Error handling validation
+```
+
+### **Priority Testing Tasks for Tomorrow:**
+
+#### **1. Unit Tests (30 minutes)**
+```bash
+tests/unit/
+├── test_reddit_parser.py       # Test Reddit post parsing logic
+├── test_content_generator.py   # Test AI content generation
+├── test_error_handling.py      # Test error scenarios
+└── test_data_validation.py     # Test input/output validation
+```
+
+#### **2. Enhanced Integration Tests (30 minutes)**
+```bash
+tests/integration/
+├── test_end_to_end_pipeline.py # Full content workflow testing
+├── test_azure_service_health.py # Azure service connectivity
+└── test_external_apis.py       # Reddit/OpenAI API reliability
+```
+
+#### **3. Performance Baselines (30 minutes)**
+```bash
+tests/performance/
+├── test_function_execution_limits.py # Max execution time validation
+├── test_memory_usage.py              # Memory consumption tracking
+└── test_cost_per_execution.py        # Cost baseline establishment
+```
+
+#### **4. CI/CD Pipeline Integration (30 minutes)**
+```yaml
+# Add to consolidated-pipeline.yml:
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - run: pip install pytest pytest-cov
+    - run: pytest tests/unit/ --cov=functions --cov-report=xml
+    
+  performance-tests:
+    needs: unit-tests
+    runs-on: ubuntu-latest  
+    steps:
+    - run: pytest tests/performance/ --benchmark-only
+```
 
 ---
 
@@ -158,15 +221,19 @@ Alert → PR → Agent Workflow:
 ### **Must Have (Critical):**
 - ✅ Staging environment fully deployed and functional
 - ✅ Scripts consolidated and simplified
+- ✅ **Comprehensive testing strategy implemented**
 - ✅ Clear next steps for content enhancement
 
 ### **Should Have (Important):**
 - ✅ Makefile provides clean environment setup
+- ✅ **Unit tests covering core business logic**
+- ✅ **Performance baselines established**
 - ✅ Content pipeline enhancement plan documented
 - ✅ MCP agent integration strategy defined
 
 ### **Nice to Have (Bonus):**
 - ✅ First decomposed function extracted
+- ✅ **Testing integrated into CI/CD pipeline**
 - ✅ Alert → PR automation prototype
 - ✅ Performance baseline established
 
