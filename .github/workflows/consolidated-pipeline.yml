@@ -154,7 +154,7 @@ jobs:
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v3
       with:
-        terraform_version: latest
+        terraform_version: 1.12.2
 
     - name: Install Infracost for Better Cost Estimation
       run: |
@@ -276,6 +276,11 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.12.2
+
     - name: Azure Login with OIDC
       uses: azure/login@v1
       with:
@@ -364,6 +369,11 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Setup Terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: 1.12.2
 
     - name: Azure Login with OIDC
       uses: azure/login@v1
