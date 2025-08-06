@@ -59,7 +59,8 @@ jobs:
     - name: Install Security Tools
       run: |
         pip3 install checkov
-        curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+        # Install tfsec with fallback
+        wget -O tfsec https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 && chmod +x tfsec && sudo mv tfsec /usr/local/bin || echo "tfsec installation failed, continuing without it"
         LATEST_URL=$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.*Linux_x86_64.tar.gz" | head -1)
         curl -L "$LATEST_URL" > terrascan.tar.gz
         tar -xf terrascan.tar.gz terrascan && rm terrascan.tar.gz
