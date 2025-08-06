@@ -40,9 +40,9 @@ env:
 
 jobs:
   # Stage 1: Security and Compliance Validation
-  security-validation:
+  security-gate:
     runs-on: ubuntu-latest
-    name: Security & Compliance Gate
+    name: Security and Compliance Validation
     outputs:
       security-approved: ${{ steps.security-gate.outputs.approved }}
       critical-findings: ${{ steps.security-gate.outputs.critical-findings }}
@@ -131,9 +131,9 @@ jobs:
         retention-days: 30
 
   # Stage 2: Cost Impact Analysis
-  cost-analysis:
+  cost-gate:
     runs-on: ubuntu-latest
-    name: Cost Impact Analysis
+    name: Cost Impact and Budget Approval
     needs: security-validation
     if: needs.security-validation.outputs.security-approved != 'false'
     outputs:
@@ -262,9 +262,9 @@ jobs:
         retention-days: 30
 
   # Stage 3: Deploy to Staging
-  deploy-staging:
+  deploy-to-staging:
     runs-on: ubuntu-latest
-    name: Deploy to Staging
+    name: Deploy Infrastructure and Functions to Staging
     needs: [security-validation, cost-analysis]
     if: |
       needs.security-validation.outputs.security-approved == 'true' &&
@@ -317,9 +317,9 @@ jobs:
           --src ../function-app.zip
 
   # Stage 4: Integration Tests
-  integration-tests:
+  run-integration-tests:
     runs-on: ubuntu-latest
-    name: Integration Tests
+    name: Run End-to-End Integration Tests
     needs: deploy-staging
     if: needs.deploy-staging.result == 'success'
     
@@ -355,9 +355,9 @@ jobs:
         python -m pytest tests/integration/ -v
 
   # Stage 5: Deploy to Production (main branch only)
-  deploy-production:
+  deploy-to-production:
     runs-on: ubuntu-latest
-    name: Deploy to Production
+    name: Deploy Infrastructure and Functions to Production
     needs: [security-validation, cost-analysis, integration-tests]
     if: |
       always() && 
@@ -389,9 +389,9 @@ jobs:
         # Production deployment logic here
 
   # Stage 6: Notification
-  notify:
+  deployment-notification:
     runs-on: ubuntu-latest
-    name: Deployment Notification
+    name: Deployment Status Notification
     needs: [deploy-staging, deploy-production]
     if: always()
     
