@@ -1,22 +1,17 @@
 data "azurerm_client_config" "current" {}
 
-# Azure AD Application for GitHub Actions OIDC
-resource "azuread_application" "github_actions" {
-  display_name = "ai-content-farm-github-${var.environment}"
-  description  = "GitHub Actions OIDC application for ${var.environment} environment"
-
-  tags = ["github-actions", "oidc", var.environment]
+# Import existing Azure AD Application for GitHub Actions OIDC (staging app)
+data "azuread_application" "github_actions" {
+  display_name = "ai-content-farm-github-staging"
 }
 
-resource "azuread_service_principal" "github_actions" {
-  client_id = azuread_application.github_actions.client_id
-  
-  tags = ["github-actions", "oidc", var.environment]
+data "azuread_service_principal" "github_actions" {
+  client_id = data.azuread_application.github_actions.client_id
 }
 
 # Federated Identity Credentials for GitHub Actions
 resource "azuread_application_federated_identity_credential" "main_branch" {
-  application_id = azuread_application.github_actions.id
+  application_id = data.azuread_application.github_actions.id
   display_name   = "main-branch"
   description    = "Main branch deployment"
   audiences      = ["api://AzureADTokenExchange"]
@@ -25,7 +20,7 @@ resource "azuread_application_federated_identity_credential" "main_branch" {
 }
 
 resource "azuread_application_federated_identity_credential" "develop_branch" {
-  application_id = azuread_application.github_actions.id
+  application_id = data.azuread_application.github_actions.id
   display_name   = "develop-branch"
   description    = "Develop branch deployment"
   audiences      = ["api://AzureADTokenExchange"]
@@ -34,7 +29,7 @@ resource "azuread_application_federated_identity_credential" "develop_branch" {
 }
 
 resource "azuread_application_federated_identity_credential" "pull_requests" {
-  application_id = azuread_application.github_actions.id
+  application_id = data.azuread_application.github_actions.id
   display_name   = "pull-requests"
   description    = "Pull request validation"
   audiences      = ["api://AzureADTokenExchange"]
@@ -46,7 +41,7 @@ resource "azuread_application_federated_identity_credential" "pull_requests" {
 resource "azurerm_role_assignment" "github_actions_contributor" {
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Contributor"
-  principal_id         = azuread_service_principal.github_actions.object_id
+  principal_id         = data.azuread_service_principal.github_actions.object_id
 }
 
 resource "random_string" "suffix" {
@@ -99,14 +94,14 @@ resource "azurerm_consumption_budget_resource_group" "warning" {
 
   filter {
     dimension {
-      name = "ResourceGroupName"
+      name   = "ResourceGroupName"
       values = [azurerm_resource_group.main.name]
     }
   }
 
   notification {
     enabled        = true
-    threshold      = 80  # Alert at 80% of $5 = $4
+    threshold      = 80 # Alert at 80% of $5 = $4
     operator       = "GreaterThan"
     threshold_type = "Actual"
 
@@ -117,7 +112,7 @@ resource "azurerm_consumption_budget_resource_group" "warning" {
 
   notification {
     enabled        = true
-    threshold      = 100  # Alert at 100% of $5 = $5
+    threshold      = 100 # Alert at 100% of $5 = $5
     operator       = "GreaterThan"
     threshold_type = "Actual"
 
@@ -154,14 +149,14 @@ resource "azurerm_consumption_budget_resource_group" "critical" {
 
   filter {
     dimension {
-      name = "ResourceGroupName"
+      name   = "ResourceGroupName"
       values = [azurerm_resource_group.main.name]
     }
   }
 
   notification {
     enabled        = true
-    threshold      = 80  # Alert at 80% of $15 = $12
+    threshold      = 80 # Alert at 80% of $15 = $12
     operator       = "GreaterThan"
     threshold_type = "Actual"
 
@@ -172,7 +167,7 @@ resource "azurerm_consumption_budget_resource_group" "critical" {
 
   notification {
     enabled        = true
-    threshold      = 100  # Alert at 100% of $15 = $15
+    threshold      = 100 # Alert at 100% of $15 = $15
     operator       = "GreaterThan"
     threshold_type = "Actual"
 

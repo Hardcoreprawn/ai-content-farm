@@ -1,51 +1,56 @@
 #!/bin/bash
 
-# Script to configure GitHub environment protection rules
-# This ensures no deployments happen without proper approvals
-
-set -e
-
-REPO="Hardcoreprawn/ai-content-farm"
+# Get the repository and user information
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+USER_ID=$(gh api user | jq -r .id)
 
 echo "🔧 Configuring GitHub environment protection rules..."
 
-# Create staging environment with protection rules
-gh api \
-  --method PUT \
-  "/repos/$REPO/environments/staging" \
-  --field "wait_timer=0" \
-  --field "prevent_self_review=true" \
-  --field "reviewers[0][type]=Team" \
-  --field "reviewers[0][id]=maintainers" || echo "Staging environment already exists"
+# Create approval-required environment for manual reviews  
+echo "Setting up 'approval-required' environment..."
+cat << EOF | gh api repos/$REPO/environments/approval-required --method PUT --input -
+{
+  "wait_timer": 0,
+  "prevent_self_review": true,
+  "reviewers": [{"type": "User", "id": $USER_ID}],
+  "deployment_branch_policy": {"protected_branches": false, "custom_branch_policies": false}
+}
+EOF
+echo "Approval environment configured"
+
+# Create staging environment with basic protection
+echo "Setting up 'staging' environment..."
+cat << EOF | gh api repos/$REPO/environments/staging --method PUT --input -
+{
+  "wait_timer": 0,
+  "prevent_self_review": false,
+  "deployment_branch_policy": {"protected_branches": false, "custom_branch_policies": false}
+}
+EOF
+echo "Staging environment configured"
 
 # Create production environment with stricter protection
-gh api \
-  --method PUT \
-  "/repos/$REPO/environments/production" \
-  --field "wait_timer=300" \
-  --field "prevent_self_review=true" \
-  --field "reviewers[0][type]=Team" \
-  --field "reviewers[0][id]=maintainers" \
-  --field "deployment_branch_policy[protected_branches]=true" \
-  --field "deployment_branch_policy[custom_branch_policies]=false" || echo "Production environment already exists"
-
-# Create approval-required environment for manual reviews
-gh api \
-  --method PUT \
-  "/repos/$REPO/environments/approval-required" \
-  --field "wait_timer=0" \
-  --field "prevent_self_review=true" \
-  --field "reviewers[0][type]=User" \
-  --field "reviewers[0][id]=$(gh api user --jq .id)" || echo "Approval environment already exists"
+echo "Setting up 'production' environment..."
+cat << EOF | gh api repos/$REPO/environments/production --method PUT --input -
+{
+  "wait_timer": 300,
+  "prevent_self_review": true,
+  "reviewers": [{"type": "User", "id": $USER_ID}],
+  "deployment_branch_policy": {"protected_branches": true, "custom_branch_policies": false}
+}
+EOF
+echo "Production environment configured"
 
 echo "✅ Environment protection rules configured"
+
 echo ""
 echo "Environments created:"
-echo "  🟡 staging - No manual approval for develop branch"
-echo "  🔴 production - Requires approval + 5min wait timer + protected branches only"
 echo "  ⚠️  approval-required - Manual approval for security/cost warnings"
+echo "  🟡 staging - Basic protection for develop branch"
+echo "  🔴 production - Requires approval + 5min wait timer + protected branches only"
 echo ""
-echo "To complete setup, ensure you have:"
-echo "  1. Repository settings > Environments configured"
-echo "  2. Branch protection rules on main/develop"
-echo "  3. Required status checks enabled"
+echo "To approve deployments:"
+echo "  1. Go to: https://github.com/$REPO/actions"
+echo "  2. Click on the workflow run"
+echo "  3. Click 'Review deployments' when prompted"
+echo "  4. Select environment and click 'Approve and deploy'"

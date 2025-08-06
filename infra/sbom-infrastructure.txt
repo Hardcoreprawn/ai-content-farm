@@ -1,19 +1,25 @@
 Infrastructure Components:
 =========================
+${data.azurerm_client_config.current.subscription_id}
+${data.azurerm_client_config.current.tenant_id}
+/subscriptions/${data.azurerm_client_config.current.subscription_id}
 azurerm_application_insights
 azurerm_client_config
 azurerm_cognitive_account
+azurerm_consumption_budget_resource_group
 azurerm_key_vault
 azurerm_key_vault_access_policy
 azurerm_key_vault_secret
 azurerm_linux_function_app
 azurerm_log_analytics_workspace
+azurerm_monitor_action_group
 azurerm_monitor_diagnostic_setting
 azurerm_resource_group
 azurerm_role_assignment
 azurerm_service_plan
 azurerm_storage_account
 azurerm_storage_container
+main.tf:      values = [azurerm_resource_group.main.name]
 main.tf:    APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.main.instrumentation_key
 main.tf:    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.main.connection_string
 main.tf:    AzureWebJobsStorage                   = azurerm_storage_account.main.primary_connection_string
@@ -34,6 +40,7 @@ main.tf:  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 main.tf:  object_id    = azurerm_linux_function_app.main.identity[0].principal_id
 main.tf:  object_id    = data.azurerm_client_config.current.object_id
 main.tf:  principal_id         = azurerm_linux_function_app.main.identity[0].principal_id
+main.tf:  resource_group_id = azurerm_resource_group.main.id
 main.tf:  resource_group_name           = azurerm_resource_group.main.name
 main.tf:  resource_group_name         = azurerm_resource_group.main.name
 main.tf:  resource_group_name        = azurerm_resource_group.main.name
@@ -47,6 +54,8 @@ main.tf:  target_resource_id         = azurerm_key_vault.main.id
 main.tf:  tenant_id                  = data.azurerm_client_config.current.tenant_id
 main.tf:  tenant_id    = data.azurerm_client_config.current.tenant_id
 main.tf:  workspace_id        = azurerm_log_analytics_workspace.main.id
+outputs.tf:  value       = data.azurerm_client_config.current.subscription_id
+outputs.tf:  value       = data.azurerm_client_config.current.tenant_id
 outputs.tf:  value = azurerm_application_insights.main.app_id
 outputs.tf:  value = azurerm_application_insights.main.name
 outputs.tf:  value = azurerm_key_vault.main.id
