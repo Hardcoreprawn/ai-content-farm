@@ -12,10 +12,10 @@ variable "subscription_id" {
 variable "environment" {
   description = "Environment name (staging, production)"
   type        = string
-  default     = "development"
+  default     = "staging"
   validation {
-    condition     = contains(["development", "staging", "production"], var.environment)
-    error_message = "Environment must be development, staging, or production."
+    condition     = contains(["staging", "production"], var.environment)
+    error_message = "Environment must be staging or production."
   }
 }
 
@@ -28,7 +28,7 @@ variable "github_repository" {
 variable "resource_prefix" {
   description = "Prefix for all resource names"
   type        = string
-  default     = "ai-content-dev"
+  default     = "ai-content-staging"
 }
 
 # Reddit API Configuration

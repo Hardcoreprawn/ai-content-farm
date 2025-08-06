@@ -1,7 +1,7 @@
 {
   "version": 4,
   "terraform_version": "1.12.2",
-  "serial": 52,
+  "serial": 43,
   "lineage": "528c1d3a-e111-91f9-498b-4df3370b3954",
   "outputs": {
     "application_insights_app_id": {
@@ -48,10 +48,6 @@
       "value": "ai-content-staging-logs",
       "type": "string"
     },
-    "resource_group_name": {
-      "value": "ai-content-staging-rg",
-      "type": "string"
-    },
     "storage_account_name": {
       "value": "hottopicsstoragev33ppo",
       "type": "string"
@@ -64,26 +60,47 @@
   "resources": [
     {
       "mode": "data",
+      "type": "azurerm_client_config",
+      "name": "current",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "client_id": "04b07795-8ddb-461a-bbee-02f9e1bf7b46",
+            "id": "Y2xpZW50Q29uZmlncy9jbGllbnRJZD0wNGIwNzc5NS04ZGRiLTQ2MWEtYmJlZS0wMmY5ZTFiZjdiNDY7b2JqZWN0SWQ9ZTk2MDc3YTctODJlYy00YmUwLTg2ZDUtYWM4NWZkZWM2MzEyO3N1YnNjcmlwdGlvbklkPTZiOTI0NjA5LWY4YzYtNGJkMi1hODczLTJiOGY1NTU5NmY2Nzt0ZW5hbnRJZD1kMTc5MGQ3MC1jMDJjLTRlOGUtOTRlZS1lM2NjYmRiMTlkMTk=",
+            "object_id": "e96077a7-82ec-4be0-86d5-ac85fdec6312",
+            "subscription_id": "6b924609-f8c6-4bd2-a873-2b8f55596f67",
+            "tenant_id": "d1790d70-c02c-4e8e-94ee-e3ccbdb19d19",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0
+        }
+      ]
+    },
+    {
+      "mode": "managed",
       "type": "azuread_application",
       "name": "github_actions",
       "provider": "provider[\"registry.terraform.io/hashicorp/azuread\"]",
       "instances": [
         {
-          "schema_version": 0,
+          "schema_version": 2,
           "attributes": {
             "api": [
               {
                 "known_client_applications": [],
                 "mapped_claims_enabled": false,
-                "oauth2_permission_scopes": [],
+                "oauth2_permission_scope": [],
                 "requested_access_token_version": 1
               }
             ],
+            "app_role": [],
             "app_role_ids": {},
-            "app_roles": [],
             "application_id": "c5deb409-eb9b-44be-9519-9a24a7dce9d6",
             "client_id": "c5deb409-eb9b-44be-9519-9a24a7dce9d6",
-            "description": null,
+            "description": "GitHub Actions OIDC application for staging environment",
             "device_only_auth_enabled": false,
             "disabled_by_microsoft": "\u003cnil\u003e",
             "display_name": "ai-content-farm-github-staging",
@@ -96,10 +113,10 @@
                 "hide": false
               }
             ],
-            "group_membership_claims": [],
+            "group_membership_claims": null,
             "id": "/applications/7c83630d-c09b-4cb7-acbe-e3990275cd97",
-            "identifier_uri": null,
-            "identifier_uris": [],
+            "identifier_uris": null,
+            "logo_image": "",
             "logo_url": "",
             "marketing_url": "",
             "notes": "",
@@ -113,7 +130,9 @@
                 "saml2_token": []
               }
             ],
-            "owners": [],
+            "owners": null,
+            "password": [],
+            "prevent_duplicate_names": false,
             "privacy_statement_url": "",
             "public_client": [
               {
@@ -121,17 +140,7 @@
               }
             ],
             "publisher_domain": "jbrewster.onmicrosoft.com",
-            "required_resource_access": [
-              {
-                "resource_access": [
-                  {
-                    "id": "9a5d68dd-52b0-4cc2-bd40-abcf44ac3a30",
-                    "type": "Role"
-                  }
-                ],
-                "resource_app_id": "00000003-0000-0000-c000-000000000000"
-              }
-            ],
+            "required_resource_access": [],
             "service_management_reference": "",
             "sign_in_audience": "AzureADMyOrg",
             "single_page_application": [
@@ -145,6 +154,7 @@
               "oidc",
               "staging"
             ],
+            "template_id": "",
             "terms_of_service_url": "",
             "timeouts": null,
             "web": [
@@ -162,12 +172,106 @@
             ]
           },
           "sensitive_attributes": [],
-          "identity_schema_version": 0
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJyZWFkIjozMDAwMDAwMDAwMDAsInVwZGF0ZSI6NjAwMDAwMDAwMDAwfSwic2NoZW1hX3ZlcnNpb24iOiIyIn0="
         }
       ]
     },
     {
-      "mode": "data",
+      "mode": "managed",
+      "type": "azuread_application_federated_identity_credential",
+      "name": "develop_branch",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azuread\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "application_id": "/applications/7c83630d-c09b-4cb7-acbe-e3990275cd97",
+            "application_object_id": "7c83630d-c09b-4cb7-acbe-e3990275cd97",
+            "audiences": [
+              "api://AzureADTokenExchange"
+            ],
+            "credential_id": "571f6c1b-6edf-4896-9a59-46639261dff5",
+            "description": "Develop branch deployment",
+            "display_name": "develop-branch",
+            "id": "7c83630d-c09b-4cb7-acbe-e3990275cd97/federatedIdentityCredential/571f6c1b-6edf-4896-9a59-46639261dff5",
+            "issuer": "https://token.actions.githubusercontent.com",
+            "subject": "repo:Hardcoreprawn/ai-content-farm:ref:refs/heads/develop",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo5MDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJyZWFkIjozMDAwMDAwMDAwMDAsInVwZGF0ZSI6MzAwMDAwMDAwMDAwfX0=",
+          "dependencies": [
+            "azuread_application.github_actions"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "azuread_application_federated_identity_credential",
+      "name": "main_branch",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azuread\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "application_id": "/applications/7c83630d-c09b-4cb7-acbe-e3990275cd97",
+            "application_object_id": "7c83630d-c09b-4cb7-acbe-e3990275cd97",
+            "audiences": [
+              "api://AzureADTokenExchange"
+            ],
+            "credential_id": "d4f886a6-b32f-4a81-826d-d540633554ec",
+            "description": "Main branch deployment",
+            "display_name": "main-branch",
+            "id": "7c83630d-c09b-4cb7-acbe-e3990275cd97/federatedIdentityCredential/d4f886a6-b32f-4a81-826d-d540633554ec",
+            "issuer": "https://token.actions.githubusercontent.com",
+            "subject": "repo:Hardcoreprawn/ai-content-farm:ref:refs/heads/main",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo5MDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJyZWFkIjozMDAwMDAwMDAwMDAsInVwZGF0ZSI6MzAwMDAwMDAwMDAwfX0=",
+          "dependencies": [
+            "azuread_application.github_actions"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "azuread_application_federated_identity_credential",
+      "name": "pull_requests",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azuread\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "application_id": "/applications/7c83630d-c09b-4cb7-acbe-e3990275cd97",
+            "application_object_id": "7c83630d-c09b-4cb7-acbe-e3990275cd97",
+            "audiences": [
+              "api://AzureADTokenExchange"
+            ],
+            "credential_id": "da91b0c2-5002-419e-ad58-adac8debd8fb",
+            "description": "Pull request validation",
+            "display_name": "pull-requests",
+            "id": "7c83630d-c09b-4cb7-acbe-e3990275cd97/federatedIdentityCredential/da91b0c2-5002-419e-ad58-adac8debd8fb",
+            "issuer": "https://token.actions.githubusercontent.com",
+            "subject": "repo:Hardcoreprawn/ai-content-farm:pull_request",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo5MDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJyZWFkIjozMDAwMDAwMDAwMDAsInVwZGF0ZSI6MzAwMDAwMDAwMDAwfX0=",
+          "dependencies": [
+            "azuread_application.github_actions"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
       "type": "azuread_service_principal",
       "name": "github_actions",
       "provider": "provider[\"registry.terraform.io/hashicorp/azuread\"]",
@@ -176,7 +280,7 @@
           "schema_version": 0,
           "attributes": {
             "account_enabled": true,
-            "alternative_names": [],
+            "alternative_names": null,
             "app_role_assignment_required": false,
             "app_role_ids": {},
             "app_roles": [],
@@ -206,10 +310,11 @@
             "login_url": "",
             "logout_url": "",
             "notes": "",
-            "notification_email_addresses": [],
+            "notification_email_addresses": null,
             "oauth2_permission_scope_ids": {},
             "oauth2_permission_scopes": [],
             "object_id": "90d4d3b8-61af-4a9e-bcc8-bcba7a0139b6",
+            "owners": null,
             "preferred_single_sign_on_mode": "",
             "redirect_uris": [],
             "saml_metadata_url": "",
@@ -226,31 +331,15 @@
               "staging"
             ],
             "timeouts": null,
-            "type": "Application"
+            "type": "Application",
+            "use_existing": null
           },
           "sensitive_attributes": [],
-          "identity_schema_version": 0
-        }
-      ]
-    },
-    {
-      "mode": "data",
-      "type": "azurerm_client_config",
-      "name": "current",
-      "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
-      "instances": [
-        {
-          "schema_version": 0,
-          "attributes": {
-            "client_id": "04b07795-8ddb-461a-bbee-02f9e1bf7b46",
-            "id": "Y2xpZW50Q29uZmlncy9jbGllbnRJZD0wNGIwNzc5NS04ZGRiLTQ2MWEtYmJlZS0wMmY5ZTFiZjdiNDY7b2JqZWN0SWQ9ZTk2MDc3YTctODJlYy00YmUwLTg2ZDUtYWM4NWZkZWM2MzEyO3N1YnNjcmlwdGlvbklkPTZiOTI0NjA5LWY4YzYtNGJkMi1hODczLTJiOGY1NTU5NmY2Nzt0ZW5hbnRJZD1kMTc5MGQ3MC1jMDJjLTRlOGUtOTRlZS1lM2NjYmRiMTlkMTk=",
-            "object_id": "e96077a7-82ec-4be0-86d5-ac85fdec6312",
-            "subscription_id": "6b924609-f8c6-4bd2-a873-2b8f55596f67",
-            "tenant_id": "d1790d70-c02c-4e8e-94ee-e3ccbdb19d19",
-            "timeouts": null
-          },
-          "sensitive_attributes": [],
-          "identity_schema_version": 0
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo2MDAwMDAwMDAwMDAsImRlbGV0ZSI6MzAwMDAwMDAwMDAwLCJyZWFkIjozMDAwMDAwMDAwMDAsInVwZGF0ZSI6NjAwMDAwMDAwMDAwfX0=",
+          "dependencies": [
+            "azuread_application.github_actions"
+          ]
         }
       ]
     },
@@ -479,7 +568,7 @@
           "schema_version": 0,
           "attributes": {
             "content_type": "text/plain",
-            "expiration_date": "2026-08-06T14:09:56Z",
+            "expiration_date": "2026-08-05T14:13:42Z",
             "id": "https://aicontentstagingkvv33ppo.vault.azure.net/secrets/infracost-api-key/843445f5aeeb475b91dda2e9166a0225",
             "key_vault_id": "/subscriptions/6b924609-f8c6-4bd2-a873-2b8f55596f67/resourceGroups/ai-content-staging-rg/providers/Microsoft.KeyVault/vaults/aicontentstagingkvv33ppo",
             "name": "infracost-api-key",
@@ -528,7 +617,7 @@
           "schema_version": 0,
           "attributes": {
             "content_type": "text/plain",
-            "expiration_date": "2026-08-06T14:09:56Z",
+            "expiration_date": "2026-08-05T14:13:42Z",
             "id": "https://aicontentstagingkvv33ppo.vault.azure.net/secrets/reddit-client-id/65a15a34cb164be08e531e72376ab4f7",
             "key_vault_id": "/subscriptions/6b924609-f8c6-4bd2-a873-2b8f55596f67/resourceGroups/ai-content-staging-rg/providers/Microsoft.KeyVault/vaults/aicontentstagingkvv33ppo",
             "name": "reddit-client-id",
@@ -577,7 +666,7 @@
           "schema_version": 0,
           "attributes": {
             "content_type": "text/plain",
-            "expiration_date": "2026-08-06T14:09:56Z",
+            "expiration_date": "2026-08-05T14:13:42Z",
             "id": "https://aicontentstagingkvv33ppo.vault.azure.net/secrets/reddit-client-secret/432a4a3a7ef24b45b9c5b79e0436dc82",
             "key_vault_id": "/subscriptions/6b924609-f8c6-4bd2-a873-2b8f55596f67/resourceGroups/ai-content-staging-rg/providers/Microsoft.KeyVault/vaults/aicontentstagingkvv33ppo",
             "name": "reddit-client-secret",
@@ -626,22 +715,22 @@
           "schema_version": 0,
           "attributes": {
             "content_type": "text/plain",
-            "expiration_date": "2026-08-06T14:09:56Z",
-            "id": "https://aicontentstagingkvv33ppo.vault.azure.net/secrets/reddit-user-agent/b7c81b0e656e4457bed42d8d5cd26c69",
+            "expiration_date": "2026-08-05T14:13:42Z",
+            "id": "https://aicontentstagingkvv33ppo.vault.azure.net/secrets/reddit-user-agent/873367d2332f470691cc7358defbad35",
             "key_vault_id": "/subscriptions/6b924609-f8c6-4bd2-a873-2b8f55596f67/resourceGroups/ai-content-staging-rg/providers/Microsoft.KeyVault/vaults/aicontentstagingkvv33ppo",
             "name": "reddit-user-agent",
             "not_before_date": null,
-            "resource_id": "/subscriptions/6b924609-f8c6-4bd2-a873-2b8f55596f67/resourceGroups/ai-content-staging-rg/providers/Microsoft.KeyVault/vaults/aicontentstagingkvv33ppo/secrets/reddit-user-agent/versions/b7c81b0e656e4457bed42d8d5cd26c69",
+            "resource_id": "/subscriptions/6b924609-f8c6-4bd2-a873-2b8f55596f67/resourceGroups/ai-content-staging-rg/providers/Microsoft.KeyVault/vaults/aicontentstagingkvv33ppo/secrets/reddit-user-agent/versions/873367d2332f470691cc7358defbad35",
             "resource_versionless_id": "/subscriptions/6b924609-f8c6-4bd2-a873-2b8f55596f67/resourceGroups/ai-content-staging-rg/providers/Microsoft.KeyVault/vaults/aicontentstagingkvv33ppo/secrets/reddit-user-agent",
             "tags": {
               "Environment": "staging",
               "Purpose": "reddit-api-access"
             },
             "timeouts": null,
-            "value": "ai-content-farm:v1.0 (by /u/your-username)",
+            "value": "ai-content-farm:v1.0-staging (by /u/your-username)",
             "value_wo": null,
             "value_wo_version": 0,
-            "version": "b7c81b0e656e4457bed42d8d5cd26c69",
+            "version": "873367d2332f470691cc7358defbad35",
             "versionless_id": "https://aicontentstagingkvv33ppo.vault.azure.net/secrets/reddit-user-agent"
           },
           "sensitive_attributes": [
@@ -962,59 +1051,6 @@
     },
     {
       "mode": "managed",
-      "type": "azurerm_monitor_action_group",
-      "name": "cost_alerts",
-      "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
-      "instances": [
-        {
-          "schema_version": 1,
-          "attributes": {
-            "arm_role_receiver": [],
-            "automation_runbook_receiver": [],
-            "azure_app_push_receiver": [],
-            "azure_function_receiver": [],
-            "email_receiver": [
-              {
-                "email_address": "admin@example.com",
-                "name": "cost-alert-email",
-                "use_common_alert_schema": false
-              }
-            ],
-            "enabled": true,
-            "event_hub_receiver": [],
-            "id": "/subscriptions/6b924609-f8c6-4bd2-a873-2b8f55596f67/resourceGroups/ai-content-staging-rg/providers/Microsoft.Insights/actionGroups/ai-content-staging-cost-alerts",
-            "itsm_receiver": [],
-            "location": "global",
-            "logic_app_receiver": [],
-            "name": "ai-content-staging-cost-alerts",
-            "resource_group_name": "ai-content-staging-rg",
-            "short_name": "costalertz",
-            "sms_receiver": [],
-            "tags": {
-              "Environment": "staging",
-              "ManagedBy": "terraform",
-              "Project": "ai-content-farm"
-            },
-            "timeouts": null,
-            "voice_receiver": [],
-            "webhook_receiver": []
-          },
-          "sensitive_attributes": [],
-          "identity_schema_version": 0,
-          "identity": {
-            "name": "ai-content-staging-cost-alerts",
-            "resource_group_name": "ai-content-staging-rg",
-            "subscription_id": "6b924609-f8c6-4bd2-a873-2b8f55596f67"
-          },
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxODAwMDAwMDAwMDAwLCJkZWxldGUiOjE4MDAwMDAwMDAwMDAsInJlYWQiOjMwMDAwMDAwMDAwMCwidXBkYXRlIjoxODAwMDAwMDAwMDAwfSwic2NoZW1hX3ZlcnNpb24iOiIxIn0=",
-          "dependencies": [
-            "azurerm_resource_group.main"
-          ]
-        }
-      ]
-    },
-    {
-      "mode": "managed",
       "type": "azurerm_monitor_diagnostic_setting",
       "name": "key_vault",
       "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
@@ -1108,6 +1144,40 @@
           "sensitive_attributes": [],
           "identity_schema_version": 0,
           "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjo1NDAwMDAwMDAwMDAwLCJkZWxldGUiOjU0MDAwMDAwMDAwMDAsInJlYWQiOjMwMDAwMDAwMDAwMCwidXBkYXRlIjo1NDAwMDAwMDAwMDAwfX0="
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "azurerm_role_assignment",
+      "name": "github_actions_contributor",
+      "provider": "provider[\"registry.terraform.io/hashicorp/azurerm\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "condition": "",
+            "condition_version": "",
+            "delegated_managed_identity_resource_id": "",
+            "description": "",
+            "id": "/subscriptions/6b924609-f8c6-4bd2-a873-2b8f55596f67/providers/Microsoft.Authorization/roleAssignments/ba62cacb-34c8-0833-0d8b-d9fcf1409b69",
+            "name": "ba62cacb-34c8-0833-0d8b-d9fcf1409b69",
+            "principal_id": "90d4d3b8-61af-4a9e-bcc8-bcba7a0139b6",
+            "principal_type": "ServicePrincipal",
+            "role_definition_id": "/subscriptions/6b924609-f8c6-4bd2-a873-2b8f55596f67/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c",
+            "role_definition_name": "Contributor",
+            "scope": "/subscriptions/6b924609-f8c6-4bd2-a873-2b8f55596f67",
+            "skip_service_principal_aad_check": null,
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "identity_schema_version": 0,
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxODAwMDAwMDAwMDAwLCJkZWxldGUiOjE4MDAwMDAwMDAwMDAsInJlYWQiOjMwMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "azuread_application.github_actions",
+            "azuread_service_principal.github_actions",
+            "data.azurerm_client_config.current"
+          ]
         }
       ]
     },
