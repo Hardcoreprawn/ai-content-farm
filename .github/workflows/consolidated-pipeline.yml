@@ -134,8 +134,8 @@ jobs:
   cost-gate:
     runs-on: ubuntu-latest
     name: Cost Impact and Budget Approval
-    needs: security-validation
-    if: needs.security-validation.outputs.security-approved != 'false'
+    needs: security-gate
+    if: needs.security-gate.outputs.security-approved != 'false'
     outputs:
       cost-approved: ${{ steps.cost-gate.outputs.approved }}
       estimated-cost: ${{ steps.cost-gate.outputs.estimated-cost }}
@@ -265,10 +265,10 @@ jobs:
   deploy-to-staging:
     runs-on: ubuntu-latest
     name: Deploy Infrastructure and Functions to Staging
-    needs: [security-validation, cost-analysis]
+    needs: [security-gate, cost-gate]
     if: |
-      needs.security-validation.outputs.security-approved == 'true' &&
-      needs.cost-analysis.outputs.cost-approved == 'true' &&
+      needs.security-gate.outputs.security-approved == 'true' &&
+      needs.cost-gate.outputs.cost-approved == 'true' &&
       github.ref == 'refs/heads/develop'
     environment: staging
     
@@ -320,8 +320,8 @@ jobs:
   run-integration-tests:
     runs-on: ubuntu-latest
     name: Run End-to-End Integration Tests
-    needs: deploy-staging
-    if: needs.deploy-staging.result == 'success'
+    needs: deploy-to-staging
+    if: needs.deploy-to-staging.result == 'success'
     
     steps:
     - name: Checkout code
@@ -358,10 +358,10 @@ jobs:
   deploy-to-production:
     runs-on: ubuntu-latest
     name: Deploy Infrastructure and Functions to Production
-    needs: [security-validation, cost-analysis, integration-tests]
+    needs: [security-gate, cost-gate, run-integration-tests]
     if: |
       always() && 
-      needs.integration-tests.result == 'success' &&
+      needs.run-integration-tests.result == 'success' &&
       github.ref == 'refs/heads/main' &&
       github.event_name == 'push'
     environment: production
