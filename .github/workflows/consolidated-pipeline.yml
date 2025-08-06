@@ -187,7 +187,7 @@ jobs:
       run: |
         cd infra
         terraform init
-        terraform plan -out=tfplan
+        terraform plan -out=tfplan -var="environment=${{ github.event.inputs.environment || 'staging' }}"
         
         # Only use Infracost for accurate cost estimation
         if command -v infracost &> /dev/null; then
@@ -293,7 +293,7 @@ jobs:
       run: |
         cd infra
         terraform init
-        terraform apply -auto-approve
+        terraform apply -auto-approve -var="environment=${{ github.event.inputs.environment || 'staging' }}"
         
         # Get outputs for function deployment
         FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
