@@ -1,17 +1,20 @@
 data "azurerm_client_config" "current" {}
 
-# Import existing Azure AD Application for GitHub Actions OIDC (staging app)
-data "azuread_application" "github_actions" {
-  client_id = "c5deb409-eb9b-44be-9519-9a24a7dce9d6"
+# Azure AD Application for GitHub Actions OIDC (managed by Terraform)
+resource "azuread_application" "github_actions" {
+  display_name = "ai-content-farm-github-staging"
+  description  = "GitHub Actions OIDC application for staging environment"
+
+  tags = ["github-actions", "oidc", "staging"]
 }
 
-data "azuread_service_principal" "github_actions" {
-  client_id = data.azuread_application.github_actions.client_id
+resource "azuread_service_principal" "github_actions" {
+  client_id = azuread_application.github_actions.client_id
 }
 
-# Federated Identity Credentials for GitHub Actions
+# Federated Identity Credentials and Role Assignment - importing existing ones
 resource "azuread_application_federated_identity_credential" "main_branch" {
-  application_id = data.azuread_application.github_actions.id
+  application_id = azuread_application.github_actions.id
   display_name   = "main-branch"
   description    = "Main branch deployment"
   audiences      = ["api://AzureADTokenExchange"]
@@ -19,11 +22,29 @@ resource "azuread_application_federated_identity_credential" "main_branch" {
   subject        = "repo:${var.github_repository}:ref:refs/heads/main"
 }
 
-# Use existing federated identity credentials (created outside Terraform)
-# These exist from prior setup and should not be recreated
+resource "azuread_application_federated_identity_credential" "develop_branch" {
+  application_id = azuread_application.github_actions.id
+  display_name   = "develop-branch"
+  description    = "Develop branch deployment"
+  audiences      = ["api://AzureADTokenExchange"]
+  issuer         = "https://token.actions.githubusercontent.com"
+  subject        = "repo:${var.github_repository}:ref:refs/heads/develop"
+}
 
-# Use existing role assignment (created outside Terraform)
-# The service principal already has Contributor role on the subscription
+resource "azuread_application_federated_identity_credential" "pull_requests" {
+  application_id = azuread_application.github_actions.id
+  display_name   = "pull-requests"
+  description    = "Pull request validation"
+  audiences      = ["api://AzureADTokenExchange"]
+  issuer         = "https://token.actions.githubusercontent.com"
+  subject        = "repo:${var.github_repository}:pull_request"
+}
+
+resource "azurerm_role_assignment" "github_actions_contributor" {
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name = "Contributor"
+  principal_id         = azuread_service_principal.github_actions.object_id
+}
 
 resource "random_string" "suffix" {
   length  = 6
@@ -60,118 +81,115 @@ resource "azurerm_monitor_action_group" "cost_alerts" {
   }
 }
 
-# Budget resources already exist - commenting out to avoid conflicts
-# TODO: Import existing budgets into Terraform state or use data sources
-
 # Budget for Cost Monitoring - Warning at $5
-# resource "azurerm_consumption_budget_resource_group" "warning" {
-#   name              = "${var.resource_prefix}-budget-warning"
-#   resource_group_id = azurerm_resource_group.main.id
-#
-#   amount     = 5
-#   time_grain = "Monthly"
-#
-#   time_period {
-#     start_date = formatdate("YYYY-MM-01'T'00:00:00Z", timestamp())
-#     end_date   = formatdate("YYYY-MM-01'T'00:00:00Z", timeadd(timestamp(), "8760h")) # 1 year from now
-#   }
-#
-#   filter {
-#     dimension {
-#       name   = "ResourceGroupName"
-#       values = [azurerm_resource_group.main.name]
-#     }
-#   }
-#
-#   notification {
-#     enabled        = true
-#     threshold      = 80 # Alert at 80% of $5 = $4
-#     operator       = "GreaterThan"
-#     threshold_type = "Actual"
-#
-#     contact_emails = [
-#       var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
-#     ]
-#   }
-#
-#   notification {
-#     enabled        = true
-#     threshold      = 100 # Alert at 100% of $5 = $5
-#     operator       = "GreaterThan"
-#     threshold_type = "Actual"
-#
-#     contact_emails = [
-#       var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
-#     ]
-#   }
-#
-#   # Forecast alert at 110% = $5.50
-#   notification {
-#     enabled        = true
-#     threshold      = 110
-#     operator       = "GreaterThan"
-#     threshold_type = "Forecasted"
-#
-#     contact_emails = [
-#       var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
-#     ]
-#   }
-# }
+resource "azurerm_consumption_budget_resource_group" "warning" {
+  name              = "${var.resource_prefix}-budget-warning"
+  resource_group_id = azurerm_resource_group.main.id
+
+  amount     = 5
+  time_grain = "Monthly"
+
+  time_period {
+    start_date = formatdate("YYYY-MM-01'T'00:00:00Z", timestamp())
+    end_date   = formatdate("YYYY-MM-01'T'00:00:00Z", timeadd(timestamp(), "8760h")) # 1 year from now
+  }
+
+  filter {
+    dimension {
+      name   = "ResourceGroupName"
+      values = [azurerm_resource_group.main.name]
+    }
+  }
+
+  notification {
+    enabled        = true
+    threshold      = 80 # Alert at 80% of $5 = $4
+    operator       = "GreaterThan"
+    threshold_type = "Actual"
+
+    contact_emails = [
+      var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
+    ]
+  }
+
+  notification {
+    enabled        = true
+    threshold      = 100 # Alert at 100% of $5 = $5
+    operator       = "GreaterThan"
+    threshold_type = "Actual"
+
+    contact_emails = [
+      var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
+    ]
+  }
+
+  # Forecast alert at 110% = $5.50
+  notification {
+    enabled        = true
+    threshold      = 110
+    operator       = "GreaterThan"
+    threshold_type = "Forecasted"
+
+    contact_emails = [
+      var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
+    ]
+  }
+}
 
 # Budget for Cost Monitoring - Critical at $15
-# resource "azurerm_consumption_budget_resource_group" "critical" {
-#   name              = "${var.resource_prefix}-budget-critical"
-#   resource_group_id = azurerm_resource_group.main.id
-#
-#   amount     = 15
-#   time_grain = "Monthly"
-#
-#   time_period {
-#     start_date = formatdate("YYYY-MM-01'T'00:00:00Z", timestamp())
-#     end_date   = formatdate("YYYY-MM-01'T'00:00:00Z", timeadd(timestamp(), "8760h")) # 1 year from now
-#   }
-#
-#   filter {
-#     dimension {
-#       name   = "ResourceGroupName"
-#       values = [azurerm_resource_group.main.name]
-#     }
-#   }
-#
-#   notification {
-#     enabled        = true
-#     threshold      = 80 # Alert at 80% of $15 = $12
-#     operator       = "GreaterThan"
-#     threshold_type = "Actual"
-#
-#     contact_emails = [
-#       var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
-#     ]
-#   }
-#
-#   notification {
-#     enabled        = true
-#     threshold      = 100 # Alert at 100% of $15 = $15
-#     operator       = "GreaterThan"
-#     threshold_type = "Actual"
-#
-#     contact_emails = [
-#       var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
-#     ]
-#   }
-#
-#   # Forecast alert at 110% = $16.50
-#   notification {
-#     enabled        = true
-#     threshold      = 110
-#     operator       = "GreaterThan"
-#     threshold_type = "Forecasted"
-#
-#     contact_emails = [
-#       var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
-#     ]
-#   }
-# }
+resource "azurerm_consumption_budget_resource_group" "critical" {
+  name              = "${var.resource_prefix}-budget-critical"
+  resource_group_id = azurerm_resource_group.main.id
+
+  amount     = 15
+  time_grain = "Monthly"
+
+  time_period {
+    start_date = formatdate("YYYY-MM-01'T'00:00:00Z", timestamp())
+    end_date   = formatdate("YYYY-MM-01'T'00:00:00Z", timeadd(timestamp(), "8760h")) # 1 year from now
+  }
+
+  filter {
+    dimension {
+      name   = "ResourceGroupName"
+      values = [azurerm_resource_group.main.name]
+    }
+  }
+
+  notification {
+    enabled        = true
+    threshold      = 80 # Alert at 80% of $15 = $12
+    operator       = "GreaterThan"
+    threshold_type = "Actual"
+
+    contact_emails = [
+      var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
+    ]
+  }
+
+  notification {
+    enabled        = true
+    threshold      = 100 # Alert at 100% of $15 = $15
+    operator       = "GreaterThan"
+    threshold_type = "Actual"
+
+    contact_emails = [
+      var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
+    ]
+  }
+
+  # Forecast alert at 110% = $16.50
+  notification {
+    enabled        = true
+    threshold      = 110
+    operator       = "GreaterThan"
+    threshold_type = "Forecasted"
+
+    contact_emails = [
+      var.cost_alert_email != "" ? var.cost_alert_email : "admin@example.com"
+    ]
+  }
+}
 
 
 resource "azurerm_key_vault" "main" {

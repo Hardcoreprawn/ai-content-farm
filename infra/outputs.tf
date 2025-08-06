@@ -31,7 +31,7 @@ output "application_insights_name" {
 # GitHub Actions OIDC Configuration
 output "github_actions_client_id" {
   description = "Client ID for GitHub Actions OIDC"
-  value       = data.azuread_application.github_actions.client_id
+  value       = azuread_application.github_actions.client_id
 }
 
 output "github_actions_tenant_id" {
@@ -48,7 +48,7 @@ output "github_variables_setup_command" {
   description = "Command to set GitHub repository variables"
   value       = <<EOT
 Run these commands to set up GitHub repository variables:
-gh variable set AZURE_CLIENT_ID --body "${data.azuread_application.github_actions.client_id}"
+gh variable set AZURE_CLIENT_ID --body "${azuread_application.github_actions.client_id}"
 gh variable set AZURE_TENANT_ID --body "${data.azurerm_client_config.current.tenant_id}"
 gh variable set AZURE_SUBSCRIPTION_ID --body "${data.azurerm_client_config.current.subscription_id}"
 EOT
