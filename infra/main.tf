@@ -2,7 +2,7 @@ data "azurerm_client_config" "current" {}
 
 # Import existing Azure AD Application for GitHub Actions OIDC (staging app)
 data "azuread_application" "github_actions" {
-  display_name = "ai-content-farm-github-staging"
+  client_id = "c5deb409-eb9b-44be-9519-9a24a7dce9d6"
 }
 
 data "azuread_service_principal" "github_actions" {
