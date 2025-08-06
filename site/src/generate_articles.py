@@ -9,6 +9,11 @@ from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 
 def get_openai_key():
+    # Try environment variable first (for GitHub Actions)
+    if "OPENAI_API_KEY" in os.environ:
+        return os.environ["OPENAI_API_KEY"]
+    
+    # Fall back to Azure Key Vault (for production)
     keyvault_uri = os.environ["KEYVAULT_URI"]
     secret_name = os.environ["OPENAI_KEY_SECRET"]
     credential = DefaultAzureCredential()
