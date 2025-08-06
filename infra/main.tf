@@ -1,8 +1,8 @@
 data "azurerm_client_config" "current" {}
 
-# Azure AD Application for GitHub Actions OIDC (using existing application)
+# Azure AD Application for GitHub Actions OIDC (managed by bootstrap)
 data "azuread_application" "github_actions" {
-  display_name = "ai-content-farm-github-staging"
+  display_name = "ai-content-farm-github-${var.environment}"
 }
 
 data "azuread_service_principal" "github_actions" {

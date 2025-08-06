@@ -186,7 +186,13 @@ jobs:
       id: terraform-plan
       run: |
         cd infra
-        terraform init
+        
+        # Configure backend for remote state
+        terraform init -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" \
+                      -backend-config="container_name=tfstate" \
+                      -backend-config="key=${{ github.event.inputs.environment || 'staging' }}.tfstate" \
+                      -backend-config="resource_group_name=ai-content-farm-bootstrap"
+        
         terraform plan -out=tfplan -var="environment=${{ github.event.inputs.environment || 'staging' }}"
         
         # Only use Infracost for accurate cost estimation
@@ -292,7 +298,13 @@ jobs:
     - name: Deploy Infrastructure
       run: |
         cd infra
-        terraform init
+        
+        # Configure backend for remote state
+        terraform init -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" \
+                      -backend-config="container_name=tfstate" \
+                      -backend-config="key=${{ github.event.inputs.environment || 'staging' }}.tfstate" \
+                      -backend-config="resource_group_name=ai-content-farm-bootstrap"
+        
         terraform apply -auto-approve -var="environment=${{ github.event.inputs.environment || 'staging' }}"
         
         # Get outputs for function deployment
@@ -347,7 +359,10 @@ jobs:
         
         # Get function app URL
         cd infra
-        terraform init
+        terraform init -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" \
+                      -backend-config="container_name=tfstate" \
+                      -backend-config="key=${{ github.event.inputs.environment || 'staging' }}.tfstate" \
+                      -backend-config="resource_group_name=ai-content-farm-bootstrap"
         FUNCTION_URL=$(terraform output -raw function_app_url)
         cd ..
         

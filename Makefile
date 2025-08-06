@@ -1,6 +1,6 @@
 # Makefile for AI Content Farm Project
 
-.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format apply verify destroy security-scan cost-estimate sbom tfsec terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles
+.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format apply verify destroy security-scan cost-estimate sbom tfsec terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles bootstrap-init bootstrap-plan bootstrap-apply setup-remote-state
 
 help:
 	@echo "Available targets:"
@@ -18,6 +18,12 @@ help:
 	@echo "  apply           - Deploy infrastructure after verification"
 	@echo "  destroy         - Destroy infrastructure"
 	@echo "  clean           - Remove build artifacts"
+	@echo ""
+	@echo "Bootstrap (one-time setup):"
+	@echo "  bootstrap-init   - Initialize bootstrap Terraform (Azure AD app, state storage)"
+	@echo "  bootstrap-plan   - Plan bootstrap infrastructure changes"
+	@echo "  bootstrap-apply  - Apply bootstrap infrastructure (creates state storage, Azure AD)"
+	@echo "  setup-remote-state - Configure main Terraform to use remote state"
 	@echo ""
 	@echo "Environment-specific targets:"
 	@echo "  deploy-staging   - Deploy to staging environment (develop branch)"
@@ -44,6 +50,43 @@ help:
 	@echo "  setup-azure-oidc - Setup Azure OIDC for GitHub Actions (recommended)"
 	@echo "  bootstrap-azure  - Bootstrap infrastructure with OIDC via Terraform"
 	@echo "  setup-azure-sp   - Show Azure Service Principal setup instructions"
+
+# Bootstrap targets (one-time setup)
+bootstrap-init:
+	@echo "🚀 Initializing bootstrap infrastructure..."
+	@echo "This creates the foundation: Azure AD app and Terraform state storage"
+	cd infra/bootstrap && terraform init
+
+bootstrap-plan:
+	@echo "📋 Planning bootstrap infrastructure..."
+	cd infra/bootstrap && terraform plan -var="environment=${ENVIRONMENT:-staging}"
+
+bootstrap-apply:
+	@echo "🔧 Applying bootstrap infrastructure..."
+	cd infra/bootstrap && terraform apply -var="environment=${ENVIRONMENT:-staging}" -auto-approve
+	@echo ""
+	@echo "✅ Bootstrap complete! Setting up GitHub repository variables..."
+	@echo ""
+	@echo "🔑 GitHub Repository Variables (set these in your GitHub repo settings):"
+	@echo "=================================================="
+	cd infra/bootstrap && terraform output -json github_variables_setup | jq -r 'to_entries[] | "gh variable set \(.key) --body \"\(.value)\""'
+	@echo ""
+	@echo "🏗️ Now configuring main Terraform to use remote state..."
+	$(MAKE) setup-remote-state
+
+setup-remote-state:
+	@echo "🔧 Configuring main Terraform to use remote state..."
+	@STORAGE_ACCOUNT=$$(cd infra/bootstrap && terraform output -raw storage_account_name); \
+	CONTAINER_NAME=$$(cd infra/bootstrap && terraform output -raw container_name); \
+	RESOURCE_GROUP=$$(cd infra/bootstrap && terraform output -raw resource_group_name); \
+	ENVIRONMENT=$${ENVIRONMENT:-staging}; \
+	echo "Configuring backend for environment: $$ENVIRONMENT"; \
+	cd infra && terraform init -reconfigure \
+		-backend-config="storage_account_name=$$STORAGE_ACCOUNT" \
+		-backend-config="container_name=$$CONTAINER_NAME" \
+		-backend-config="key=$$ENVIRONMENT.tfstate" \
+		-backend-config="resource_group_name=$$RESOURCE_GROUP"
+	@echo "✅ Remote state configured successfully!"
 
 # Terraform targets
 terraform-format:
@@ -579,14 +622,8 @@ setup-azure-oidc:
 
 # Bootstrap Azure infrastructure with OIDC (IaC approach)
 bootstrap-azure:
-	@echo "🚀 Bootstrapping Azure infrastructure with OIDC..."
-	@echo "This will create the Azure AD app and infrastructure via Terraform"
-	cd infra && terraform init
-	cd infra && terraform plan -var-file="staging.tfvars"
-	cd infra && terraform apply -var-file="staging.tfvars" -auto-approve
-	@echo ""
-	@echo "✅ Infrastructure deployed! Now setting GitHub variables:"
-	cd infra && terraform output github_variables_setup_command
+	@echo "🚀 Running automated bootstrap setup..."
+	./scripts/bootstrap.sh ${ENVIRONMENT:-staging}
 
 # Show required Azure service principal setup
 setup-azure-sp:
