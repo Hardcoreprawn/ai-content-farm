@@ -6,7 +6,7 @@
 echo "🔧 Fixing OIDC federated identity credentials for environment deployments..."
 
 # Get the Azure AD application
-APP_ID=$(az ad app list --display-name "ai-content-github-actions" --query "[0].appId" -o tsv)
+APP_ID=$(az ad app list --display-name "ai-content-farm-github-staging" --query "[0].appId" -o tsv)
 APP_OBJECT_ID=$(az ad app show --id $APP_ID --query "id" -o tsv)
 
 if [ -z "$APP_ID" ]; then
