@@ -392,18 +392,18 @@ jobs:
   deployment-notification:
     runs-on: ubuntu-latest
     name: Deployment Status Notification
-    needs: [deploy-staging, deploy-production]
+    needs: [deploy-to-staging, deploy-to-production]
     if: always()
     
     steps:
     - name: Notify Deployment Status
       run: |
-        if [ "${{ needs.deploy-staging.result }}" == "success" ]; then
+        if [ "${{ needs.deploy-to-staging.result }}" == "success" ]; then
           echo "✅ Staging deployment completed successfully"
         fi
-        if [ "${{ needs.deploy-production.result }}" == "success" ]; then
+        if [ "${{ needs.deploy-to-production.result }}" == "success" ]; then
           echo "✅ Production deployment completed successfully"
         fi
-        if [ "${{ needs.deploy-staging.result }}" == "failure" ] || [ "${{ needs.deploy-production.result }}" == "failure" ]; then
+        if [ "${{ needs.deploy-to-staging.result }}" == "failure" ] || [ "${{ needs.deploy-to-production.result }}" == "failure" ]; then
           echo "❌ Deployment failed - check logs for details"
         fi
