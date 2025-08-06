@@ -1,5 +1,8 @@
 # Copilot Agent Instructions
 
+- Always check the Project Status and Project log to understand where we are and what to do next.
+- Always following our coding standards and rules below. If you cannot, you need to ask for permission.
+
 ## Documentation Rules
 - **No document sprawl** - use `/docs` folder for detailed documentation
 - **One TODO list** - SIMPLE_TASKS.md only, not multiple planning docs

@@ -79,3 +79,37 @@ This file records all actions taken by GitHub Copilot for the 'Hot Topics Feed' 
 - **Clean Deployment**: Successfully deleted resource group `ai-content-dev-rg` for clean Terraform deployment
 
 - **Validation**: Terraform configuration validated successfully using `make infra` target
+
+## 2025-08-06 - Pipeline Optimization Analysis
+
+- **Identified Opportunity**: Significant code duplication between GitHub Actions workflow and Makefile
+- **Current State Analysis**:
+  - Makefile has comprehensive `make verify` target with all security scans, terraform validation, cost estimation
+  - GitHub Actions duplicates ~200 lines of tool installation and execution
+  - Manual terraform commands scattered throughout workflow jobs
+  - Inconsistent tool versions between local dev and CI
+
+- **Proposed Solution**: Refactor GitHub Actions to reuse Makefile targets
+  - Replace security-gate job with `make verify`
+  - Replace terraform commands with `make infra`, `make apply`, etc.
+  - Maintain GitHub Actions-specific features (outputs, artifacts, environment variables)
+  - Estimated 60% reduction in workflow complexity
+
+- **Benefits**:
+  - Single source of truth for build/deploy logic
+  - Easier maintenance and updates
+  - Consistent behavior between local development and CI
+  - Faster troubleshooting (developers can reproduce CI locally with same commands)
+
+- **Added to Backlog**: SIMPLE_TASKS.md updated with priority pipeline optimization task
+
+## 2025-08-06 - Deployment Pipeline Troubleshooting
+
+- **Issue Identified**: GitHub Actions pipeline failing on Azure AD application data source lookup
+- **Root Cause**: Service principal lacks permission to search Azure AD applications by `display_name`
+- **Solution Applied**: Modified data source to use `client_id` lookup instead of `display_name`
+  - Changed from: `data "azuread_application" "github_actions" { display_name = "ai-content-farm-github-staging" }`
+  - Changed to: `data "azuread_application" "github_actions" { client_id = "c5deb409-eb9b-44be-9519-9a24a7dce9d6" }`
+
+- **Testing**: Local terraform validation successful, new pipeline run initiated
+- **Next Steps**: Monitor pipeline progress, expect successful deployment to development environment

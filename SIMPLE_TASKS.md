@@ -18,6 +18,14 @@
 - [ ] End-to-end test
 - [ ] Add to CI/CD
 
+## Pipeline Optimization
+- [ ] **PRIORITY: Simplify GitHub Actions by reusing Makefile targets**
+  - Benefits: Reduce duplication, easier maintenance, consistent behavior between local and CI
+  - Current state: ~200 lines of duplicated tool installation and execution
+  - Target: Replace with `make verify`, `make apply`, etc.
+  - Considerations: Handle GitHub Actions-specific requirements (outputs, artifacts, environment variables)
+  - Estimated savings: 60% reduction in workflow complexity
+
 ## Plan improvements
 - [ ] Split up GetHotTopics function
 - [ ] Design better content pipeline
