@@ -113,3 +113,16 @@ This file records all actions taken by GitHub Copilot for the 'Hot Topics Feed' 
 
 - **Testing**: Local terraform validation successful, new pipeline run initiated
 - **Next Steps**: Monitor pipeline progress, expect successful deployment to development environment
+
+## 2025-08-06 - Azure AD Permissions Resolution
+
+- **Issue**: GitHub Actions pipeline failing with "Authorization_RequestDenied: Insufficient privileges"
+- **Root Cause**: Service principal lacked Azure AD permissions to read application data sources
+- **Solution Applied**: 
+  - Granted `Application.Read.All` permission (ID: 9a5d68dd-52b0-4cc2-bd40-abcf44ac3a30) to service principal
+  - Used `az ad app permission add` and `az ad app permission admin-consent`
+  - Verified permission granted successfully
+
+- **Testing**: Local terraform plan now succeeds on Azure AD data sources
+- **Status**: New pipeline run triggered to test full deployment
+- **Expected Outcome**: Should reach deployment stage successfully

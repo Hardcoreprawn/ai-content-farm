@@ -31,7 +31,7 @@ output "application_insights_name" {
 # GitHub Actions OIDC Configuration
 output "github_actions_client_id" {
   description = "Client ID for GitHub Actions OIDC"
-  value       = azuread_application.github_actions.client_id
+  value       = data.azuread_application.github_actions.client_id
 }
 
 output "github_actions_tenant_id" {

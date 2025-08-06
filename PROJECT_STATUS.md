@@ -1,11 +1,11 @@
 # AI Content Farm - Project Status Report
 *Updated: August 6, 2025*
 
-## 🎯 **Current Status: TESTING OIDC FIX**
+## 🎯 **Current Status: RESOLVING AZURE AD PERMISSIONS**
 
-**Pipeline Status**: ⏳ Testing OIDC fix → Staging deployment → Integration tests
-**Today's Progress**: Fixed OpenAI API key handling + OIDC environment credentials
-**Next Steps**: Verify staging works → Clean up scripts → Add testing foundation
+**Pipeline Status**: ⏳ Testing Azure AD permission fix → Deployment → Integration tests
+**Today's Progress**: Fixed Azure AD application data source permissions + Terraform configuration
+**Next Steps**: Verify deployment succeeds → Complete staging environment → Add testing foundation
 
 ---
 
