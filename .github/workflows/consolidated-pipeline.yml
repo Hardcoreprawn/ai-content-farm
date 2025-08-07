@@ -77,12 +77,12 @@ jobs:
         checkov -d functions --quiet --compact --output json --output-file-path security-results/checkov-functions.json || true
         
         # Run TFSec
-        cd infra && tfsec . --format json --out ../security-results/tfsec.json --soft-fail || TFSEC_EXIT=$?
-        cd ..
+        cd infra/application && tfsec . --format json --out ../../security-results/tfsec.json --soft-fail || TFSEC_EXIT=$?
+        cd ../..
         
         # Run Terrascan
-        cd infra && terrascan scan -i terraform --output json > ../security-results/terrascan.json || TERRASCAN_EXIT=$?
-        cd ..
+        cd infra/application && terrascan scan -i terraform --output json > ../../security-results/terrascan.json || TERRASCAN_EXIT=$?
+        cd ../..
         
         # Generate SBOM
         syft functions -o json=security-results/sbom.json
@@ -221,7 +221,7 @@ jobs:
     - name: Terraform Plan for Cost Analysis
       id: terraform-plan
       run: |
-        cd infra
+        cd infra/application
         
         # Configure backend for remote state
         terraform init -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" \
@@ -359,7 +359,7 @@ jobs:
 
     - name: Deploy Infrastructure
       run: |
-        cd infra
+        cd infra/application
         
         # Configure backend for remote state
         terraform init -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" \
@@ -420,13 +420,13 @@ jobs:
         pip install pytest requests azure-identity azure-keyvault-secrets
         
         # Get function app URL
-        cd infra
+        cd infra/application
         terraform init -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" \
                       -backend-config="container_name=tfstate" \
                       -backend-config="key=${{ github.event.inputs.environment || 'staging' }}.tfstate" \
                       -backend-config="resource_group_name=ai-content-farm-bootstrap"
         FUNCTION_URL=$(terraform output -raw function_app_url)
-        cd ..
+        cd ../..
         
         # Run tests
         export FUNCTION_URL=$FUNCTION_URL

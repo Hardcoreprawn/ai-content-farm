@@ -1,21 +1,44 @@
-# Infrastructure Setup Guide
+# AI Content Farm Infrastructure
 
-This guide explains how to set up the AI Content Farm infrastructure with proper separation between bootstrap and application layers.
+This directory contains the Infrastructure as Code (IaC) for the AI Content Farm project, organized into separate modules for clear separation of concerns.
 
-## Architecture Overview
+## Directory Structure
 
-The infrastructure is split into two layers:
+```
+infra/
+├── bootstrap/          # Foundation infrastructure setup
+├── application/        # Main application infrastructure
+└── README.md          # This file
+```
 
-1. **Bootstrap Layer** (`infra/bootstrap/`): Creates foundation resources
-   - Azure AD Application for GitHub Actions OIDC
-   - Storage Account for Terraform remote state
-   - Basic permissions and federated identity credentials
+## Modules
 
-2. **Application Layer** (`infra/`): Creates the application infrastructure
-   - Function Apps
-   - Key Vault
-   - Storage Account for content
-   - Monitoring and logging
+### 1. Bootstrap (`bootstrap/`)
+**Purpose**: Creates the foundational infrastructure required before deploying the main application.
+
+**Contains**:
+- GitHub Actions service principal and OIDC federated identity credentials
+- Azure AD application for CI/CD authentication
+- Remote state storage (Azure Storage Account)
+- Role assignments for GitHub Actions
+
+**State Management**: Uses local state (since it creates the remote state storage)
+
+**Deploy Order**: Must be deployed FIRST
+
+### 2. Application (`application/`)
+**Purpose**: Creates the main application infrastructure including Function Apps, Key Vault, storage, and monitoring.
+
+**Contains**:
+- Azure Function Apps for the content processing pipeline
+- Key Vault for secrets management
+- Storage accounts for data persistence
+- Application Insights and Log Analytics for monitoring
+- Cost monitoring and alerting
+
+**State Management**: Uses remote state (created by bootstrap)
+
+**Deploy Order**: Deploy AFTER bootstrap
 
 ## Setup Process
 
