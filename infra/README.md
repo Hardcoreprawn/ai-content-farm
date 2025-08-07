@@ -1,6 +1,6 @@
 # AI Content Farm Infrastructure
 
-This directory contains the Infrastructure as Code (IaC) for the AI Content Farm project, organized into separate modules for clear separation of concerns.
+This directory contains the Infrastructure as Code (IaC) for the AI Content Farm project, organised into separate modules for clear separation of concerns.
 
 ## Directory Structure
 
