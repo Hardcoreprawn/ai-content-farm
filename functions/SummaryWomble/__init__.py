@@ -78,7 +78,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         if credentials_config.get('source') == 'keyvault':
             # Get from Key Vault
             try:
-                key_vault_url = credentials_config.get('vault_url', f"https://hottopicskvib91ea.vault.azure.net")
+                key_vault_url = credentials_config.get('vault_url', f"https://aicontentstagingkvt0t36m.vault.azure.net")
                 secret_client = SecretClient(vault_url=key_vault_url, credential=credential)
                 
                 reddit_client_id = secret_client.get_secret(
@@ -104,7 +104,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         else:
             # Default: try Key Vault with environment defaults
             try:
-                key_vault_url = f"https://hottopicskvib91ea.vault.azure.net"
+                key_vault_url = f"https://aicontentstagingkvt0t36m.vault.azure.net"
                 secret_client = SecretClient(vault_url=key_vault_url, credential=credential)
                 
                 reddit_client_id = secret_client.get_secret("reddit-client-id").value

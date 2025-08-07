@@ -282,6 +282,19 @@ resource "azurerm_role_assignment" "storage_account_contributor" {
   depends_on           = [azurerm_linux_function_app.main]
 }
 
+# Role assignments for admin user to access storage
+resource "azurerm_role_assignment" "admin_storage_blob_data_contributor" {
+  scope                = azurerm_storage_account.main.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = var.admin_user_object_id
+}
+
+resource "azurerm_role_assignment" "admin_storage_account_contributor" {
+  scope                = azurerm_storage_account.main.id
+  role_definition_name = "Storage Account Contributor"
+  principal_id         = var.admin_user_object_id
+}
+
 # Optionally add Cognitive Account and Key Vault secret if OpenAI integration is needed
 # resource "azurerm_cognitive_account" "openai" { ... }
 # resource "azurerm_key_vault_secret" "openai_key" { ... }

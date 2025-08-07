@@ -17,6 +17,29 @@ A secure, enterprise-grade Azure Functions application that fetches trending top
 
 ## 🚀 Quick Start
 
+### Prerequisites
+- Azure CLI logged in
+- Function app infrastructure deployed (ai-content-staging-func)
+
+### Deploy Function Code (READY NOW)
+```bash
+cd /workspaces/ai-content-farm/functions
+func azure functionapp publish ai-content-staging-func
+```
+
+### Test Deployed Function
+```bash
+curl https://ai-content-staging-func.azurewebsites.net/api/GetHotTopics
+```
+
+### Configure Reddit Credentials
+```bash
+# Set real values in Key Vault
+az keyvault secret set --vault-name aicontentstagingkvt0t36m --name reddit-client-id --value "YOUR_ACTUAL_CLIENT_ID"
+az keyvault secret set --vault-name aicontentstagingkvt0t36m --name reddit-client-secret --value "YOUR_ACTUAL_CLIENT_SECRET"
+az keyvault secret set --vault-name aicontentstagingkvt0t36m --name reddit-user-agent --value "YourApp/1.0 by YourUsername"
+```
+
 ### Development Setup
 
 1. **Install Prerequisites**:

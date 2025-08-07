@@ -2,19 +2,19 @@
 # This creates the foundation resources needed before the main infrastructure
 
 terraform {
-  required_version = ">= 1.0"
+  required_version = ">= 1.3.0"
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = "4.37.0"
     }
     azuread = {
       source  = "hashicorp/azuread"
-      version = "~> 2.0"
+      version = "~> 2.47"
     }
     random = {
       source  = "hashicorp/random"
-      version = "~> 3.0"
+      version = "3.6.0"
     }
   }
 }
@@ -26,9 +26,12 @@ provider "azurerm" {
       recover_soft_deleted_key_vaults = true
     }
   }
+  subscription_id = var.subscription_id
 }
 
 provider "azuread" {}
+
+provider "random" {}
 
 # Get current Azure configuration
 data "azurerm_client_config" "current" {}
@@ -47,7 +50,7 @@ resource "azurerm_resource_group" "bootstrap" {
 
 # Storage account for Terraform remote state
 resource "azurerm_storage_account" "tfstate" {
-  name                     = "aicontentfarmtfstate${random_string.suffix.result}"
+  name                     = "aicontentfarm${random_string.suffix.result}"
   resource_group_name      = azurerm_resource_group.bootstrap.name
   location                 = azurerm_resource_group.bootstrap.location
   account_tier             = "Standard"
@@ -68,7 +71,7 @@ resource "azurerm_storage_account" "tfstate" {
 # Storage container for Terraform state
 resource "azurerm_storage_container" "tfstate" {
   name                  = "tfstate"
-  storage_account_id    = azurerm_storage_account.tfstate.id
+  storage_account_id  = azurerm_storage_account.tfstate.name
   container_access_type = "private"
 }
 
@@ -100,7 +103,7 @@ resource "azuread_application" "github_actions" {
 # Service Principal for the Azure AD Application
 resource "azuread_service_principal" "github_actions" {
   client_id = azuread_application.github_actions.client_id
-  
+
   tags = ["github-actions", "oidc", var.environment]
 }
 

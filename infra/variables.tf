@@ -66,3 +66,9 @@ variable "cost_alert_email" {
   default     = ""
   sensitive   = false
 }
+
+variable "admin_user_object_id" {
+  description = "Azure AD Object ID of the admin user who should have storage access"
+  type        = string
+  default     = "e96077a7-82ec-4be0-86d5-ac85fdec6312"
+}

@@ -4,6 +4,12 @@ variable "location" {
   default     = "westeurope"
 }
 
+variable "subscription_id" {
+  description = "Azure subscription ID"
+  type        = string
+  default     = "6b924609-f8c6-4bd2-a873-2b8f55596f67"
+}
+
 variable "environment" {
   description = "Environment name (staging, production)"
   type        = string
