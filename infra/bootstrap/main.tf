@@ -135,6 +135,25 @@ resource "azuread_application_federated_identity_credential" "pull_requests" {
   subject        = "repo:${var.github_repository}:pull_request"
 }
 
+# Environment-based federated identity credentials for GitHub Environments
+resource "azuread_application_federated_identity_credential" "staging_environment" {
+  application_id = azuread_application.github_actions.id
+  display_name   = "staging-environment"
+  description    = "Staging environment deployment"
+  audiences      = ["api://AzureADTokenExchange"]
+  issuer         = "https://token.actions.githubusercontent.com"
+  subject        = "repo:${var.github_repository}:environment:staging"
+}
+
+resource "azuread_application_federated_identity_credential" "production_environment" {
+  application_id = azuread_application.github_actions.id
+  display_name   = "production-environment"
+  description    = "Production environment deployment"
+  audiences      = ["api://AzureADTokenExchange"]
+  issuer         = "https://token.actions.githubusercontent.com"
+  subject        = "repo:${var.github_repository}:environment:production"
+}
+
 # Role assignment for the service principal at subscription level
 resource "azurerm_role_assignment" "github_actions_contributor" {
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
