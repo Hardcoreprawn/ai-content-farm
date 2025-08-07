@@ -32,12 +32,19 @@ func azure functionapp publish ai-content-staging-func
 curl https://ai-content-staging-func.azurewebsites.net/api/GetHotTopics
 ```
 
-### Configure Reddit Credentials
+### Configure Secrets in Key Vaults
 ```bash
-# Set real values in Key Vault
-az keyvault secret set --vault-name aicontentstagingkvt0t36m --name reddit-client-id --value "YOUR_ACTUAL_CLIENT_ID"
-az keyvault secret set --vault-name aicontentstagingkvt0t36m --name reddit-client-secret --value "YOUR_ACTUAL_CLIENT_SECRET"
-az keyvault secret set --vault-name aicontentstagingkvt0t36m --name reddit-user-agent --value "YourApp/1.0 by YourUsername"
+# Use the interactive setup script (recommended)
+make setup-keyvault
+
+# Or set manually:
+# Application secrets (in application Key Vault)
+az keyvault secret set --vault-name "{app-vault-name}" --name reddit-client-id --value "YOUR_ACTUAL_CLIENT_ID"
+az keyvault secret set --vault-name "{app-vault-name}" --name reddit-client-secret --value "YOUR_ACTUAL_CLIENT_SECRET"
+az keyvault secret set --vault-name "{app-vault-name}" --name reddit-user-agent --value "YourApp/1.0 by YourUsername"
+
+# CI/CD secrets (in CI/CD Key Vault)
+az keyvault secret set --vault-name "{cicd-vault-name}" --name infracost-api-key --value "YOUR_INFRACOST_KEY"
 ```
 
 ### Development Setup

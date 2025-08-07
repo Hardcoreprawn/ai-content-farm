@@ -10,7 +10,7 @@
 - **Temporary files** go in `.temp/` (gitignored) or are deleted after session
 - **No session logs** in git - use temporary files or `.github/` for agent notes
 - **Consolidate redundancy** - merge duplicate information, don't create new files
-- **One TODO list** - SIMPLE_TASKS.md only, not multiple planning docs
+- **One TODO list** - TODO.md only, not multiple planning docs
 - **No excessive documentation** - prefer working code over documentation theater
 
 ## Coding Rules

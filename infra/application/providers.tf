@@ -1,4 +1,8 @@
 terraform {
+  backend "azurerm" {
+    # Backend configuration is provided via -backend-config flag
+    # Use backend-staging.hcl or backend-production.hcl
+  }
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
@@ -17,8 +21,13 @@ terraform {
 }
 
 provider "azurerm" {
-  features {}
-  subscription_id = var.subscription_id != "" ? var.subscription_id : null
+  features {
+    key_vault {
+      purge_soft_delete_on_destroy    = true
+      recover_soft_deleted_key_vaults = true
+    }
+  }
+  subscription_id = var.subscription_id
 }
 
 provider "azuread" {}

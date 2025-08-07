@@ -1,5 +1,12 @@
 # TODO
 
+## **URGENT: Fix Terraform State Management** 🚨
+- [ ] **Configure Bootstrap Remote State**: Bootstrap is using local state but should migrate to remote state after creating storage account
+- [ ] **Configure Application Backend**: Application has empty backend config, needs proper remote state setup
+- [ ] **Create State Migration Process**: Document how to migrate bootstrap from local to remote state safely
+- [ ] **Add Backend Config Files**: Create proper backend.hcl files for each environment
+- [ ] **Test State Migration**: Verify bootstrap can migrate its own state to the storage account it creates
+
 ## Fix deployment
 - [x] Run `scripts/fix-oidc-environment-credentials.sh`
 - [x] Grant Azure permissions to OIDC service principal  

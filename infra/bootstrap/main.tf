@@ -2,6 +2,10 @@
 # This creates the foundation resources needed before the main infrastructure
 
 terraform {
+  # Backend configuration for remote state (use after initial bootstrap)
+  # Uncomment and run: terraform init -backend-config=backend.hcl
+  # backend "azurerm" {}
+  
   required_version = ">= 1.3.0"
   required_providers {
     azurerm = {
@@ -152,6 +156,128 @@ resource "azuread_application_federated_identity_credential" "production_environ
   audiences      = ["api://AzureADTokenExchange"]
   issuer         = "https://token.actions.githubusercontent.com"
   subject        = "repo:${var.github_repository}:environment:production"
+}
+
+# CI/CD Key Vault for GitHub Actions secrets (separate from application secrets)
+resource "azurerm_key_vault" "cicd" {
+  # checkov:skip=CKV_AZURE_189: Public access is acceptable for CI/CD use case
+  # checkov:skip=CKV_AZURE_109: Firewall rules not required for CI/CD use case
+  # checkov:skip=CKV2_AZURE_32: Private endpoint not required for CI/CD use case
+  name                = "ai-content-cicd-kv${random_string.suffix.result}"
+  location            = azurerm_resource_group.bootstrap.location
+  resource_group_name = azurerm_resource_group.bootstrap.name
+  tenant_id           = data.azurerm_client_config.current.tenant_id
+  sku_name            = "standard"
+
+  # Security settings
+  purge_protection_enabled   = true
+  soft_delete_retention_days = 7
+
+  tags = {
+    Purpose     = "ci-cd-secrets"
+    Project     = "ai-content-farm"
+    ManagedBy   = "terraform-bootstrap"
+    Environment = var.environment
+  }
+}
+
+# Key Vault access policy for current user/service principal (admin access)
+resource "azurerm_key_vault_access_policy" "cicd_admin" {
+  key_vault_id = azurerm_key_vault.cicd.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = data.azurerm_client_config.current.object_id
+
+  secret_permissions = [
+    "Get",
+    "List",
+    "Set",
+    "Delete",
+    "Purge",
+    "Recover"
+  ]
+}
+
+# Key Vault access policy for GitHub Actions service principal (read-only)
+resource "azurerm_key_vault_access_policy" "github_actions_cicd" {
+  key_vault_id = azurerm_key_vault.cicd.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = azuread_service_principal.github_actions.object_id
+
+  secret_permissions = [
+    "Get",
+    "List"
+  ]
+}
+
+# CI/CD secrets for GitHub Actions OIDC
+resource "azurerm_key_vault_secret" "azure_client_id" {
+  name            = "azure-client-id"
+  value           = azuread_application.github_actions.client_id
+  key_vault_id    = azurerm_key_vault.cicd.id
+  content_type    = "text/plain"
+
+  depends_on = [
+    azurerm_key_vault_access_policy.cicd_admin,
+    azurerm_key_vault_access_policy.github_actions_cicd
+  ]
+
+  tags = {
+    Purpose     = "github-actions-oidc"
+    Environment = var.environment
+  }
+}
+
+resource "azurerm_key_vault_secret" "azure_tenant_id" {
+  name            = "azure-tenant-id"
+  value           = data.azurerm_client_config.current.tenant_id
+  key_vault_id    = azurerm_key_vault.cicd.id
+  content_type    = "text/plain"
+
+  depends_on = [
+    azurerm_key_vault_access_policy.cicd_admin,
+    azurerm_key_vault_access_policy.github_actions_cicd
+  ]
+
+  tags = {
+    Purpose     = "github-actions-oidc"
+    Environment = var.environment
+  }
+}
+
+resource "azurerm_key_vault_secret" "azure_subscription_id" {
+  name            = "azure-subscription-id"
+  value           = data.azurerm_client_config.current.subscription_id
+  key_vault_id    = azurerm_key_vault.cicd.id
+  content_type    = "text/plain"
+
+  depends_on = [
+    azurerm_key_vault_access_policy.cicd_admin,
+    azurerm_key_vault_access_policy.github_actions_cicd
+  ]
+
+  tags = {
+    Purpose     = "github-actions-oidc"
+    Environment = var.environment
+  }
+}
+
+# CI/CD secret: Infracost API key
+resource "azurerm_key_vault_secret" "infracost_api_key" {
+  name            = "infracost-api-key"
+  value           = "placeholder-get-from-infracost-io"
+  key_vault_id    = azurerm_key_vault.cicd.id
+  content_type    = "text/plain"
+  expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
+
+  depends_on = [
+    azurerm_key_vault_access_policy.cicd_admin,
+    azurerm_key_vault_access_policy.github_actions_cicd
+  ]
+
+  tags = {
+    Purpose     = "cost-estimation"
+    Environment = var.environment
+  }
 }
 
 # Role assignment for the service principal at subscription level

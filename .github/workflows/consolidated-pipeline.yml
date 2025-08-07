@@ -165,8 +165,8 @@ jobs:
         # Verify installation
         infracost --version
         
-        # Get Infracost API key from Azure Key Vault with proper error handling
-        echo "🔑 Retrieving Infracost API key from Azure Key Vault..."
+        # Get Infracost API key from CI/CD Key Vault (in bootstrap resource group)
+        echo "🔑 Retrieving Infracost API key from CI/CD Key Vault..."
         
         # First, verify Azure authentication
         echo "🔍 Verifying Azure authentication..."
@@ -175,47 +175,45 @@ jobs:
           exit 1
         fi
         
-        # Try to find the Key Vault
-        KEYVAULT_NAME=""
-        echo "🔍 Looking for Key Vault in resource group..."
+        # Look for CI/CD Key Vault in bootstrap resource group
+        BOOTSTRAP_RG="ai-content-farm-bootstrap"
+        echo "🔍 Looking for CI/CD Key Vault in bootstrap resource group: $BOOTSTRAP_RG"
         
-        # Check both staging and production resource groups
-        for RG in "ai-content-staging-rg" "ai-content-dev-rg"; do
-          if az group show --name "$RG" > /dev/null 2>&1; then
-            echo "✅ Found resource group: $RG"
-            KEYVAULT_NAME=$(az keyvault list --resource-group "$RG" --query "[0].name" -o tsv 2>/dev/null || echo "")
-            if [ -n "$KEYVAULT_NAME" ]; then
-              echo "✅ Found Key Vault: $KEYVAULT_NAME"
-              break
+        if az group show --name "$BOOTSTRAP_RG" > /dev/null 2>&1; then
+          echo "✅ Found bootstrap resource group: $BOOTSTRAP_RG"
+          # Find CI/CD Key Vault (should contain 'cicd' in name)
+          KEYVAULT_NAME=$(az keyvault list --resource-group "$BOOTSTRAP_RG" --query "[?contains(name, 'cicd')].name" -o tsv 2>/dev/null || echo "")
+          
+          if [ -n "$KEYVAULT_NAME" ]; then
+            echo "✅ Found CI/CD Key Vault: $KEYVAULT_NAME"
+            
+            # Check if we have permission to access the Key Vault
+            if ! az keyvault secret list --vault-name "$KEYVAULT_NAME" > /dev/null 2>&1; then
+              echo "❌ No permission to access CI/CD Key Vault. This indicates missing access policy."
+              echo "The GitHub Actions service principal needs Key Vault access policy with 'Get' and 'List' permissions."
+              echo "Please deploy the bootstrap infrastructure first, then re-run this pipeline."
+              echo "Using Infracost free tier for now."
+              infracost configure set api_key ico-free-tier-key || echo "Using free tier"
+            else
+              # Try to get the API key from CI/CD vault
+              INFRACOST_API_KEY=$(az keyvault secret show --vault-name "$KEYVAULT_NAME" --name "infracost-api-key" --query "value" -o tsv 2>/dev/null || echo "")
+              if [ -n "$INFRACOST_API_KEY" ] && [ "$INFRACOST_API_KEY" != "placeholder-get-from-infracost-io" ]; then
+                echo "✅ Using Infracost API key from CI/CD Key Vault"
+                infracost configure set api_key "$INFRACOST_API_KEY"
+              else
+                echo "⚠️  Infracost API key not found or is placeholder, using free tier"
+                infracost configure set api_key ico-free-tier-key || echo "Using free tier"
+              fi
             fi
+          else
+            echo "⚠️  CI/CD Key Vault not found. This might be a first-time deployment."
+            echo "Using Infracost free tier for cost estimation."
+            infracost configure set api_key ico-free-tier-key || echo "Using free tier"
           fi
-        done
-        
-        if [ -z "$KEYVAULT_NAME" ]; then
-          echo "⚠️  No Key Vault found. This might be a first-time deployment."
+        else
+          echo "⚠️  Bootstrap resource group not found. This might be a first-time deployment."
           echo "Using Infracost free tier for cost estimation."
           infracost configure set api_key ico-free-tier-key || echo "Using free tier"
-        else
-          echo "🔑 Attempting to retrieve Infracost API key from Key Vault: $KEYVAULT_NAME"
-          
-          # Check if we have permission to access the Key Vault
-          if ! az keyvault secret list --vault-name "$KEYVAULT_NAME" > /dev/null 2>&1; then
-            echo "❌ No permission to access Key Vault. This indicates missing access policy."
-            echo "The GitHub Actions service principal needs Key Vault access policy with 'Get' and 'List' permissions."
-            echo "Please deploy the infrastructure first to create the access policy, then re-run this pipeline."
-            echo "Using Infracost free tier for now."
-            infracost configure set api_key ico-free-tier-key || echo "Using free tier"
-          else
-            # Try to get the API key
-            INFRACOST_API_KEY=$(az keyvault secret show --vault-name "$KEYVAULT_NAME" --name "infracost-api-key" --query "value" -o tsv 2>/dev/null || echo "")
-            if [ -n "$INFRACOST_API_KEY" ] && [ "$INFRACOST_API_KEY" != "placeholder-get-from-infracost-io" ]; then
-              echo "✅ Using Infracost API key from Key Vault"
-              infracost configure set api_key "$INFRACOST_API_KEY"
-            else
-              echo "⚠️  Infracost API key not found or is placeholder, using free tier"
-              infracost configure set api_key ico-free-tier-key || echo "Using free tier"
-            fi
-          fi
         fi
 
     - name: Terraform Plan for Cost Analysis

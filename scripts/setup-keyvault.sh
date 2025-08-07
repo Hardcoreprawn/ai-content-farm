@@ -1,152 +1,167 @@
 #!/bin/bash
 
 # Key Vault Setup Script for AI Content Farm
-# This script helps configure secrets in Azure Key Vault
+# This script sets up secrets in both the CI/CD and Application Key Vaults
 
 set -e
 
-echo "🔐 AI Content Farm - Key Vault Setup"
-echo "===================================="
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
 
-# Check if Azure CLI is installed and logged in
-if ! command -v az &> /dev/null; then
-    echo "❌ Azure CLI is not installed. Please install it first."
-    exit 1
-fi
+# Configuration
+ENVIRONMENT=${1:-staging}
+BOOTSTRAP_RG="ai-content-farm-bootstrap"
+APPLICATION_RG="ai-content-${ENVIRONMENT}-rg"
 
-# Check if logged in to Azure
-if ! az account show &> /dev/null; then
-    echo "❌ Not logged in to Azure. Please run 'az login' first."
-    exit 1
-fi
-
-# Get current subscription
-SUBSCRIPTION=$(az account show --query "name" -o tsv)
-echo "📋 Current subscription: $SUBSCRIPTION"
-
-# Environment selection
+echo -e "${BLUE}🔐 Key Vault Setup for AI Content Farm${NC}"
+echo -e "Environment: ${YELLOW}${ENVIRONMENT}${NC}"
 echo ""
-echo "Select environment:"
-echo "1) Development (ai-content-dev)"
-echo "2) Staging (ai-content-staging)"  
-echo "3) Production (ai-content-prod)"
-read -p "Enter choice (1-3): " ENV_CHOICE
 
-case $ENV_CHOICE in
-    1)
-        ENVIRONMENT="development"
-        RESOURCE_PREFIX="ai-content-dev"
-        ;;
-    2)
-        ENVIRONMENT="staging"
-        RESOURCE_PREFIX="ai-content-staging"
-        ;;
-    3)
-        ENVIRONMENT="production"
-        RESOURCE_PREFIX="ai-content-prod"
-        ;;
-    *)
-        echo "❌ Invalid choice"
+# Function to discover key vault names
+discover_vaults() {
+    echo -e "${BLUE}🔍 Discovering Key Vaults...${NC}"
+    
+    # Find CI/CD vault in bootstrap resource group
+    CICD_VAULT=$(az keyvault list --resource-group "${BOOTSTRAP_RG}" --query "[0].name" -o tsv 2>/dev/null || echo "")
+    
+    # Find Application vault in application resource group  
+    APP_VAULT=$(az keyvault list --resource-group "${APPLICATION_RG}" --query "[0].name" -o tsv 2>/dev/null || echo "")
+    
+    if [[ -z "$CICD_VAULT" ]]; then
+        echo -e "${RED}❌ CI/CD Key Vault not found in ${BOOTSTRAP_RG}${NC}"
+        echo "Please run 'make bootstrap' first to create the bootstrap infrastructure."
         exit 1
-        ;;
-esac
+    fi
+    
+    if [[ -z "$APP_VAULT" ]]; then
+        echo -e "${RED}❌ Application Key Vault not found in ${APPLICATION_RG}${NC}"
+        echo "Please run 'make deploy' first to create the application infrastructure."
+        exit 1
+    fi
+    
+    echo -e "${GREEN}✅ Found CI/CD Key Vault: ${CICD_VAULT}${NC}"
+    echo -e "${GREEN}✅ Found Application Key Vault: ${APP_VAULT}${NC}"
+}
 
-echo "Selected environment: $ENVIRONMENT"
+# Function to set a secret with confirmation
+set_secret() {
+    local vault_name=$1
+    local secret_name=$2
+    local description=$3
+    local is_sensitive=${4:-true}
+    
+    echo ""
+    echo -e "${YELLOW}Setting: ${secret_name}${NC}"
+    echo -e "Description: ${description}"
+    echo -e "Vault: ${vault_name}"
+    
+    if [[ "$is_sensitive" == "true" ]]; then
+        read -s -p "Enter value (hidden): " secret_value
+        echo ""
+    else
+        read -p "Enter value: " secret_value
+    fi
+    
+    if [[ -n "$secret_value" ]]; then
+        az keyvault secret set \
+            --vault-name "$vault_name" \
+            --name "$secret_name" \
+            --value "$secret_value" \
+            --output none
+        echo -e "${GREEN}✅ Secret '${secret_name}' set successfully${NC}"
+    else
+        echo -e "${YELLOW}⚠️  Skipping empty secret '${secret_name}'${NC}"
+    fi
+}
 
-# Find Key Vault
-RESOURCE_GROUP="${RESOURCE_PREFIX}-rg"
-echo "🔍 Looking for Key Vault in resource group: $RESOURCE_GROUP"
+# Function to setup CI/CD secrets
+setup_cicd_secrets() {
+    echo ""
+    echo -e "${BLUE}🚀 Setting up CI/CD secrets in ${CICD_VAULT}${NC}"
+    
+    # GitHub Actions OIDC identifiers (not secrets since we use federated credentials)
+    set_secret "$CICD_VAULT" "azure-client-id" "Azure Service Principal Client ID for GitHub Actions OIDC" false
+    set_secret "$CICD_VAULT" "azure-tenant-id" "Azure Tenant ID for GitHub Actions OIDC" false
+    set_secret "$CICD_VAULT" "azure-subscription-id" "Azure Subscription ID for GitHub Actions OIDC" false
+    
+    # Optional: Update Infracost API key if you have one
+    echo ""
+    echo -e "${YELLOW}Infracost API key already exists with placeholder. Update it? (y/N)${NC}"
+    read -p "Update Infracost key: " update_infracost
+    if [[ "$update_infracost" == "y" ]]; then
+        set_secret "$CICD_VAULT" "infracost-api-key" "Infracost API key for cost estimation"
+    fi
+}
 
-KEYVAULT_NAME=$(az keyvault list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv 2>/dev/null || echo "")
+# Function to setup application secrets
+setup_application_secrets() {
+    echo ""
+    echo -e "${BLUE}🚀 Setting up Application secrets in ${APP_VAULT}${NC}"
+    
+    # Only the Reddit API credentials that are actually used by the functions
+    echo -e "${YELLOW}Setting up Reddit API credentials (required for functions to work)${NC}"
+    set_secret "$APP_VAULT" "reddit-client-id" "Reddit API Client ID"
+    set_secret "$APP_VAULT" "reddit-client-secret" "Reddit API Client Secret" 
+    set_secret "$APP_VAULT" "reddit-user-agent" "Reddit API User Agent" false
+    
+    echo ""
+    echo -e "${GREEN}✅ Application secrets configured!${NC}"
+    echo -e "${YELLOW}Note: Storage and Application Insights are automatically configured by Terraform.${NC}"
+}
 
-if [ -z "$KEYVAULT_NAME" ]; then
-    echo "❌ Key Vault not found in resource group $RESOURCE_GROUP"
-    echo "   Please deploy the infrastructure first with 'make apply'"
-    exit 1
-fi
+# Main execution
+main() {
+    # Check Azure CLI login
+    if ! az account show >/dev/null 2>&1; then
+        echo -e "${RED}❌ Please run 'az login' first${NC}"
+        exit 1
+    fi
+    
+    # Discover vaults
+    discover_vaults
+    
+    echo ""
+    echo -e "${YELLOW}What would you like to set up?${NC}"
+    echo "1) CI/CD secrets only"
+    echo "2) Application secrets only"  
+    echo "3) Both CI/CD and Application secrets"
+    echo "4) Exit"
+    
+    read -p "Choose an option (1-4): " choice
+    
+    case $choice in
+        1)
+            setup_cicd_secrets
+            ;;
+        2)
+            setup_application_secrets
+            ;;
+        3)
+            setup_cicd_secrets
+            setup_application_secrets
+            ;;
+        4)
+            echo -e "${BLUE}👋 Exiting...${NC}"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}❌ Invalid choice${NC}"
+            exit 1
+            ;;
+    esac
+    
+    echo ""
+    echo -e "${GREEN}🎉 Key Vault setup completed successfully!${NC}"
+    echo ""
+    echo -e "${YELLOW}Next steps:${NC}"
+    echo "• Update your function app settings to reference these Key Vault secrets"
+    echo "• Test your application to ensure secrets are accessible"
+    echo "• Consider setting up secret rotation policies"
+}
 
-echo "✅ Found Key Vault: $KEYVAULT_NAME"
-
-# Configure Reddit API secrets
-echo ""
-echo "🤖 Reddit API Configuration"
-echo "=========================="
-
-read -p "Enter Reddit Client ID (or press Enter to skip): " REDDIT_CLIENT_ID
-if [ -n "$REDDIT_CLIENT_ID" ]; then
-    echo "Setting reddit-client-id..."
-    az keyvault secret set --vault-name "$KEYVAULT_NAME" --name "reddit-client-id" --value "$REDDIT_CLIENT_ID" > /dev/null
-    echo "✅ Reddit Client ID stored"
-fi
-
-read -s -p "Enter Reddit Client Secret (or press Enter to skip): " REDDIT_CLIENT_SECRET
-echo ""
-if [ -n "$REDDIT_CLIENT_SECRET" ]; then
-    echo "Setting reddit-client-secret..."
-    az keyvault secret set --vault-name "$KEYVAULT_NAME" --name "reddit-client-secret" --value "$REDDIT_CLIENT_SECRET" > /dev/null
-    echo "✅ Reddit Client Secret stored"
-fi
-
-read -p "Enter Reddit User Agent [ai-content-farm:v1.0 (by /u/your-username)]: " REDDIT_USER_AGENT
-REDDIT_USER_AGENT=${REDDIT_USER_AGENT:-"ai-content-farm:v1.0 (by /u/your-username)"}
-echo "Setting reddit-user-agent..."
-az keyvault secret set --vault-name "$KEYVAULT_NAME" --name "reddit-user-agent" --value "$REDDIT_USER_AGENT" > /dev/null
-echo "✅ Reddit User Agent stored"
-
-# Configure Infracost API key
-echo ""
-echo "💰 Infracost Configuration"
-echo "========================"
-
-read -s -p "Enter Infracost API Key (get from https://infracost.io): " INFRACOST_API_KEY
-echo ""
-if [ -n "$INFRACOST_API_KEY" ]; then
-    echo "Setting infracost-api-key..."
-    az keyvault secret set --vault-name "$KEYVAULT_NAME" --name "infracost-api-key" --value "$INFRACOST_API_KEY" > /dev/null
-    echo "✅ Infracost API Key stored"
-else
-    echo "⚠️  Infracost API key not provided. Cost estimation will be limited."
-fi
-
-# Verify stored secrets
-echo ""
-echo "🔍 Verifying stored secrets..."
-echo "=============================="
-
-SECRETS=$(az keyvault secret list --vault-name "$KEYVAULT_NAME" --query "[].name" -o tsv | grep -E "(reddit|infracost)" || echo "")
-
-if [ -n "$SECRETS" ]; then
-    echo "✅ Secrets found in Key Vault:"
-    for secret in $SECRETS; do
-        echo "   - $secret"
-    done
-else
-    echo "⚠️  No secrets found. Please check the configuration."
-fi
-
-# GitHub Actions Configuration
-echo ""
-echo "🚀 GitHub Actions Configuration"
-echo "==============================="
-echo ""
-echo "For GitHub Actions to work, you still need these secrets in GitHub:"
-echo ""
-echo "Required GitHub Repository Secrets:"
-echo "   ARM_CLIENT_ID=<service-principal-client-id>"
-echo "   ARM_CLIENT_SECRET=<service-principal-secret>"
-echo "   ARM_SUBSCRIPTION_ID=$(az account show --query "id" -o tsv)"
-echo "   ARM_TENANT_ID=$(az account show --query "tenantId" -o tsv)"
-echo "   AZURE_CREDENTIALS=<service-principal-json>"
-echo ""
-echo "Optional GitHub Repository Secrets (fallback):"
-echo "   INFRACOST_API_KEY=<your-infracost-key> (if not in Key Vault)"
-echo ""
-echo "To create a service principal for GitHub Actions:"
-echo "   az ad sp create-for-rbac --name \"ai-content-farm-cicd\" \\"
-echo "     --role contributor \\"
-echo "     --scopes /subscriptions/$(az account show --query "id" -o tsv) \\"
-echo "     --sdk-auth"
-echo ""
-echo "✅ Key Vault setup complete for $ENVIRONMENT environment!"
-echo "🔐 Key Vault: $KEYVAULT_NAME"
-echo "📋 Resource Group: $RESOURCE_GROUP"
+# Run main function
+main "$@"

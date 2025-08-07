@@ -23,6 +23,16 @@ output "github_actions_object_id" {
   value       = azuread_service_principal.github_actions.object_id
 }
 
+output "cicd_key_vault_name" {
+  description = "Name of the CI/CD Key Vault for GitHub Actions secrets"
+  value       = azurerm_key_vault.cicd.name
+}
+
+output "cicd_key_vault_uri" {
+  description = "URI of the CI/CD Key Vault for GitHub Actions secrets"
+  value       = azurerm_key_vault.cicd.vault_uri
+}
+
 output "azure_tenant_id" {
   description = "Azure Tenant ID"
   value       = data.azurerm_client_config.current.tenant_id

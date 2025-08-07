@@ -74,8 +74,16 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         # Get Reddit API credentials
         reddit_client_id = None
         reddit_client_secret = None
+        reddit_user_agent = None
 
-        if credentials_config.get('source') == 'keyvault':
+        # First try environment variables (from Function App settings with Key Vault references)
+        reddit_client_id = os.environ.get("REDDIT_CLIENT_ID")
+        reddit_client_secret = os.environ.get("REDDIT_CLIENT_SECRET") 
+        reddit_user_agent = os.environ.get("REDDIT_USER_AGENT")
+
+        if reddit_client_id and reddit_client_secret and reddit_user_agent:
+            logging.info("✅ Retrieved Reddit credentials from environment variables")
+        elif credentials_config.get('source') == 'keyvault':
             # Get from Key Vault
             try:
                 key_vault_url = credentials_config.get('vault_url', f"https://aicontentstagingkvt0t36m.vault.azure.net")
@@ -104,11 +112,13 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
         else:
             # Default: try Key Vault with environment defaults
             try:
-                key_vault_url = f"https://aicontentstagingkvt0t36m.vault.azure.net"
+                # Try to get Key Vault URL from environment, otherwise use default
+                key_vault_url = os.environ.get("KEY_VAULT_URL", "https://aicontentstagingkvt0t36m.vault.azure.net")
                 secret_client = SecretClient(vault_url=key_vault_url, credential=credential)
                 
                 reddit_client_id = secret_client.get_secret("reddit-client-id").value
                 reddit_client_secret = secret_client.get_secret("reddit-client-secret").value
+                reddit_user_agent = secret_client.get_secret("reddit-user-agent").value
                 
                 logging.info("✅ Retrieved Reddit credentials from default Key Vault")
             except Exception as e:
@@ -119,9 +129,10 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
                     mimetype="application/json"
                 )
 
-        if not reddit_client_id or not reddit_client_secret:
+        if not reddit_client_id or not reddit_client_secret or not reddit_user_agent:
+            logging.error(f"❌ Missing Reddit credentials - ID: {'✓' if reddit_client_id else '✗'}, Secret: {'✓' if reddit_client_secret else '✗'}, User Agent: {'✓' if reddit_user_agent else '✗'}")
             return func.HttpResponse(
-                json.dumps({"error": "Reddit credentials not found"}),
+                json.dumps({"error": "Reddit API credentials not properly configured"}),
                 status_code=400,
                 mimetype="application/json"
             )
@@ -131,7 +142,7 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
             reddit = praw.Reddit(
                 client_id=reddit_client_id,
                 client_secret=reddit_client_secret,
-                user_agent="Summary Wombles/1.0 by AI Content Farm"
+                user_agent=reddit_user_agent
             )
             logging.info("✅ PRAW Reddit client initialized successfully")
         except Exception as e:

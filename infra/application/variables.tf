@@ -72,3 +72,9 @@ variable "admin_user_object_id" {
   type        = string
   default     = "e96077a7-82ec-4be0-86d5-ac85fdec6312"
 }
+
+variable "github_actions_client_id" {
+  description = "GitHub Actions Azure Client ID (from bootstrap output)"
+  type        = string
+  default     = ""
+}

@@ -1,16 +1,5 @@
 data "azurerm_client_config" "current" {}
 
-# Get GitHub Actions service principal from bootstrap remote state
-data "terraform_remote_state" "bootstrap" {
-  backend = "azurerm"
-  config = {
-    storage_account_name = "aicontentfarm76ko2h"
-    container_name       = "tfstate"
-    key                  = "bootstrap.tfstate"
-    resource_group_name  = "ai-content-farm-bootstrap"
-  }
-}
-
 resource "random_string" "suffix" {
   length  = 6
   upper   = false
@@ -51,7 +40,7 @@ resource "azurerm_key_vault" "main" {
   # checkov:skip=CKV_AZURE_189: Public access is acceptable for this use case
   # checkov:skip=CKV_AZURE_109: Firewall rules not required for this use case
   # checkov:skip=CKV2_AZURE_32: Private endpoint not required for this use case
-  name     = "${replace(var.resource_prefix, "-", "")}kv${random_string.suffix.result}"
+  name     = "ai-content-app-kv${random_string.suffix.result}"
   location = azurerm_resource_group.main.location
 
   resource_group_name        = azurerm_resource_group.main.name
@@ -64,6 +53,7 @@ resource "azurerm_key_vault" "main" {
     Environment = var.environment
     Project     = "ai-content-farm"
     ManagedBy   = "terraform"
+    Purpose     = "application-secrets"
   }
 
   # Enable diagnostic settings for security compliance
@@ -98,18 +88,6 @@ resource "azurerm_key_vault_access_policy" "function_app" {
   ]
 }
 
-# Key Vault access policy for GitHub Actions service principal
-resource "azurerm_key_vault_access_policy" "github_actions" {
-  key_vault_id = azurerm_key_vault.main.id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = data.terraform_remote_state.bootstrap.outputs.github_actions_object_id
-
-  secret_permissions = [
-    "Get",
-    "List"
-  ]
-}
-
 # Key Vault diagnostic settings for security compliance
 resource "azurerm_monitor_diagnostic_setting" "key_vault" {
   name                       = "key-vault-diagnostics"
@@ -129,14 +107,14 @@ resource "azurerm_monitor_diagnostic_setting" "key_vault" {
   }
 }
 
-# Key Vault secrets for CI/CD integration
+# Application secrets for Reddit API access
 resource "azurerm_key_vault_secret" "reddit_client_id" {
   name            = "reddit-client-id"
   value           = var.reddit_client_id != "" ? var.reddit_client_id : "placeholder-change-me"
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
-  depends_on      = [azurerm_key_vault_access_policy.current_user, azurerm_key_vault_access_policy.github_actions]
+  depends_on      = [azurerm_key_vault_access_policy.current_user]
 
   tags = {
     Environment = var.environment
@@ -150,7 +128,7 @@ resource "azurerm_key_vault_secret" "reddit_client_secret" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
-  depends_on      = [azurerm_key_vault_access_policy.current_user, azurerm_key_vault_access_policy.github_actions]
+  depends_on      = [azurerm_key_vault_access_policy.current_user]
 
   tags = {
     Environment = var.environment
@@ -164,26 +142,11 @@ resource "azurerm_key_vault_secret" "reddit_user_agent" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
-  depends_on      = [azurerm_key_vault_access_policy.current_user, azurerm_key_vault_access_policy.github_actions]
+  depends_on      = [azurerm_key_vault_access_policy.current_user]
 
   tags = {
     Environment = var.environment
     Purpose     = "reddit-api-access"
-  }
-}
-
-# CI/CD secrets for GitHub Actions
-resource "azurerm_key_vault_secret" "infracost_api_key" {
-  name            = "infracost-api-key"
-  value           = var.infracost_api_key != "" ? var.infracost_api_key : "placeholder-get-from-infracost-io"
-  key_vault_id    = azurerm_key_vault.main.id
-  content_type    = "text/plain"
-  expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
-  depends_on      = [azurerm_key_vault_access_policy.current_user, azurerm_key_vault_access_policy.github_actions]
-
-  tags = {
-    Environment = var.environment
-    Purpose     = "cost-estimation"
   }
 }
 
@@ -270,6 +233,14 @@ resource "azurerm_linux_function_app" "main" {
     WEBSITE_RUN_FROM_PACKAGE              = "1"
     APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.main.instrumentation_key
     APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.main.connection_string
+    
+    # Reddit API credentials from Key Vault
+    REDDIT_CLIENT_ID     = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.reddit_client_id.id})"
+    REDDIT_CLIENT_SECRET = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.reddit_client_secret.id})"
+    REDDIT_USER_AGENT    = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.reddit_user_agent.id})"
+    
+    # Key Vault URL for fallback access
+    KEY_VAULT_URL = azurerm_key_vault.main.vault_uri
   }
   #zip_deploy_file = filebase64("${path.module}/function.zip")
   site_config {
