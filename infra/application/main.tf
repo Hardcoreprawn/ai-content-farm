@@ -193,12 +193,12 @@ resource "azurerm_linux_function_app" "main" {
     WEBSITE_RUN_FROM_PACKAGE              = "1"
     APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.main.instrumentation_key
     APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.main.connection_string
-    
+
     # Reddit API credentials from Key Vault (secrets managed externally)
     REDDIT_CLIENT_ID     = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/reddit-client-id)"
     REDDIT_CLIENT_SECRET = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/reddit-client-secret)"
     REDDIT_USER_AGENT    = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/reddit-user-agent)"
-    
+
     # Key Vault URL for fallback access
     KEY_VAULT_URL = azurerm_key_vault.main.vault_uri
   }
