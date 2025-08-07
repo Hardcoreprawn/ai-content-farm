@@ -18,6 +18,11 @@ output "azure_client_id" {
   value       = azuread_application.github_actions.client_id
 }
 
+output "github_actions_object_id" {
+  description = "Object ID of the GitHub Actions service principal"
+  value       = azuread_service_principal.github_actions.object_id
+}
+
 output "azure_tenant_id" {
   description = "Azure Tenant ID"
   value       = data.azurerm_client_config.current.tenant_id

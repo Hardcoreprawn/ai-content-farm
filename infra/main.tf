@@ -1,12 +1,14 @@
 data "azurerm_client_config" "current" {}
 
-# Azure AD Application for GitHub Actions OIDC (managed by bootstrap)
-data "azuread_application" "github_actions" {
-  display_name = "ai-content-farm-github-${var.environment}"
-}
-
-data "azuread_service_principal" "github_actions" {
-  client_id = data.azuread_application.github_actions.client_id
+# Get GitHub Actions service principal from bootstrap remote state
+data "terraform_remote_state" "bootstrap" {
+  backend = "azurerm"
+  config = {
+    storage_account_name = "aicontentfarm76ko2h"
+    container_name       = "tfstate"
+    key                  = "bootstrap.tfstate"
+    resource_group_name  = "ai-content-farm-bootstrap"
+  }
 }
 
 resource "random_string" "suffix" {
@@ -100,7 +102,7 @@ resource "azurerm_key_vault_access_policy" "function_app" {
 resource "azurerm_key_vault_access_policy" "github_actions" {
   key_vault_id = azurerm_key_vault.main.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = data.azuread_service_principal.github_actions.object_id
+  object_id    = data.terraform_remote_state.bootstrap.outputs.github_actions_object_id
 
   secret_permissions = [
     "Get",
