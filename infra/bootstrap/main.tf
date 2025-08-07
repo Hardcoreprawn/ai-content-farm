@@ -71,7 +71,7 @@ resource "azurerm_storage_account" "tfstate" {
 # Storage container for Terraform state
 resource "azurerm_storage_container" "tfstate" {
   name                  = "tfstate"
-  storage_account_id  = azurerm_storage_account.tfstate.name
+  storage_account_id    = azurerm_storage_account.tfstate.id
   container_access_type = "private"
 }
 
@@ -139,5 +139,12 @@ resource "azuread_application_federated_identity_credential" "pull_requests" {
 resource "azurerm_role_assignment" "github_actions_contributor" {
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Contributor"
+  principal_id         = azuread_service_principal.github_actions.object_id
+}
+
+# Role assignment for Key Vault access - needed for CI/CD pipeline to read secrets
+resource "azurerm_role_assignment" "github_actions_key_vault_admin" {
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name = "Key Vault Administrator"
   principal_id         = azuread_service_principal.github_actions.object_id
 }

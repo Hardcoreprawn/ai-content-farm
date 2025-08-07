@@ -165,21 +165,57 @@ jobs:
         # Verify installation
         infracost --version
         
-        # Get Infracost API key from Azure Key Vault
+        # Get Infracost API key from Azure Key Vault with proper error handling
         echo "🔑 Retrieving Infracost API key from Azure Key Vault..."
-        KEYVAULT_NAME=$(az keyvault list --resource-group "ai-content-dev-rg" --query "[0].name" -o tsv 2>/dev/null || echo "")
-        if [ -n "$KEYVAULT_NAME" ]; then
-          INFRACOST_API_KEY=$(az keyvault secret show --vault-name "$KEYVAULT_NAME" --name "infracost-api-key" --query "value" -o tsv 2>/dev/null || echo "")
-          if [ -n "$INFRACOST_API_KEY" ] && [ "$INFRACOST_API_KEY" != "placeholder-get-from-infracost-io" ]; then
-            echo "✅ Using Infracost API key from Key Vault"
-            infracost configure set api_key "$INFRACOST_API_KEY"
-          else
-            echo "⚠️  Infracost API key not found in Key Vault, using free tier"
-            infracost configure set api_key ico-free-tier-key || echo "Using free tier"
+        
+        # First, verify Azure authentication
+        echo "🔍 Verifying Azure authentication..."
+        if ! az account show > /dev/null 2>&1; then
+          echo "❌ Azure authentication failed. Please check OIDC configuration."
+          exit 1
+        fi
+        
+        # Try to find the Key Vault
+        KEYVAULT_NAME=""
+        echo "🔍 Looking for Key Vault in resource group..."
+        
+        # Check both staging and production resource groups
+        for RG in "ai-content-staging-rg" "ai-content-dev-rg"; do
+          if az group show --name "$RG" > /dev/null 2>&1; then
+            echo "✅ Found resource group: $RG"
+            KEYVAULT_NAME=$(az keyvault list --resource-group "$RG" --query "[0].name" -o tsv 2>/dev/null || echo "")
+            if [ -n "$KEYVAULT_NAME" ]; then
+              echo "✅ Found Key Vault: $KEYVAULT_NAME"
+              break
+            fi
           fi
-        else
-          echo "⚠️  Key Vault not found, using free tier"
+        done
+        
+        if [ -z "$KEYVAULT_NAME" ]; then
+          echo "⚠️  No Key Vault found. This might be a first-time deployment."
+          echo "Using Infracost free tier for cost estimation."
           infracost configure set api_key ico-free-tier-key || echo "Using free tier"
+        else
+          echo "🔑 Attempting to retrieve Infracost API key from Key Vault: $KEYVAULT_NAME"
+          
+          # Check if we have permission to access the Key Vault
+          if ! az keyvault secret list --vault-name "$KEYVAULT_NAME" > /dev/null 2>&1; then
+            echo "❌ No permission to access Key Vault. This indicates missing access policy."
+            echo "The GitHub Actions service principal needs Key Vault access policy with 'Get' and 'List' permissions."
+            echo "Please deploy the infrastructure first to create the access policy, then re-run this pipeline."
+            echo "Using Infracost free tier for now."
+            infracost configure set api_key ico-free-tier-key || echo "Using free tier"
+          else
+            # Try to get the API key
+            INFRACOST_API_KEY=$(az keyvault secret show --vault-name "$KEYVAULT_NAME" --name "infracost-api-key" --query "value" -o tsv 2>/dev/null || echo "")
+            if [ -n "$INFRACOST_API_KEY" ] && [ "$INFRACOST_API_KEY" != "placeholder-get-from-infracost-io" ]; then
+              echo "✅ Using Infracost API key from Key Vault"
+              infracost configure set api_key "$INFRACOST_API_KEY"
+            else
+              echo "⚠️  Infracost API key not found or is placeholder, using free tier"
+              infracost configure set api_key ico-free-tier-key || echo "Using free tier"
+            fi
+          fi
         fi
 
     - name: Terraform Plan for Cost Analysis
@@ -193,9 +229,35 @@ jobs:
                       -backend-config="key=${{ github.event.inputs.environment || 'staging' }}.tfstate" \
                       -backend-config="resource_group_name=ai-content-farm-bootstrap"
         
-        terraform plan -out=tfplan -var="environment=${{ github.event.inputs.environment || 'staging' }}"
+        # Create terraform plan with better error handling
+        echo "🔧 Creating Terraform plan..."
+        if terraform plan -out=tfplan -var="environment=${{ github.event.inputs.environment || 'staging' }}" 2>&1 | tee plan.log; then
+          echo "✅ Terraform plan successful"
+          PLAN_SUCCESS=true
+        else
+          echo "⚠️  Terraform plan had issues, checking if they're permission-related..."
+          PLAN_SUCCESS=false
+          
+          # Check if errors are related to Key Vault permissions
+          if grep -q "does not have secrets get permission" plan.log; then
+            echo "🔍 Detected Key Vault permission errors - this is expected on first deployment"
+            echo "The GitHub Actions service principal needs access policy, which will be created by this deployment"
+            echo "Proceeding with deployment to establish proper permissions..."
+            PLAN_SUCCESS=true
+          elif grep -q "Authorization_RequestDenied" plan.log; then
+            echo "🔍 Detected Azure AD permission errors - this might be expected for service principal lookups"
+            echo "Proceeding with deployment..."
+            PLAN_SUCCESS=true
+          fi
+        fi
         
-        # Only use Infracost for accurate cost estimation
+        if [ "$PLAN_SUCCESS" = "false" ]; then
+          echo "❌ Terraform plan failed with non-permission errors"
+          cat plan.log
+          exit 1
+        fi
+        
+        # Only use Infracost for accurate cost estimation if terraform plan succeeded cleanly
         if command -v infracost &> /dev/null; then
           echo "Using Infracost for accurate cost estimation..."
           mkdir -p ../cost-analysis

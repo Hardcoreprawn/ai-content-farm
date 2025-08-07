@@ -96,6 +96,18 @@ resource "azurerm_key_vault_access_policy" "function_app" {
   ]
 }
 
+# Key Vault access policy for GitHub Actions service principal
+resource "azurerm_key_vault_access_policy" "github_actions" {
+  key_vault_id = azurerm_key_vault.main.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = data.azuread_service_principal.github_actions.object_id
+
+  secret_permissions = [
+    "Get",
+    "List"
+  ]
+}
+
 # Key Vault diagnostic settings for security compliance
 resource "azurerm_monitor_diagnostic_setting" "key_vault" {
   name                       = "key-vault-diagnostics"
@@ -122,7 +134,7 @@ resource "azurerm_key_vault_secret" "reddit_client_id" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
-  depends_on      = [azurerm_key_vault_access_policy.current_user]
+  depends_on      = [azurerm_key_vault_access_policy.current_user, azurerm_key_vault_access_policy.github_actions]
 
   tags = {
     Environment = var.environment
@@ -136,7 +148,7 @@ resource "azurerm_key_vault_secret" "reddit_client_secret" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
-  depends_on      = [azurerm_key_vault_access_policy.current_user]
+  depends_on      = [azurerm_key_vault_access_policy.current_user, azurerm_key_vault_access_policy.github_actions]
 
   tags = {
     Environment = var.environment
@@ -150,7 +162,7 @@ resource "azurerm_key_vault_secret" "reddit_user_agent" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
-  depends_on      = [azurerm_key_vault_access_policy.current_user]
+  depends_on      = [azurerm_key_vault_access_policy.current_user, azurerm_key_vault_access_policy.github_actions]
 
   tags = {
     Environment = var.environment
@@ -165,7 +177,7 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
-  depends_on      = [azurerm_key_vault_access_policy.current_user]
+  depends_on      = [azurerm_key_vault_access_policy.current_user, azurerm_key_vault_access_policy.github_actions]
 
   tags = {
     Environment = var.environment
