@@ -107,48 +107,8 @@ resource "azurerm_monitor_diagnostic_setting" "key_vault" {
   }
 }
 
-# Application secrets for Reddit API access
-resource "azurerm_key_vault_secret" "reddit_client_id" {
-  name            = "reddit-client-id"
-  value           = var.reddit_client_id != "" ? var.reddit_client_id : "placeholder-change-me"
-  key_vault_id    = azurerm_key_vault.main.id
-  content_type    = "text/plain"
-  expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
-  depends_on      = [azurerm_key_vault_access_policy.current_user]
-
-  tags = {
-    Environment = var.environment
-    Purpose     = "reddit-api-access"
-  }
-}
-
-resource "azurerm_key_vault_secret" "reddit_client_secret" {
-  name            = "reddit-client-secret"
-  value           = var.reddit_client_secret != "" ? var.reddit_client_secret : "placeholder-change-me"
-  key_vault_id    = azurerm_key_vault.main.id
-  content_type    = "text/plain"
-  expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
-  depends_on      = [azurerm_key_vault_access_policy.current_user]
-
-  tags = {
-    Environment = var.environment
-    Purpose     = "reddit-api-access"
-  }
-}
-
-resource "azurerm_key_vault_secret" "reddit_user_agent" {
-  name            = "reddit-user-agent"
-  value           = var.reddit_user_agent != "" ? var.reddit_user_agent : "ai-content-farm:v1.0 (by /u/your-username)"
-  key_vault_id    = azurerm_key_vault.main.id
-  content_type    = "text/plain"
-  expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
-  depends_on      = [azurerm_key_vault_access_policy.current_user]
-
-  tags = {
-    Environment = var.environment
-    Purpose     = "reddit-api-access"
-  }
-}
+# Application secrets are managed externally via setup script
+# We reference them directly by their known names and vault URI
 
 resource "azurerm_log_analytics_workspace" "main" {
   name                = "${var.resource_prefix}-logs"
@@ -234,10 +194,10 @@ resource "azurerm_linux_function_app" "main" {
     APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.main.instrumentation_key
     APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.main.connection_string
     
-    # Reddit API credentials from Key Vault
-    REDDIT_CLIENT_ID     = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.reddit_client_id.id})"
-    REDDIT_CLIENT_SECRET = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.reddit_client_secret.id})"
-    REDDIT_USER_AGENT    = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault_secret.reddit_user_agent.id})"
+    # Reddit API credentials from Key Vault (secrets managed externally)
+    REDDIT_CLIENT_ID     = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/reddit-client-id)"
+    REDDIT_CLIENT_SECRET = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/reddit-client-secret)"
+    REDDIT_USER_AGENT    = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/reddit-user-agent)"
     
     # Key Vault URL for fallback access
     KEY_VAULT_URL = azurerm_key_vault.main.vault_uri
