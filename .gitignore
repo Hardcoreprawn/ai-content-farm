@@ -26,11 +26,13 @@ ENV/
 .vscode/launch.json
 
 # Terraform
-infra/.terraform/
-infra/terraform.tfstate
-infra/terraform.tfstate.backup
-infra/.terraform.lock.hcl
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
 *.tfplan
+*.tfstate
+*.tfstate.*
 
 # Node.js (for site)
 node_modules/
