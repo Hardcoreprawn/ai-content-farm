@@ -141,10 +141,3 @@ resource "azurerm_role_assignment" "github_actions_contributor" {
   role_definition_name = "Contributor"
   principal_id         = azuread_service_principal.github_actions.object_id
 }
-
-# Role assignment for Key Vault access - needed for CI/CD pipeline to read secrets
-resource "azurerm_role_assignment" "github_actions_key_vault_admin" {
-  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
-  role_definition_name = "Key Vault Administrator"
-  principal_id         = azuread_service_principal.github_actions.object_id
-}
