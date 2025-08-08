@@ -17,7 +17,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/pipeline
+  IMAGE_NAME: ${{ github.repository | downcase }}/pipeline
 
 jobs:
   build-base-images:
