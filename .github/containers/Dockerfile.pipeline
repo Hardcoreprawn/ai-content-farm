@@ -1,0 +1,151 @@
+# Multi-stage Dockerfile for AI Content Farm CI/CD Pipeline
+# This creates pre-built containers with all tools to speed up GitHub Actions
+
+# =============================================================================
+# Stage 1: Base Tools Container
+# =============================================================================
+FROM ubuntu:22.04 AS base-tools
+
+# Avoid interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install base system packages
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    unzip \
+    git \
+    jq \
+    python3 \
+    python3-pip \
+    python3-venv \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Azure CLI
+RUN curl -sL https://aka.ms/InstallAzureCLIDeb | bash
+
+# =============================================================================
+# Stage 2: Security Tools Container
+# =============================================================================
+FROM base-tools AS security-tools
+
+# Install Python security tools
+RUN pip3 install --no-cache-dir \
+    checkov==3.2.255 \
+    bandit \
+    safety
+
+# Install TFSec
+RUN wget -O tfsec https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 \
+    && chmod +x tfsec \
+    && mv tfsec /usr/local/bin/
+
+# Install Terrascan
+RUN LATEST_URL=$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.*Linux_x86_64.tar.gz" | head -1) \
+    && curl -L "$LATEST_URL" > terrascan.tar.gz \
+    && tar -xf terrascan.tar.gz terrascan \
+    && rm terrascan.tar.gz \
+    && mv terrascan /usr/local/bin/
+
+# Install Syft for SBOM generation
+RUN curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
+
+# Install Grype for vulnerability scanning
+RUN curl -sSfL https://raw.githubusercontent.com/anchore/grype/main/install.sh | sh -s -- -b /usr/local/bin
+
+# Verify installations
+RUN checkov --version && \
+    tfsec --version && \
+    terrascan version && \
+    syft version && \
+    grype version
+
+# =============================================================================
+# Stage 3: Terraform & Infrastructure Tools Container
+# =============================================================================
+FROM base-tools AS terraform-tools
+
+# Install Terraform
+ENV TERRAFORM_VERSION=1.12.2
+RUN wget https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip \
+    && unzip terraform_${TERRAFORM_VERSION}_linux_amd64.zip \
+    && mv terraform /usr/local/bin/ \
+    && rm terraform_${TERRAFORM_VERSION}_linux_amd64.zip
+
+# Install Infracost
+RUN curl -fsSL https://raw.githubusercontent.com/infracost/infracost/master/scripts/install.sh | sh
+
+# Pre-configure Infracost with free tier key (can be overridden)
+RUN infracost configure set api_key ico-free-tier-key
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Verify installations
+RUN terraform version && \
+    infracost --version
+
+# =============================================================================
+# Stage 4: Complete Pipeline Container
+# =============================================================================
+FROM security-tools AS pipeline-complete
+
+# Copy Terraform and Infracost from terraform-tools stage
+COPY --from=terraform-tools /usr/local/bin/terraform /usr/local/bin/
+COPY --from=terraform-tools /usr/local/bin/infracost /usr/local/bin/
+COPY --from=terraform-tools /root/.config/infracost /root/.config/infracost
+
+# Install additional Python packages for the pipeline
+RUN pip3 install --no-cache-dir \
+    azure-identity \
+    azure-keyvault-secrets \
+    azure-storage-blob \
+    pytest \
+    requests \
+    praw
+
+# Create pipeline scripts directory
+RUN mkdir -p /pipeline-scripts
+
+# Add pipeline utility scripts
+COPY .github/containers/scripts/ /pipeline-scripts/
+RUN chmod +x /pipeline-scripts/*.sh
+
+# Set default working directory
+WORKDIR /workspace
+
+# Default command
+CMD ["/bin/bash"]
+
+# =============================================================================
+# Stage 5: Function Development Container
+# =============================================================================
+FROM base-tools AS functions-dev
+
+# Install Python packages for Azure Functions development
+RUN pip3 install --no-cache-dir \
+    azure-functions \
+    azure-functions-worker \
+    azure-identity \
+    azure-keyvault-secrets \
+    azure-storage-blob \
+    praw \
+    requests \
+    pytest
+
+# Install Azure Functions Core Tools
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg \
+    && mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg \
+    && sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-$(lsb_release -cs)-prod $(lsb_release -cs) main" > /etc/apt/sources.list.d/dotnetdev.list' \
+    && apt-get update \
+    && apt-get install -y azure-functions-core-tools-4
+
+WORKDIR /workspace
+
+# Label the image
+LABEL org.opencontainers.image.source="https://github.com/Hardcoreprawn/ai-content-farm"
+LABEL org.opencontainers.image.description="AI Content Farm CI/CD Pipeline Container"
+LABEL org.opencontainers.image.version="1.0"

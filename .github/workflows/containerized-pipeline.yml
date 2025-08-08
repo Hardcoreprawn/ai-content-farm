@@ -1,0 +1,326 @@
+name: Containerized CI/CD Pipeline
+
+on:
+  push:
+    branches: [ develop, main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment for deployment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+      skip_security:
+        description: 'Skip security checks (use with caution)'
+        required: false
+        default: false
+        type: boolean
+      skip_cost:
+        description: 'Skip cost checks (when Infracost unavailable)'
+        required: false
+        default: false
+        type: boolean
+
+# OIDC permissions for Azure authentication
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+  issues: write
+  packages: write
+
+env:
+  AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  TERRAFORM_STATE_STORAGE_ACCOUNT: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/pipeline
+
+jobs:
+  # Stage 0: Build and Cache Pipeline Container
+  build-container:
+    runs-on: ubuntu-latest
+    name: Build Pipeline Container
+    outputs:
+      image-digest: ${{ steps.build.outputs.digest }}
+      image-tag: ${{ steps.meta.outputs.tags }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=ref,event=branch
+          type=ref,event=pr
+          type=sha,prefix=sha-
+          type=raw,value=latest,enable={{is_default_branch}}
+
+    - name: Build and push container image
+      id: build
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: .github/containers/Dockerfile.pipeline
+        target: pipeline-complete
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+        platforms: linux/amd64
+
+  # Stage 1: Security and Compliance Validation (Containerized)
+  security-gate:
+    runs-on: ubuntu-latest
+    name: Security and Compliance Validation
+    needs: build-container
+    container:
+      image: ${{ needs.build-container.outputs.image-tag }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      security-approved: ${{ steps.security-gate.outputs.approved }}
+      critical-findings: ${{ steps.security-gate.outputs.critical-findings }}
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Run Security Scans
+      run: /pipeline-scripts/run-security-scans.sh
+      continue-on-error: true
+
+    - name: Security Gate Decision
+      id: security-gate
+      run: /pipeline-scripts/security-gate.sh
+
+    - name: Upload Security Reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-reports
+        path: security-results/
+        retention-days: 30
+
+  # Stage 2: Cost Impact Analysis (Containerized)
+  cost-gate:
+    runs-on: ubuntu-latest
+    name: Cost Impact and Budget Approval
+    needs: [build-container, security-gate]
+    if: needs.security-gate.outputs.security-approved != 'false'
+    container:
+      image: ${{ needs.build-container.outputs.image-tag }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    outputs:
+      cost-approved: ${{ steps.cost-analysis.outputs.approved }}
+      estimated-cost: ${{ steps.cost-analysis.outputs.estimated-cost }}
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login with OIDC
+      uses: azure/login@v1
+      with:
+        client-id: ${{ vars.AZURE_CLIENT_ID }}
+        tenant-id: ${{ vars.AZURE_TENANT_ID }}
+        subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Run Cost Analysis
+      id: cost-analysis
+      env:
+        TERRAFORM_STATE_STORAGE_ACCOUNT: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}
+        INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
+      run: /pipeline-scripts/cost-analysis.sh ${{ github.event.inputs.environment || 'staging' }}
+
+    - name: Upload Cost Analysis Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: cost-analysis-results
+        path: cost-analysis/
+        retention-days: 30
+
+  # Stage 3: Deploy to Staging (Containerized)
+  deploy-to-staging:
+    runs-on: ubuntu-latest
+    name: Deploy Infrastructure and Functions to Staging
+    needs: [build-container, security-gate, cost-gate]
+    if: |
+      needs.security-gate.outputs.security-approved == 'true' &&
+      needs.cost-gate.outputs.cost-approved == 'true' &&
+      github.ref == 'refs/heads/develop'
+    environment: staging
+    container:
+      image: ${{ needs.build-container.outputs.image-tag }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login with OIDC
+      uses: azure/login@v1
+      with:
+        client-id: ${{ vars.AZURE_CLIENT_ID }}
+        tenant-id: ${{ vars.AZURE_TENANT_ID }}
+        subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Deploy Infrastructure
+      env:
+        TERRAFORM_STATE_STORAGE_ACCOUNT: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}
+      run: /pipeline-scripts/deploy-infrastructure.sh ${{ github.event.inputs.environment || 'staging' }}
+
+    - name: Deploy Function App
+      run: /pipeline-scripts/deploy-functions.sh
+
+  # Stage 4: Integration Tests (Containerized)
+  run-integration-tests:
+    runs-on: ubuntu-latest
+    name: Run End-to-End Integration Tests
+    needs: [build-container, deploy-to-staging]
+    if: needs.deploy-to-staging.result == 'success'
+    container:
+      image: ${{ needs.build-container.outputs.image-tag }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login with OIDC
+      uses: azure/login@v1
+      with:
+        client-id: ${{ vars.AZURE_CLIENT_ID }}
+        tenant-id: ${{ vars.AZURE_TENANT_ID }}
+        subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Run Integration Tests
+      env:
+        TERRAFORM_STATE_STORAGE_ACCOUNT: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}
+      run: |
+        # Get function app URL from terraform outputs
+        cd infra/application
+        terraform init \
+            -backend-config="storage_account_name=${TERRAFORM_STATE_STORAGE_ACCOUNT}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=${{ github.event.inputs.environment || 'staging' }}.tfstate" \
+            -backend-config="resource_group_name=ai-content-farm-bootstrap"
+        
+        FUNCTION_URL=$(terraform output -raw function_app_url)
+        FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
+        cd ../..
+        
+        echo "Testing function app: $FUNCTION_APP_NAME"
+        echo "Function URL: $FUNCTION_URL"
+        
+        # Wait for deployment to be ready
+        echo "Waiting for function app to be ready..."
+        for i in {1..30}; do
+          if curl -s "$FUNCTION_URL" > /dev/null; then
+            echo "Function app is responding"
+            break
+          fi
+          echo "Attempt $i/30: Function app not ready yet, waiting 10 seconds..."
+          sleep 10
+        done
+        
+        # Run tests with environment variables
+        export FUNCTION_URL=$FUNCTION_URL
+        export FUNCTION_APP_NAME=$FUNCTION_APP_NAME
+        python -m pytest tests/integration/ -v --tb=short
+
+  # Stage 5: Deploy to Production (Containerized)
+  deploy-to-production:
+    runs-on: ubuntu-latest
+    name: Deploy Infrastructure and Functions to Production
+    needs: [build-container, security-gate, cost-gate, run-integration-tests]
+    if: |
+      always() && 
+      needs.run-integration-tests.result == 'success' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name == 'push'
+    environment: production
+    container:
+      image: ${{ needs.build-container.outputs.image-tag }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login with OIDC
+      uses: azure/login@v1
+      with:
+        client-id: ${{ vars.AZURE_CLIENT_ID }}
+        tenant-id: ${{ vars.AZURE_TENANT_ID }}
+        subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Deploy to Production
+      env:
+        TERRAFORM_STATE_STORAGE_ACCOUNT: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}
+      run: /pipeline-scripts/deploy-infrastructure.sh production
+
+    - name: Deploy Function App to Production
+      run: /pipeline-scripts/deploy-functions.sh
+
+  # Stage 6: Cleanup and Notification
+  deployment-notification:
+    runs-on: ubuntu-latest
+    name: Deployment Status Notification
+    needs: [deploy-to-staging, deploy-to-production]
+    if: always()
+    
+    steps:
+    - name: Notify Deployment Status
+      run: |
+        if [ "${{ needs.deploy-to-staging.result }}" == "success" ]; then
+          echo "✅ Staging deployment completed successfully"
+        fi
+        if [ "${{ needs.deploy-to-production.result }}" == "success" ]; then
+          echo "✅ Production deployment completed successfully"
+        fi
+        if [ "${{ needs.deploy-to-staging.result }}" == "failure" ] || [ "${{ needs.deploy-to-production.result }}" == "failure" ]; then
+          echo "❌ Deployment failed - check logs for details"
+        fi
+
+    - name: Clean up old container images
+      if: github.ref == 'refs/heads/main'
+      run: |
+        echo "🧹 Cleaning up old container images..."
+        # Keep last 10 images, delete older ones
+        gh api repos/${{ github.repository }}/packages/container/pipeline/versions \
+          --jq '.[10:] | .[] | .id' | \
+          xargs -I {} gh api --method DELETE repos/${{ github.repository }}/packages/container/pipeline/versions/{} || true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

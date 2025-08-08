@@ -1,0 +1,142 @@
+name: Build Pipeline Container
+
+on:
+  push:
+    paths:
+      - '.github/containers/**'
+      - 'functions/requirements.txt'
+      - '.github/workflows/build-container.yml'
+  schedule:
+    # Rebuild weekly to get security updates
+    - cron: '0 2 * * 1'  # Monday 2 AM UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/pipeline
+
+jobs:
+  build-base-images:
+    runs-on: ubuntu-latest
+    name: Build Base Pipeline Images
+    strategy:
+      matrix:
+        target: [base-tools, security-tools, terraform-tools, pipeline-complete, functions-dev]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Extract metadata
+      id: meta
+      uses: docker/metadata-action@v5
+      with:
+        images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+        tags: |
+          type=raw,value=${{ matrix.target }}-latest
+          type=raw,value=${{ matrix.target }}-${{ github.sha }}
+        flavor: |
+          latest=false
+
+    - name: Build and push ${{ matrix.target }} image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: .github/containers/Dockerfile.pipeline
+        target: ${{ matrix.target }}
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha,scope=${{ matrix.target }}
+        cache-to: type=gha,mode=max,scope=${{ matrix.target }}
+        platforms: linux/amd64
+
+  test-container:
+    runs-on: ubuntu-latest
+    name: Test Pipeline Container
+    needs: build-base-images
+    container:
+      image: ghcr.io/${{ github.repository }}/pipeline:pipeline-complete-${{ github.sha }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+    - name: Test Security Tools
+      run: |
+        echo "Testing security tools..."
+        checkov --version
+        tfsec --version
+        terrascan version
+        syft version
+        grype version
+
+    - name: Test Infrastructure Tools
+      run: |
+        echo "Testing infrastructure tools..."
+        terraform version
+        infracost --version
+        az version
+
+    - name: Test Python Environment
+      run: |
+        echo "Testing Python environment..."
+        python3 --version
+        pip3 --version
+        python3 -c "import azure.functions, azure.identity, praw, requests; print('All imports successful')"
+
+    - name: Test Pipeline Scripts
+      run: |
+        echo "Testing pipeline scripts..."
+        ls -la /pipeline-scripts/
+        test -x /pipeline-scripts/run-security-scans.sh
+        test -x /pipeline-scripts/security-gate.sh
+        test -x /pipeline-scripts/cost-analysis.sh
+        test -x /pipeline-scripts/deploy-infrastructure.sh
+        test -x /pipeline-scripts/deploy-functions.sh
+
+  update-latest-tags:
+    runs-on: ubuntu-latest
+    name: Update Latest Tags
+    needs: [build-base-images, test-container]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    
+    steps:
+    - name: Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update latest tags
+      run: |
+        # Tag the tested images as latest for the branch
+        BRANCH_NAME=${GITHUB_REF#refs/heads/}
+        echo "Updating latest tags for branch: $BRANCH_NAME"
+        
+        for target in base-tools security-tools terraform-tools pipeline-complete functions-dev; do
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${target}-${{ github.sha }}
+          
+          if [ "$BRANCH_NAME" = "main" ]; then
+            docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${target}-${{ github.sha }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${target}-latest
+            docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${target}-latest
+          fi
+          
+          docker tag ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${target}-${{ github.sha }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${target}-${BRANCH_NAME}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${target}-${BRANCH_NAME}
+        done
