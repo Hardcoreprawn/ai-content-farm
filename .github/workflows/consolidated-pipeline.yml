@@ -374,16 +374,15 @@ jobs:
         echo "FUNCTION_APP_NAME=$FUNCTION_APP_NAME" >> $GITHUB_ENV
         echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-
-    - name: Deploy Function App
+    - name: Deploy Python Function App
       run: |
         cd functions
-        npm ci --production
-        zip -r ../function-app.zip .
+        
+        # Create deployment package for Python Azure Functions
+        # Azure Functions expects the function files directly, not in a venv
+        zip -r ../function-app.zip . -x "*.pyc" "*/__pycache__/*" ".python_packages/*"
+        
+        # Deploy using Azure CLI (works reliably for Python functions)
         az functionapp deployment source config-zip \
           --resource-group $RESOURCE_GROUP \
           --name $FUNCTION_APP_NAME \
