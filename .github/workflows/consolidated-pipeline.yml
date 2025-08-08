@@ -16,7 +16,23 @@ on:
         - staging
         - production
       skip_security:
-        description: 'Skip security checks (use with caution)'
+        description: 'Skip security ch    - name: Run Integration Tests
+      run: |
+        # Install test dependencies
+        pip install pytest requests azure-identity azure-keyvault-secrets
+        
+        # Get function app URL
+        cd infra/application
+        terraform init -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" 
+                      -backend-config="container_name=tfstate" 
+                      -backend-config="key=${{ github.event.inputs.environment || 'staging' }}.tfstate" 
+                      -backend-config="resource_group_name=ai-content-farm-bootstrap"
+        FUNCTION_URL=$(terraform output -raw function_app_url)
+        cd ../..
+        
+        # Run tests
+        export FUNCTION_URL=$FUNCTION_URL
+        python -m pytest tests/integration/ -vution)'
         required: false
         default: false
         type: boolean
@@ -416,18 +432,36 @@ jobs:
         # Install test dependencies
         pip install pytest requests azure-identity azure-keyvault-secrets
         
-        # Get function app URL
+        # Get function app URL from terraform outputs
         cd infra/application
         terraform init -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" \
                       -backend-config="container_name=tfstate" \
                       -backend-config="key=${{ github.event.inputs.environment || 'staging' }}.tfstate" \
                       -backend-config="resource_group_name=ai-content-farm-bootstrap"
+        
+        # Get the function app URL
         FUNCTION_URL=$(terraform output -raw function_app_url)
+        FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
         cd ../..
         
-        # Run tests
+        echo "Testing function app: $FUNCTION_APP_NAME"
+        echo "Function URL: $FUNCTION_URL"
+        
+        # Wait for deployment to be ready
+        echo "Waiting for function app to be ready..."
+        for i in {1..30}; do
+          if curl -s "$FUNCTION_URL" > /dev/null; then
+            echo "Function app is responding"
+            break
+          fi
+          echo "Attempt $i/30: Function app not ready yet, waiting 10 seconds..."
+          sleep 10
+        done
+        
+        # Run tests with environment variables
         export FUNCTION_URL=$FUNCTION_URL
-        python -m pytest tests/integration/ -v
+        export FUNCTION_APP_NAME=$FUNCTION_APP_NAME
+        python -m pytest tests/integration/ -v --tb=short
 
   # Stage 5: Deploy to Production (main branch only)
   deploy-to-production:
@@ -459,9 +493,35 @@ jobs:
 
     - name: Deploy to Production
       run: |
-        # Similar deployment steps but to production environment
-        echo "🚀 Deploying to production..."
-        # Production deployment logic here
+        cd infra/application
+        
+        # Configure backend for remote state
+        terraform init -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" \
+                      -backend-config="container_name=tfstate" \
+                      -backend-config="key=production.tfstate" \
+                      -backend-config="resource_group_name=ai-content-farm-bootstrap"
+        
+        terraform apply -auto-approve -var="environment=production"
+        
+        # Get outputs for function deployment
+        FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
+        RESOURCE_GROUP=$(terraform output -raw resource_group_name)
+        
+        echo "FUNCTION_APP_NAME=$FUNCTION_APP_NAME" >> $GITHUB_ENV
+        echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
+
+    - name: Deploy Python Function App to Production
+      run: |
+        cd functions
+        
+        # Create deployment package for Python Azure Functions
+        zip -r ../function-app-prod.zip . -x "*.pyc" "*/__pycache__/*" ".python_packages/*"
+        
+        # Deploy using Azure CLI
+        az functionapp deployment source config-zip \
+          --resource-group $RESOURCE_GROUP \
+          --name $FUNCTION_APP_NAME \
+          --src ../function-app-prod.zip
 
   # Stage 6: Notification
   deployment-notification:

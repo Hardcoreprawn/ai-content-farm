@@ -11,6 +11,7 @@ from azure.keyvault.secrets import SecretClient
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     logging.info('🚀 Summary Womble HTTP function started.')
+    # Updated to test pipeline deployment - 2025-08-08
 
     try:
         # Parse request body

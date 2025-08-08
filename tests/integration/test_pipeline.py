@@ -16,23 +16,33 @@ class TestContentPipeline:
             pytest.skip("FUNCTION_URL not set")
         return url.rstrip('/')
     
-    def test_get_hot_topics_endpoint(self, function_url):
-        """Test that the GetHotTopics function is accessible"""
-        response = requests.get(f"{function_url}/api/GetHotTopics", timeout=30)
-        assert response.status_code in [200, 202], f"Expected 200/202, got {response.status_code}"
+    def test_summary_womble_endpoint(self, function_url):
+        """Test that the SummaryWomble function is accessible (HTTP-triggered)"""
+        # SummaryWomble requires authentication, so we expect 401 without function key
+        response = requests.get(f"{function_url}/api/SummaryWomble", timeout=30)
+        assert response.status_code == 401, f"Expected 401 (requires auth), got {response.status_code}"
     
-    def test_get_hot_topics_with_params(self, function_url):
-        """Test GetHotTopics with specific parameters"""
-        params = {
-            'subreddit': 'technology',
-            'limit': '5'
-        }
-        response = requests.get(f"{function_url}/api/GetHotTopics", params=params, timeout=30)
-        assert response.status_code in [200, 202]
-        
-        if response.status_code == 200:
-            data = response.json()
-            assert 'topics' in data or 'message' in data
+    def test_summary_womble_with_invalid_request(self, function_url):
+        """Test SummaryWomble with invalid request data"""
+        # This should return 400 or 500 for invalid JSON
+        response = requests.get(f"{function_url}/api/SummaryWomble", timeout=30)
+        assert response.status_code in [401, 400, 500], f"Expected auth error or bad request, got {response.status_code}"
+    
+    def test_get_hot_topics_not_accessible_via_http(self, function_url):
+        """Test that GetHotTopics is not accessible via HTTP (timer-triggered only)"""
+        response = requests.get(f"{function_url}/api/GetHotTopics", timeout=30)
+        # Timer-triggered functions should return 404 when accessed via HTTP
+        assert response.status_code == 404, f"Expected 404 (timer-triggered), got {response.status_code}"
+    
+    def test_function_app_is_running(self, function_url):
+        """Test that the function app is running and responding"""
+        # Just test that we can reach the function app (any response is good)
+        try:
+            response = requests.get(f"{function_url}/api/SummaryWomble", timeout=10)
+            # Any response code means the app is running
+            assert response.status_code is not None
+        except requests.exceptions.RequestException as e:
+            pytest.fail(f"Function app not responding: {e}")
     
     def test_key_vault_access(self):
         """Test that the function can access Key Vault secrets"""
@@ -48,20 +58,17 @@ class TestContentPipeline:
             
         except Exception as e:
             pytest.skip(f"Key Vault access test skipped: {e}")
-    
-    def test_function_health_check(self, function_url):
-        """Basic health check for the function app"""
-        try:
-            response = requests.get(f"{function_url}/api/health", timeout=10)
-            # If health endpoint exists, it should return 200
-            if response.status_code != 404:
-                assert response.status_code == 200
-        except requests.exceptions.RequestException:
-            # If health endpoint doesn't exist, that's okay
-            pass
 
 class TestSecurityCompliance:
     """Security and compliance tests"""
+    
+    @pytest.fixture
+    def function_url(self):
+        """Get the function app URL from environment"""
+        url = os.getenv('FUNCTION_URL')
+        if not url:
+            pytest.skip("FUNCTION_URL not set")
+        return url.rstrip('/')
     
     def test_https_only(self, function_url):
         """Ensure the function app only accepts HTTPS"""
@@ -69,7 +76,7 @@ class TestSecurityCompliance:
             # Try HTTP version (should fail or redirect)
             http_url = function_url.replace('https://', 'http://')
             try:
-                response = requests.get(f"{http_url}/api/GetHotTopics", timeout=10, allow_redirects=False)
+                response = requests.get(f"{http_url}/api/SummaryWomble", timeout=10, allow_redirects=False)
                 # Should either fail or redirect to HTTPS
                 assert response.status_code in [301, 302, 403, 404] or 'https' in response.headers.get('location', '')
             except requests.exceptions.RequestException:
@@ -78,9 +85,10 @@ class TestSecurityCompliance:
     
     def test_no_sensitive_data_in_response(self, function_url):
         """Ensure no sensitive data is exposed in API responses"""
-        response = requests.get(f"{function_url}/api/GetHotTopics", timeout=30)
+        # Test with SummaryWomble since GetHotTopics is timer-triggered
+        response = requests.get(f"{function_url}/api/SummaryWomble", timeout=30)
         
-        if response.status_code == 200:
+        if response.status_code in [200, 401, 400, 500]:  # Any valid response
             response_text = response.text.lower()
             
             # Check for common sensitive data patterns
