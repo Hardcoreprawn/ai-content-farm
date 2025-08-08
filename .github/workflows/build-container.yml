@@ -17,7 +17,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository | downcase }}/pipeline
+  IMAGE_NAME: hardcoreprawn/ai-content-farm/pipeline
 
 jobs:
   build-base-images:
@@ -70,7 +70,7 @@ jobs:
     name: Test Pipeline Container
     needs: build-base-images
     container:
-      image: ghcr.io/${{ github.repository }}/pipeline:pipeline-complete-${{ github.sha }}
+      image: ghcr.io/hardcoreprawn/ai-content-farm/pipeline:pipeline-complete-${{ github.sha }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
