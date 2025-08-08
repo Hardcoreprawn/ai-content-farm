@@ -16,23 +16,7 @@ on:
         - staging
         - production
       skip_security:
-        description: 'Skip security ch    - name: Run Integration Tests
-      run: |
-        # Install test dependencies
-        pip install pytest requests azure-identity azure-keyvault-secrets
-        
-        # Get function app URL
-        cd infra/application
-        terraform init -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" 
-                      -backend-config="container_name=tfstate" 
-                      -backend-config="key=${{ github.event.inputs.environment || 'staging' }}.tfstate" 
-                      -backend-config="resource_group_name=ai-content-farm-bootstrap"
-        FUNCTION_URL=$(terraform output -raw function_app_url)
-        cd ../..
-        
-        # Run tests
-        export FUNCTION_URL=$FUNCTION_URL
-        python -m pytest tests/integration/ -vution)'
+        description: 'Skip security checks (use with caution)'
         required: false
         default: false
         type: boolean
