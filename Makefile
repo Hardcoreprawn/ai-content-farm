@@ -1,5 +1,7 @@
 # Makefile for AI Content Farm Project - Updated for Key Vault Separation
 
+# Testing a new commit
+
 .PHONY: help verify bootstrap bootstrap-init bootstrap-apply bootstrap-migrate bootstrap-plan \
         app-init app-apply app-plan setup-keyvault deploy-functions test-functions \
         security-scan check-azure clean dev staging production
