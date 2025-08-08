@@ -120,31 +120,6 @@ WORKDIR /workspace
 # Default command
 CMD ["/bin/bash"]
 
-# =============================================================================
-# Stage 5: Function Development Container
-# =============================================================================
-FROM base-tools AS functions-dev
-
-# Install Python packages for Azure Functions development
-RUN pip3 install --no-cache-dir \
-    azure-functions \
-    azure-functions-worker \
-    azure-identity \
-    azure-keyvault-secrets \
-    azure-storage-blob \
-    praw \
-    requests \
-    pytest
-
-# Install Azure Functions Core Tools
-RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg \
-    && mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg \
-    && sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-$(lsb_release -cs)-prod $(lsb_release -cs) main" > /etc/apt/sources.list.d/dotnetdev.list' \
-    && apt-get update \
-    && apt-get install -y azure-functions-core-tools-4
-
-WORKDIR /workspace
-
 # Label the image
 LABEL org.opencontainers.image.source="https://github.com/Hardcoreprawn/ai-content-farm"
 LABEL org.opencontainers.image.description="AI Content Farm CI/CD Pipeline Container"

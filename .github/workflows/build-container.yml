@@ -25,7 +25,7 @@ jobs:
     name: Build Base Pipeline Images
     strategy:
       matrix:
-        target: [base-tools, security-tools, terraform-tools, pipeline-complete, functions-dev]
+        target: [base-tools, security-tools, terraform-tools, pipeline-complete]
     
     steps:
     - name: Checkout code
@@ -97,7 +97,7 @@ jobs:
         echo "Testing Python environment..."
         python3 --version
         pip3 --version
-        python3 -c "import azure.functions, azure.identity, praw, requests; print('All imports successful')"
+        python3 -c "import azure.identity, praw, requests; print('All imports successful')"
 
     - name: Test Pipeline Scripts
       run: |
@@ -129,7 +129,7 @@ jobs:
         BRANCH_NAME=${GITHUB_REF#refs/heads/}
         echo "Updating latest tags for branch: $BRANCH_NAME"
         
-        for target in base-tools security-tools terraform-tools pipeline-complete functions-dev; do
+        for target in base-tools security-tools terraform-tools pipeline-complete; do
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${target}-${{ github.sha }}
           
           if [ "$BRANCH_NAME" = "main" ]; then
