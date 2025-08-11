@@ -12,6 +12,9 @@
 - **Consolidate redundancy** - merge duplicate information, don't create new files
 - **One TODO list** - TODO.md only, not multiple planning docs
 - **No excessive documentation** - prefer working code over documentation theater
+- **NO DOC SPRAWL** - Update existing files rather than creating new ones
+- **Implementation logs** - Add to existing docs/README.md, not separate files
+- **Planning documents** - Use TODO.md, don't create separate planning files
 - **Define and document projects** - Write down what you plan to do, once approved, then move ahead. These plans should be written as short articles, with a date prefix
 
 ## Coding Rules

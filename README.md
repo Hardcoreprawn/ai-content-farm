@@ -8,13 +8,27 @@ A secure, enterprise-grade Azure Functions application that fetches trending top
 
 - **[Documentation Index](docs/README.md)** - Start here for navigation
 - **[System Design](docs/system-design.md)** - Architecture and components
-- **[Async Job System](docs/async-job-system.md)** - Modern async processing with job tickets ⚡
+- **[API Contracts](docs/api-contracts.md)** - Data format specifications for pipeline stages
+- **[Async Job System](docs/async-job-system.md)** - Modern async processing with job tickets
+- **[Content Processing Workflow](docs/content-processing-workflow.md)** - Complete content pipeline documentation
 - **[Deployment Guide](docs/deployment-guide.md)** - Step-by-step deployment
 - **[Key Vault Integration](docs/key-vault-integration.md)** - Secrets management
-- **[Cost Analysis](docs/cost-analysis.md)** - Detailed cost breakdown and projections
-- **[Content Processing Workflow](docs/content-processing-workflow.md)** - Complete content pipeline documentation
 - **[Testing Guide](docs/testing-guide.md)** - Function testing procedures
 - **[Security Policy](docs/security-policy.md)** - Governance framework
+
+## 🎯 Current Status: Event-Driven Content Pipeline
+
+### Completed Functions
+- **GetHotTopics**: Timer-triggered function (every 6 hours) that initiates content collection
+- **SummaryWomble**: HTTP-triggered function with async job processing system
+- **ContentRanker**: Blob-triggered function with functional programming for topic ranking
+
+### Pipeline Flow
+```
+GetHotTopics (Timer) → SummaryWomble (HTTP/Async) → ContentRanker (BlobTrigger) → [ContentEnricher] → [ContentPublisher]
+```
+
+### Next: ContentEnricher and ContentPublisher Functions
 
 ## 🚀 Quick Start
 
