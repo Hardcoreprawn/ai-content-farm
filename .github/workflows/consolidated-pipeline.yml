@@ -414,13 +414,41 @@ jobs:
           echo "Missing Key Vault secret 'summarywomble-function-key'" && exit 1
         fi
 
+        # Wait for the SummaryWomble function to be registered (post-deploy cold start)
+        echo "Waiting for SummaryWomble to register..."
+        for i in {1..20}; do
+          if az functionapp function show \
+            --name "$FUNCTION_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --function-name SummaryWomble 1>/dev/null 2>&1; then
+            echo "Function 'SummaryWomble' is present"
+            break
+          fi
+          echo "Attempt $i/20: function not found yet; sleeping 10s..."
+          sleep 10
+        done
+
+        # Retry setting the function key to avoid transient NotFound
         echo "Setting/aligning SummaryWomble function key to IaC-managed value"
-        az functionapp function keys set \
-          --name "$FUNCTION_APP_NAME" \
-          --resource-group "$RESOURCE_GROUP" \
-          --function-name SummaryWomble \
-          --key-name internal \
-          --key-value "$SECRET" 1>/dev/null
+        set +e
+        SUCCESS=false
+        for i in {1..5}; do
+          az functionapp function keys set \
+            --name "$FUNCTION_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --function-name SummaryWomble \
+            --key-name internal \
+            --key-value "$SECRET" 1>/dev/null && SUCCESS=true && break
+          echo "Key set failed (attempt $i). Waiting 8s before retry..."
+          sleep 8
+        done
+        set -e
+
+        if [ "$SUCCESS" != "true" ]; then
+          echo "Failed to set function key after retries. Listing functions for diagnostics:"
+          az functionapp function list --name "$FUNCTION_APP_NAME" --resource-group "$RESOURCE_GROUP" -o table || true
+          exit 3
+        fi
 
         # Restart to ensure settings and function registration are applied
         az functionapp restart --name "$FUNCTION_APP_NAME" --resource-group "$RESOURCE_GROUP"
@@ -588,13 +616,39 @@ jobs:
           echo "Missing Key Vault secret 'summarywomble-function-key' (production)" && exit 1
         fi
 
+        echo "Waiting for SummaryWomble to register (production)..."
+        for i in {1..20}; do
+          if az functionapp function show \
+            --name "$FUNCTION_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --function-name SummaryWomble 1>/dev/null 2>&1; then
+            echo "Function 'SummaryWomble' is present"
+            break
+          fi
+          echo "Attempt $i/20: function not found yet; sleeping 10s..."
+          sleep 10
+        done
+
         echo "Setting/aligning SummaryWomble function key to IaC-managed value (production)"
-        az functionapp function keys set \
-          --name "$FUNCTION_APP_NAME" \
-          --resource-group "$RESOURCE_GROUP" \
-          --function-name SummaryWomble \
-          --key-name internal \
-          --key-value "$SECRET" 1>/dev/null
+        set +e
+        SUCCESS=false
+        for i in {1..5}; do
+          az functionapp function keys set \
+            --name "$FUNCTION_APP_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --function-name SummaryWomble \
+            --key-name internal \
+            --key-value "$SECRET" 1>/dev/null && SUCCESS=true && break
+          echo "Key set failed (attempt $i). Waiting 8s before retry..."
+          sleep 8
+        done
+        set -e
+
+        if [ "$SUCCESS" != "true" ]; then
+          echo "Failed to set function key after retries (production). Listing functions:"
+          az functionapp function list --name "$FUNCTION_APP_NAME" --resource-group "$RESOURCE_GROUP" -o table || true
+          exit 3
+        fi
 
         az functionapp restart --name "$FUNCTION_APP_NAME" --resource-group "$RESOURCE_GROUP"
 
