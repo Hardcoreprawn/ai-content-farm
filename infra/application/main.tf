@@ -97,6 +97,8 @@ resource "azurerm_key_vault_secret" "summarywomble_function_key" {
   lifecycle {
     ignore_changes = [value]
   }
+
+  depends_on = [azurerm_key_vault_access_policy.github_actions]
 }
 
 # Update the secret with the actual function key after deployment
@@ -256,7 +258,8 @@ resource "azurerm_linux_function_app" "main" {
     KEY_VAULT_URL = azurerm_key_vault.main.vault_uri
 
     # SummaryWomble function key for internal authenticated calls
-    SUMMARY_WOMBLE_KEY = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/${azurerm_key_vault_secret.summarywomble_function_key.name})"
+    # Only include in staging where the secret is managed by Terraform
+    SUMMARY_WOMBLE_KEY = var.environment == "staging" ? "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/${azurerm_key_vault_secret.summarywomble_function_key[0].name})" : "placeholder-for-production"
   }
   #zip_deploy_file = filebase64("${path.module}/function.zip")
   site_config {
@@ -284,13 +287,18 @@ resource "azurerm_role_assignment" "storage_account_contributor" {
 }
 
 # Role assignments for admin user to access storage
+# Note: These may fail in production if service principal lacks role assignment permissions
 resource "azurerm_role_assignment" "admin_storage_blob_data_contributor" {
+  count = var.environment == "staging" ? 1 : 0  # Only create in staging for now
+
   scope                = azurerm_storage_account.main.id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = var.admin_user_object_id
 }
 
 resource "azurerm_role_assignment" "admin_storage_account_contributor" {
+  count = var.environment == "staging" ? 1 : 0  # Only create in staging for now
+
   scope                = azurerm_storage_account.main.id
   role_definition_name = "Storage Account Contributor"
   principal_id         = var.admin_user_object_id

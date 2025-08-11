@@ -428,7 +428,7 @@ jobs:
           # Configure backend for remote state
           terraform init -backend-config=backend-staging.hcl
 
-          terraform apply -auto-approve -var="environment=${{ github.event.inputs.environment || 'staging' }}"
+          terraform apply -auto-approve -var-file="staging.tfvars"
 
           # Get outputs for function deployment
           FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
@@ -634,7 +634,7 @@ jobs:
           # Configure backend for remote state
           terraform init -backend-config=backend-production.hcl
 
-          terraform apply -auto-approve -var="environment=production"
+          terraform apply -auto-approve -var-file="production.tfvars"
 
           # Get outputs for function deployment
           FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
