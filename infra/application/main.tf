@@ -76,6 +76,25 @@ resource "azurerm_key_vault_access_policy" "current_user" {
   ]
 }
 
+# Generate and store a function key for SummaryWomble (managed via Key Vault)
+resource "random_password" "summary_womble_key" {
+  length  = 64
+  special = false
+}
+
+resource "azurerm_key_vault_secret" "summarywomble_function_key" {
+  name         = "summarywomble-function-key"
+  value        = random_password.summary_womble_key.result
+  key_vault_id = azurerm_key_vault.main.id
+
+  content_type = "function-key"
+  tags = {
+    Purpose     = "summarywomble-auth"
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+
 # Key Vault access policy for Function App managed identity
 resource "azurerm_key_vault_access_policy" "function_app" {
   key_vault_id = azurerm_key_vault.main.id
@@ -201,6 +220,9 @@ resource "azurerm_linux_function_app" "main" {
 
     # Key Vault URL for fallback access
     KEY_VAULT_URL = azurerm_key_vault.main.vault_uri
+
+  # SummaryWomble function key for internal authenticated calls
+  SUMMARY_WOMBLE_KEY = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/${azurerm_key_vault_secret.summarywomble_function_key.name})"
   }
   #zip_deploy_file = filebase64("${path.module}/function.zip")
   site_config {

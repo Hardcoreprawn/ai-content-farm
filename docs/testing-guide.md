@@ -83,6 +83,12 @@ curl -X POST \
     }
   }' \
   "http://localhost:7071/api/SummaryWomble"
+
+  ## Authentication Notes
+
+  - SummaryWomble requires a function key in staging/production. Include header `x-functions-key: <key>` for authenticated requests.
+  - The internal `GetHotTopics` timer calls SummaryWomble using an app setting `SUMMARY_WOMBLE_KEY` populated from Key Vault and sent as `x-functions-key`.
+  - The function key is managed via Terraform in Key Vault (`summarywomble-function-key`) and aligned at deploy time by the pipeline; avoid setting it manually in app settings.
 ```
 
 ## 📋 Request Parameters

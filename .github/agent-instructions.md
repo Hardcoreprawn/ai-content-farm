@@ -12,6 +12,7 @@
 - **Consolidate redundancy** - merge duplicate information, don't create new files
 - **One TODO list** - TODO.md only, not multiple planning docs
 - **No excessive documentation** - prefer working code over documentation theater
+- **Define and document projects** - Write down what you plan to do, once approved, then move ahead. These plans should be written as short articles, with a date prefix
 
 ## Coding Rules
 - **Fix path mismatches immediately** - verify Makefile vs actual file structure
@@ -22,6 +23,7 @@
 - **Update versions manually** - quarterly schedule, test before deploying
 - **Move through environments** - dev → staging → production
 - **Function deployment priority** - get working code deployed before optimization
+- **Keep logs clear and ASCII** - When you add emojis into logs, then they are hard to parse.
 
 ## Project Structure Rules
 - **Functions** go in `/functions/` directory (rename from azure-function-deploy if needed)

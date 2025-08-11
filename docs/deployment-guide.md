@@ -118,6 +118,13 @@ cd infra
 terraform plan -var-file="staging.tfvars"
 terraform apply -var-file="staging.tfvars"
 
+### Function Key Management (SummaryWomble)
+
+- The SummaryWomble HTTP function uses authLevel "function".
+- A dedicated function key is generated and stored in the application Key Vault as `summarywomble-function-key` (managed by Terraform).
+- The Function App reads a Key Vault–backed app setting `SUMMARY_WOMBLE_KEY` for internal calls (used by the `GetHotTopics` timer to call SummaryWomble securely via `x-functions-key`).
+- The CI/CD pipeline aligns the function’s deployed key with the Key Vault value after each deploy (idempotent).
+
 # Configure secrets
 make setup-keyvault
 

@@ -46,13 +46,13 @@ jobs:
     outputs:
       security-approved: ${{ steps.security-gate.outputs.approved }}
       critical-findings: ${{ steps.security-gate.outputs.critical-findings }}
-      
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
@@ -60,7 +60,11 @@ jobs:
       run: |
         pip3 install checkov
         # Install tfsec with fallback
-        wget -O tfsec https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 && chmod +x tfsec && sudo mv tfsec /usr/local/bin || echo "tfsec installation failed, continuing without it"
+        wget -O tfsec \
+          https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 \
+          && chmod +x tfsec \
+          && sudo mv tfsec /usr/local/bin \
+          || echo "tfsec installation failed, continuing without it"
         LATEST_URL=$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.*Linux_x86_64.tar.gz" | head -1)
         curl -L "$LATEST_URL" > terrascan.tar.gz
         tar -xf terrascan.tar.gz terrascan && rm terrascan.tar.gz
@@ -71,22 +75,22 @@ jobs:
       id: security-scans
       run: |
         echo "Running comprehensive security scans..."
-        
+
         # Run Checkov
         checkov -d infra --quiet --compact --output json --output-file-path security-results/checkov.json || CHECKOV_EXIT=$?
         checkov -d functions --quiet --compact --output json --output-file-path security-results/checkov-functions.json || true
-        
+
         # Run TFSec
         cd infra/application && tfsec . --format json --out ../../security-results/tfsec.json --soft-fail || TFSEC_EXIT=$?
         cd ../..
-        
+
         # Run Terrascan
         cd infra/application && terrascan scan -i terraform --output json > ../../security-results/terrascan.json || TERRASCAN_EXIT=$?
         cd ../..
-        
+
         # Generate SBOM
         syft functions -o json=security-results/sbom.json
-        
+
         echo "Security scans completed"
       continue-on-error: true
 
@@ -94,21 +98,21 @@ jobs:
       id: security-gate
       run: |
         mkdir -p security-results
-        
+
         # Analyze security scan results
         CRITICAL_COUNT=0
         HIGH_COUNT=0
-        
+
         # Check Checkov results for critical/high findings
         if [ -f security-results/checkov.json ]; then
           CRITICAL_COUNT=$(jq '.results.failed_checks | map(select(.severity == "CRITICAL")) | length' security-results/checkov.json 2>/dev/null || echo 0)
           HIGH_COUNT=$(jq '.results.failed_checks | map(select(.severity == "HIGH")) | length' security-results/checkov.json 2>/dev/null || echo 0)
         fi
-        
+
         echo "Critical findings: $CRITICAL_COUNT"
         echo "High findings: $HIGH_COUNT"
         echo "critical-findings=$CRITICAL_COUNT" >> $GITHUB_OUTPUT
-        
+
         # Simplified security gate logic - pass or fail
         if [ "$CRITICAL_COUNT" -gt 0 ]; then
           echo "❌ SECURITY GATE FAILED: $CRITICAL_COUNT critical security findings detected"
@@ -140,13 +144,13 @@ jobs:
     outputs:
       cost-approved: ${{ steps.cost-gate.outputs.approved }}
       estimated-cost: ${{ steps.cost-gate.outputs.estimated-cost }}
-      
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Azure Login with OIDC
-      uses: azure/login@v1
+      uses: azure/login@v2
       with:
         client-id: ${{ vars.AZURE_CLIENT_ID }}
         tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -161,32 +165,32 @@ jobs:
       run: |
         # Install Infracost for accurate Azure cost estimation
         curl -fsSL https://raw.githubusercontent.com/infracost/infracost/master/scripts/install.sh | sh
-        
+
         # Verify installation
         infracost --version
-        
+
         # Get Infracost API key from CI/CD Key Vault (in bootstrap resource group)
         echo "🔑 Retrieving Infracost API key from CI/CD Key Vault..."
-        
+
         # First, verify Azure authentication
         echo "🔍 Verifying Azure authentication..."
         if ! az account show > /dev/null 2>&1; then
           echo "❌ Azure authentication failed. Please check OIDC configuration."
           exit 1
         fi
-        
+
         # Look for CI/CD Key Vault in bootstrap resource group
         BOOTSTRAP_RG="ai-content-farm-bootstrap"
         echo "🔍 Looking for CI/CD Key Vault in bootstrap resource group: $BOOTSTRAP_RG"
-        
+
         if az group show --name "$BOOTSTRAP_RG" > /dev/null 2>&1; then
           echo "✅ Found bootstrap resource group: $BOOTSTRAP_RG"
           # Find CI/CD Key Vault (should contain 'cicd' in name)
           KEYVAULT_NAME=$(az keyvault list --resource-group "$BOOTSTRAP_RG" --query "[?contains(name, 'cicd')].name" -o tsv 2>/dev/null || echo "")
-          
+
           if [ -n "$KEYVAULT_NAME" ]; then
             echo "✅ Found CI/CD Key Vault: $KEYVAULT_NAME"
-            
+
             # Check if we have permission to access the Key Vault
             if ! az keyvault secret list --vault-name "$KEYVAULT_NAME" > /dev/null 2>&1; then
               echo "❌ No permission to access CI/CD Key Vault. This indicates missing access policy."
@@ -196,7 +200,10 @@ jobs:
               infracost configure set api_key ico-free-tier-key || echo "Using free tier"
             else
               # Try to get the API key from CI/CD vault
-              INFRACOST_API_KEY=$(az keyvault secret show --vault-name "$KEYVAULT_NAME" --name "infracost-api-key" --query "value" -o tsv 2>/dev/null || echo "")
+              INFRACOST_API_KEY=$(az keyvault secret show \
+                --vault-name "$KEYVAULT_NAME" \
+                --name "infracost-api-key" \
+                --query "value" -o tsv 2>/dev/null || echo "")
               if [ -n "$INFRACOST_API_KEY" ] && [ "$INFRACOST_API_KEY" != "placeholder-get-from-infracost-io" ]; then
                 echo "✅ Using Infracost API key from CI/CD Key Vault"
                 infracost configure set api_key "$INFRACOST_API_KEY"
@@ -220,13 +227,16 @@ jobs:
       id: terraform-plan
       run: |
         cd infra/application
-        
+
         # Configure backend for remote state
-        terraform init -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" \
-                      -backend-config="container_name=tfstate" \
-                      -backend-config="key=${{ github.event.inputs.environment || 'staging' }}.tfstate" \
-                      -backend-config="resource_group_name=ai-content-farm-bootstrap"
-        
+        ENV_INPUT="${{ github.event.inputs.environment }}"
+        if [ -z "$ENV_INPUT" ]; then ENV_INPUT="staging"; fi
+        if [ "$ENV_INPUT" = "production" ]; then
+          terraform init -backend-config=backend-production.hcl
+        else
+          terraform init -backend-config=backend-staging.hcl
+        fi
+
         # Create terraform plan with better error handling
         echo "🔧 Creating Terraform plan..."
         if terraform plan -out=tfplan -var="environment=${{ github.event.inputs.environment || 'staging' }}" 2>&1 | tee plan.log; then
@@ -235,7 +245,7 @@ jobs:
         else
           echo "⚠️  Terraform plan had issues, checking if they're permission-related..."
           PLAN_SUCCESS=false
-          
+
           # Check if errors are related to Key Vault permissions
           if grep -q "does not have secrets get permission" plan.log; then
             echo "🔍 Detected Key Vault permission errors - this is expected on first deployment"
@@ -248,27 +258,27 @@ jobs:
             PLAN_SUCCESS=true
           fi
         fi
-        
+
         if [ "$PLAN_SUCCESS" = "false" ]; then
           echo "❌ Terraform plan failed with non-permission errors"
           cat plan.log
           exit 1
         fi
-        
+
         # Only use Infracost for accurate cost estimation if terraform plan succeeded cleanly
         if command -v infracost &> /dev/null; then
           echo "Using Infracost for accurate cost estimation..."
           mkdir -p ../cost-analysis
-          
+
           # Try to get Infracost breakdown with usage file
           if infracost breakdown --path tfplan --usage-file infracost-usage.yml --format json > ../cost-analysis/infracost.json 2>&1; then
             ESTIMATED_COST=$(jq -r '.totalMonthlyCost' ../cost-analysis/infracost.json 2>/dev/null || echo "unavailable")
-            
+
             if [ "$ESTIMATED_COST" != "null" ] && [ "$ESTIMATED_COST" != "unavailable" ] && [ "$ESTIMATED_COST" != "0" ]; then
               echo "✅ Infracost estimation successful with usage data: \$$ESTIMATED_COST/month"
               echo "estimated-cost=$ESTIMATED_COST" >> $GITHUB_OUTPUT
               echo "cost-available=true" >> $GITHUB_OUTPUT
-              
+
               # Show cost breakdown for transparency
               echo "📊 Cost breakdown by service:"
               jq -r '.projects[0].breakdown.resources[] | "\(.name): $\(.monthlyCost // 0)"' ../cost-analysis/infracost.json | head -10
@@ -295,7 +305,7 @@ jobs:
         mkdir -p cost-analysis
         ESTIMATED_COST="${{ steps.terraform-plan.outputs.estimated-cost }}"
         COST_AVAILABLE="${{ steps.terraform-plan.outputs.cost-available }}"
-        
+
         # Simplified cost gate - if we can't get costs, assume it's reasonable for development
         if [ "$COST_AVAILABLE" == "false" ] || [ "$ESTIMATED_COST" == "unavailable" ]; then
           echo "⚠️  Cost estimation unavailable, proceeding with deployment"
@@ -303,10 +313,10 @@ jobs:
           echo "estimated-cost=unknown" >> $GITHUB_OUTPUT
         else
           echo "📊 Cost analysis successful: \$$ESTIMATED_COST/month"
-          
+
           # Convert to integer for comparison (remove decimal if present)
           COST_INT=$(echo "$ESTIMATED_COST" | cut -d'.' -f1)
-          
+
           # Simplified cost thresholds - fail only if very expensive
           if [ "$COST_INT" -gt 25 ]; then
             echo "❌ COST GATE FAILED: Estimated cost \$$ESTIMATED_COST exceeds \$25/month limit"
@@ -338,7 +348,7 @@ jobs:
       needs.cost-gate.outputs.cost-approved == 'true' &&
       github.ref == 'refs/heads/develop'
     environment: staging
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -349,7 +359,7 @@ jobs:
         terraform_version: 1.12.2
 
     - name: Azure Login with OIDC
-      uses: azure/login@v1
+      uses: azure/login@v2
       with:
         client-id: ${{ vars.AZURE_CLIENT_ID }}
         tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -358,39 +368,62 @@ jobs:
     - name: Deploy Infrastructure
       run: |
         cd infra/application
-        
+
         # Configure backend for remote state
-        terraform init -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" \
-                      -backend-config="container_name=tfstate" \
-                      -backend-config="key=${{ github.event.inputs.environment || 'staging' }}.tfstate" \
-                      -backend-config="resource_group_name=ai-content-farm-bootstrap"
-        
+        terraform init -backend-config=backend-staging.hcl
+
         terraform apply -auto-approve -var="environment=${{ github.event.inputs.environment || 'staging' }}"
-        
+
         # Get outputs for function deployment
         FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
         RESOURCE_GROUP=$(terraform output -raw resource_group_name)
-        
+        KEY_VAULT_NAME=$(terraform output -raw key_vault_name)
+
         echo "FUNCTION_APP_NAME=$FUNCTION_APP_NAME" >> $GITHUB_ENV
         echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
+        echo "KEY_VAULT_NAME=$KEY_VAULT_NAME" >> $GITHUB_ENV
 
     - name: Deploy Python Function App
       run: |
         cd functions
-        
+
         # Create deployment package for Python Azure Functions
         # Azure Functions expects the function files directly, not in a venv
         zip -r ../function-app.zip . -x "*.pyc" "*/__pycache__/*" ".python_packages/*"
-        
+
         # Deploy using Azure CLI (works reliably for Python functions)
-        echo "🚀 Deploying function app package..."
-        az functionapp deployment source config-zip \
-          --resource-group $RESOURCE_GROUP \
-          --name $FUNCTION_APP_NAME \
-          --src ../function-app.zip
-        
-        echo "✅ Function app deployment completed"
-        echo "⏳ Note: Functions may need time to register after deployment (cold start)"
+        echo "Deploying function app package..."
+            az functionapp deployment source config-zip \
+              --resource-group $RESOURCE_GROUP \
+              --name $FUNCTION_APP_NAME \
+              --src ../function-app.zip
+
+        echo "Function app deployment completed"
+        echo "Note: Functions may need time to register after deployment (cold start)"
+
+    - name: Wire SummaryWomble key to app setting
+      run: |
+        # Use IaC-managed secret from Key Vault as the SummaryWomble function key
+        echo "Retrieving SummaryWomble function key from Key Vault ($KEY_VAULT_NAME)..."
+        SECRET=$(az keyvault secret show \
+          --vault-name "$KEY_VAULT_NAME" \
+          --name summarywomble-function-key \
+          --query value -o tsv)
+
+        if [ -z "$SECRET" ] || [ "$SECRET" = "null" ]; then
+          echo "Missing Key Vault secret 'summarywomble-function-key'" && exit 1
+        fi
+
+        echo "Setting/aligning SummaryWomble function key to IaC-managed value"
+        az functionapp function keys set \
+          --name "$FUNCTION_APP_NAME" \
+          --resource-group "$RESOURCE_GROUP" \
+          --function-name SummaryWomble \
+          --key-name internal \
+          --key-value "$SECRET" 1>/dev/null
+
+        # Restart to ensure settings and function registration are applied
+        az functionapp restart --name "$FUNCTION_APP_NAME" --resource-group "$RESOURCE_GROUP"
 
   # Stage 4: Integration Tests
   run-integration-tests:
@@ -398,13 +431,13 @@ jobs:
     name: Run End-to-End Integration Tests
     needs: deploy-to-staging
     if: needs.deploy-to-staging.result == 'success'
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
     - name: Azure Login with OIDC
-      uses: azure/login@v1
+      uses: azure/login@v2
       with:
         client-id: ${{ vars.AZURE_CLIENT_ID }}
         tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -416,7 +449,7 @@ jobs:
         terraform_version: 1.12.2
 
     - name: Setup Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
@@ -424,36 +457,33 @@ jobs:
       run: |
         # Install test dependencies
         pip install pytest requests azure-identity azure-keyvault-secrets
-        
+
         # Get function app URL from terraform outputs
         cd infra/application
-        terraform init -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" \
-                      -backend-config="container_name=tfstate" \
-                      -backend-config="key=${{ github.event.inputs.environment || 'staging' }}.tfstate" \
-                      -backend-config="resource_group_name=ai-content-farm-bootstrap"
-        
+        terraform init -backend-config=backend-staging.hcl
+
         # Get the function app URL
         FUNCTION_URL=$(terraform output -raw function_app_url)
         FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
         cd ../..
-        
+
         echo "Testing function app: $FUNCTION_APP_NAME"
         echo "Function URL: $FUNCTION_URL"
-        
+
         # Wait for deployment to be ready - improved with function-specific checks
         echo "Waiting for function app to be ready..."
         READY=false
         for i in {1..30}; do
           echo "Attempt $i/30: Checking function app status..."
-          
+
           # Check if the main function app is responding
           if curl -s "$FUNCTION_URL" > /dev/null; then
             echo "✅ Function app is responding"
-            
+
             # Check if SummaryWomble function is properly registered (should return 401, not 404)
             SUMMARY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$FUNCTION_URL/api/SummaryWomble" || echo "000")
             echo "SummaryWomble status: $SUMMARY_STATUS"
-            
+
             if [ "$SUMMARY_STATUS" = "401" ] || [ "$SUMMARY_STATUS" = "400" ] || [ "$SUMMARY_STATUS" = "500" ]; then
               echo "✅ SummaryWomble function is properly registered"
               READY=true
@@ -466,18 +496,18 @@ jobs:
           else
             echo "⏳ Function app not responding yet"
           fi
-          
+
           echo "Waiting 15 seconds before next check..."
           sleep 15
         done
-        
+
         if [ "$READY" = "false" ]; then
           echo "❌ Function app did not become ready within timeout"
           echo "This might indicate a deployment issue. Continuing with tests anyway..."
         else
           echo "✅ Function app is ready for testing"
         fi
-        
+
         # Run tests with environment variables
         export FUNCTION_URL=$FUNCTION_URL
         export FUNCTION_APP_NAME=$FUNCTION_APP_NAME
@@ -489,12 +519,12 @@ jobs:
     name: Deploy Infrastructure and Functions to Production
     needs: [security-gate, cost-gate, run-integration-tests]
     if: |
-      always() && 
+      always() &&
       needs.run-integration-tests.result == 'success' &&
       github.ref == 'refs/heads/main' &&
       github.event_name == 'push'
     environment: production
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -505,7 +535,7 @@ jobs:
         terraform_version: 1.12.2
 
     - name: Azure Login with OIDC
-      uses: azure/login@v1
+      uses: azure/login@v2
       with:
         client-id: ${{ vars.AZURE_CLIENT_ID }}
         tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -514,34 +544,59 @@ jobs:
     - name: Deploy to Production
       run: |
         cd infra/application
-        
+
         # Configure backend for remote state
-        terraform init -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT }}" \
-                      -backend-config="container_name=tfstate" \
-                      -backend-config="key=production.tfstate" \
-                      -backend-config="resource_group_name=ai-content-farm-bootstrap"
-        
+        terraform init -backend-config=backend-production.hcl
+
         terraform apply -auto-approve -var="environment=production"
-        
+
         # Get outputs for function deployment
         FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
         RESOURCE_GROUP=$(terraform output -raw resource_group_name)
-        
+
         echo "FUNCTION_APP_NAME=$FUNCTION_APP_NAME" >> $GITHUB_ENV
         echo "RESOURCE_GROUP=$RESOURCE_GROUP" >> $GITHUB_ENV
 
     - name: Deploy Python Function App to Production
       run: |
         cd functions
-        
+
         # Create deployment package for Python Azure Functions
         zip -r ../function-app-prod.zip . -x "*.pyc" "*/__pycache__/*" ".python_packages/*"
-        
+
         # Deploy using Azure CLI
         az functionapp deployment source config-zip \
           --resource-group $RESOURCE_GROUP \
           --name $FUNCTION_APP_NAME \
           --src ../function-app-prod.zip
+
+    - name: Wire SummaryWomble key to app setting (production)
+      run: |
+        echo "Retrieving SummaryWomble function key from Key Vault (production)..."
+        # Recompute KEY_VAULT_NAME in production context
+        cd infra/application
+        terraform init -backend-config=backend-production.hcl
+        KEY_VAULT_NAME=$(terraform output -raw key_vault_name)
+        cd ../..
+
+        SECRET=$(az keyvault secret show \
+          --vault-name "$KEY_VAULT_NAME" \
+          --name summarywomble-function-key \
+          --query value -o tsv)
+
+        if [ -z "$SECRET" ] || [ "$SECRET" = "null" ]; then
+          echo "Missing Key Vault secret 'summarywomble-function-key' (production)" && exit 1
+        fi
+
+        echo "Setting/aligning SummaryWomble function key to IaC-managed value (production)"
+        az functionapp function keys set \
+          --name "$FUNCTION_APP_NAME" \
+          --resource-group "$RESOURCE_GROUP" \
+          --function-name SummaryWomble \
+          --key-name internal \
+          --key-value "$SECRET" 1>/dev/null
+
+        az functionapp restart --name "$FUNCTION_APP_NAME" --resource-group "$RESOURCE_GROUP"
 
   # Stage 6: Notification
   deployment-notification:
@@ -549,7 +604,7 @@ jobs:
     name: Deployment Status Notification
     needs: [deploy-to-staging, deploy-to-production]
     if: always()
-    
+
     steps:
     - name: Notify Deployment Status
       run: |

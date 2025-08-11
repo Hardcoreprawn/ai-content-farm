@@ -3,8 +3,9 @@
 # Testing a new commit
 
 .PHONY: help verify bootstrap bootstrap-init bootstrap-apply bootstrap-migrate bootstrap-plan \
-        app-init app-apply app-plan setup-keyvault deploy-functions test-functions \
-        security-scan check-azure clean dev staging production
+	app-init app-apply app-plan setup-keyvault deploy-functions test-functions \
+	security-scan check-azure clean dev staging production \
+	lint lint-yaml lint-actions
 
 ENVIRONMENT ?= staging
 
@@ -39,6 +40,7 @@ help:
 	@echo ""
 	@echo "🔒 Security & Validation:"
 	@echo "  security-scan       - Run Checkov security scan"
+	@echo "  lint                - Run YAML and GitHub Actions lint checks"
 	@echo "  check-azure         - Verify Azure access"
 	@echo ""
 	@echo "🧹 Utilities:"
@@ -113,6 +115,26 @@ test-functions:
 security-scan:
 	@echo "🔒 Running security scan..."
 	@checkov --framework terraform --directory infra/ --quiet || echo "⚠️  Security scan completed with findings"
+
+# Linters
+lint: lint-yaml lint-actions
+	@echo "✅ Lint checks complete"
+
+lint-yaml:
+	@echo "🔎 Running yamllint..."
+	@command -v yamllint >/dev/null 2>&1 || (echo "⏬ Installing yamllint locally (user site)..." && pip3 install --user yamllint)
+	@yamllint -f colored .
+
+.PHONY: fix-yaml
+fix-yaml:
+	@echo "🧼 Auto-fixing YAML whitespace (trailing spaces, CRLF -> LF)..."
+	@find . -type f \( -name "*.yml" -o -name "*.yaml" \) -print0 | xargs -0 sed -E -i -e 's/[[:space:]]+$$//' -e 's/\r$$//'
+	@echo "Done. Re-run 'make lint' to verify."
+
+lint-actions:
+	@echo "🔎 Running actionlint (GitHub Actions workflow linter)..."
+	@command -v docker >/dev/null 2>&1 || (echo "❌ Docker is required to run actionlint locally. Skipping." && exit 0)
+	@docker run --rm -v "$(PWD)":/repo -w /repo rhysd/actionlint:latest
 
 # Utilities  
 check-azure:

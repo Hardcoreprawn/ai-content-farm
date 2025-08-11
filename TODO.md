@@ -38,6 +38,23 @@
 - [ ] End-to-end test
 - [ ] Add to CI/CD
 
+## Immediate follow-ups (this PR)
+- [ ] Run full lint suite (yamllint + actionlint) and fix ShellCheck warnings in workflow scripts (quote variables, remove unused vars)
+- [ ] Validate CI workflow: run consolidated pipeline on develop, confirm staging deploy succeeds
+- [ ] Smoke test staging: admin-trigger GetHotTopics, verify logs and blob outputs
+- [ ] Document lint instructions (Makefile targets) in docs/development-log.md
+
+## Workflow refactor (maintainability)
+- [ ] Split consolidated workflow into smaller, reusable pieces
+  - [ ] Extract security scan job into .github/workflows/reusable/security-scan.yml (workflow_call)
+  - [ ] Extract cost gate into .github/workflows/reusable/cost-gate.yml (workflow_call)
+  - [ ] Extract deploy job(s) into .github/workflows/reusable/deploy.yml with environment input
+  - [ ] Extract integration tests into .github/workflows/reusable/integration-tests.yml
+  - [ ] Convert repeated shell snippets to Makefile targets where reasonable
+  - [ ] Update consolidated workflow to call reusables with inputs and minimal glue
+- [ ] Add CODEOWNERS checks for workflow changes
+- [ ] Add scheduled lint run for workflows (weekly)
+
 ## Pipeline Optimization (Future)
 - [ ] **Simplify GitHub Actions by reusing Makefile targets**
   - Benefits: Reduce duplication, easier maintenance, consistent behavior between local and CI
