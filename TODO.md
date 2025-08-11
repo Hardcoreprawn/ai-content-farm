@@ -1,13 +1,33 @@
 # TODO
 
-## **Current Focus: Content Pipeline Enhancement** 🎯
-- [x] **Async Job System**: Implemented job tickets for SummaryWomble with status tracking
-- [x] **Function Authentication**: Fixed Key Vault secret management for function-to-function calls
-- [x] **Timer Function**: Updated GetHotTopics to work with async job tickets
-- [ ] **Production Testing**: Validate 6-hour timer schedule works in production
-- [ ] **Content Processing**: Extend async pattern to content enrichment and publishing stages
+## **Current Focus: Content Processing Pipeline Completion** 
+- [x] **ContentRanker Function**: Implemented event-driven blob-triggered ranking function
+- [x] **Functional Programming Architecture**: Built with pure functions for scalability
+- [x] **Comprehensive Testing**: 11 unit tests with baseline validation
+- [x] **Event-Driven Pipeline**: SummaryWomble -> ContentRanker -> [ContentEnricher]
+- [ ] **ContentEnricher Function**: Implement research and fact-checking stage
+- [ ] **ContentPublisher Function**: Create markdown article generation with frontmatter
+- [ ] **End-to-End Pipeline Testing**: Validate complete Reddit -> published articles flow
+- [ ] **Production Testing**: Validate 6-hour timer schedule works with new pipeline
 
-## **Next Phase: Pipeline Scaling & Reliability** 🚀
+## **Next Phase: Content Functions Implementation**
+- [ ] **ContentEnricher Function**:
+  - [ ] Create blob-triggered function for ranked topics
+  - [ ] Implement external content fetching with rate limiting
+  - [ ] Add domain credibility assessment
+  - [ ] Generate citations and research notes
+  - [ ] Apply functional programming principles
+  - [ ] Create comprehensive test suite
+- [ ] **ContentPublisher Function**:
+  - [ ] Create blob-triggered function for enriched topics
+  - [ ] Generate SEO-optimized markdown with YAML frontmatter
+  - [ ] Implement social sharing metadata
+  - [ ] Add reading time estimation
+  - [ ] Create monetization-ready structure
+  - [ ] Apply functional programming principles
+  - [ ] Create comprehensive test suite
+
+## **Pipeline Enhancement & Reliability**
 - [ ] **Job Queueing System**: Implement proper job queue with Azure Service Bus or Storage Queues
   - [ ] Handle multiple concurrent job requests
   - [ ] Implement job priority levels (urgent vs normal)
@@ -18,18 +38,41 @@
   - [ ] Implement job cancellation capability
   - [ ] Add job execution metrics and timing
   - [ ] Create job history cleanup (auto-delete old status files)
-- [ ] **Content Processing Pipeline**:
-  - [ ] Apply async pattern to content enrichment stage
-  - [ ] Apply async pattern to content publishing stage
-  - [ ] Add cross-stage job dependency tracking
+- [ ] **Cross-Stage Job Tracking**:
+  - [ ] Extend job tickets across all pipeline stages
+  - [ ] Add cross-stage dependency tracking
+  - [ ] Implement pipeline-wide status monitoring
 - [ ] **Monitoring & Alerting**:
   - [ ] Add Application Insights custom metrics for job success/failure rates
   - [ ] Set up alerts for failed jobs or queue backlog
   - [ ] Create dashboard for job monitoring
+  - [ ] Track content quality metrics
 - [ ] **Performance Optimization**:
   - [ ] Implement parallel processing for multiple subreddits
   - [ ] Add caching for Reddit API responses
   - [ ] Optimize blob storage patterns
+  - [ ] Add content processing performance metrics
+
+## **Code Quality & Architecture**
+- [ ] **Clean Up Legacy Code**: Remove emojis from all functions for better log parsing
+- [ ] **Function Dependencies**: Ensure all functions are self-contained with local requirements.txt
+- [ ] **API Documentation**: Complete API contracts for all pipeline stages
+- [ ] **Integration Testing**: Add tests for blob trigger chains
+- [ ] **Error Handling**: Standardize error handling across all functions
+
+## ~~COMPLETED: ContentRanker Implementation~~ ✅
+- [x] **Event-Driven Architecture**: Implemented blob-triggered ContentRanker function
+- [x] **Functional Programming**: Built with pure functions for thread safety and scalability
+- [x] **Ranking Algorithm**: Multi-factor scoring (engagement, monetization, freshness, SEO)
+- [x] **Quality Controls**: Deduplication, filtering, and content validation
+- [x] **Comprehensive Testing**: 11 unit tests with baseline validation against real data
+- [x] **Self-Contained Structure**: Independent function with local dependencies
+- [x] **Production Ready**: Comprehensive error handling, logging, and configuration
+
+## ~~COMPLETED: Async Job System~~ ✅
+- [x] **Async Job System**: Implemented job tickets for SummaryWomble with status tracking
+- [x] **Function Authentication**: Fixed Key Vault secret management for function-to-function calls
+- [x] **Timer Function**: Updated GetHotTopics to work with async job tickets
 
 ## ~~COMPLETED: Terraform State Management~~ ✅
 - [x] **Configure Bootstrap Remote State**: Migrated to remote state with proper backend config

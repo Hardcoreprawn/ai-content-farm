@@ -1,7 +1,7 @@
 # AI Content Farm Documentation
 
 **Created:** August 5, 2025  
-**Last Updated:** August 5, 2025
+**Last Updated:** August 11, 2025
 
 Welcome to the comprehensive documentation for the AI Content Farm project - an automated content aggregation system using Azure Functions, Reddit API integration, and enterprise-grade security controls.
 
@@ -11,6 +11,7 @@ Welcome to the comprehensive documentation for the AI Content Farm project - an 
 - **[System Design](system-design.md)** - Complete system architecture, components, and data flow
 - **[Async Job System](async-job-system.md)** - Modern asynchronous processing with job tickets and real-time status tracking
 - **[Content Processing Workflow](content-processing-workflow.md)** - Complete content pipeline from Reddit to publication
+- **[API Contracts](api-contracts.md)** - Data format specifications for all pipeline stages
 - **[File Inventory](file-inventory.md)** - Comprehensive catalog of all project files and their purposes
 
 ### 🚀 Deployment & Operations  
@@ -28,6 +29,9 @@ Welcome to the comprehensive documentation for the AI Content Farm project - an 
 ### 📊 Project Management
 - **[Project Log](project-log.md)** - Development history and major milestones
 - **[Progress Tracking](progress-tracking.md)** - Current status and upcoming objectives
+
+### 📝 Implementation Logs
+- **[2025-08-11: ContentRanker Implementation](2025-08-11-content-ranker-implementation.md)** - Event-driven ranking function with functional programming
 
 ## 🎯 Quick Start Guides
 
