@@ -1,6 +1,6 @@
 # Production Environment Variables
 environment     = "production"
-resource_prefix = "ai-content-prod"
+resource_prefix = "ai-content-production"
 
 # GitHub Actions Configuration
 github_actions_client_id = "452661fc-ceaa-4681-83f6-ff149ca6bf6c"
