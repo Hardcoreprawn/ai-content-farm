@@ -18,6 +18,15 @@
 - **Define and document projects** - Write down what you plan to do, once approved, then move ahead. These plans should be written as short articles, with a date prefix
 
 ## Coding Rules
+
+### Line Endings (CRITICAL)
+- **ALL files must use Unix line endings (LF) - never CRLF**
+- Use `sed -i 's/\r$//' filename` to fix CRLF issues  
+- Check with `file filename` (should NOT show "with CRLF line terminators")
+- This prevents CI/CD deployment failures (recurring issue)
+- Run `git diff --cached --check` before committing
+
+### Other Rules
 - **Fix path mismatches immediately** - verify Makefile vs actual file structure
 - **Simplify build systems** - Makefiles should be <200 lines, remove unused targets
 - **Log issues in GitHub** - track problems and solutions

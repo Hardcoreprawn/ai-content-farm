@@ -132,7 +132,7 @@ resource "azurerm_key_vault_secret" "contentranker_function_key" {
 # Update the secrets with the actual function keys after deployment
 resource "null_resource" "update_function_keys" {
   depends_on = [
-    azurerm_linux_function_app.main, 
+    azurerm_linux_function_app.main,
     azurerm_key_vault_secret.summarywomble_function_key,
     azurerm_key_vault_secret.contentranker_function_key
   ]
@@ -259,7 +259,7 @@ resource "azurerm_service_plan" "main" {
 resource "azurerm_linux_function_app" "main" {
   # checkov:skip=CKV_AZURE_221: Public access is acceptable for this use case
   # checkov:skip=CKV_AZURE_97: No authentication required for this use case
-  
+
   # Function App hosts multiple Azure Functions:
   # - GetHotTopics: Timer trigger for Reddit data collection
   # - SummaryWomble: HTTP trigger for async content summarization
@@ -268,7 +268,7 @@ resource "azurerm_linux_function_app" "main" {
   #   * HTTP trigger: Manual processing with function-level auth for testing existing blobs
   #   * HTTP endpoint: POST /api/ContentRanker with {"blob_name": "filename"} body
   #   * Authentication: Requires function key (authLevel: "function")
-  
+
   name                        = "${local.resource_prefix}-func"
   location                    = azurerm_resource_group.main.location
   resource_group_name         = azurerm_resource_group.main.name
@@ -329,7 +329,7 @@ resource "azurerm_role_assignment" "storage_account_contributor" {
 
 # Role assignments for admin user to access storage
 resource "azurerm_role_assignment" "admin_storage_blob_data_contributor" {
-  count = var.environment == "staging" ? 1 : 0  # Only create in staging for now
+  count = var.environment == "staging" ? 1 : 0 # Only create in staging for now
 
   scope                = azurerm_storage_account.main.id
   role_definition_name = "Storage Blob Data Contributor"
@@ -337,7 +337,7 @@ resource "azurerm_role_assignment" "admin_storage_blob_data_contributor" {
 }
 
 resource "azurerm_role_assignment" "admin_storage_account_contributor" {
-  count = var.environment == "staging" ? 1 : 0  # Only create in staging for now
+  count = var.environment == "staging" ? 1 : 0 # Only create in staging for now
 
   scope                = azurerm_storage_account.main.id
   role_definition_name = "Storage Account Contributor"
