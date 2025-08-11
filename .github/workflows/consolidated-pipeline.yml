@@ -96,50 +96,50 @@ jobs:
       run: |
         echo "Running comprehensive security scans..."
         
-  # Initialize exit codes (used for diagnostics only)
-  CHECKOV_EXIT=0
-  TFSEC_EXIT=0
-  TERRASCAN_EXIT=0
+        # Initialize exit codes (used for diagnostics only)
+        CHECKOV_EXIT=0
+        TFSEC_EXIT=0
+        TERRASCAN_EXIT=0
 
-  # Run Checkov
-  checkov -d infra --quiet --compact --output json --output-file-path security-results/checkov.json || CHECKOV_EXIT=$?
-  checkov -d functions --quiet --compact --output json --output-file-path security-results/checkov-functions.json || true
+        # Run Checkov
+        checkov -d infra --quiet --compact --output json --output-file-path security-results/checkov.json || CHECKOV_EXIT=$?
+        checkov -d functions --quiet --compact --output json --output-file-path security-results/checkov-functions.json || true
 
-  # Run TFSec
-  cd infra/application && tfsec . --format json --out ../../security-results/tfsec.json --soft-fail || TFSEC_EXIT=$?
-  cd ../..
+        # Run TFSec
+        cd infra/application && tfsec . --format json --out ../../security-results/tfsec.json --soft-fail || TFSEC_EXIT=$?
+        cd ../..
 
-  # Run Terrascan
-  cd infra/application && terrascan scan -i terraform --output json > ../../security-results/terrascan.json || TERRASCAN_EXIT=$?
-  cd ../..
+        # Run Terrascan
+        cd infra/application && terrascan scan -i terraform --output json > ../../security-results/terrascan.json || TERRASCAN_EXIT=$?
+        cd ../..
 
-  # Generate SBOM
-  syft functions -o json=security-results/sbom.json
+        # Generate SBOM
+        syft functions -o json=security-results/sbom.json
 
-  # Mark exit code variables as intentionally used (diagnostic only)
-  echo "Scan exit codes: CK=$CHECKOV_EXIT TF=$TFSEC_EXIT TR=$TERRASCAN_EXIT" >/dev/null
+        # Mark exit code variables as intentionally used (diagnostic only)
+        echo "Scan exit codes: CK=$CHECKOV_EXIT TF=$TFSEC_EXIT TR=$TERRASCAN_EXIT" >/dev/null
 
-  echo "Security scans completed"
-      continue-on-error: true
+        echo "Security scans completed"
+            continue-on-error: true
 
-    - name: Security Gate Decision
-      id: security-gate
-      run: |
-        mkdir -p security-results
+          - name: Security Gate Decision
+            id: security-gate
+            run: |
+              mkdir -p security-results
 
-        # Analyze security scan results
-        CRITICAL_COUNT=0
-        HIGH_COUNT=0
+              # Analyze security scan results
+              CRITICAL_COUNT=0
+              HIGH_COUNT=0
 
-        # Check Checkov results for critical/high findings
-        if [ -f security-results/checkov.json ]; then
-          CRITICAL_COUNT=$(jq '.results.failed_checks | map(select(.severity == "CRITICAL")) | length' security-results/checkov.json 2>/dev/null || echo 0)
-          HIGH_COUNT=$(jq '.results.failed_checks | map(select(.severity == "HIGH")) | length' security-results/checkov.json 2>/dev/null || echo 0)
-        fi
+              # Check Checkov results for critical/high findings
+              if [ -f security-results/checkov.json ]; then
+                CRITICAL_COUNT=$(jq '.results.failed_checks | map(select(.severity == "CRITICAL")) | length' security-results/checkov.json 2>/dev/null || echo 0)
+                HIGH_COUNT=$(jq '.results.failed_checks | map(select(.severity == "HIGH")) | length' security-results/checkov.json 2>/dev/null || echo 0)
+              fi
 
-  echo "Critical findings: $CRITICAL_COUNT"
-  echo "High findings: $HIGH_COUNT"
-  echo "critical-findings=$CRITICAL_COUNT" >> "$GITHUB_OUTPUT"
+        echo "Critical findings: $CRITICAL_COUNT"
+        echo "High findings: $HIGH_COUNT"
+        echo "critical-findings=$CRITICAL_COUNT" >> "$GITHUB_OUTPUT"
 
         # Simplified security gate logic - pass or fail
         if [ "$CRITICAL_COUNT" -gt 0 ]; then
@@ -268,27 +268,27 @@ jobs:
         # Create terraform plan with better error handling
         echo "🔧 Creating Terraform plan..."
         if terraform plan -out=tfplan -var="environment=${{ github.event.inputs.environment || 'staging' }}" 2>&1 | tee plan.log; then
-          echo "✅ Terraform plan successful"
+          echo "Terraform plan successful"
           PLAN_SUCCESS=true
         else
-          echo "⚠️  Terraform plan had issues, checking if they're permission-related..."
+          echo "Terraform plan had issues, checking if they're permission-related..."
           PLAN_SUCCESS=false
 
           # Check if errors are related to Key Vault permissions
           if grep -q "does not have secrets get permission" plan.log; then
-            echo "🔍 Detected Key Vault permission errors - this is expected on first deployment"
+            echo "Detected Key Vault permission errors - this is expected on first deployment"
             echo "The GitHub Actions service principal needs access policy, which will be created by this deployment"
             echo "Proceeding with deployment to establish proper permissions..."
             PLAN_SUCCESS=true
           elif grep -q "Authorization_RequestDenied" plan.log; then
-            echo "🔍 Detected Azure AD permission errors - this might be expected for service principal lookups"
+            echo "Detected Azure AD permission errors - this might be expected for service principal lookups"
             echo "Proceeding with deployment..."
             PLAN_SUCCESS=true
           fi
         fi
 
         if [ "$PLAN_SUCCESS" = "false" ]; then
-          echo "❌ Terraform plan failed with non-permission errors"
+          echo "Terraform plan failed with non-permission errors"
           cat plan.log
           exit 1
         fi
@@ -303,24 +303,24 @@ jobs:
             ESTIMATED_COST=$(jq -r '.totalMonthlyCost' ../cost-analysis/infracost.json 2>/dev/null || echo "unavailable")
 
             if [ "$ESTIMATED_COST" != "null" ] && [ "$ESTIMATED_COST" != "unavailable" ] && [ "$ESTIMATED_COST" != "0" ]; then
-              echo "✅ Infracost estimation successful with usage data: \$$ESTIMATED_COST/month"
+              echo "Infracost estimation successful with usage data: \$$ESTIMATED_COST/month"
               {
                 echo "estimated-cost=$ESTIMATED_COST"
                 echo "cost-available=true"
               } >> "$GITHUB_OUTPUT"
 
               # Show cost breakdown for transparency
-              echo "📊 Cost breakdown by service:"
+              echo "Cost breakdown by service:"
               jq -r '.projects[0].breakdown.resources[] | "\(.name): $\(.monthlyCost // 0)"' ../cost-analysis/infracost.json | head -10
             else
-              echo "⚠️  Infracost returned invalid cost data"
+              echo "Infracost returned invalid cost data"
               {
                 echo "estimated-cost=unavailable"
                 echo "cost-available=false"
               } >> "$GITHUB_OUTPUT"
             fi
           else
-            echo "❌ Infracost breakdown failed"
+            echo "Infracost breakdown failed"
             cat ../cost-analysis/infracost.json 2>/dev/null || echo "No error output available"
             {
               echo "estimated-cost=unavailable"

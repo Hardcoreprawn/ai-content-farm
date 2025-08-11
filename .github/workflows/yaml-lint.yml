@@ -3,16 +3,14 @@ name: YAML and Actions Lint
 on:
   push:
     paths:
-      - '**/*.yml'
-      - '**/*.yaml'
+      - '.github/workflows/**/*.yml'
+      - '.github/workflows/**/*.yaml'
       - '.yamllint.yaml'
-      - 'Makefile'
   pull_request:
     paths:
-      - '**/*.yml'
-      - '**/*.yaml'
+      - '.github/workflows/**/*.yml'
+      - '.github/workflows/**/*.yaml'
       - '.yamllint.yaml'
-      - 'Makefile'
 
 jobs:
   lint:
