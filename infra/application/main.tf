@@ -290,7 +290,6 @@ resource "azurerm_role_assignment" "storage_account_contributor" {
 }
 
 # Role assignments for admin user to access storage
-# Note: These may fail in production if service principal lacks role assignment permissions
 resource "azurerm_role_assignment" "admin_storage_blob_data_contributor" {
   count = var.environment == "staging" ? 1 : 0  # Only create in staging for now
 

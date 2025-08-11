@@ -634,7 +634,7 @@ jobs:
           # Configure backend for remote state
           terraform init -backend-config=backend-production.hcl
 
-          terraform apply -auto-approve -var-file="production.tfvars"
+           terraform apply -auto-approve -var-file="production.tfvars"
 
           # Get outputs for function deployment
           FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
