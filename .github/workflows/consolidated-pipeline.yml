@@ -3,8 +3,28 @@ name: Consolidated CI/CD Pipeline
 on:
   push:
     branches: [ develop, main ]
+    paths:
+      - 'functions/**'
+      - 'infra/**'
+      - 'content_processor/**'
+      - 'content_wombles/**'
+      - 'scripts/**'
+      - 'docs/**'
+      - 'Makefile'
+      - 'mkdocs.yml'
+      - '!**/.github/workflows/**'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'functions/**'
+      - 'infra/**'
+      - 'content_processor/**'
+      - 'content_wombles/**'
+      - 'scripts/**'
+      - 'docs/**'
+      - 'Makefile'
+      - 'mkdocs.yml'
+      - '!**/.github/workflows/**'
   workflow_dispatch:
     inputs:
       environment:
@@ -75,7 +95,7 @@ jobs:
       id: security-scans
       run: |
         echo "Running comprehensive security scans..."
-
+        
   # Initialize exit codes (used for diagnostics only)
   CHECKOV_EXIT=0
   TFSEC_EXIT=0
