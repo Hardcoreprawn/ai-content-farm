@@ -18,6 +18,58 @@
 
 This file records all actions taken by GitHub Copilot for the 'Hot Topics Feed' project.
 
+## 2025-08-11 - Production Deployment Permission Fix
+
+### **GitHub Actions User Access Administrator Role**
+- **Problem**: Production deployment failing with role assignment authorization errors
+- **Root Cause**: GitHub Actions service principal lacked permission to create storage role assignments
+- **Solution**: Added User Access Administrator role to bootstrap Terraform configuration
+
+### **Infrastructure as Code Implementation**
+- **Key Change**: Added role assignment to `infra/bootstrap/main.tf`:
+  ```terraform
+  resource "azurerm_role_assignment" "github_actions_user_access_admin" {
+    scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+    role_definition_name = "User Access Administrator"
+    principal_id         = azuread_service_principal.github_actions.object_id
+  }
+  ```
+
+### **Permission Architecture Clarification**
+- **Bootstrap Terraform**: Manages foundational GitHub Actions permissions
+  - ✅ Contributor role (resource management)
+  - ✅ User Access Administrator role (role assignment creation)
+- **Application Terraform**: Uses permissions to deploy application resources
+  - ✅ Storage role assignments for function app managed identity
+  - ✅ Key Vault access policies
+
+### **Specific Error Resolved**
+```
+AuthorizationFailed: The client '9bbd882e-e52d-4978-9efd-ac6eae55b6f5' 
+does not have authorization to perform action 'Microsoft.Authorization/roleAssignments/write'
+```
+
+### **Security Considerations**
+- **Principle of Least Privilege**: Only granted necessary permissions for deployment
+- **Infrastructure as Code**: All permissions managed through Terraform, not manual Azure portal changes
+- **Audit Trail**: Role assignments tracked in Git history and Terraform state
+
+### **Resource Naming Resolution**
+- **Issue**: Production resources using inconsistent naming (`ai-content-prod` vs `ai-content-production`)
+- **Solution**: Updated `production.tfvars` to use `ai-content-production` prefix
+- **Benefit**: Avoids resource recreation and Key Vault soft-delete conflicts
+
+### **Files Modified**
+- `infra/bootstrap/main.tf` - Added User Access Administrator role
+- `infra/application/production.tfvars` - Fixed resource prefix naming
+- `infra/application/main.tf` - Removed incorrect role assignment placement
+
+### **Deployment Status**
+- ✅ Bootstrap Terraform updated with proper permissions
+- ✅ Staging deployment working correctly
+- 🔄 Production deployment pipeline in progress
+- ✅ All permissions managed as Infrastructure as Code
+
 ## 2025-08-11 - Major Enhancement: Async Job Processing System
 
 ### **Async Job Ticket System Implementation**

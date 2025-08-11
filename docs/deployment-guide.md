@@ -343,7 +343,59 @@ cd functions
 func azure functionapp publish your-function-app
 ```
 
-## 📋 Deployment Checklist
+## � GitHub Actions Permissions
+
+### Required Azure Permissions for GitHub Actions
+
+The GitHub Actions service principal requires specific permissions to deploy infrastructure:
+
+#### Bootstrap-Managed Permissions
+These are configured in `infra/bootstrap/main.tf`:
+
+```terraform
+# Contributor role for resource management
+resource "azurerm_role_assignment" "github_actions_contributor" {
+  scope                = "/subscriptions/${subscription_id}"
+  role_definition_name = "Contributor"
+  principal_id         = azuread_service_principal.github_actions.object_id
+}
+
+# User Access Administrator for role assignment creation
+resource "azurerm_role_assignment" "github_actions_user_access_admin" {
+  scope                = "/subscriptions/${subscription_id}"
+  role_definition_name = "User Access Administrator"
+  principal_id         = azuread_service_principal.github_actions.object_id
+}
+```
+
+#### Permission Requirements
+- **Contributor**: Create, update, delete Azure resources
+- **User Access Administrator**: Create role assignments for storage accounts and managed identities
+
+### Permission Troubleshooting
+
+#### Common Permission Errors
+```
+AuthorizationFailed: The client does not have authorization to perform action 
+'Microsoft.Authorization/roleAssignments/write'
+```
+
+**Solution**: Ensure GitHub Actions service principal has User Access Administrator role.
+
+#### Verifying Permissions
+```bash
+# Check current role assignments
+az role assignment list --assignee {service-principal-object-id} \
+  --query "[].{Role:roleDefinitionName, Scope:scope}" --output table
+
+# Expected output:
+# Role                       Scope
+# -------------------------  ---------------------------------------------------
+# Contributor                /subscriptions/{subscription-id}
+# User Access Administrator  /subscriptions/{subscription-id}
+```
+
+## �📋 Deployment Checklist
 
 ### Pre-Deployment
 - [ ] Code changes tested locally
