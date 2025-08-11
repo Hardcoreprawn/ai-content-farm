@@ -64,8 +64,9 @@ resource "azurerm_key_vault" "main" {
   depends_on = [azurerm_log_analytics_workspace.main]
 }
 
-# Key Vault access policy for current user/service principal
+# Key Vault access policy for current user/service principal (only if not GitHub Actions)
 resource "azurerm_key_vault_access_policy" "current_user" {
+  count        = data.azurerm_client_config.current.object_id != var.github_actions_object_id ? 1 : 0
   key_vault_id = azurerm_key_vault.main.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
   object_id    = data.azurerm_client_config.current.object_id
@@ -98,7 +99,10 @@ resource "azurerm_key_vault_secret" "summarywomble_function_key" {
     ignore_changes = [value]
   }
 
-  depends_on = [azurerm_key_vault_access_policy.github_actions]
+  depends_on = [
+    azurerm_key_vault_access_policy.github_actions,
+    azurerm_key_vault_access_policy.current_user
+  ]
 }
 
 # Update the secret with the actual function key after deployment
