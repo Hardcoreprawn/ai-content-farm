@@ -30,6 +30,13 @@
 - **Azure Functions Logging**: `az functionapp logs tail` only works for .NET functions, NOT Python
   - For Python functions: Use Azure portal logs or Application Insights queries
   - Python logs are buffered and don't stream in real-time like .NET
+
+### Azure Functions Architecture Pattern
+- **Separate event handlers from business logic**: Event/timer functions should call HTTP functions
+- **Pattern**: `EventHandler` (timer/blob/queue) → calls → `ProcessorHTTP` (business logic)
+- **Benefits**: Easy testing, debugging, reusability, monitoring
+- **Trade-offs**: ~2x cost, but saves development time
+- **Example**: `ContentRanker` (blob trigger) + `ContentRankerManual` (HTTP trigger + shared logic)
 - **Fix path mismatches immediately** - verify Makefile vs actual file structure
 - **Simplify build systems** - Makefiles should be <200 lines, remove unused targets
 - **Log issues in GitHub** - track problems and solutions
