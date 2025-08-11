@@ -15,7 +15,7 @@
 
 # TODO
 
-## **Current Focus: Content Processing Pipeline Completion** 
+## **Current Focus: Complete Content Pipeline (Staging-First)** 
 - [x] **ContentRanker Function**: Implemented event-driven blob-triggered ranking function (2025-08-11)
 - [x] **Functional Programming Architecture**: Built with pure functions for scalability (2025-08-11)
 - [x] **HTTP Trigger for Testing**: Added authenticated manual trigger for ContentRanker (2025-08-11)
@@ -27,8 +27,44 @@
 - [x] **Self-Contained Functions**: Each function independent with local dependencies (2025-08-11)
 - [ ] **ContentEnricher Function**: Implement research and fact-checking stage
 - [ ] **ContentPublisher Function**: Create markdown article generation with frontmatter
-- [ ] **End-to-End Pipeline Testing**: Validate complete Reddit -> published articles flow
-- [ ] **Production Testing**: Validate 6-hour timer schedule works with new pipeline
+- [ ] **End-to-End Pipeline Testing**: Validate complete Reddit -> published articles flow (staging)
+- [ ] **Content Generation**: Get actual articles generated and stored before worrying about production
+
+## **Future: Production & Traffic Optimization** (After content pipeline works)
+- [ ] **Production Deployment**: Once content generation is proven in staging
+- [ ] **SEO & Rankings**: Track search rankings and optimize for visibility  
+- [ ] **Traffic Analytics**: Monitor visitor patterns and content performance
+- [ ] **Content Freshness**: Address stale content issues after initial success
+
+## **Future: Scale Sources & Monetization** (After basic pipeline proven)
+- [ ] **Multiple Content Sources**: Expand beyond Reddit (HackerNews, dev.to, Medium, etc.)
+- [ ] **Topic Diversification**: Add more subreddits/topic areas for broader content
+- [ ] **Site Architecture Decision**: Single site vs multiple topic-specific sites
+- [ ] **Monetization Experiments**: Ad networks, affiliate links, sponsored content
+- [ ] **Content Quality Scaling**: Maintain quality while increasing volume
+- [ ] **Learning Documentation**: Track what works/doesn't for future projects
+
+## **Future: Content Repurposing & AI Integration** (Headless CMS approach)
+- [ ] **Multi-Channel Content Strategy**: Markdown + frontmatter as base for multiple outputs
+  - [ ] **Static Site**: Current approach (Astro/Hugo/Next.js)
+  - [ ] **Microsoft AI App Framework**: Load content into MS's new AI framework
+  - [ ] **Podcast Generation**: Text-to-speech of articles for audio content
+  - [ ] **Industry Intelligence**: Sentiment analysis and company insights
+- [ ] **AI-Native Applications**: 
+  - [ ] **Industry Reports**: Automated summaries of sector trends
+  - [ ] **Company Intelligence**: Sentiment tracking and news aggregation
+  - [ ] **Topic Briefings**: AI-digestible content for other systems
+- [ ] **Content as Data**: Structured content for AI training/fine-tuning
+
+## **CI/CD Pipeline Optimization** 
+- [ ] **Split Workflow Architecture**: Replace single long pipeline with two focused workflows
+  - [ ] **Validation Workflow**: Security scans, cost analysis, validation (fast)
+  - [ ] **Deployment Workflow**: Infrastructure + Function deployment (triggered by PR)
+  - [ ] **Benefits**: Faster feedback, clearer separation of concerns, better resource usage
+- [ ] **Staging-to-Production Strategy**: 
+  - [ ] PR from develop -> main triggers production deployment
+  - [ ] Remove redundant staging/production split in single workflow
+  - [ ] Focus on "validate then deploy" rather than "deploy to both"
 
 ## **Pipeline Enhancement & Reliability**
 - [ ] **Job Queueing System**: Implement proper job queue with Azure Service Bus or Storage Queues
