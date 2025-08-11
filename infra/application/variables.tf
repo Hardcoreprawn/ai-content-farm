@@ -78,3 +78,9 @@ variable "github_actions_client_id" {
   type        = string
   default     = ""
 }
+
+variable "github_actions_object_id" {
+  description = "GitHub Actions service principal object ID for Key Vault access"
+  type        = string
+  default     = ""
+}

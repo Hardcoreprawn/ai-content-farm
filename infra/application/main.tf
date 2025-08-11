@@ -100,19 +100,7 @@ resource "null_resource" "update_function_key" {
   depends_on = [azurerm_linux_function_app.main, azurerm_key_vault_secret.summarywomble_function_key]
 
   provisioner "local-exec" {
-    command = <<EOT
-sleep 45
-echo "Getting function app key..."
-FUNCTION_KEY=$(az functionapp keys list --resource-group ${azurerm_resource_group.main.name} --name ${azurerm_linux_function_app.main.name} --query "functionKeys.default" --output tsv)
-if [ -n "$FUNCTION_KEY" ] && [ "$FUNCTION_KEY" != "null" ]; then
-  echo "Updating Key Vault secret with function key..."
-  az keyvault secret set --vault-name ${azurerm_key_vault.main.name} --name "summarywomble-function-key" --value "$FUNCTION_KEY" --output none
-  echo "Function key updated successfully"
-else
-  echo "Error: Could not retrieve function key"
-  exit 1
-fi
-EOT
+    command = "sleep 45 && echo 'Getting function app key...' && FUNCTION_KEY=$(az functionapp keys list --resource-group ${azurerm_resource_group.main.name} --name ${azurerm_linux_function_app.main.name} --query 'functionKeys.default' --output tsv) && if [ -n \"$FUNCTION_KEY\" ] && [ \"$FUNCTION_KEY\" != \"null\" ]; then echo 'Updating Key Vault secret with function key...' && az keyvault secret set --vault-name ${azurerm_key_vault.main.name} --name 'summarywomble-function-key' --value \"$FUNCTION_KEY\" --output none && echo 'Function key updated successfully'; else echo 'Error: Could not retrieve function key' && exit 1; fi"
   }
 
   # Trigger re-run if function app changes
@@ -131,6 +119,21 @@ resource "azurerm_key_vault_access_policy" "function_app" {
   secret_permissions = [
     "Get",
     "List"
+  ]
+}
+
+# Key Vault access policy for GitHub Actions service principal (CI/CD operations)
+resource "azurerm_key_vault_access_policy" "github_actions" {
+  count        = var.github_actions_object_id != "" ? 1 : 0
+  key_vault_id = azurerm_key_vault.main.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = var.github_actions_object_id
+
+  secret_permissions = [
+    "Get",
+    "List",
+    "Set",
+    "Delete"
   ]
 }
 
