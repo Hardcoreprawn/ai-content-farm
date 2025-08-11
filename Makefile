@@ -3,9 +3,9 @@
 # Testing a new commit
 
 .PHONY: help verify bootstrap bootstrap-init bootstrap-apply bootstrap-migrate bootstrap-plan \
-	app-init app-apply app-plan setup-keyvault deploy-functions test-functions \
+	app-init app-apply app-plan setup-keyvault setup-infracost deploy-functions test-functions \
 	security-scan check-azure clean dev staging production \
-	lint lint-yaml lint-actions
+	lint lint-yaml lint-actions cost-estimate cost-analysis
 
 ENVIRONMENT ?= staging
 
@@ -42,6 +42,11 @@ help:
 	@echo "  security-scan       - Run Checkov security scan"
 	@echo "  lint                - Run YAML and GitHub Actions lint checks"
 	@echo "  check-azure         - Verify Azure access"
+	@echo ""
+	@echo "💰 Cost Analysis:"
+	@echo "  setup-infracost     - Store/Update Infracost API key in CI/CD Key Vault"
+	@echo "  cost-estimate       - Generate local cost estimate using Infracost and usage model"
+	@echo "  cost-analysis       - Alias to cost-estimate"
 	@echo ""
 	@echo "🧹 Utilities:"
 	@echo "  clean              - Remove build artifacts"
@@ -102,6 +107,11 @@ setup-keyvault:
 	@echo "🔐 Setting up Key Vault secrets..."
 	@scripts/setup-keyvault.sh
 
+# Infracost setup (wrapper around setup-keyvault; focuses on the Infracost API key path)
+setup-infracost:
+	@echo "🔐 Setting up Infracost API key in Key Vault..."
+	@scripts/setup-keyvault.sh
+
 # Function Deployment and Testing
 deploy-functions:
 	@echo "🚀 Deploying Azure Functions..."
@@ -135,6 +145,14 @@ lint-actions:
 	@echo "🔎 Running actionlint (GitHub Actions workflow linter)..."
 	@command -v docker >/dev/null 2>&1 || (echo "❌ Docker is required to run actionlint locally. Skipping." && exit 0)
 	@docker run --rm -v "$(PWD)":/repo -w /repo rhysd/actionlint:latest
+
+# Cost estimation with Infracost (uses infra/* and infracost-usage.yml)
+cost-estimate:
+	@echo "💰 Running local Infracost cost estimation..."
+	@scripts/cost-estimate.sh
+
+# Alias
+cost-analysis: cost-estimate
 
 # Utilities  
 check-azure:

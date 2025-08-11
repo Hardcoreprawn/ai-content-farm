@@ -335,7 +335,7 @@ jobs:
         name: cost-analysis-results
         path: |
           cost-analysis/
-          infra/infracost-usage.yml
+          infra/application/infracost-usage.yml
         retention-days: 30
 
   # Stage 3: Deploy to Staging

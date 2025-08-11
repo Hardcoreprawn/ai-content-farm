@@ -1,0 +1,25 @@
+# Infracost usage model for this project (placed here for CI convenience)
+# See also: ../infracost-usage.yml
+
+version: 0.1
+
+resource_usage:
+  azurerm_linux_function_app:
+    monthly_executions: 100000
+    execution_duration_ms: 200
+    memory_mb: 256
+
+  azurerm_storage_account:
+    monthly_storage_gb: 5
+    monthly_read_operations: 200000
+    monthly_write_operations: 20000
+    monthly_list_operations: 5000
+
+  azurerm_application_insights:
+    monthly_data_ingested_gb: 2
+
+  azurerm_log_analytics_workspace:
+    monthly_data_ingested_gb: 2
+
+  azurerm_key_vault:
+    monthly_secret_operations: 10000

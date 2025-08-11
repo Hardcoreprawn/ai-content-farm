@@ -5,7 +5,7 @@
 
 set -e
 
-cd "$(dirname "$0")/../infra"
+cd "$(dirname "$0")/../infra/application"
 
 echo "🏗️  Initializing Terraform..."
 terraform init > /dev/null
