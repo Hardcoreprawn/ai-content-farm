@@ -258,8 +258,7 @@ resource "azurerm_linux_function_app" "main" {
     KEY_VAULT_URL = azurerm_key_vault.main.vault_uri
 
     # SummaryWomble function key for internal authenticated calls
-    # Only include in staging where the secret is managed by Terraform
-    SUMMARY_WOMBLE_KEY = var.environment == "staging" ? "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/${azurerm_key_vault_secret.summarywomble_function_key[0].name})" : "placeholder-for-production"
+    SUMMARY_WOMBLE_KEY = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/${azurerm_key_vault_secret.summarywomble_function_key.name})"
   }
   #zip_deploy_file = filebase64("${path.module}/function.zip")
   site_config {
