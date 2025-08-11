@@ -8,6 +8,7 @@ A secure, enterprise-grade Azure Functions application that fetches trending top
 
 - **[Documentation Index](docs/README.md)** - Start here for navigation
 - **[System Design](docs/system-design.md)** - Architecture and components
+- **[Async Job System](docs/async-job-system.md)** - Modern async processing with job tickets ⚡
 - **[Deployment Guide](docs/deployment-guide.md)** - Step-by-step deployment
 - **[Key Vault Integration](docs/key-vault-integration.md)** - Secrets management
 - **[Cost Analysis](docs/cost-analysis.md)** - Detailed cost breakdown and projections
@@ -88,21 +89,59 @@ curl -X POST "http://localhost:7071/api/SummaryWomble" \
 
 ## Architecture Overview
 
-- **GetHotTopics**: Timer-triggered function (daily Reddit scan)
-- **SummaryWomble**: HTTP-triggered function (flexible data collection)
+### Core Functions
+- **GetHotTopics**: Timer-triggered function (every 6 hours) that initiates content collection
+- **SummaryWomble**: HTTP-triggered function with **async job processing system**
 - **Content Processing Pipeline**: Automated content ranking, enrichment, and publishing
 - **Static Site**: 11ty-generated website for content display
 - **Infrastructure**: Secure Azure deployment with Key Vault integration
 
+### Async Job Processing System 🚀
+
+The content collection now uses an advanced asynchronous job processing system:
+
+**Benefits:**
+- ⚡ **Instant responses** - No more 5-minute waits
+- 📊 **Real-time progress tracking** - See exactly what's happening
+- 🔄 **Improved reliability** - Background processing eliminates timeouts
+- 📈 **Better scalability** - Handle multiple concurrent requests
+
+**Usage Example:**
+```bash
+# Start content collection job
+curl -X POST "https://ai-content-staging-func.azurewebsites.net/api/summarywomble" \
+  -H "x-functions-key: YOUR_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"source": "reddit", "topics": ["technology"], "limit": 10}'
+
+# Response: Job ticket with unique ID
+{
+  "job_id": "6ce324a8-0502-4b0c-b729-12e10f0f22f6",
+  "status": "queued",
+  "message": "Content processing started. Use job_id to check status."
+}
+
+# Check job status anytime
+curl -X POST "https://ai-content-staging-func.azurewebsites.net/api/summarywomble" \
+  -H "x-functions-key: YOUR_KEY" \
+  -d '{"action": "status", "job_id": "6ce324a8-0502-4b0c-b729-12e10f0f22f6"}'
+```
+
+See **[Async Job System Documentation](docs/async-job-system.md)** for complete details.
+
 ## Content Processing Pipeline
 
-The AI Content Farm features a complete content processing workflow that transforms raw Reddit topics into publication-ready articles:
+The AI Content Farm features a complete content processing workflow that transforms raw Reddit topics into publication-ready articles using an advanced async job system:
 
-### 1. Topic Collection
-Content wombles scan Reddit communities for trending topics, collecting engagement metrics and source information.
+### 1. Topic Collection (Async)
+Content wombles scan Reddit communities for trending topics using job tickets:
+- **Instant job tickets** - Get immediate response with job ID
+- **Background processing** - Collection happens asynchronously  
+- **Real-time status** - Track progress through collection stages
+- **Persistent results** - Content stored in Azure Blob Storage
 
 ### 2. Topic Ranking
-An intelligent ranking system evaluates topics based on:
+An intelligent ranking system evaluates collected topics based on:
 - **Engagement** (40%): Reddit scores and comments
 - **Monetization potential** (30%): Commercial keywords and market relevance
 - **Freshness** (20%): Content recency and trending status
@@ -122,7 +161,14 @@ Final articles are generated as SEO-optimized markdown with:
 - Monetization-ready structure
 - Proper source attribution
 
-**Quick Start**: `make collect-topics && make process-content`
+**Quick Start**: 
+```bash
+# Collect topics with job tracking
+make collect-topics
+
+# Process collected content
+make process-content
+```
 
 See **[Content Processing Workflow](docs/content-processing-workflow.md)** for complete documentation.
 

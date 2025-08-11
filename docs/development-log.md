@@ -18,6 +18,58 @@
 
 This file records all actions taken by GitHub Copilot for the 'Hot Topics Feed' project.
 
+## 2025-08-11 - Major Enhancement: Async Job Processing System
+
+### **Async Job Ticket System Implementation**
+- **Problem**: SummaryWomble function had 5-minute response times and frequent timeouts
+- **Solution**: Implemented asynchronous job processing with immediate job tickets
+- **Impact**: ⚡ Instant responses, 📊 real-time progress tracking, 🔄 improved reliability
+
+### **Key Changes Made**
+1. **SummaryWomble Function Overhaul**:
+   - Added UUID-based job ticket generation
+   - Implemented background thread processing
+   - Created job status tracking in blob storage (`jobs/{job-id}/status.json`)
+   - Added status check API via `action=status` parameter
+
+2. **GetHotTopics Timer Enhancement**:
+   - Updated to handle async job responses (HTTP 202)
+   - Added 10-second status checking with detailed progress logging
+   - Maintained backward compatibility with legacy sync responses
+
+3. **Function Authentication Fix**:
+   - Resolved circular dependency in Terraform configuration
+   - Fixed Key Vault secret management for function-to-function calls
+   - Updated function key to actual Azure-generated key: `9TEtzcaoYl4jwaA9x6zxPvRKXv3eRnZ4PIuekRRkfumuAzFubSSELQ==`
+
+### **Job Status Lifecycle**
+- `queued` → Job ticket issued, processing about to start
+- `running` → Background processing with step-by-step progress
+- `completed` → All content collected successfully
+- `failed` → Error with detailed diagnostic information
+
+### **Testing Results**
+✅ Job ticket issued: `6ce324a8-0502-4b0c-b729-12e10f0f22f6`  
+✅ Content collected: 2 topics from r/technology  
+✅ Blob created: `20250811_135221_reddit_technology.json`  
+✅ Status tracking: `jobs/6ce324a8-0502-4b0c-b729-12e10f0f22f6/status.json`
+
+### **Documentation Updates**
+- Created comprehensive **[Async Job System](async-job-system.md)** documentation
+- Updated README.md with async system overview and usage examples
+- Enhanced TODO.md with job queueing and pipeline scaling roadmap
+- Updated documentation index to highlight new async capabilities
+
+### **Future Roadmap Added**
+- Job queueing system with Azure Service Bus
+- Enhanced status tracking with notifications
+- Extension to content processing and publishing stages
+- Performance optimization and monitoring improvements
+
+---
+
+## Previous Development History
+
 ## 2025-07-23 (continued)
 
 - User requested a slimmer, custom devcontainer image to speed up rebuilds and reduce bloat.

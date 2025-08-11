@@ -1,11 +1,35 @@
 # TODO
 
-## **Current Focus: Staging Validation** 🎯
-- [ ] **Validate Staging Deployment**: Ensure Key Vault separation works correctly
-- [ ] **Test Function App**: Verify Reddit API credentials work via Key Vault references
-- [ ] **Test End-to-End**: Run GetHotTopics function and verify data flows
-- [ ] **Monitor Pipeline**: Ensure CI/CD works with new infrastructure
-- [ ] **Merge to Main**: After staging validation, promote to production
+## **Current Focus: Content Pipeline Enhancement** 🎯
+- [x] **Async Job System**: Implemented job tickets for SummaryWomble with status tracking
+- [x] **Function Authentication**: Fixed Key Vault secret management for function-to-function calls
+- [x] **Timer Function**: Updated GetHotTopics to work with async job tickets
+- [ ] **Production Testing**: Validate 6-hour timer schedule works in production
+- [ ] **Content Processing**: Extend async pattern to content enrichment and publishing stages
+
+## **Next Phase: Pipeline Scaling & Reliability** 🚀
+- [ ] **Job Queueing System**: Implement proper job queue with Azure Service Bus or Storage Queues
+  - [ ] Handle multiple concurrent job requests
+  - [ ] Implement job priority levels (urgent vs normal)
+  - [ ] Add job retry logic with exponential backoff
+  - [ ] Queue management endpoint for monitoring
+- [ ] **Enhanced Status Tracking**: 
+  - [ ] Add job completion notifications (email/webhook)
+  - [ ] Implement job cancellation capability
+  - [ ] Add job execution metrics and timing
+  - [ ] Create job history cleanup (auto-delete old status files)
+- [ ] **Content Processing Pipeline**:
+  - [ ] Apply async pattern to content enrichment stage
+  - [ ] Apply async pattern to content publishing stage
+  - [ ] Add cross-stage job dependency tracking
+- [ ] **Monitoring & Alerting**:
+  - [ ] Add Application Insights custom metrics for job success/failure rates
+  - [ ] Set up alerts for failed jobs or queue backlog
+  - [ ] Create dashboard for job monitoring
+- [ ] **Performance Optimization**:
+  - [ ] Implement parallel processing for multiple subreddits
+  - [ ] Add caching for Reddit API responses
+  - [ ] Optimize blob storage patterns
 
 ## ~~COMPLETED: Terraform State Management~~ ✅
 - [x] **Configure Bootstrap Remote State**: Migrated to remote state with proper backend config

@@ -3,7 +3,29 @@ import azure.functions as func
 import json
 import requests
 import os
+import time
 from datetime import datetime
+
+
+def check_job_status(womble_url, job_id, headers):
+    """Helper function to check job status"""
+    try:
+        status_response = requests.post(
+            womble_url,
+            json={"action": "status", "job_id": job_id},
+            headers=headers,
+            timeout=15
+        )
+        
+        if status_response.status_code == 200:
+            return status_response.json()
+        else:
+            logging.error(f"Status check failed: {status_response.status_code} - {status_response.text}")
+            return None
+            
+    except Exception as e:
+        logging.error(f"Failed to check job status: {e}")
+        return None
 
 
 def main(mytimer: func.TimerRequest) -> None:
@@ -57,10 +79,51 @@ def main(mytimer: func.TimerRequest) -> None:
             womble_url,
             json=womble_config,
             headers=headers,
-            timeout=300  # 5 minutes timeout
+            timeout=30  # Reduced timeout since we're just getting a job ticket
         )
         
-        if response.status_code == 200:
+        if response.status_code == 202:  # Accepted - job started
+            result_data = response.json()
+            job_id = result_data.get('job_id')
+            
+            logging.info(f"Summary Womble job started successfully: {job_id}")
+            logging.info(f"Topics requested: {result_data.get('topics_requested', [])}")
+            logging.info(f"Job status: {result_data.get('status', 'unknown')}")
+            
+            # Optionally, check job status after a short delay
+            if job_id:
+                time.sleep(10)  # Wait 10 seconds then check status
+                
+                status_data = check_job_status(womble_url, job_id, headers)
+                if status_data:
+                    logging.info(f"Job {job_id} status check: {status_data.get('status', 'unknown')}")
+                    
+                    progress = status_data.get('progress', {})
+                    if progress:
+                        logging.info(f"Progress: {progress.get('step', 'unknown')} - {progress.get('completed', 0)}/{progress.get('total', 0)}")
+                        
+                    if status_data.get('status') == 'completed':
+                        results = status_data.get('results', {})
+                        total_topics = results.get('total_topics', 0)
+                        total_subreddits = results.get('total_subreddits', 0)
+                        logging.info(f"Job completed: {total_topics} topics from {total_subreddits} subreddits")
+                        
+                        # Log individual results
+                        for result in results.get('results', []):
+                            if result.get('status') == 'success':
+                                logging.info(f"subreddit success r/{result['subreddit']}: {result['topics_count']} topics -> {result['blob_name']}")
+                            else:
+                                logging.error(f"subreddit error r/{result['subreddit']}: {result.get('status')} - {result.get('error', 'Unknown error')}")
+                    elif status_data.get('status') == 'failed':
+                        error = status_data.get('error', 'Unknown error')
+                        logging.error(f"Job {job_id} failed: {error}")
+                    else:
+                        logging.info(f"Job {job_id} still processing... Status: {status_data.get('status')}")
+                else:
+                    logging.warning(f"Could not check job status for {job_id}")
+                    
+        elif response.status_code == 200:
+            # Handle legacy response format (direct completion)
             result_data = response.json()
             total_topics = result_data.get('total_topics', 0)
             total_subreddits = result_data.get('total_subreddits', 0)
@@ -79,7 +142,7 @@ def main(mytimer: func.TimerRequest) -> None:
             logging.error(f"Summary Womble failed with status {response.status_code}: {error_text}")
             
     except requests.exceptions.Timeout:
-        logging.error("Summary Womble request timed out after 5 minutes")
+        logging.error("Summary Womble request timed out")
     except Exception as e:
         logging.error(f"Failed to call Summary Womble: {e}")
 

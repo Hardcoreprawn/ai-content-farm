@@ -9,6 +9,8 @@ Welcome to the comprehensive documentation for the AI Content Farm project - an 
 
 ### 🏗️ Architecture & Design
 - **[System Design](system-design.md)** - Complete system architecture, components, and data flow
+- **[Async Job System](async-job-system.md)** - Modern asynchronous processing with job tickets and real-time status tracking
+- **[Content Processing Workflow](content-processing-workflow.md)** - Complete content pipeline from Reddit to publication
 - **[File Inventory](file-inventory.md)** - Comprehensive catalog of all project files and their purposes
 
 ### 🚀 Deployment & Operations  

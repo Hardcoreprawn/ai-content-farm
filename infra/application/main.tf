@@ -76,15 +76,10 @@ resource "azurerm_key_vault_access_policy" "current_user" {
   ]
 }
 
-# Generate and store a function key for SummaryWomble (managed via Key Vault)
-resource "random_password" "summary_womble_key" {
-  length  = 64
-  special = false
-}
-
+# Create a placeholder secret first (will be updated post-deployment)
 resource "azurerm_key_vault_secret" "summarywomble_function_key" {
   name         = "summarywomble-function-key"
-  value        = random_password.summary_womble_key.result
+  value        = "placeholder-will-be-updated-after-function-deployment"
   key_vault_id = azurerm_key_vault.main.id
 
   content_type = "function-key"
@@ -92,6 +87,38 @@ resource "azurerm_key_vault_secret" "summarywomble_function_key" {
     Purpose     = "summarywomble-auth"
     Environment = var.environment
     ManagedBy   = "terraform"
+  }
+
+  # Ignore changes to value since it will be updated by deployment process
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+# Update the secret with the actual function key after deployment
+resource "null_resource" "update_function_key" {
+  depends_on = [azurerm_linux_function_app.main, azurerm_key_vault_secret.summarywomble_function_key]
+
+  provisioner "local-exec" {
+    command = <<EOT
+sleep 45
+echo "Getting function app key..."
+FUNCTION_KEY=$(az functionapp keys list --resource-group ${azurerm_resource_group.main.name} --name ${azurerm_linux_function_app.main.name} --query "functionKeys.default" --output tsv)
+if [ -n "$FUNCTION_KEY" ] && [ "$FUNCTION_KEY" != "null" ]; then
+  echo "Updating Key Vault secret with function key..."
+  az keyvault secret set --vault-name ${azurerm_key_vault.main.name} --name "summarywomble-function-key" --value "$FUNCTION_KEY" --output none
+  echo "Function key updated successfully"
+else
+  echo "Error: Could not retrieve function key"
+  exit 1
+fi
+EOT
+  }
+
+  # Trigger re-run if function app changes
+  triggers = {
+    function_app_id = azurerm_linux_function_app.main.id
+    timestamp       = timestamp()
   }
 }
 
@@ -221,8 +248,8 @@ resource "azurerm_linux_function_app" "main" {
     # Key Vault URL for fallback access
     KEY_VAULT_URL = azurerm_key_vault.main.vault_uri
 
-  # SummaryWomble function key for internal authenticated calls
-  SUMMARY_WOMBLE_KEY = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/${azurerm_key_vault_secret.summarywomble_function_key.name})"
+    # SummaryWomble function key for internal authenticated calls
+    SUMMARY_WOMBLE_KEY = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/${azurerm_key_vault_secret.summarywomble_function_key.name})"
   }
   #zip_deploy_file = filebase64("${path.module}/function.zip")
   site_config {
