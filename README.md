@@ -252,14 +252,18 @@ make validate-secrets   # Validate Key Vault configuration
 ## Project Structure
 
 ```
-├── azure-function-deploy/     # Azure Functions application
-│   ├── GetHotTopics/         # Timer-triggered function
-│   └── SummaryWomble/        # HTTP-triggered function
+├── functions/                # Azure Functions application
+│   ├── GetHotTopics/         # Timer-triggered function (async job orchestrator)
+│   └── SummaryWomble/        # HTTP-triggered function (async content processing)
 ├── infra/                    # Terraform infrastructure
+│   ├── bootstrap/           # GitHub Actions permissions and CI/CD setup
+│   └── application/         # Main application infrastructure
 ├── site/                     # 11ty static site
-├── .github/workflows/        # CI/CD pipelines
-├── docs/                     # Additional documentation
-└── Makefile                  # Comprehensive build automation
+├── content_processor/        # Content processing pipeline
+├── content_wombles/          # Topic collection utilities
+├── .github/workflows/        # CI/CD pipelines with security gates
+├── docs/                     # Comprehensive documentation
+└── Makefile                  # Build automation and dev workflows
 ```
 
 ## Security Features
