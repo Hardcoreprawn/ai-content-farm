@@ -81,25 +81,25 @@ jobs:
   TFSEC_EXIT=0
   TERRASCAN_EXIT=0
 
-        # Run Checkov
+  # Run Checkov
   checkov -d infra --quiet --compact --output json --output-file-path security-results/checkov.json || CHECKOV_EXIT=$?
-        checkov -d functions --quiet --compact --output json --output-file-path security-results/checkov-functions.json || true
+  checkov -d functions --quiet --compact --output json --output-file-path security-results/checkov-functions.json || true
 
-        # Run TFSec
+  # Run TFSec
   cd infra/application && tfsec . --format json --out ../../security-results/tfsec.json --soft-fail || TFSEC_EXIT=$?
-        cd ../..
+  cd ../..
 
-        # Run Terrascan
+  # Run Terrascan
   cd infra/application && terrascan scan -i terraform --output json > ../../security-results/terrascan.json || TERRASCAN_EXIT=$?
-        cd ../..
+  cd ../..
 
-        # Generate SBOM
-        syft functions -o json=security-results/sbom.json
+  # Generate SBOM
+  syft functions -o json=security-results/sbom.json
 
   # Mark exit code variables as intentionally used (diagnostic only)
   echo "Scan exit codes: CK=$CHECKOV_EXIT TF=$TFSEC_EXIT TR=$TERRASCAN_EXIT" >/dev/null
 
-        echo "Security scans completed"
+  echo "Security scans completed"
       continue-on-error: true
 
     - name: Security Gate Decision
@@ -117,8 +117,8 @@ jobs:
           HIGH_COUNT=$(jq '.results.failed_checks | map(select(.severity == "HIGH")) | length' security-results/checkov.json 2>/dev/null || echo 0)
         fi
 
-        echo "Critical findings: $CRITICAL_COUNT"
-        echo "High findings: $HIGH_COUNT"
+  echo "Critical findings: $CRITICAL_COUNT"
+  echo "High findings: $HIGH_COUNT"
   echo "critical-findings=$CRITICAL_COUNT" >> "$GITHUB_OUTPUT"
 
         # Simplified security gate logic - pass or fail
