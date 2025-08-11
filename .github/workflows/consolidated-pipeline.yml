@@ -383,10 +383,14 @@ jobs:
         zip -r ../function-app.zip . -x "*.pyc" "*/__pycache__/*" ".python_packages/*"
         
         # Deploy using Azure CLI (works reliably for Python functions)
+        echo "🚀 Deploying function app package..."
         az functionapp deployment source config-zip \
           --resource-group $RESOURCE_GROUP \
           --name $FUNCTION_APP_NAME \
           --src ../function-app.zip
+        
+        echo "✅ Function app deployment completed"
+        echo "⏳ Note: Functions may need time to register after deployment (cold start)"
 
   # Stage 4: Integration Tests
   run-integration-tests:
@@ -436,16 +440,43 @@ jobs:
         echo "Testing function app: $FUNCTION_APP_NAME"
         echo "Function URL: $FUNCTION_URL"
         
-        # Wait for deployment to be ready
+        # Wait for deployment to be ready - improved with function-specific checks
         echo "Waiting for function app to be ready..."
+        READY=false
         for i in {1..30}; do
+          echo "Attempt $i/30: Checking function app status..."
+          
+          # Check if the main function app is responding
           if curl -s "$FUNCTION_URL" > /dev/null; then
-            echo "Function app is responding"
-            break
+            echo "✅ Function app is responding"
+            
+            # Check if SummaryWomble function is properly registered (should return 401, not 404)
+            SUMMARY_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$FUNCTION_URL/api/SummaryWomble" || echo "000")
+            echo "SummaryWomble status: $SUMMARY_STATUS"
+            
+            if [ "$SUMMARY_STATUS" = "401" ] || [ "$SUMMARY_STATUS" = "400" ] || [ "$SUMMARY_STATUS" = "500" ]; then
+              echo "✅ SummaryWomble function is properly registered"
+              READY=true
+              break
+            elif [ "$SUMMARY_STATUS" = "404" ]; then
+              echo "⏳ SummaryWomble not yet registered (404), waiting..."
+            else
+              echo "⚠️  Unexpected SummaryWomble status: $SUMMARY_STATUS"
+            fi
+          else
+            echo "⏳ Function app not responding yet"
           fi
-          echo "Attempt $i/30: Function app not ready yet, waiting 10 seconds..."
-          sleep 10
+          
+          echo "Waiting 15 seconds before next check..."
+          sleep 15
         done
+        
+        if [ "$READY" = "false" ]; then
+          echo "❌ Function app did not become ready within timeout"
+          echo "This might indicate a deployment issue. Continuing with tests anyway..."
+        else
+          echo "✅ Function app is ready for testing"
+        fi
         
         # Run tests with environment variables
         export FUNCTION_URL=$FUNCTION_URL

@@ -2,6 +2,8 @@ import pytest
 import requests
 import os
 import json
+import logging
+import time
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 
@@ -14,19 +16,77 @@ class TestContentPipeline:
         url = os.getenv('FUNCTION_URL')
         if not url:
             pytest.skip("FUNCTION_URL not set")
+            return  # Ensure function always returns
         return url.rstrip('/')
     
     def test_summary_womble_endpoint(self, function_url):
         """Test that the SummaryWomble function is accessible (HTTP-triggered)"""
         # SummaryWomble requires authentication, so we expect 401 without function key
-        response = requests.get(f"{function_url}/api/SummaryWomble", timeout=30)
-        assert response.status_code == 401, f"Expected 401 (requires auth), got {response.status_code}"
+        # Retry logic to handle Azure Functions cold start timing
+        import time
+        
+        for attempt in range(3):
+            try:
+                response = requests.get(f"{function_url}/api/SummaryWomble", timeout=30)
+                
+                # Expected behavior: 401 (requires function key)
+                if response.status_code == 401:
+                    return  # Test passed
+                
+                # Handle cold start scenario: 404 means function not yet registered
+                elif response.status_code == 404 and attempt < 2:
+                    logging.warning(f"Attempt {attempt + 1}: SummaryWomble returned 404 (cold start?), retrying...")
+                    time.sleep(10)  # Wait for function to warm up
+                    continue
+                
+                # Any other response code
+                else:
+                    assert False, f"Expected 401 (requires auth), got {response.status_code} on attempt {attempt + 1}"
+                    
+            except requests.exceptions.RequestException as e:
+                if attempt < 2:
+                    logging.warning(f"Attempt {attempt + 1}: Request failed ({e}), retrying...")
+                    time.sleep(10)
+                    continue
+                else:
+                    raise
+        
+        # If we get here, all retries failed
+        assert False, "SummaryWomble function not accessible after 3 attempts"
     
     def test_summary_womble_with_invalid_request(self, function_url):
         """Test SummaryWomble with invalid request data"""
-        # This should return 400 or 500 for invalid JSON
-        response = requests.get(f"{function_url}/api/SummaryWomble", timeout=30)
-        assert response.status_code in [401, 400, 500], f"Expected auth error or bad request, got {response.status_code}"
+        # This should return 400, 401, or 500 for invalid JSON/auth
+        # Retry logic to handle Azure Functions cold start timing
+        
+        for attempt in range(3):
+            try:
+                response = requests.get(f"{function_url}/api/SummaryWomble", timeout=30)
+                
+                # Expected behavior: 401 (auth required) or 400/500 (bad request)
+                if response.status_code in [401, 400, 500]:
+                    return  # Test passed
+                
+                # Handle cold start scenario: 404 means function not yet registered
+                elif response.status_code == 404 and attempt < 2:
+                    logging.warning(f"Attempt {attempt + 1}: SummaryWomble returned 404 (cold start?), retrying...")
+                    time.sleep(10)  # Wait for function to warm up
+                    continue
+                
+                # Any other unexpected response code
+                else:
+                    assert False, f"Expected auth error or bad request, got {response.status_code} on attempt {attempt + 1}"
+                    
+            except requests.exceptions.RequestException as e:
+                if attempt < 2:
+                    logging.warning(f"Attempt {attempt + 1}: Request failed ({e}), retrying...")
+                    time.sleep(10)
+                    continue
+                else:
+                    raise
+        
+        # If we get here, all retries failed
+        assert False, "SummaryWomble function not accessible after 3 attempts"
     
     def test_get_hot_topics_not_accessible_via_http(self, function_url):
         """Test that GetHotTopics is not accessible via HTTP (timer-triggered only)"""
