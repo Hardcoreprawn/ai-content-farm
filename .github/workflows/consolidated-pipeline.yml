@@ -8,10 +8,7 @@ on:
       - 'infra/**'
       - 'content_processor/**'
       - 'content_wombles/**'
-      - 'scripts/**'
-      - 'docs/**'
-      - 'Makefile'
-      - 'mkdocs.yml'
+      - 'tests/**'
       - '!**/.github/workflows/**'
   pull_request:
     branches: [ main ]
@@ -20,11 +17,12 @@ on:
       - 'infra/**'
       - 'content_processor/**'
       - 'content_wombles/**'
-      - 'scripts/**'
-      - 'docs/**'
-      - 'Makefile'
-      - 'mkdocs.yml'
+      - 'tests/**'
       - '!**/.github/workflows/**'
+  workflow_run:
+    workflows: ["YAML and Actions Lint"]
+    branches: [ develop, main ]
+    types: [ completed ]
   workflow_dispatch:
     inputs:
       environment:
@@ -61,6 +59,8 @@ env:
 jobs:
   # Stage 1: Security and Compliance Validation
   security-gate:
+    # If triggered by workflow_run, only run when lint passed
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     name: Security and Compliance Validation
     outputs:
@@ -70,6 +70,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Python
         uses: actions/setup-python@v5
@@ -180,10 +182,10 @@ jobs:
 
   # Stage 2: Cost Impact Analysis
   cost-gate:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     name: Cost Impact and Budget Approval
     needs: security-gate
-    if: needs.security-gate.outputs.security-approved != 'false'
     outputs:
       cost-approved: ${{ steps.cost-gate.outputs.approved }}
       estimated-cost: ${{ steps.cost-gate.outputs.estimated-cost }}
@@ -191,6 +193,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Azure Login with OIDC
         uses: azure/login@v2
@@ -393,18 +397,17 @@ jobs:
 
   # Stage 3: Deploy to Staging
   deploy-to-staging:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     name: Deploy Infrastructure and Functions to Staging
     needs: [security-gate, cost-gate]
-    if: |
-      needs.security-gate.outputs.security-approved == 'true' &&
-      needs.cost-gate.outputs.cost-approved == 'true' &&
-      github.ref == 'refs/heads/develop'
     environment: staging
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
@@ -510,14 +513,16 @@ jobs:
 
   # Stage 4: Integration Tests
   run-integration-tests:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     name: Run End-to-End Integration Tests
     needs: deploy-to-staging
-    if: needs.deploy-to-staging.result == 'success'
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Azure Login with OIDC
         uses: azure/login@v2
@@ -598,19 +603,17 @@ jobs:
 
   # Stage 5: Deploy to Production (main branch only)
   deploy-to-production:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     name: Deploy Infrastructure and Functions to Production
     needs: [security-gate, cost-gate, run-integration-tests]
-    if: |
-      always() &&
-      needs.run-integration-tests.result == 'success' &&
-      github.ref == 'refs/heads/main' &&
-      github.event_name == 'push'
     environment: production
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
