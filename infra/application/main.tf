@@ -138,28 +138,7 @@ resource "null_resource" "update_function_keys" {
   ]
 
   provisioner "local-exec" {
-    command = <<-EOT
-      sleep 45
-      echo 'Getting function app keys...'
-      
-      # Get function app default key
-      FUNCTION_KEY=$(az functionapp keys list --resource-group ${azurerm_resource_group.main.name} --name ${azurerm_linux_function_app.main.name} --query 'functionKeys.default' --output tsv)
-      
-      if [ -n "$FUNCTION_KEY" ] && [ "$FUNCTION_KEY" != "null" ]; then
-        echo 'Updating Key Vault secrets with function keys...'
-        
-        # Update SummaryWomble function key
-        az keyvault secret set --vault-name ${azurerm_key_vault.main.name} --name 'summarywomble-function-key' --value "$FUNCTION_KEY" --output none
-        
-        # Update ContentRanker function key (same key, different secret for clarity)
-        az keyvault secret set --vault-name ${azurerm_key_vault.main.name} --name 'contentranker-function-key' --value "$FUNCTION_KEY" --output none
-        
-        echo 'Function keys updated successfully'
-      else
-        echo 'Error: Could not retrieve function key'
-        exit 1
-      fi
-    EOT
+    command = "sleep 45 && echo 'Getting function app keys...' && FUNCTION_KEY=$(az functionapp keys list --resource-group ${azurerm_resource_group.main.name} --name ${azurerm_linux_function_app.main.name} --query 'functionKeys.default' --output tsv) && if [ -n \"$FUNCTION_KEY\" ] && [ \"$FUNCTION_KEY\" != \"null\" ]; then echo 'Updating Key Vault secrets with function keys...' && az keyvault secret set --vault-name ${azurerm_key_vault.main.name} --name 'summarywomble-function-key' --value \"$FUNCTION_KEY\" --output none && az keyvault secret set --vault-name ${azurerm_key_vault.main.name} --name 'contentranker-function-key' --value \"$FUNCTION_KEY\" --output none && echo 'Function keys updated successfully'; else echo 'Error: Could not retrieve function key' && exit 1; fi"
   }
 
   # Trigger re-run if function app changes

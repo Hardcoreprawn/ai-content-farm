@@ -20,6 +20,7 @@
 - [x] **Functional Programming Architecture**: Built with pure functions for scalability (2025-08-11)
 - [x] **HTTP Trigger for Testing**: Added authenticated manual trigger for ContentRanker (2025-08-11)
 - [x] **Terraform Documentation**: Updated infrastructure code with HTTP trigger configuration (2025-08-11)
+- [x] **Line Ending Standards**: Created development standards doc to prevent CRLF deployment failures (2025-08-11)
 - [x] **Comprehensive Testing**: 11 unit tests with baseline validation (2025-08-11)
 - [x] **Event-Driven Pipeline**: SummaryWomble -> ContentRanker -> [ContentEnricher] (2025-08-11)
 - [x] **API Documentation**: Created data format specifications for all pipeline stages (2025-08-11)
