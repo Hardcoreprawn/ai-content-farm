@@ -1,5 +1,9 @@
 data "azurerm_client_config" "current" {}
 
+locals {
+  resource_prefix = var.resource_prefix != "" ? var.resource_prefix : "ai-content-${var.environment}"
+}
+
 resource "random_string" "suffix" {
   length  = 6
   upper   = false
@@ -7,7 +11,7 @@ resource "random_string" "suffix" {
 }
 
 resource "azurerm_resource_group" "main" {
-  name     = "${var.resource_prefix}-rg"
+  name     = "${local.resource_prefix}-rg"
   location = var.location
 
   tags = {
@@ -19,7 +23,7 @@ resource "azurerm_resource_group" "main" {
 
 # Action Group for Cost Alerts
 resource "azurerm_monitor_action_group" "cost_alerts" {
-  name                = "${var.resource_prefix}-cost-alerts"
+  name                = "${local.resource_prefix}-cost-alerts"
   resource_group_name = azurerm_resource_group.main.name
   short_name          = "costalertz"
 
@@ -160,7 +164,7 @@ resource "azurerm_monitor_diagnostic_setting" "key_vault" {
 # We reference them directly by their known names and vault URI
 
 resource "azurerm_log_analytics_workspace" "main" {
-  name                = "${var.resource_prefix}-logs"
+  name                = "${local.resource_prefix}-logs"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   sku                 = "PerGB2018"
@@ -168,7 +172,7 @@ resource "azurerm_log_analytics_workspace" "main" {
 }
 
 resource "azurerm_application_insights" "main" {
-  name                = "${var.resource_prefix}-insights"
+  name                = "${local.resource_prefix}-insights"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   workspace_id        = azurerm_log_analytics_workspace.main.id
@@ -211,7 +215,7 @@ resource "azurerm_storage_container" "topics" {
 resource "azurerm_service_plan" "main" {
   # checkov:skip=CKV_AZURE_212: Not applicable to consumption plan
   # checkov:skip=CKV_AZURE_225: Not applicable to consumption plan
-  name                = "${var.resource_prefix}-plan"
+  name                = "${local.resource_prefix}-plan"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   os_type             = "Linux"
@@ -221,7 +225,7 @@ resource "azurerm_service_plan" "main" {
 resource "azurerm_linux_function_app" "main" {
   # checkov:skip=CKV_AZURE_221: Public access is acceptable for this use case
   # checkov:skip=CKV_AZURE_97: No authentication required for this use case
-  name                        = "${var.resource_prefix}-func"
+  name                        = "${local.resource_prefix}-func"
   location                    = azurerm_resource_group.main.location
   resource_group_name         = azurerm_resource_group.main.name
   service_plan_id             = azurerm_service_plan.main.id

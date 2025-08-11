@@ -26,9 +26,9 @@ variable "github_repository" {
 }
 
 variable "resource_prefix" {
-  description = "Prefix for all resource names"
+  description = "Prefix for all resource names. If empty, defaults to 'ai-content-{environment}'"
   type        = string
-  default     = "ai-content-staging"
+  default     = ""
 }
 
 # Reddit API Configuration
