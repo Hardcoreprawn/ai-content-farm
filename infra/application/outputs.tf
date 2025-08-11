@@ -75,3 +75,9 @@ output "summarywomble_function_key_secret_name" {
   value       = azurerm_key_vault_secret.summarywomble_function_key.name
   description = "Secret name holding the SummaryWomble function key in Key Vault"
 }
+
+# Secret name for ContentRanker function key stored in Key Vault
+output "contentranker_function_key_secret_name" {
+  value       = azurerm_key_vault_secret.contentranker_function_key.name
+  description = "Secret name holding the ContentRanker function key in Key Vault"
+}

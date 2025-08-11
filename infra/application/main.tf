@@ -105,12 +105,61 @@ resource "azurerm_key_vault_secret" "summarywomble_function_key" {
   ]
 }
 
-# Update the secret with the actual function key after deployment
-resource "null_resource" "update_function_key" {
-  depends_on = [azurerm_linux_function_app.main, azurerm_key_vault_secret.summarywomble_function_key]
+# ContentRanker function key secret for manual HTTP trigger authentication
+resource "azurerm_key_vault_secret" "contentranker_function_key" {
+  name         = "contentranker-function-key"
+  value        = "placeholder-will-be-updated-after-function-deployment"
+  key_vault_id = azurerm_key_vault.main.id
+
+  content_type = "function-key"
+  tags = {
+    Purpose     = "contentranker-auth"
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+
+  # Ignore changes to value since it will be updated by deployment process
+  lifecycle {
+    ignore_changes = [value]
+  }
+
+  depends_on = [
+    azurerm_key_vault_access_policy.github_actions,
+    azurerm_key_vault_access_policy.current_user
+  ]
+}
+
+# Update the secrets with the actual function keys after deployment
+resource "null_resource" "update_function_keys" {
+  depends_on = [
+    azurerm_linux_function_app.main, 
+    azurerm_key_vault_secret.summarywomble_function_key,
+    azurerm_key_vault_secret.contentranker_function_key
+  ]
 
   provisioner "local-exec" {
-    command = "sleep 45 && echo 'Getting function app key...' && FUNCTION_KEY=$(az functionapp keys list --resource-group ${azurerm_resource_group.main.name} --name ${azurerm_linux_function_app.main.name} --query 'functionKeys.default' --output tsv) && if [ -n \"$FUNCTION_KEY\" ] && [ \"$FUNCTION_KEY\" != \"null\" ]; then echo 'Updating Key Vault secret with function key...' && az keyvault secret set --vault-name ${azurerm_key_vault.main.name} --name 'summarywomble-function-key' --value \"$FUNCTION_KEY\" --output none && echo 'Function key updated successfully'; else echo 'Error: Could not retrieve function key' && exit 1; fi"
+    command = <<-EOT
+      sleep 45
+      echo 'Getting function app keys...'
+      
+      # Get function app default key
+      FUNCTION_KEY=$(az functionapp keys list --resource-group ${azurerm_resource_group.main.name} --name ${azurerm_linux_function_app.main.name} --query 'functionKeys.default' --output tsv)
+      
+      if [ -n "$FUNCTION_KEY" ] && [ "$FUNCTION_KEY" != "null" ]; then
+        echo 'Updating Key Vault secrets with function keys...'
+        
+        # Update SummaryWomble function key
+        az keyvault secret set --vault-name ${azurerm_key_vault.main.name} --name 'summarywomble-function-key' --value "$FUNCTION_KEY" --output none
+        
+        # Update ContentRanker function key (same key, different secret for clarity)
+        az keyvault secret set --vault-name ${azurerm_key_vault.main.name} --name 'contentranker-function-key' --value "$FUNCTION_KEY" --output none
+        
+        echo 'Function keys updated successfully'
+      else
+        echo 'Error: Could not retrieve function key'
+        exit 1
+      fi
+    EOT
   }
 
   # Trigger re-run if function app changes
@@ -231,6 +280,16 @@ resource "azurerm_service_plan" "main" {
 resource "azurerm_linux_function_app" "main" {
   # checkov:skip=CKV_AZURE_221: Public access is acceptable for this use case
   # checkov:skip=CKV_AZURE_97: No authentication required for this use case
+  
+  # Function App hosts multiple Azure Functions:
+  # - GetHotTopics: Timer trigger for Reddit data collection
+  # - SummaryWomble: HTTP trigger for async content summarization
+  # - ContentRanker: Dual trigger (blob + HTTP) for topic ranking
+  #   * Blob trigger: Auto-processes new topics from hot-topics container
+  #   * HTTP trigger: Manual processing with function-level auth for testing existing blobs
+  #   * HTTP endpoint: POST /api/ContentRanker with {"blob_name": "filename"} body
+  #   * Authentication: Requires function key (authLevel: "function")
+  
   name                        = "${local.resource_prefix}-func"
   location                    = azurerm_resource_group.main.location
   resource_group_name         = azurerm_resource_group.main.name
