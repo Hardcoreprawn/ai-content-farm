@@ -395,7 +395,7 @@ az role assignment list --assignee {service-principal-object-id} \
 # User Access Administrator  /subscriptions/{subscription-id}
 ```
 
-## �📋 Deployment Checklist
+## ���📋 Deployment Checklist
 
 ### Pre-Deployment
 - [ ] Code changes tested locally
