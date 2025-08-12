@@ -1,7 +1,16 @@
-# Copilot Agent Instructions
+# Copilot Agent Instructions for AI Content Farm
 
-- Always check the README.md and TODO.md, in the project root to understand where we are and what to do next.
-- Always following our coding standards and rules below. If you cannot, you need to ask for permission.
+## Project Overview
+This is an **enterprise-grade AI content farm** built on Azure Functions with comprehensive security, cost governance, and compliance controls. The system processes Reddit topics through an automated pipeline: collection → ranking → enrichment → publication.
+
+**Always check README.md and TODO.md first** to understand current status and next priorities.
+
+## Development Philosophy
+- **Security-first**: Every change must pass security scanning (Checkov, TFSec, Terrascan)
+- **Cost-conscious**: All deployments include cost impact analysis with Infracost
+- **Production-ready**: Focus on reliability, monitoring, and maintainability over features
+- **Clean architecture**: Event-driven functions with clear separation of concerns
+- **Documentation as code**: Keep docs current, concise, and actionable
 
 ## Documentation Rules - CRITICAL
 - **NO ROOT POLLUTION** - Never create status/log files in project root
@@ -13,66 +22,239 @@
 - **One TODO list** - TODO.md only, not multiple planning docs
 - **No excessive documentation** - prefer working code over documentation theater
 - **NO DOC SPRAWL** - Update existing files rather than creating new ones
-- **Implementation logs** - Add to existing docs/README.md, not separate files
+- **Implementation logs** - Add to existing docs with date prefixes (YYYY-MM-DD)
 - **Planning documents** - Use TODO.md, don't create separate planning files
-- **Define and document projects** - Write down what you plan to do, once approved, then move ahead. These plans should be written as short articles, with a date prefix
 
-## Coding Rules
+## Coding Standards - CRITICAL
 
-### Line Endings (CRITICAL)
+### Line Endings (CRITICAL - Prevents Deployment Failures)
 - **ALL files must use Unix line endings (LF) - never CRLF**
 - Use `sed -i 's/\r$//' filename` to fix CRLF issues  
 - Check with `file filename` (should NOT show "with CRLF line terminators")
-- This prevents CI/CD deployment failures (recurring issue)
 - Run `git diff --cached --check` before committing
+- This prevents CI/CD deployment failures (recurring critical issue)
 
-### Other Rules
+### Code Quality Standards
 - **Azure Functions Logging**: `az functionapp logs tail` only works for .NET functions, NOT Python
   - For Python functions: Use Azure portal logs or Application Insights queries
   - Python logs are buffered and don't stream in real-time like .NET
+- **Keep logs ASCII-clean** - Avoid emojis in logs (makes parsing difficult)
+- **Pin all versions** - Never use 'latest' tags; pin Terraform, Actions, package versions
+- **Test all changes** - Verify locally before deploying to any environment
+- **Functional programming preferred** - Pure functions for thread safety and scalability
 
-### Azure Functions Architecture Pattern
+### Security & Compliance Requirements
+- **Security-first development** - All code must pass security scans before deployment
+- **Run comprehensive scanning**: `make security-scan` (Checkov + TFSec + Terrascan)
+- **Cost impact analysis** - All infrastructure changes require `make cost-estimate`
+- **SBOM generation** - Generate software bill of materials: `make sbom`
+- **Environment separation** - strict dev → staging → production promotion
+- **Key Vault for secrets** - No hardcoded credentials, use Azure Key Vault integration
+
+### Architecture Patterns
+
+#### Azure Functions Pattern (Event-Driven)
 - **Separate event handlers from business logic**: Event/timer functions should call HTTP functions
 - **Pattern**: `EventHandler` (timer/blob/queue) → calls → `ProcessorHTTP` (business logic)
 - **Benefits**: Easy testing, debugging, reusability, monitoring
-- **Trade-offs**: ~2x cost, but saves development time
+- **Trade-offs**: ~2x cost, but saves significant development time
 - **Example**: `ContentRanker` (blob trigger) + `ContentRankerManual` (HTTP trigger + shared logic)
-- **Fix path mismatches immediately** - verify Makefile vs actual file structure
-- **Simplify build systems** - Makefiles should be <200 lines, remove unused targets
-- **Log issues in GitHub** - track problems and solutions
-- **Always test changes** - verify before deploying
-- **Use specific versions** - pin Terraform, Actions versions; never use 'latest'
-- **Update versions manually** - quarterly schedule, test before deploying
-- **Move through environments** - dev → staging → production
-- **Function deployment priority** - get working code deployed before optimization
-- **Keep logs clear and ASCII** - When you add emojis into logs, then they are hard to parse.
 
-## Project Structure Rules
-- **Functions** go in `/functions/` directory (rename from azure-function-deploy if needed)
-- **Infrastructure** in `/infra/` with clear bootstrap vs application separation
+#### Project Structure (Enforced)
+- **Functions** in `/functions/` directory (main application code)
+- **Infrastructure** in `/infra/` with bootstrap vs application separation
 - **Documentation** in `/docs/` only, not scattered across root
 - **Working files** in `.temp/` (gitignored) or deleted after session
-- **No over-engineering** - prefer simple solutions that work
+- **No over-engineering** - prefer simple solutions that work reliably
 
-## Project Context
-- AI content farm with automated Reddit → content generation → publishing pipeline
-- Azure Functions with OIDC authentication and Terraform infrastructure
-- Current focus: MVP → production-ready with testing and reliability
+## Development Workflow
 
-## Key Files
-- `README.md` - SINGLE source of truth and main entry point
-- `TODO.md` - simple task list (rename from SIMPLE_TASKS.md)
-- `/docs/` - detailed documentation (system design, deployment guides)
-- `/functions/` - Azure Functions code (main application)
-- `/infra/` - Terraform infrastructure (bootstrap + application)
-- `Makefile` - simple build targets (<200 lines), core workflows only
+### Environment Promotion (Strictly Enforced)
+- **Development**: Local development and testing
+- **Staging**: `develop` branch deployment for integration testing  
+- **Production**: `main` branch only, requires manual approval
+- **Branch protection**: Production deployment blocked from non-main branches
 
-## Common Tasks - Priority Order
-1. **Fix function deployment** - correct paths, deploy working code first
-2. **Clean documentation** - consolidate root files, move temp files
-3. **Simplify Makefile** - remove unused targets, fix path references
-4. **Test deployments** - verify OIDC credentials, run pipeline
-5. **Add monitoring** - check Azure budgets and function logs
+### Build System (Make-based)
+Our Makefile provides comprehensive automation for all development tasks:
+
+#### Core Development Commands
+```bash
+make help              # Show all available targets
+make verify            # Complete pre-deployment validation pipeline
+make deploy-staging    # Deploy to staging (develop branch only)
+make deploy-production # Deploy to production (main branch only)
+make security-scan     # Run Checkov + TFSec + Terrascan security analysis
+make cost-estimate     # Generate Infracost impact analysis
+make test-staging      # Run integration tests against staging
+```
+
+#### Content Processing Pipeline
+```bash
+make collect-topics    # Run Reddit content collection wombles
+make process-content   # Full pipeline: collect → rank → enrich → publish
+make rank-topics       # Rank collected topics for publishing priority
+make enrich-content    # Research and fact-check topics (requires FILE=)
+make publish-articles  # Generate markdown articles (requires FILE=)
+make content-status    # Show current pipeline status
+```
+
+#### Infrastructure & Security
+```bash
+make terraform-plan    # Review infrastructure changes
+make setup-keyvault    # Configure Azure Key Vault secrets
+make validate-secrets  # Verify Key Vault configuration
+make clean             # Remove all build artifacts and temp files
+```
+
+### Testing Strategy
+- **Unit Tests**: Required for all business logic functions
+- **Integration Tests**: Automated testing against staging environment
+- **Security Testing**: Comprehensive scanning with multiple tools
+- **Cost Validation**: Impact analysis for all infrastructure changes
+- **End-to-End**: Full pipeline testing from Reddit → published articles
+
+### Deployment Process
+1. **Local Development**: Implement and test locally
+2. **Security Validation**: `make security-scan` must pass
+3. **Cost Analysis**: `make cost-estimate` for infrastructure changes
+4. **Staging Deployment**: Deploy to staging for integration testing
+5. **Production Approval**: Manual review and approval process
+6. **Production Deployment**: Deploy from main branch only
+
+## Technology Stack & Current Architecture
+
+### Platform & Infrastructure
+- **Cloud Platform**: Microsoft Azure (Functions, Key Vault, Storage, Application Insights)
+- **Infrastructure as Code**: Terraform with state management and workspace separation
+- **Authentication**: OIDC integration for secure credential management
+- **Secrets Management**: Azure Key Vault with environment-specific access controls
+- **Cost Management**: Infracost integration for all infrastructure changes
+
+### Application Architecture
+- **Event-Driven Pipeline**: Timer → HTTP → Blob triggers for content processing
+- **Serverless Functions**: Azure Functions with Python runtime
+- **Content Flow**: Reddit → Collection → Ranking → Enrichment → Publication
+- **Data Storage**: JSON-based intermediate storage with blob triggers
+- **Static Site**: Eleventy (11ty) for article publication and site generation
+
+### Current Functions (Production Ready)
+- **GetHotTopics**: Timer-triggered (6 hours) Reddit topic collection
+- **SummaryWomble**: HTTP-triggered with async job processing system  
+- **ContentRanker**: Blob-triggered functional ranking with comprehensive scoring
+- **ContentEnricher**: [Next Implementation] - Research and fact-checking
+- **ContentPublisher**: [Next Implementation] - Markdown generation with frontmatter
+
+### Development Environment
+- **Container**: Dev container with pre-configured tools and dependencies
+- **IDE**: VS Code with Azure Functions, Python, and Terraform extensions
+- **CLI Tools**: Azure CLI, Terraform, GitHub CLI, Docker CLI pre-installed
+- **Security Tools**: Checkov, TFSec, Terrascan for comprehensive scanning
+- **Cost Tools**: Infracost for impact analysis and budget governance
+
+## Project Context & Current Focus
+
+### Business Objective
+Automated AI content farm that transforms trending Reddit topics into high-quality, SEO-optimized articles for content marketing and traffic generation.
+
+### Current Status: Event-Driven Content Pipeline
+- ✅ **Infrastructure**: Terraform-managed Azure resources with OIDC auth
+- ✅ **Collection**: Automated Reddit topic harvesting every 6 hours
+- ✅ **Processing**: Async job system with comprehensive topic ranking
+- ✅ **Security**: Multi-tool scanning pipeline with governance controls
+- 🚧 **Enrichment**: Research and fact-checking implementation in progress
+- 🚧 **Publication**: Markdown article generation with SEO optimization
+
+### Immediate Priorities (Q3 2025)
+1. **Complete ContentEnricher Function**: Implement research and fact-checking
+2. **Complete ContentPublisher Function**: Generate SEO-optimized markdown articles
+3. **End-to-End Pipeline Testing**: Validate complete Reddit → published flow
+4. **Production Hardening**: Monitor performance, costs, and reliability
+5. **Content Quality Controls**: Implement editorial review and approval workflows
+
+## Key Files & Directory Structure
+
+### Project Root Files (Single Source of Truth)
+- **`README.md`** - MAIN entry point, project overview, quick start guide
+- **`TODO.md`** - Simple task list and current priorities only
+- **`Makefile`** - Comprehensive build automation (500+ lines, all dev workflows)
+- **`.gitignore`** - Comprehensive exclusions for security and build artifacts
+
+### Critical Directories
+- **`/functions/`** - Azure Functions application code (main business logic)
+- **`/infra/`** - Terraform infrastructure (bootstrap + application separation)
+- **`/docs/`** - ALL detailed documentation (system design, deployment guides, etc.)
+- **`/content_processor/`** - Local content processing pipeline for development
+- **`/content_wombles/`** - Topic collection scripts and utilities
+- **`/scripts/`** - Utility scripts for deployment, cleanup, and maintenance
+- **`/tests/`** - Unit tests, integration tests, and test fixtures
+- **`/output/`** - Generated content and processing results (gitignored)
+
+### Documentation Organization
+- **`docs/README.md`** - Documentation index and navigation
+- **`docs/system-design.md`** - Architecture and technical design
+- **`docs/deployment-guide.md`** - Step-by-step deployment procedures
+- **`docs/api-contracts.md`** - Data format specifications for pipeline
+- **`docs/security-policy.md`** - Security governance and compliance framework
+- **`docs/development-standards.md`** - Critical coding rules (line endings, etc.)
+
+## Common Tasks - Development Priority Order
+
+### 1. Function Development & Deployment (Highest Priority)
+```bash
+make verify-functions    # Validate function code and configuration
+make deploy-staging     # Deploy to staging for testing
+make test-staging       # Run integration tests
+make deploy-production  # Deploy to production (main branch only)
+```
+
+### 2. Infrastructure & Security (Required for All Changes)
+```bash
+make security-scan      # Run comprehensive security analysis
+make cost-estimate      # Analyze cost impact of changes
+make terraform-plan     # Review infrastructure changes
+make setup-keyvault     # Configure secrets management
+```
+
+### 3. Content Pipeline Management
+```bash
+make process-content    # Run full content processing pipeline
+make content-status     # Monitor pipeline health and status
+make cleanup-articles   # Maintain content quality and remove duplicates
+```
+
+### 4. Development Environment
+```bash
+make clean              # Remove build artifacts and temp files
+make validate-secrets   # Verify Key Vault configuration
+make devcontainer       # Validate development environment setup
+```
+
+### 5. Emergency Procedures
+```bash
+make rollback-staging   # Rollback staging deployment
+make rollback-production # EMERGENCY: Rollback production (manual approval)
+```
+
+## Quality Gates & Governance
+
+### Pre-Deployment Requirements (All Must Pass)
+- ✅ Security scan passes (Checkov + TFSec + Terrascan)
+- ✅ Cost impact analysis completed (Infracost)
+- ✅ Function code validation (syntax, configuration, dependencies)
+- ✅ Infrastructure plan review (Terraform)
+- ✅ SBOM generation (Software Bill of Materials)
+
+### Branch Protection Rules
+- **main**: Production deployments only, requires pull request review
+- **develop**: Staging deployments, integration testing
+- **feature/***: Development branches, must merge to develop first
+
+### Cost Governance
+- **Infracost required** for all infrastructure changes
+- **Monthly budget alerts** configured in Azure
+- **Quarterly cost review** and optimization
+- **Resource tagging** for cost allocation and tracking
 
 ---
-_Last updated: August 6, 2025_
+_Last updated: August 12, 2025 - Comprehensive development standards and workflow documentation_

@@ -1,0 +1,19 @@
+{
+    "scriptFile": "__init__.py",
+    "bindings": [
+        {
+            "name": "inputBlob",
+            "type": "blobTrigger",
+            "direction": "in",
+            "path": "content-pipeline/ranked-topics/{name}",
+            "connection": "AzureWebJobsStorage"
+        },
+        {
+            "name": "outputBlob",
+            "type": "blob",
+            "direction": "out",
+            "path": "content-pipeline/enriched-topics/enriched_{datetime:yyyy-MM-dd_HH-mm-ss}.json",
+            "connection": "AzureWebJobsStorage"
+        }
+    ]
+}
