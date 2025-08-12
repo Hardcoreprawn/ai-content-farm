@@ -29,6 +29,9 @@
 - [ ] **ContentPublisher Function**: Create markdown article generation with frontmatter
 - [ ] **End-to-End Pipeline Testing**: Validate complete Reddit -> published articles flow (staging)
 - [ ] **Content Generation**: Get actual articles generated and stored before worrying about production
+- [ ] **Refactor to Architecture Pattern**: Apply event→HTTP processor pattern to existing functions
+  - [ ] **GetHotTopics**: Extract timer logic from business logic (create GetHotTopicsProcessor HTTP function)
+  - [ ] **SummaryWomble**: Already HTTP, fits pattern - no changes needed
 
 ## **Future: Production & Traffic Optimization** (After content pipeline works)
 - [ ] **Production Deployment**: Once content generation is proven in staging
