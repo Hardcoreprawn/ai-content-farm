@@ -2,6 +2,8 @@
 
 A secure, enterprise-grade Azure Functions application that fetches trending topics from Reddit and processes them for AI-generated content. Features comprehensive security scanning, cost governance, and compliance controls.
 
+Test change: Pipeline optimization verification - docs-only change (2025-08-12 14:30).
+
 ## 📚 Documentation
 
 **Complete documentation is available in the [`/docs`](docs/) folder:**
