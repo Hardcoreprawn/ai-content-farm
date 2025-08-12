@@ -6,8 +6,6 @@ on:
     paths:
       - 'functions/**'
       - 'infra/**'
-      - 'content_processor/**'
-      - 'content_wombles/**'
       - 'tests/**'
       - '.github/workflows/**'
   pull_request:
@@ -15,14 +13,8 @@ on:
     paths:
       - 'functions/**'
       - 'infra/**'
-      - 'content_processor/**'
-      - 'content_wombles/**'
       - 'tests/**'
       - '.github/workflows/**'
-  workflow_run:
-    workflows: ["YAML and Actions Lint"]
-    branches: [ develop, main ]
-    types: [ completed ]
   workflow_dispatch:
     inputs:
       environment:
@@ -70,6 +62,7 @@ jobs:
       functions: ${{ steps.changes.outputs.functions }}
       tests: ${{ steps.changes.outputs.tests }}
       docs: ${{ steps.changes.outputs.docs }}
+      workflows: ${{ steps.changes.outputs.workflows }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -82,13 +75,41 @@ jobs:
               - 'infra/**'
             functions:
               - 'functions/**'
-              - 'content_processor/**'
-              - 'content_wombles/**'
             tests:
               - 'tests/**'
             docs:
               - 'docs/**'
               - '*.md'
+            workflows:
+              - '.github/workflows/**'
+              - '.yamllint.yaml'
+
+  # Workflow Validation (for workflow changes)
+  workflow-lint:
+    if: ${{ needs.changes.outputs.workflows == 'true' }}
+    runs-on: ubuntu-latest
+    name: YAML and Actions Lint
+    needs: changes
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+          cache: 'pip'
+
+      - name: Install yamllint
+        run: pip install yamllint
+
+      - name: Run yamllint
+        run: yamllint -f colored .
+
+      - name: Run actionlint
+        uses: docker://rhysd/actionlint:latest
+        with:
+          args: -color
 
   # Stage 1: Parallel Validation Gates
   security-gate:
