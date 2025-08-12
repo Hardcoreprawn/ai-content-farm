@@ -323,6 +323,7 @@ jobs:
         uses: infracost/actions/setup@v3
         with:
           api-key: ${{ secrets.INFRACOST_API_KEY || 'ico-free-tier-key' }}
+          version: 0.10.38
 
       - name: Fast Terraform Plan for Cost Analysis
         id: terraform-plan
