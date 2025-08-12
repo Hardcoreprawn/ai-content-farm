@@ -92,3 +92,9 @@ variable "function_package_url" {
   type        = string
   default     = ""
 }
+
+variable "function_package_path" {
+  description = "Local path to function deployment zip file"
+  type        = string
+  default     = ""
+}

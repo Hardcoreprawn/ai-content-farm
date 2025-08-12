@@ -503,7 +503,10 @@ resource "azurerm_linux_function_app" "main" {
     # SummaryWomble function key for internal authenticated calls
     SUMMARY_WOMBLE_KEY = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/${azurerm_key_vault_secret.summarywomble_function_key.name})"
   }
-  #zip_deploy_file = filebase64("${path.module}/function.zip")
+  
+  # Deploy function package if path is provided
+  zip_deploy_file = var.function_package_path != "" ? var.function_package_path : null
+  
   site_config {
     application_insights_connection_string = azurerm_application_insights.main.connection_string
     application_insights_key               = azurerm_application_insights.main.instrumentation_key

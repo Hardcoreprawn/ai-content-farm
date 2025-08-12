@@ -551,7 +551,7 @@ jobs:
           name: function-package
           path: ./
 
-      - name: Deploy Infrastructure
+      - name: Deploy Infrastructure and Functions
         run: |
           cd infra/application
 
@@ -561,12 +561,19 @@ jobs:
 
           # Fast terraform init (providers cached)
           terraform init -backend-config=backend-staging.hcl
+          
+          # Copy function package to terraform directory for deployment
+          PACKAGE_NAME="${{ needs.build-functions.outputs.package-name }}"
+          cp "../../$PACKAGE_NAME" "./function-package.zip"
+          echo "Function package copied: $PACKAGE_NAME -> ./function-package.zip"
 
-          # Deploy infrastructure first (without function package URL for now)
+          # Deploy infrastructure and functions together using Terraform
+          echo "Deploying infrastructure and function package via Terraform..."
           terraform apply -auto-approve \
-            -var-file="staging.tfvars"
+            -var-file="staging.tfvars" \
+            -var="function_package_path=./function-package.zip"
 
-          # Get outputs for function deployment
+          # Get outputs for subsequent steps
           FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
           RESOURCE_GROUP=$(terraform output -raw resource_group_name)
           KEY_VAULT_NAME=$(terraform output -raw key_vault_name)
@@ -578,17 +585,8 @@ jobs:
             echo "KEY_VAULT_NAME=$KEY_VAULT_NAME"
             echo "STORAGE_ACCOUNT=$STORAGE_ACCOUNT"
           } >> "$GITHUB_ENV"
-
-      - name: Deploy Function Package
-        run: |
-          # Deploy function using the traditional method
-          echo "Deploying function package: ${{ needs.build-functions.outputs.package-name }}"
-          az functionapp deployment source config-zip \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$FUNCTION_APP_NAME" \
-            --src "${{ needs.build-functions.outputs.package-name }}"
-
-          echo "Function app deployment completed"
+          
+          echo "Function app deployment completed via Terraform"
 
       - name: Wire SummaryWomble key to app setting
         run: |
