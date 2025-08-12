@@ -545,6 +545,16 @@ resource "azurerm_role_assignment" "admin_storage_account_contributor" {
   principal_id         = var.admin_user_object_id
 }
 
+# GitHub Actions Function App deployment permissions (staging only)
+resource "azurerm_role_assignment" "github_actions_function_app_deployment" {
+  count = var.environment == "staging" && var.github_actions_object_id != "" ? 1 : 0
+
+  scope                = azurerm_linux_function_app.main.id
+  role_definition_name = "Website Contributor"
+  principal_id         = var.github_actions_object_id
+  depends_on           = [azurerm_linux_function_app.main]
+}
+
 # Optionally add Cognitive Account and Key Vault secret if OpenAI integration is needed
 # resource "azurerm_cognitive_account" "openai" { ... }
 # resource "azurerm_key_vault_secret" "openai_key" { ... }
