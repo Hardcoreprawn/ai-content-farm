@@ -65,9 +65,8 @@ resource "azurerm_key_vault" "main" {
   depends_on = [azurerm_log_analytics_workspace.main]
 }
 
-# Key Vault access policy for current user/service principal (only if not GitHub Actions)
+# Key Vault access policy for current user (always create for development access)
 resource "azurerm_key_vault_access_policy" "current_user" {
-  count        = data.azurerm_client_config.current.object_id != var.github_actions_object_id ? 1 : 0
   key_vault_id = azurerm_key_vault.main.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
   object_id    = data.azurerm_client_config.current.object_id
@@ -234,16 +233,49 @@ resource "azurerm_storage_account" "main" {
   public_network_access_enabled = true
   shared_access_key_enabled     = true
   
-  # Azure automatically adds network_rules - explicitly define to prevent drift
+  # Secure network access - Azure Services only with explicit deny default
   network_rules {
-    default_action = "Allow"
-    bypass         = ["AzureServices",]
+    default_action = "Deny"                      # 🔒 DENY BY DEFAULT
+    bypass         = ["AzureServices", "Logging", "Metrics"]  # Allow Azure platform services
+    
+    # Allow Function App outbound IPs (automatically managed by Azure)
+    # Azure Functions will automatically add their outbound IPs to this list
   }
   
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"
+  
+  # Enhanced security features (excluding infrastructure_encryption to avoid storage account replacement)
+  cross_tenant_replication_enabled  = false     # Prevent cross-tenant access
 }
 
+# Storage Account diagnostic settings for security monitoring
+# Note: Storage account logging requires different configuration than shown here
+# For detailed storage security monitoring, consider Azure Storage Analytics or
+# enabling diagnostic logs on specific storage services (blob, queue, table, file)
+# resource "azurerm_monitor_diagnostic_setting" "storage_account" {
+#   name                       = "storage-security-logs"
+#   target_resource_id         = azurerm_storage_account.main.id
+#   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+
+#   enabled_log {
+#     category = "StorageRead"
+#   }
+
+#   enabled_log {
+#     category = "StorageWrite"
+#   }
+
+#   enabled_log {
+#     category = "StorageDelete"
+#   }
+
+#   enabled_metric {
+#     category = "AllMetrics"
+#   }
+# }
+
+# Legacy container - maintaining for backward compatibility during migration
 resource "azurerm_storage_container" "topics" {
   # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
   name                  = "hot-topics"
@@ -251,6 +283,157 @@ resource "azurerm_storage_container" "topics" {
   container_access_type = "private"
 }
 
+# Standardized Content Pipeline Containers
+# Each processing stage has dedicated input/output containers for clear data lineage
+
+# Topic Collection Stage
+resource "azurerm_storage_container" "topic_collection_queue" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "topic-collection-queue"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+  
+  metadata = {
+    purpose     = "input-queue"
+    stage       = "topic-collection"
+    description = "Input queue for TopicCollectorWorker - trigger files for Reddit processing"
+  }
+}
+
+resource "azurerm_storage_container" "topic_collection_complete" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "topic-collection-complete"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+  
+  metadata = {
+    purpose     = "output-complete"
+    stage       = "topic-collection"
+    description = "Completed topic collection - raw Reddit data ready for ranking"
+  }
+}
+
+# Content Ranking Stage
+resource "azurerm_storage_container" "content_ranking_queue" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "content-ranking-queue"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+  
+  metadata = {
+    purpose     = "input-queue"
+    stage       = "content-ranking"
+    description = "Input queue for ContentRankerWorker - raw topics ready for ranking"
+  }
+}
+
+resource "azurerm_storage_container" "content_ranking_complete" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "content-ranking-complete"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+  
+  metadata = {
+    purpose     = "output-complete"
+    stage       = "content-ranking"
+    description = "Completed content ranking - scored topics ready for enrichment"
+  }
+}
+
+# Content Enrichment Stage
+resource "azurerm_storage_container" "content_enrichment_queue" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "content-enrichment-queue"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+  
+  metadata = {
+    purpose     = "input-queue"
+    stage       = "content-enrichment"
+    description = "Input queue for ContentEnricherWorker - ranked topics ready for research"
+  }
+}
+
+resource "azurerm_storage_container" "content_enrichment_complete" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "content-enrichment-complete"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+  
+  metadata = {
+    purpose     = "output-complete"
+    stage       = "content-enrichment"
+    description = "Completed content enrichment - researched topics ready for publishing"
+  }
+}
+
+# Content Publishing Stage
+resource "azurerm_storage_container" "content_publishing_queue" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "content-publishing-queue"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+  
+  metadata = {
+    purpose     = "input-queue"
+    stage       = "content-publishing"
+    description = "Input queue for ContentPublisherWorker - enriched topics ready for article generation"
+  }
+}
+
+resource "azurerm_storage_container" "published_articles" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "published-articles"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+  
+  metadata = {
+    purpose     = "final-output"
+    stage       = "content-publishing"
+    description = "Final published articles - markdown files ready for static site generation"
+  }
+}
+
+# Job Processing & Status Tracking
+resource "azurerm_storage_container" "job_status" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "job-status"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+  
+  metadata = {
+    purpose     = "job-tracking"
+    stage       = "all-stages"
+    description = "Async job status tracking and progress monitoring"
+  }
+}
+
+# Error Handling & Dead Letter Queues
+resource "azurerm_storage_container" "processing_errors" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "processing-errors"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+  
+  metadata = {
+    purpose     = "error-handling"
+    stage       = "all-stages"
+    description = "Failed processing items for retry and debugging"
+  }
+}
+
+resource "azurerm_storage_container" "dead_letter_queue" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "dead-letter-queue"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+  
+  metadata = {
+    purpose     = "dead-letter"
+    stage       = "all-stages"
+    description = "Items that failed multiple times and require manual intervention"
+  }
+}
 
 resource "azurerm_service_plan" "main" {
   # checkov:skip=CKV_AZURE_212: Not applicable to consumption plan

@@ -16,8 +16,36 @@ output "storage_account_name" {
   value = azurerm_storage_account.main.name
 }
 
+# Legacy container for backward compatibility
 output "storage_container_name" {
   value = azurerm_storage_container.topics.name
+}
+
+# Standardized Content Pipeline Containers
+output "content_pipeline_containers" {
+  description = "Standardized blob containers for content processing pipeline"
+  value = {
+    # Topic Collection Stage
+    topic_collection_queue    = azurerm_storage_container.topic_collection_queue.name
+    topic_collection_complete = azurerm_storage_container.topic_collection_complete.name
+    
+    # Content Ranking Stage
+    content_ranking_queue    = azurerm_storage_container.content_ranking_queue.name
+    content_ranking_complete = azurerm_storage_container.content_ranking_complete.name
+    
+    # Content Enrichment Stage
+    content_enrichment_queue    = azurerm_storage_container.content_enrichment_queue.name
+    content_enrichment_complete = azurerm_storage_container.content_enrichment_complete.name
+    
+    # Content Publishing Stage
+    content_publishing_queue = azurerm_storage_container.content_publishing_queue.name
+    published_articles      = azurerm_storage_container.published_articles.name
+    
+    # Job Processing & Error Handling
+    job_status          = azurerm_storage_container.job_status.name
+    processing_errors   = azurerm_storage_container.processing_errors.name
+    dead_letter_queue   = azurerm_storage_container.dead_letter_queue.name
+  }
 }
 
 output "resource_group_name" {

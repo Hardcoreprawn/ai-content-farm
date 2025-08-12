@@ -6,6 +6,7 @@ from datetime import datetime
 
 # Test 4: Function-only change for pipeline optimization (2025-08-12T11:09:00Z)
 from azure.storage.blob import BlobServiceClient
+from azure.identity import DefaultAzureCredential
 
 # Import the functional core from local module
 from .ranker_core import process_content_ranking
@@ -123,22 +124,26 @@ This function processes topics and generates ranking scores.
                 headers={'Content-Type': 'application/json'}
             )
 
-        # Initialize blob service client
-        connection_string = os.environ.get('AzureWebJobsStorage')
-        if not connection_string:
+        # Initialize blob service client with Managed Identity
+        storage_account_name = os.environ.get('OUTPUT_STORAGE_ACCOUNT')
+        if not storage_account_name:
             return func.HttpResponse(
                 json.dumps(create_standard_response(
                     "error",
-                    "Storage connection not configured",
+                    "Storage account not configured",
                     errors=[{"code": "STORAGE_CONFIG_ERROR",
-                             "detail": "AzureWebJobsStorage environment variable not set"}]
+                             "detail": "OUTPUT_STORAGE_ACCOUNT environment variable not set"}]
                 )),
                 status_code=503,
                 headers={'Content-Type': 'application/json'}
             )
 
-        blob_service_client = BlobServiceClient.from_connection_string(
-            connection_string)
+        # Use Managed Identity for secure authentication
+        credential = DefaultAzureCredential()
+        blob_service_client = BlobServiceClient(
+            account_url=f"https://{storage_account_name}.blob.core.windows.net",
+            credential=credential
+        )
 
         # Extract container and blob name from input path
         input_parts = input_blob_path.split('/', 1)
