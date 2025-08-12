@@ -555,6 +555,16 @@ resource "azurerm_role_assignment" "github_actions_function_app_deployment" {
   depends_on           = [azurerm_linux_function_app.main]
 }
 
+# GitHub Actions Storage Blob Data Contributor for function package uploads (staging only)
+resource "azurerm_role_assignment" "github_actions_storage_blob_contributor" {
+  count = var.environment == "staging" && var.github_actions_object_id != "" ? 1 : 0
+
+  scope                = azurerm_storage_account.main.id
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = var.github_actions_object_id
+  depends_on           = [azurerm_storage_account.main]
+}
+
 # Optionally add Cognitive Account and Key Vault secret if OpenAI integration is needed
 # resource "azurerm_cognitive_account" "openai" { ... }
 # resource "azurerm_key_vault_secret" "openai_key" { ... }
