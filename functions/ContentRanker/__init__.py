@@ -24,6 +24,23 @@ RANKING_CONFIG = {
     }
 }
 
+# Standardized container configuration for content pipeline
+PIPELINE_CONTAINERS = {
+    'input': {
+        'topic_collection_queue': 'topic-collection-queue',
+        'content_enrichment_complete': 'content-enrichment-complete'
+    },
+    'output': {
+        'content_ranking_complete': 'content-ranking-complete',
+        'content_enrichment_queue': 'content-enrichment-queue'
+    },
+    'status': {
+        'job_status': 'job-status',
+        'processing_errors': 'processing-errors',
+        'dead_letter_queue': 'dead-letter-queue'
+    }
+}
+
 
 def create_standard_response(status: str, message: str, data=None, errors=None, metadata=None):
     """Create standardized API response format"""
@@ -39,6 +56,33 @@ def create_standard_response(status: str, message: str, data=None, errors=None, 
     if metadata is not None:
         response["metadata"] = metadata
     return response
+
+
+def get_standardized_blob_client(storage_account_name: str = None):
+    """Create standardized blob service client with Managed Identity"""
+    if not storage_account_name:
+        storage_account_name = os.environ.get('OUTPUT_STORAGE_ACCOUNT')
+    
+    if not storage_account_name:
+        raise ValueError("Storage account name not provided and OUTPUT_STORAGE_ACCOUNT not set")
+    
+    credential = DefaultAzureCredential()
+    return BlobServiceClient(
+        account_url=f"https://{storage_account_name}.blob.core.windows.net",
+        credential=credential
+    )
+
+
+def process_blob_path(blob_path: str):
+    """Parse and validate blob path in format 'container/blob-name'"""
+    if not blob_path:
+        raise ValueError("Blob path is required")
+    
+    parts = blob_path.split('/', 1)
+    if len(parts) != 2:
+        raise ValueError("Path must be in format 'container/blob-name'")
+    
+    return parts[0], parts[1]  # container, blob_name
 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
@@ -125,41 +169,34 @@ This function processes topics and generates ranking scores.
             )
 
         # Initialize blob service client with Managed Identity
-        storage_account_name = os.environ.get('OUTPUT_STORAGE_ACCOUNT')
-        if not storage_account_name:
+        try:
+            blob_service_client = get_standardized_blob_client()
+        except ValueError as e:
             return func.HttpResponse(
                 json.dumps(create_standard_response(
                     "error",
                     "Storage account not configured",
                     errors=[{"code": "STORAGE_CONFIG_ERROR",
-                             "detail": "OUTPUT_STORAGE_ACCOUNT environment variable not set"}]
+                             "detail": str(e)}]
                 )),
                 status_code=503,
                 headers={'Content-Type': 'application/json'}
             )
 
-        # Use Managed Identity for secure authentication
-        credential = DefaultAzureCredential()
-        blob_service_client = BlobServiceClient(
-            account_url=f"https://{storage_account_name}.blob.core.windows.net",
-            credential=credential
-        )
-
         # Extract container and blob name from input path
-        input_parts = input_blob_path.split('/', 1)
-        if len(input_parts) != 2:
+        try:
+            input_container, input_blob_name = process_blob_path(input_blob_path)
+        except ValueError as e:
             return func.HttpResponse(
                 json.dumps(create_standard_response(
                     "error",
                     "Invalid input_blob_path format",
                     errors=[{"code": "INVALID_PATH_FORMAT",
-                             "detail": "Path must be in format 'container/blob-name'"}]
+                             "detail": str(e)}]
                 )),
                 status_code=400,
                 headers={'Content-Type': 'application/json'}
             )
-
-        input_container, input_blob_name = input_parts
 
         # Read input blob
         try:
@@ -199,20 +236,19 @@ This function processes topics and generates ranking scores.
             logging.info(f"Top ranking score: {top_score}")
 
         # Extract container and blob name from output path
-        output_parts = output_blob_path.split('/', 1)
-        if len(output_parts) != 2:
+        try:
+            output_container, output_blob_name = process_blob_path(output_blob_path)
+        except ValueError as e:
             return func.HttpResponse(
                 json.dumps(create_standard_response(
                     "error",
                     "Invalid output_blob_path format",
                     errors=[{"code": "INVALID_OUTPUT_PATH_FORMAT",
-                             "detail": "Path must be in format 'container/blob-name'"}]
+                             "detail": str(e)}]
                 )),
                 status_code=400,
                 headers={'Content-Type': 'application/json'}
             )
-
-        output_container, output_blob_name = output_parts
 
         # Ensure output container exists
         try:

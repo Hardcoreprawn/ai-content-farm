@@ -238,8 +238,18 @@ resource "azurerm_storage_account" "main" {
     default_action = "Deny"                      # 🔒 DENY BY DEFAULT
     bypass         = ["AzureServices", "Logging", "Metrics"]  # Allow Azure platform services
     
-    # Allow Function App outbound IPs (automatically managed by Azure)
-    # Azure Functions will automatically add their outbound IPs to this list
+    # Allow development/admin access from specific IPs
+    ip_rules       = [
+      "81.2.90.47"                              # Your static IP for development access
+      # Note: GitHub Actions uses dynamic IPs that change frequently
+      # For CI/CD we rely on AzureServices bypass for GitHub-hosted runners
+      # Alternative: Use self-hosted runners with static IPs for production
+    ]
+    
+    # GitHub Actions access relies on:
+    # 1. AzureServices bypass (works for GitHub-hosted runners in Azure regions)
+    # 2. Service principal authentication via OIDC
+    # 3. Managed Identity for function deployments
   }
   
   allow_nested_items_to_be_public = false

@@ -1,0 +1,43 @@
+name: Test Network Access
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-access:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      
+      - name: Test Storage Access
+        run: |
+          echo "Testing storage account access..."
+          az storage account show \
+            --name hottopicsstoraget0t36m \
+            --resource-group ai-content-staging-rg \
+            --query "networkRuleSet.defaultAction" -o tsv
+          
+          echo "Testing blob container listing..."
+          az storage container list \
+            --account-name hottopicsstoraget0t36m \
+            --auth-mode login \
+            --query "[].name" -o tsv
+      
+      - name: Test Key Vault Access
+        run: |
+          echo "Testing Key Vault access..."
+          az keyvault secret list \
+            --vault-name ai-content-app-kvt0t36m \
+            --query "[].name" -o tsv
