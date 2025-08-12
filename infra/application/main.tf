@@ -92,7 +92,7 @@ resource "azurerm_key_vault_secret" "summarywomble_function_key" {
     Purpose       = "summarywomble-auth"
     Environment   = var.environment
     ManagedBy     = "terraform"
-    file-encoding = "utf-8"  # Azure automatically adds this tag
+    file-encoding = "utf-8" # Azure automatically adds this tag
   }
 
   # Ignore changes to value and file-encoding since they will be updated by deployment process
@@ -117,7 +117,7 @@ resource "azurerm_key_vault_secret" "contentranker_function_key" {
     Purpose       = "contentranker-auth"
     Environment   = var.environment
     ManagedBy     = "terraform"
-    file-encoding = "utf-8"  # Azure automatically adds this tag
+    file-encoding = "utf-8" # Azure automatically adds this tag
   }
 
   # Ignore changes to value and file-encoding since they will be updated by deployment process
@@ -232,31 +232,31 @@ resource "azurerm_storage_account" "main" {
   account_replication_type      = "LRS"
   public_network_access_enabled = true
   shared_access_key_enabled     = true
-  
+
   # Secure network access - Azure Services only with explicit deny default
   network_rules {
-    default_action = "Deny"                      # 🔒 DENY BY DEFAULT
-    bypass         = ["AzureServices", "Logging", "Metrics"]  # Allow Azure platform services
-    
+    default_action = "Deny"                                  # 🔒 DENY BY DEFAULT
+    bypass         = ["AzureServices", "Logging", "Metrics"] # Allow Azure platform services
+
     # Allow development/admin access from specific IPs
-    ip_rules       = [
-      "81.2.90.47"                              # Your static IP for development access
+    ip_rules = [
+      "81.2.90.47" # Your static IP for development access
       # Note: GitHub Actions uses dynamic IPs that change frequently
       # For CI/CD we rely on AzureServices bypass for GitHub-hosted runners
       # Alternative: Use self-hosted runners with static IPs for production
     ]
-    
+
     # GitHub Actions access relies on:
     # 1. AzureServices bypass (works for GitHub-hosted runners in Azure regions)
     # 2. Service principal authentication via OIDC
     # 3. Managed Identity for function deployments
   }
-  
+
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"
-  
+
   # Enhanced security features (excluding infrastructure_encryption to avoid storage account replacement)
-  cross_tenant_replication_enabled  = false     # Prevent cross-tenant access
+  cross_tenant_replication_enabled = false # Prevent cross-tenant access
 }
 
 # Storage Account diagnostic settings for security monitoring
@@ -302,7 +302,7 @@ resource "azurerm_storage_container" "topic_collection_queue" {
   name                  = "topic-collection-queue"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
-  
+
   metadata = {
     purpose     = "input-queue"
     stage       = "topic-collection"
@@ -315,7 +315,7 @@ resource "azurerm_storage_container" "topic_collection_complete" {
   name                  = "topic-collection-complete"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
-  
+
   metadata = {
     purpose     = "output-complete"
     stage       = "topic-collection"
@@ -329,7 +329,7 @@ resource "azurerm_storage_container" "content_ranking_queue" {
   name                  = "content-ranking-queue"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
-  
+
   metadata = {
     purpose     = "input-queue"
     stage       = "content-ranking"
@@ -342,7 +342,7 @@ resource "azurerm_storage_container" "content_ranking_complete" {
   name                  = "content-ranking-complete"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
-  
+
   metadata = {
     purpose     = "output-complete"
     stage       = "content-ranking"
@@ -356,7 +356,7 @@ resource "azurerm_storage_container" "content_enrichment_queue" {
   name                  = "content-enrichment-queue"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
-  
+
   metadata = {
     purpose     = "input-queue"
     stage       = "content-enrichment"
@@ -369,7 +369,7 @@ resource "azurerm_storage_container" "content_enrichment_complete" {
   name                  = "content-enrichment-complete"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
-  
+
   metadata = {
     purpose     = "output-complete"
     stage       = "content-enrichment"
@@ -383,7 +383,7 @@ resource "azurerm_storage_container" "content_publishing_queue" {
   name                  = "content-publishing-queue"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
-  
+
   metadata = {
     purpose     = "input-queue"
     stage       = "content-publishing"
@@ -396,7 +396,7 @@ resource "azurerm_storage_container" "published_articles" {
   name                  = "published-articles"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
-  
+
   metadata = {
     purpose     = "final-output"
     stage       = "content-publishing"
@@ -410,7 +410,7 @@ resource "azurerm_storage_container" "job_status" {
   name                  = "job-status"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
-  
+
   metadata = {
     purpose     = "job-tracking"
     stage       = "all-stages"
@@ -424,7 +424,7 @@ resource "azurerm_storage_container" "processing_errors" {
   name                  = "processing-errors"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
-  
+
   metadata = {
     purpose     = "error-handling"
     stage       = "all-stages"
@@ -437,7 +437,7 @@ resource "azurerm_storage_container" "dead_letter_queue" {
   name                  = "dead-letter-queue"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
-  
+
   metadata = {
     purpose     = "dead-letter"
     stage       = "all-stages"
@@ -482,12 +482,12 @@ resource "azurerm_linux_function_app" "main" {
   }
 
   app_settings = {
-    AzureWebJobsStorage                   = azurerm_storage_account.main.primary_connection_string
-    OUTPUT_CONTAINER                      = azurerm_storage_container.topics.name
-    OUTPUT_STORAGE_ACCOUNT                = azurerm_storage_account.main.name
-    FUNCTIONS_WORKER_RUNTIME              = "python"
-    WEBSITE_RUN_FROM_PACKAGE              = "1"
-    
+    AzureWebJobsStorage      = azurerm_storage_account.main.primary_connection_string
+    OUTPUT_CONTAINER         = azurerm_storage_container.topics.name
+    OUTPUT_STORAGE_ACCOUNT   = azurerm_storage_account.main.name
+    FUNCTIONS_WORKER_RUNTIME = "python"
+    WEBSITE_RUN_FROM_PACKAGE = "1"
+
     # Application Insights settings - Azure adds these automatically, define explicitly to prevent drift
     APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.main.instrumentation_key
     APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.main.connection_string
