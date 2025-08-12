@@ -469,7 +469,7 @@ jobs:
           flags: unittests
           name: codecov-umbrella
 
-    # Stage 4a: Build and Package Functions (before infrastructure)
+  # Stage 4a: Build and Package Functions (before infrastructure)
   build-functions:
     if: needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true'
     needs: [changes, unit-and-function-tests, cost-gate, security-gate, workflow-lint]
@@ -562,15 +562,7 @@ jobs:
           # Fast terraform init (providers cached)
           terraform init -backend-config=backend-staging.hcl
 
-          # Step 1: Deploy access policies first to fix permissions
-          echo "Creating Key Vault access policies first..."
-          terraform apply -auto-approve \
-            -target=azurerm_key_vault_access_policy.admin_user \
-            -target=azurerm_key_vault_access_policy.github_actions \
-            -var-file="staging.tfvars"
-
-          # Step 2: Deploy remaining infrastructure 
-          echo "Deploying remaining infrastructure..."
+          # Deploy infrastructure first (without function package URL for now)
           terraform apply -auto-approve \
             -var-file="staging.tfvars"
 
