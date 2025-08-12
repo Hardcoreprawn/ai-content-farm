@@ -472,7 +472,7 @@ jobs:
     # Stage 4a: Build and Package Functions (before infrastructure)
   build-functions:
     if: needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true'
-    needs: [unit-and-function-tests, cost-gate, security-gate, workflow-lint]
+    needs: [changes, unit-and-function-tests, cost-gate, security-gate, workflow-lint]
     runs-on: ubuntu-latest
     outputs:
       package-name: ${{ steps.version.outputs.package-name }}
