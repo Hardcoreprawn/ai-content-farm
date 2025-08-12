@@ -1,0 +1,205 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+    paths:
+      - 'functions/**'
+      - 'tests/**'
+      - 'pytest.ini'
+      - 'requirements.txt'
+      - '.github/workflows/test.yml'
+  pull_request:
+    branches: [ main, develop ]
+    paths:
+      - 'functions/**'
+      - 'tests/**'
+      - 'pytest.ini'
+      - 'requirements.txt'
+
+env:
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-type: [unit, function]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r functions/requirements.txt
+        pip install pytest pytest-cov pytest-html pytest-xdist requests
+
+    - name: Run ${{ matrix.test-type }} tests
+      run: |
+        python -m pytest -m "${{ matrix.test-type }}" \
+          --tb=short \
+          --maxfail=3 \
+          --cov=functions \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --junitxml=test-results-${{ matrix.test-type }}.xml \
+          -v
+
+    - name: Upload test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ matrix.test-type }}
+        path: |
+          test-results-${{ matrix.test-type }}.xml
+          coverage.xml
+
+    - name: Upload coverage to Codecov
+      if: matrix.test-type == 'unit'
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  integration-test:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    needs: test
+    environment: 
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ env.PYTHON_VERSION }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r functions/requirements.txt
+        pip install pytest pytest-cov requests
+
+    - name: Azure CLI Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Run integration tests
+      env:
+        FUNCTION_URL: ${{ secrets.FUNCTION_APP_URL }}
+        AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+        AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+        AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      run: |
+        python -m pytest -m "integration" \
+          --tb=short \
+          --maxfail=1 \
+          --junitxml=test-results-integration.xml \
+          -v
+
+    - name: Upload integration test results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-integration
+        path: test-results-integration.xml
+
+  test-report:
+    runs-on: ubuntu-latest
+    needs: [test, integration-test]
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all test artifacts
+      uses: actions/download-artifact@v4
+      with:
+        path: test-artifacts
+
+    - name: Generate test summary
+      run: |
+        echo "# Test Results Summary" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Count test files
+        unit_files=$(find test-artifacts -name "*unit*" -type f | wc -l)
+        function_files=$(find test-artifacts -name "*function*" -type f | wc -l)
+        integration_files=$(find test-artifacts -name "*integration*" -type f | wc -l)
+        
+        echo "## Test Execution" >> $GITHUB_STEP_SUMMARY
+        echo "- Unit Tests: $unit_files artifact(s)" >> $GITHUB_STEP_SUMMARY
+        echo "- Function Tests: $function_files artifact(s)" >> $GITHUB_STEP_SUMMARY
+        echo "- Integration Tests: $integration_files artifact(s)" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        
+        # Check for failures
+        if [ "${{ needs.test.result }}" != "success" ]; then
+          echo "❌ Unit/Function tests failed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "✅ Unit/Function tests passed" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "${{ needs.integration-test.result }}" != "success" ] && [ "${{ needs.integration-test.result }}" != "skipped" ]; then
+          echo "❌ Integration tests failed" >> $GITHUB_STEP_SUMMARY
+        elif [ "${{ needs.integration-test.result }}" == "success" ]; then
+          echo "✅ Integration tests passed" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "⏭️ Integration tests skipped" >> $GITHUB_STEP_SUMMARY
+        fi
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          
+          // Read test results and create comment
+          let comment = '## 🧪 Test Results\n\n';
+          
+          if ('${{ needs.test.result }}' === 'success') {
+            comment += '✅ Unit and Function tests passed\n';
+          } else {
+            comment += '❌ Unit and Function tests failed\n';
+          }
+          
+          if ('${{ needs.integration-test.result }}' === 'success') {
+            comment += '✅ Integration tests passed\n';
+          } else if ('${{ needs.integration-test.result }}' === 'skipped') {
+            comment += '⏭️ Integration tests skipped (PR only)\n';
+          } else {
+            comment += '❌ Integration tests failed\n';
+          }
+          
+          comment += '\n[View detailed results in Actions](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})';
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });

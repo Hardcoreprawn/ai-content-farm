@@ -48,10 +48,10 @@ Updated: 2025-08-12T11:09:00Z
 Azure Function implementation for content ranking.
 This function processes topics and generates ranking scores.
 """
+    import json
+    import logging
+    import azure.functions as func
 
-import json
-import logging
-import azure.functions as func
     logging.info('ContentRanker HTTP worker function triggered')
 
     try:

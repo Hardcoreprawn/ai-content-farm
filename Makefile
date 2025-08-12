@@ -5,7 +5,9 @@
 .PHONY: help verify bootstrap bootstrap-init bootstrap-apply bootstrap-migrate bootstrap-plan \
 	app-init app-apply app-plan setup-keyvault setup-infracost deploy-functions test-functions \
 	security-scan check-azure clean dev staging production \
-	lint lint-yaml lint-actions cost-estimate cost-analysis
+	lint lint-yaml lint-actions cost-estimate cost-analysis \
+	test test-unit test-integration test-functions-local test-all \
+	test-coverage test-watch test-setup
 
 ENVIRONMENT ?= staging
 
@@ -19,6 +21,15 @@ help:
 	@echo "  verify              - Check all prerequisites"
 	@echo "  bootstrap           - Full bootstrap setup (init + apply + migrate)"
 	@echo "  deploy              - Full application deployment"
+	@echo ""
+	@echo "Testing (NEW):"
+	@echo "  test                - Run all tests (unit + integration + function)"
+	@echo "  test-unit           - Run unit tests only (fast, no dependencies)" 
+	@echo "  test-integration    - Run integration tests (requires Azure)" 
+	@echo "  test-functions-local- Run function tests locally"
+	@echo "  test-coverage       - Run tests with coverage report"
+	@echo "  test-watch          - Run tests in watch mode during development"
+	@echo "  test-setup          - Install test dependencies"
 	@echo ""
 	@echo "Bootstrap Infrastructure (Run Once):"
 	@echo "  bootstrap-init      - Initialize bootstrap Terraform"
@@ -168,6 +179,71 @@ clean:
 # Full Development Workflow
 dev: verify bootstrap deploy setup-keyvault deploy-functions test-functions
 	@echo "Full development setup complete!"
+
+# Testing Framework (NEW) - Comprehensive test management
+test-setup:
+	@echo "Installing test dependencies..."
+	@pip3 install pytest pytest-cov pytest-html pytest-xdist pytest-watch requests
+	@echo "Test dependencies installed"
+
+test: test-setup
+	@echo "Running all tests..."
+	@pytest --tb=short --maxfail=3 -v
+
+test-unit: test-setup
+	@echo "Running unit tests (fast, no external dependencies)..."
+	@pytest -m "unit" --tb=short -v
+
+test-integration: test-setup
+	@echo "Running integration tests (requires Azure connectivity)..."
+	@pytest -m "integration" --tb=short -v
+
+test-functions-local: test-setup
+	@echo "Running function-level tests locally..."
+	@pytest -m "function" --tb=short -v
+
+test-coverage: test-setup
+	@echo "Running tests with coverage analysis..."
+	@pytest --cov=functions --cov-report=html --cov-report=term-missing --cov-report=xml
+
+test-watch: test-setup
+	@echo "Running tests in watch mode (for development)..."
+	@pytest-watch --clear --runner "pytest --tb=short -v"
+
+test-all: test-unit test-integration test-functions-local
+	@echo "All test suites completed!"
+
+# Individual function testing
+test-content-ranker:
+	@echo "Testing ContentRanker function..."
+	@pytest functions/ContentRanker/test_content_ranker.py -v
+
+test-content-enricher:
+	@echo "Testing ContentEnricher function..."
+	@pytest functions/ContentEnricher/test_content_enricher.py -v
+
+test-summary-womble:
+	@echo "Testing SummaryWomble function..."
+	@pytest functions/SummaryWomble/test_summary_womble.py -v
+
+# Test reporting and analysis
+test-report:
+	@echo "Generating comprehensive test report..."
+	@pytest --html=test-report.html --self-contained-html --junitxml=test-results.xml
+
+test-ci: test-setup
+	@echo "Running tests for CI/CD pipeline..."
+	@pytest --tb=short --maxfail=1 --junitxml=test-results.xml --cov=functions --cov-report=xml
+
+# Test data management
+test-clean:
+	@echo "Cleaning test artifacts..."
+	@find . -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+	@find . -name "*.pyc" -delete 2>/dev/null || true
+	@find . -name ".pytest_cache" -type d -exec rm -rf {} + 2>/dev/null || true
+	@rm -f test-report.html test-results.xml .coverage 2>/dev/null || true
+	@rm -rf htmlcov/ 2>/dev/null || true
+	@echo "Test cleanup complete"
 
 # Environment-specific workflows  
 staging: ENVIRONMENT=staging

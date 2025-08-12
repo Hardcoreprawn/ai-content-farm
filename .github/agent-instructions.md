@@ -212,11 +212,16 @@ make clean             # Remove all build artifacts and temp files
 ```
 
 ### Testing Strategy
-- **Unit Tests**: Required for all business logic functions
-- **Integration Tests**: Automated testing against staging environment
+- **Co-located Tests**: Each function has tests alongside implementation (functions/[Function]/test_*.py)
+- **Unit Tests**: Required for all business logic functions (pytest -m unit)
+- **Integration Tests**: Automated testing against staging environment (pytest -m integration)
+- **Function Tests**: Test complete function behavior with mocks (pytest -m function)
 - **Security Testing**: Comprehensive scanning with multiple tools
 - **Cost Validation**: Impact analysis for all infrastructure changes
 - **End-to-End**: Full pipeline testing from Reddit → published articles
+- **Local Execution**: make test, make test-unit, make test-coverage
+- **Pipeline Integration**: GitHub Actions with test matrix and reporting
+- **Quality Gates**: All tests must pass before deployment
 
 ### Deployment Process
 1. **Local Development**: Implement and test locally
