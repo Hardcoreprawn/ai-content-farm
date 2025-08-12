@@ -469,74 +469,40 @@ jobs:
           flags: unittests
           name: codecov-umbrella
 
-  # Stage 4a: Build and Upload Function Package (Before Infrastructure)
+    # Stage 4a: Build and Package Functions (before infrastructure)
   build-functions:
-    if: >
-      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
-      needs.changes.outputs.functions == 'true' &&
-      (needs.security-gate.result == 'success' || needs.security-gate.result == 'skipped') &&
-      (needs.cost-gate.result == 'success' || needs.cost-gate.result == 'skipped') &&
-      (needs.unit-and-function-tests.result == 'success' || needs.unit-and-function-tests.result == 'skipped')
+    if: needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true'
+    needs: [unit-tests, function-tests, cost-approval, security-compliance, yaml-lint]
     runs-on: ubuntu-latest
-    name: Build and Upload Function Package
-    needs: [changes, security-gate, cost-gate, unit-and-function-tests]
-    environment: staging
     outputs:
-      package-url: ${{ steps.upload.outputs.package-url }}
-      package-version: ${{ steps.version.outputs.version }}
+      package-name: ${{ steps.version.outputs.package-name }}
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
-
-      - name: Azure Login
-        uses: azure/login@v2
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Generate Package Version
         id: version
         run: |
           VERSION="$(date +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)"
+          PACKAGE_NAME="function-app-$VERSION.zip"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "package-name=$PACKAGE_NAME" >> "$GITHUB_OUTPUT"
           echo "Generated package version: $VERSION"
 
       - name: Create Function Package
         run: |
-          cd functions
+          cd functions/
           # Create deployment package for Python Azure Functions
-          zip -r ../function-app-${{ steps.version.outputs.version }}.zip . \
-            -x "*.pyc" "*/__pycache__/*" ".python_packages/*" "tests/*"
-          echo "Function package created: function-app-${{ steps.version.outputs.version }}.zip"
+          zip -r "../${{ steps.version.outputs.package-name }}" . -x "*.pyc" "*/__pycache__/*" ".python_packages/*"
+          echo "Created package: ${{ steps.version.outputs.package-name }}"
 
-      - name: Upload Package to Storage
-        id: upload
-        run: |
-          # Upload to function-releases container
-          az storage blob upload \
-            --account-name "hottopicsstoraget0t36m" \
-            --container-name "topics" \
-            --name "function-app-${{ steps.version.outputs.version }}.zip" \
-            --file "function-app-${{ steps.version.outputs.version }}.zip" \
-            --auth-mode login \
-            --overwrite
-
-          # Generate SAS URL with long expiration for Terraform
-          PACKAGE_URL="$(az storage blob generate-sas \
-            --account-name "hottopicsstoraget0t36m" \
-            --container-name "topics" \
-            --name "function-app-${{ steps.version.outputs.version }}.zip" \
-            --permissions r \
-            --expiry "$(date -d "+1 year" --iso-8601)" \
-            --full-uri \
-            --auth-mode login)"
-
-          echo "package-url=$PACKAGE_URL" >> "$GITHUB_OUTPUT"
-          echo "Package uploaded and SAS URL generated"
+      - name: Upload Package as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: function-package
+          path: ${{ steps.version.outputs.package-name }}
+          retention-days: 30
 
   # Stage 4b: Deploy Infrastructure with Function Package URL
   deploy-to-staging:
@@ -579,6 +545,12 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Download Function Package
+        uses: actions/download-artifact@v4
+        with:
+          name: function-package
+          path: ./
+
       - name: Deploy Infrastructure
         run: |
           cd infra/application
@@ -590,21 +562,33 @@ jobs:
           # Fast terraform init (providers cached)
           terraform init -backend-config=backend-staging.hcl
 
-          # Deploy infrastructure with function package URL
+          # Deploy infrastructure first (without function package URL for now)
           terraform apply -auto-approve \
-            -var-file="staging.tfvars" \
-            -var="function_package_url=${{ needs.build-functions.outputs.package-url }}"
+            -var-file="staging.tfvars"
 
-          # Get outputs for any remaining tasks
+          # Get outputs for function deployment
           FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
           RESOURCE_GROUP=$(terraform output -raw resource_group_name)
           KEY_VAULT_NAME=$(terraform output -raw key_vault_name)
+          STORAGE_ACCOUNT=$(terraform output -raw storage_account_name)
 
           {
             echo "FUNCTION_APP_NAME=$FUNCTION_APP_NAME"
             echo "RESOURCE_GROUP=$RESOURCE_GROUP"
             echo "KEY_VAULT_NAME=$KEY_VAULT_NAME"
+            echo "STORAGE_ACCOUNT=$STORAGE_ACCOUNT"
           } >> "$GITHUB_ENV"
+
+      - name: Deploy Function Package
+        run: |
+          # Deploy function using the traditional method
+          echo "Deploying function package: ${{ needs.build-functions.outputs.package-name }}"
+          az functionapp deployment source config-zip \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$FUNCTION_APP_NAME" \
+            --src "${{ needs.build-functions.outputs.package-name }}"
+
+          echo "Function app deployment completed"
 
       - name: Wire SummaryWomble key to app setting
         run: |

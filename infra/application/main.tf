@@ -300,7 +300,7 @@ resource "azurerm_linux_function_app" "main" {
     OUTPUT_CONTAINER                      = azurerm_storage_container.topics.name
     OUTPUT_STORAGE_ACCOUNT                = azurerm_storage_account.main.name
     FUNCTIONS_WORKER_RUNTIME              = "python"
-    WEBSITE_RUN_FROM_PACKAGE              = var.function_package_url != "" ? var.function_package_url : "1"
+    WEBSITE_RUN_FROM_PACKAGE              = "1"
     
     # Application Insights settings - Azure adds these automatically, define explicitly to prevent drift
     APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.main.instrumentation_key
