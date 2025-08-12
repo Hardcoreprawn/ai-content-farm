@@ -117,9 +117,9 @@ jobs:
     if: >
       (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
       (github.event.inputs.skip_security != 'true') &&
-      (needs.changes.outputs.infrastructure == 'true' || 
-       needs.changes.outputs.functions == 'true' || 
-       needs.changes.outputs.tests == 'true' || 
+      (needs.changes.outputs.infrastructure == 'true' ||
+       needs.changes.outputs.functions == 'true' ||
+       needs.changes.outputs.tests == 'true' ||
        needs.changes.outputs.workflows == 'true')
     runs-on: ubuntu-latest
     name: Security and Compliance Validation

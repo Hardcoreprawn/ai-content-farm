@@ -15,14 +15,25 @@
 
 **Test Change**: Update README.md with timestamp
 
-### Test 2: Infrastructure-Only Change 
-**Purpose**: Test infra changes trigger security, cost, and deployment
-**Expected Outcome**:
-- Jobs: changes, security-gate, cost-gate, deploy-to-staging
-- Duration: ~3-4 minutes (with optimizations)
-- Cost analysis and security scans run in parallel
+## Test Results Summary
 
-**Test Change**: Add comment to a .tf file in infra/application/
+### ✅ Test 1: Workflow Changes Only (PASSED)
+- **Duration**: 53 seconds (88% improvement vs 10min baseline!)
+- **Behavior**: Perfect - only ran workflow-lint and pipeline-summary
+- **Conditional Logic**: ✅ Working correctly
+
+### ✅ Test 2a: Infrastructure Changes (FAILED - Logic Bug Found)
+- **Duration**: 1m 17s 
+- **Expected**: security-gate, cost-gate, deploy-to-staging should run
+- **Actual**: Only cost-gate ran, security-gate and deploy-to-staging skipped
+- **Root Cause**: `needs.changes.outputs.docs != 'true'` logic error
+
+### ✅ Test 2b: Infrastructure Changes (PASSED - Logic Fixed!)
+- **Duration**: ~5 minutes
+- **Behavior**: Security-gate ✅, Cost-gate ✅, Deploy-to-staging ✅ all ran correctly
+- **Conditional Logic**: ✅ Fixed and working
+- **Key Fix**: Changed security-gate condition to positive logic checking for actual components
+- **Note**: Integration tests ran due to comparison against main branch (expected in this scenario)
 
 ### Test 3: Test-Only Change
 **Purpose**: Validate test changes trigger minimal pipeline

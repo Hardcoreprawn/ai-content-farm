@@ -4,7 +4,7 @@ import json
 import os
 from datetime import datetime
 
-# Test comment for pipeline optimization - function change (2025-08-12 14:37)
+# Test 4: Function-only change for pipeline optimization (2025-08-12T11:09:00Z)
 from azure.storage.blob import BlobServiceClient
 
 # Import the functional core from local module
@@ -42,16 +42,16 @@ def create_standard_response(status: str, message: str, data=None, errors=None, 
 
 def main(req: func.HttpRequest) -> func.HttpResponse:
     """
-    ContentRanker Azure Function - HTTP worker function.
+Test 4: Function-only change for pipeline optimization validation
+Updated: 2025-08-12T11:09:00Z
 
-    Processes raw Reddit topics and produces ranked topics for content enrichment.
+Azure Function implementation for content ranking.
+This function processes topics and generates ranking scores.
+"""
 
-    Expected JSON payload:
-    {
-        "input_blob_path": "hot-topics/filename.json",
-        "output_blob_path": "content-pipeline/ranked-topics/ranked_filename.json"
-    }
-    """
+import json
+import logging
+import azure.functions as func
     logging.info('ContentRanker HTTP worker function triggered')
 
     try:
