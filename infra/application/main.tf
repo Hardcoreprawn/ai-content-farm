@@ -455,6 +455,14 @@ resource "azurerm_service_plan" "main" {
   sku_name            = "Y1"
 }
 
+# Create function package archive from source directory
+data "archive_file" "function_package" {
+  type        = "zip"
+  source_dir  = "${path.module}/../../functions"
+  output_path = "${path.module}/function-package.zip"
+  excludes    = ["__pycache__", "*.pyc", "tests", ".pytest_cache"]
+}
+
 resource "azurerm_linux_function_app" "main" {
   # checkov:skip=CKV_AZURE_221: Public access is acceptable for this use case
   # checkov:skip=CKV_AZURE_97: No authentication required for this use case
@@ -504,8 +512,8 @@ resource "azurerm_linux_function_app" "main" {
     SUMMARY_WOMBLE_KEY = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/${azurerm_key_vault_secret.summarywomble_function_key.name})"
   }
   
-  # Deploy function package if path is provided
-  zip_deploy_file = var.function_package_path != "" ? var.function_package_path : null
+  # Deploy function package using Terraform-managed archive
+  zip_deploy_file = data.archive_file.function_package.output_path
   
   site_config {
     application_insights_connection_string = azurerm_application_insights.main.connection_string

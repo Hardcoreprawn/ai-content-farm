@@ -562,16 +562,10 @@ jobs:
           # Fast terraform init (providers cached)
           terraform init -backend-config=backend-staging.hcl
 
-          # Copy function package to terraform directory for deployment
-          PACKAGE_NAME="${{ needs.build-functions.outputs.package-name }}"
-          cp "../../$PACKAGE_NAME" "./function-package.zip"
-          echo "Function package copied: $PACKAGE_NAME -> ./function-package.zip"
-
           # Deploy infrastructure and functions together using Terraform
+          # Terraform will automatically create function package from /functions directory
           echo "Deploying infrastructure and function package via Terraform..."
-          terraform apply -auto-approve \
-            -var-file="staging.tfvars" \
-            -var="function_package_path=./function-package.zip"
+          terraform apply -auto-approve -var-file="staging.tfvars"
 
           # Get outputs for subsequent steps
           FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
