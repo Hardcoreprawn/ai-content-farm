@@ -18,6 +18,7 @@ resource "azurerm_resource_group" "main" {
     Environment = var.environment
     Project     = "ai-content-farm"
     ManagedBy   = "terraform"
+    TestRun     = "2025-08-12-drift-test"
   }
 }
 
