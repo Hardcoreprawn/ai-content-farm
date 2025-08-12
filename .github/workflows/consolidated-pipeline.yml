@@ -561,7 +561,7 @@ jobs:
 
           # Fast terraform init (providers cached)
           terraform init -backend-config=backend-staging.hcl
-          
+
           # Copy function package to terraform directory for deployment
           PACKAGE_NAME="${{ needs.build-functions.outputs.package-name }}"
           cp "../../$PACKAGE_NAME" "./function-package.zip"
@@ -585,7 +585,7 @@ jobs:
             echo "KEY_VAULT_NAME=$KEY_VAULT_NAME"
             echo "STORAGE_ACCOUNT=$STORAGE_ACCOUNT"
           } >> "$GITHUB_ENV"
-          
+
           echo "Function app deployment completed via Terraform"
 
       - name: Wire SummaryWomble key to app setting
