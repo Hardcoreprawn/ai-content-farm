@@ -12,12 +12,12 @@ from typing import Dict, Any, List
 def sample_reddit_topic() -> Dict[str, Any]:
     """Sample Reddit topic data for testing."""
     return {
-        "id": "test_topic_001",
+        "reddit_id": "test_topic_001",
         "title": "Latest developments in machine learning frameworks",
         "subreddit": "MachineLearning",
         "score": 350,
         "num_comments": 85,
-        "created_utc": "2024-01-15T10:00:00Z",
+        "created_utc": 1705312800.0,  # 2024-01-15T10:00:00Z as Unix timestamp
         "selftext": "Discussion about recent updates to popular ML frameworks like TensorFlow and PyTorch.",
         "url": "https://reddit.com/r/MachineLearning/test_topic_001",
         "author": "ml_researcher",
@@ -42,30 +42,30 @@ def sample_reddit_topics() -> List[Dict[str, Any]]:
     """List of sample Reddit topics for testing."""
     return [
         {
-            "id": "test_topic_001",
+            "reddit_id": "test_topic_001",
             "title": "Latest developments in machine learning frameworks",
             "subreddit": "MachineLearning",
             "score": 350,
             "num_comments": 85,
-            "created_utc": "2024-01-15T10:00:00Z",
+            "created_utc": 1705312800.0,  # 2024-01-15T10:00:00Z as Unix timestamp
             "url": "https://reddit.com/r/MachineLearning/test_topic_001"
         },
         {
-            "id": "test_topic_002",
+            "reddit_id": "test_topic_002",
             "title": "New AI breakthrough in natural language processing",
             "subreddit": "artificial",
             "score": 245,
             "num_comments": 62,
-            "created_utc": "2024-01-15T09:30:00Z",
+            "created_utc": 1705311000.0,  # 2024-01-15T09:30:00Z as Unix timestamp
             "url": "https://reddit.com/r/artificial/test_topic_002"
         },
         {
-            "id": "test_topic_003",
+            "reddit_id": "test_topic_003",
             "title": "Python 3.12 performance improvements",
             "subreddit": "Python",
             "score": 180,
             "num_comments": 45,
-            "created_utc": "2024-01-15T09:00:00Z",
+            "created_utc": 1705309200.0,  # 2024-01-15T09:00:00Z as Unix timestamp
             "url": "https://reddit.com/r/Python/test_topic_003"
         }
     ]
