@@ -519,7 +519,7 @@ jobs:
           # Upload to function-releases container
           az storage blob upload \
             --account-name "hottopicsstoraget0t36m" \
-            --container-name "function-releases" \
+            --container-name "topics" \
             --name "function-app-${{ steps.version.outputs.version }}.zip" \
             --file "function-app-${{ steps.version.outputs.version }}.zip" \
             --auth-mode login \
@@ -528,7 +528,7 @@ jobs:
           # Generate SAS URL with long expiration for Terraform
           PACKAGE_URL="$(az storage blob generate-sas \
             --account-name "hottopicsstoraget0t36m" \
-            --container-name "function-releases" \
+            --container-name "topics" \
             --name "function-app-${{ steps.version.outputs.version }}.zip" \
             --permissions r \
             --expiry "$(date -d "+1 year" --iso-8601)" \
@@ -885,7 +885,7 @@ jobs:
 
           az storage blob upload \
             --account-name "$STORAGE_ACCOUNT" \
-            --container-name "function-releases" \
+            --container-name "topics" \
             --name "function-app-${{ steps.version.outputs.version }}.zip" \
             --file "function-app-${{ steps.version.outputs.version }}.zip" \
             --auth-mode login \
@@ -894,7 +894,7 @@ jobs:
           # Generate SAS URL with long expiration for Terraform
           PACKAGE_URL="$(az storage blob generate-sas \
             --account-name "$STORAGE_ACCOUNT" \
-            --container-name "function-releases" \
+            --container-name "topics" \
             --name "function-app-${{ steps.version.outputs.version }}.zip" \
             --permissions r \
             --expiry "$(date -d "+1 year" --iso-8601)" \
