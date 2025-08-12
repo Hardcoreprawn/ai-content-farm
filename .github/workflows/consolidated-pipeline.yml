@@ -115,9 +115,9 @@ jobs:
   security-gate:
     # Skip security scans for docs-only changes
     if: >
-      ${{ (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
-          (github.event.inputs.skip_security != 'true') &&
-          needs.changes.outputs.docs != 'true' }}
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
+      (github.event.inputs.skip_security != 'true') &&
+      needs.changes.outputs.docs != 'true'
     runs-on: ubuntu-latest
     name: Security and Compliance Validation
     needs: changes
@@ -272,9 +272,9 @@ jobs:
   # Stage 2: Cost Impact Analysis (Parallel with Security, Infrastructure changes only)
   cost-gate:
     if: >
-      ${{ (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
-          (github.event.inputs.skip_cost != 'true') &&
-          needs.changes.outputs.infrastructure == 'true' }}
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
+      (github.event.inputs.skip_cost != 'true') &&
+      needs.changes.outputs.infrastructure == 'true'
     runs-on: ubuntu-latest
     name: Cost Impact and Budget Approval
     needs: changes
@@ -405,8 +405,8 @@ jobs:
   # Stage 3: Deploy to Staging (Wait for relevant gates)
   deploy-to-staging:
     if: >
-      ${{ (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
-          (needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true') }}
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
+      (needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true')
     runs-on: ubuntu-latest
     name: Deploy Infrastructure and Functions to Staging
     needs: [changes, security-gate, cost-gate]
@@ -531,9 +531,9 @@ jobs:
   # Stage 4: Fast Integration Tests (Skip if tests disabled)
   run-integration-tests:
     if: >
-      ${{ (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
-          (github.event.inputs.skip_tests != 'true') &&
-          (needs.changes.outputs.functions == 'true' || needs.changes.outputs.tests == 'true') }}
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
+      (github.event.inputs.skip_tests != 'true') &&
+      (needs.changes.outputs.functions == 'true' || needs.changes.outputs.tests == 'true')
     runs-on: ubuntu-latest
     name: Run Essential Integration Tests
     needs: [changes, deploy-to-staging]
@@ -619,9 +619,9 @@ jobs:
   # Stage 5: Deploy to Production (main branch only, after all validations)
   deploy-to-production:
     if: >
-      ${{ github.ref == 'refs/heads/main' &&
-          ((github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')) &&
-          (needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true') }}
+      github.ref == 'refs/heads/main' &&
+      ((github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')) &&
+      (needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true')
     runs-on: ubuntu-latest
     name: Deploy Infrastructure and Functions to Production
     needs: [changes, security-gate, cost-gate, run-integration-tests]
