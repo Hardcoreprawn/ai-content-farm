@@ -65,11 +65,11 @@ resource "azurerm_key_vault" "main" {
   depends_on = [azurerm_log_analytics_workspace.main]
 }
 
-# Key Vault access policy for current user (always create for development access)
-resource "azurerm_key_vault_access_policy" "current_user" {
+# Key Vault access policy for admin user (always create for development access)
+resource "azurerm_key_vault_access_policy" "admin_user" {
   key_vault_id = azurerm_key_vault.main.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = data.azurerm_client_config.current.object_id
+  object_id    = var.admin_user_object_id
 
   secret_permissions = [
     "Get",
@@ -102,7 +102,7 @@ resource "azurerm_key_vault_secret" "summarywomble_function_key" {
 
   depends_on = [
     azurerm_key_vault_access_policy.github_actions,
-    azurerm_key_vault_access_policy.current_user
+    azurerm_key_vault_access_policy.admin_user
   ]
 }
 
@@ -127,7 +127,7 @@ resource "azurerm_key_vault_secret" "contentranker_function_key" {
 
   depends_on = [
     azurerm_key_vault_access_policy.github_actions,
-    azurerm_key_vault_access_policy.current_user
+    azurerm_key_vault_access_policy.admin_user
   ]
 }
 
