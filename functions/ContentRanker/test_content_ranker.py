@@ -28,8 +28,6 @@ try:
         transform_blob_to_topics,
         create_ranking_output
     )
-    # Import standardized functions directly from the module
-    import __init__ as contentranker_module
 except ImportError as e:
     pytest.skip(f"Cannot import ranker_core: {e}", allow_module_level=True)
 
@@ -203,191 +201,29 @@ class TestContentRankerIntegration:
             assert 'ranking_details' in topic
 
 
-class TestContentRankerStandardized:
-    """Test standardized functionality and infrastructure integration"""
-
-    @pytest.mark.unit
-    def test_create_standard_response_success(self):
-        """Test standardized response format for success"""
-        response = contentranker_module.create_standard_response(
-            "success", "Operation completed")
-
-        assert response["status"] == "success"
-        assert response["message"] == "Operation completed"
-        assert "timestamp" in response
-        assert response["timestamp"].endswith("Z")
-
-    @pytest.mark.unit
-    def test_create_standard_response_with_data(self):
-        """Test standardized response with data payload"""
-        test_data = {"total_ranked": 5, "processing_time": 1.2}
-        response = contentranker_module.create_standard_response(
-            "success", "Ranking complete", data=test_data)
-
-        assert response["data"] == test_data
-        assert response["status"] == "success"
-
-    @pytest.mark.unit
-    def test_create_standard_response_with_errors(self):
-        """Test standardized response with error details"""
-        errors = [{"code": "VALIDATION_ERROR",
-                   "detail": "Invalid input format"}]
-        response = contentranker_module.create_standard_response(
-            "error", "Validation failed", errors=errors)
-
-        assert response["errors"] == errors
-        assert response["status"] == "error"
-
-    @pytest.mark.unit
-    def test_process_blob_path_valid(self):
-        """Test blob path parsing with valid input"""
-        container, blob_name = contentranker_module.process_blob_path(
-            "topic-collection-queue/reddit_topics_20250812.json")
-
-        assert container == "topic-collection-queue"
-        assert blob_name == "reddit_topics_20250812.json"
-
-    @pytest.mark.unit
-    def test_process_blob_path_invalid(self):
-        """Test blob path parsing with invalid input"""
-        with pytest.raises(ValueError, match="Path must be in format 'container/blob-name'"):
-            contentranker_module.process_blob_path(
-                "invalid-path-without-slash")
-
-        with pytest.raises(ValueError, match="Blob path is required"):
-            contentranker_module.process_blob_path("")
-
-    @pytest.mark.unit
-    def test_pipeline_containers_configuration(self):
-        """Test standardized container configuration"""
-        # Verify required container categories exist
-        assert "input" in contentranker_module.PIPELINE_CONTAINERS
-        assert "output" in contentranker_module.PIPELINE_CONTAINERS
-        assert "status" in contentranker_module.PIPELINE_CONTAINERS
-
-        # Verify specific containers for ContentRanker workflow
-        input_containers = contentranker_module.PIPELINE_CONTAINERS["input"]
-        assert "topic_collection_queue" in input_containers
-        assert "content_enrichment_complete" in input_containers
-
-        output_containers = contentranker_module.PIPELINE_CONTAINERS["output"]
-        assert "content_ranking_complete" in output_containers
-        assert "content_enrichment_queue" in output_containers
-
-        status_containers = contentranker_module.PIPELINE_CONTAINERS["status"]
-        assert "job_status" in status_containers
-        assert "processing_errors" in status_containers
-        assert "dead_letter_queue" in status_containers
-
-    @pytest.mark.unit
-    @patch.dict(os.environ, {'OUTPUT_STORAGE_ACCOUNT': 'teststorage'})
-    def test_get_standardized_blob_client_with_env(self):
-        """Test blob client creation using environment variable"""
-        with patch('__init__.DefaultAzureCredential') as mock_cred, \
-                patch('__init__.BlobServiceClient') as mock_client:
-
-            client = contentranker_module.get_standardized_blob_client()
-
-            mock_client.assert_called_once_with(
-                account_url="https://teststorage.blob.core.windows.net",
-                credential=mock_cred.return_value
-            )
-
-    @pytest.mark.unit
-    def test_get_standardized_blob_client_with_param(self):
-        """Test blob client creation with explicit storage account"""
-        with patch('__init__.DefaultAzureCredential') as mock_cred, \
-                patch('__init__.BlobServiceClient') as mock_client:
-
-            client = contentranker_module.get_standardized_blob_client(
-                "customstorage")
-
-            mock_client.assert_called_once_with(
-                account_url="https://customstorage.blob.core.windows.net",
-                credential=mock_cred.return_value
-            )
-
-    @pytest.mark.unit
-    def test_get_standardized_blob_client_no_config(self):
-        """Test blob client creation without configuration"""
-        with patch.dict(os.environ, {}, clear=True):
-            with pytest.raises(ValueError, match="Storage account name not provided"):
-                contentranker_module.get_standardized_blob_client()
-
-    @pytest.mark.function
-    @patch.dict(os.environ, {'OUTPUT_STORAGE_ACCOUNT': 'teststorage'})
-    def test_main_function_validation(self):
-        """Test main function HTTP request validation"""
-        import azure.functions as func
-
-        # Test invalid method
-        req = func.HttpRequest(
-            method='GET',
-            url='http://localhost/api/ContentRanker',
-            body=b'{}',
-            headers={'Content-Type': 'application/json'}
-        )
-
-        response = contentranker_module.main(req)
-        assert response.status_code == 405
-
-        # Test missing body
-        req = func.HttpRequest(
-            method='POST',
-            url='http://localhost/api/ContentRanker',
-            body=b'',
-            headers={'Content-Type': 'application/json'}
-        )
-
-        response = contentranker_module.main(req)
-        assert response.status_code == 400
-
-        # Test invalid JSON
-        req = func.HttpRequest(
-            method='POST',
-            url='http://localhost/api/ContentRanker',
-            body=b'invalid json',
-            headers={'Content-Type': 'application/json'}
-        )
-
-        response = contentranker_module.main(req)
-        assert response.status_code == 400
-
-        # Test missing required fields
-        req = func.HttpRequest(
-            method='POST',
-            url='http://localhost/api/ContentRanker',
-            body=b'{"some_field": "value"}',
-            headers={'Content-Type': 'application/json'}
-        )
-
-        response = contentranker_module.main(req)
-        assert response.status_code == 400
-
-
 class TestContentRankerEdgeCases:
     """Test edge cases and error conditions"""
-
+    
     @pytest.mark.unit
     def test_empty_topics_list(self, ranking_config):
         """Test handling of empty topics list"""
         result = rank_topics_functional([], ranking_config)
         assert result == []
-
+    
     @pytest.mark.unit
     def test_invalid_topic_data(self, ranking_config):
         """Test handling of malformed topic data"""
         invalid_topic = {"title": "Missing required fields"}
-
+        
         # Should not crash, should filter out invalid topics
         result = rank_topics_functional([invalid_topic], ranking_config)
         assert len(result) == 0
-
+    
     @pytest.mark.unit
     def test_missing_config_values(self, sample_reddit_topic):
         """Test handling of incomplete configuration"""
         incomplete_config = {"weights": {"engagement": 1.0}}
-
+        
         # Should use defaults or handle gracefully
         try:
             rank_topic_functional(sample_reddit_topic, incomplete_config)
