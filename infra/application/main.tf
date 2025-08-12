@@ -555,6 +555,16 @@ resource "azurerm_role_assignment" "github_actions_function_app_deployment" {
   depends_on           = [azurerm_linux_function_app.main]
 }
 
+# GitHub Actions Function App Contributor for comprehensive deployment permissions (staging only)
+resource "azurerm_role_assignment" "github_actions_function_app_contributor" {
+  count = var.environment == "staging" && var.github_actions_object_id != "" ? 1 : 0
+
+  scope                = azurerm_linux_function_app.main.id
+  role_definition_name = "Contributor"
+  principal_id         = var.github_actions_object_id
+  depends_on           = [azurerm_linux_function_app.main]
+}
+
 # GitHub Actions Storage Blob Data Contributor for function package uploads (staging only)
 resource "azurerm_role_assignment" "github_actions_storage_blob_contributor" {
   count = var.environment == "staging" && var.github_actions_object_id != "" ? 1 : 0

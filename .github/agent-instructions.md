@@ -29,6 +29,55 @@ This is an **enterprise-grade A#### Event-Driven Integration (Secondary, After R
 - **Incremental & Safe**: Prefer staged rollouts and targeted changes when appropriate
 - **Security-Conscious**: Apply principle of least privilege, scope permissions appropriately
 
+## GitHub Issues Workflow
+Use GitHub Issues for specific, actionable tasks while keeping TODO.md for high-level roadmap.
+
+### Issue Creation Guidelines
+- **Auto-create Issues**: When starting new work phases, create detailed issues based on TODO.md analysis
+- **Technical Precision**: Include specific file paths, function names, acceptance criteria
+- **Reference Template**: Link to existing working examples (e.g., ContentRanker pattern)
+- **Label Appropriately**: Use labels for categorization (function-standardization, content-pipeline, infrastructure)
+
+### Issue Lifecycle Management  
+- **Start Work**: Before implementing, check for related issues or create new ones
+- **Update Progress**: Add progress comments during implementation
+- **Link Commits**: Reference issues in commit messages (`git commit -m "Fix auth pattern - addresses #12"`)
+- **Close on Completion**: Close issues when work is complete with summary comment
+
+### Issue Status Keywords
+- **When asked to "start work on function standardization"**: Check for existing issues, create if needed
+- **When user says "I finished issue #X"**: Close the issue with completion summary, update related issues
+- **When user says "update the issues"**: Review current status, close completed items, create new issues for next work
+
+### Standard Issue Template
+```markdown
+## Description
+[Clear description of what needs to be done]
+
+## Acceptance Criteria
+- [ ] Specific, testable requirements
+- [ ] Technical implementation details
+- [ ] Test coverage requirements
+
+## Files to Modify
+- `/path/to/file.py` (specific changes needed)
+
+## Reference/Template
+Link to existing working examples or documentation
+
+## Related Issues
+- Related to #X
+- Blocks #Y
+```
+
+### Issue Labels to Use
+- `function-standardization` - Applying ContentRanker template to other functions
+- `content-pipeline` - Building end-to-end content flow
+- `infrastructure` - Terraform, CI/CD, Azure resources
+- `documentation` - Updates to docs, README, guides
+- `bug` - Issues to fix
+- `enhancement` - New features or improvements
+
 ## Documentation Rules - CRITICAL
 - **NO ROOT POLLUTION** - Never create status/log files in project root
 - **Use `/docs` folder** for detailed documentation, NOT root directory
@@ -351,6 +400,25 @@ Automated AI content farm that transforms trending Reddit topics into high-quali
 - **`docs/api-contracts.md`** - Data format specifications for pipeline
 - **`docs/security-policy.md`** - Security governance and compliance framework
 - **`docs/development-standards.md`** - Critical coding rules (line endings, etc.)
+
+## Issue Automation Triggers
+When users use these phrases, automatically interact with GitHub Issues:
+
+### Starting Work
+- **"Start function standardization"** → Check/create issues for remaining functions
+- **"Begin content pipeline work"** → Create issues for ContentPublisher and end-to-end testing  
+- **"Work on infrastructure"** → Create targeted infrastructure improvement issues
+- **"Continue: [phase name]"** → Check existing issues in that phase, create if missing
+
+### Progress Updates
+- **"Finished issue #X"** → Close issue with completion comment, check for dependent issues
+- **"Update the issues"** → Review all open issues, close completed ones, create new ones for next phase
+- **"I completed [specific work]"** → Find related issues, close them, update progress
+
+### Status Queries
+- **"What issues are open?"** → List current issues by priority/label
+- **"What's next?"** → Check open issues, suggest highest priority items
+- **"Show me function standardization progress"** → List issues with that label
 
 ## Common Tasks - Development Priority Order
 
