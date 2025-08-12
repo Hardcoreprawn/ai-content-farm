@@ -114,7 +114,10 @@ jobs:
   # Stage 1: Parallel Validation Gates
   security-gate:
     # Skip security scans for docs-only changes
-    if: ${{ (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && (github.event.inputs.skip_security != 'true') && needs.changes.outputs.docs != 'true' }}
+    if: >
+      ${{ (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
+          (github.event.inputs.skip_security != 'true') &&
+          needs.changes.outputs.docs != 'true' }}
     runs-on: ubuntu-latest
     name: Security and Compliance Validation
     needs: changes
@@ -151,23 +154,23 @@ jobs:
           {
             pip3 install checkov &
             PIP_PID=$!
-            
+
             # Install tfsec
             wget -O tfsec https://github.com/aquasecurity/tfsec/releases/latest/download/tfsec-linux-amd64 \
               && chmod +x tfsec && sudo mv tfsec /usr/local/bin &
             TFSEC_PID=$!
-            
-            # Install terrascan  
+
+            # Install terrascan
             LATEST_URL=$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.*Linux_x86_64.tar.gz" | head -1)
             curl -L "$LATEST_URL" > terrascan.tar.gz \
               && tar -xf terrascan.tar.gz terrascan && rm terrascan.tar.gz \
               && sudo mv terrascan /usr/local/bin &
             TERRASCAN_PID=$!
-            
+
             # Install syft
             curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin &
             SYFT_PID=$!
-            
+
             # Wait for all installations
             wait $PIP_PID $TFSEC_PID $TERRASCAN_PID $SYFT_PID
           }
@@ -188,23 +191,23 @@ jobs:
             # Checkov - infrastructure
             checkov -d infra --quiet --compact --output json --output-file-path security-results/checkov.json &
             CHECKOV_INFRA_PID=$!
-            
-            # Checkov - functions  
+
+            # Checkov - functions
             checkov -d functions --quiet --compact --output json --output-file-path security-results/checkov-functions.json &
             CHECKOV_FUNC_PID=$!
-            
+
             # TFSec
             (cd infra/application && tfsec . --format json --out ../../security-results/tfsec.json --soft-fail) &
             TFSEC_PID=$!
-            
+
             # Terrascan
             (cd infra/application && terrascan scan -i terraform --output json > ../../security-results/terrascan.json) &
             TERRASCAN_PID=$!
-            
+
             # SBOM generation
             syft functions -o json=security-results/sbom.json &
             SBOM_PID=$!
-            
+
             # Wait for all scans to complete
             wait $CHECKOV_INFRA_PID $CHECKOV_FUNC_PID $TFSEC_PID $TERRASCAN_PID $SBOM_PID
           }
@@ -268,7 +271,10 @@ jobs:
 
   # Stage 2: Cost Impact Analysis (Parallel with Security, Infrastructure changes only)
   cost-gate:
-    if: ${{ (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && (github.event.inputs.skip_cost != 'true') && needs.changes.outputs.infrastructure == 'true' }}
+    if: >
+      ${{ (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
+          (github.event.inputs.skip_cost != 'true') &&
+          needs.changes.outputs.infrastructure == 'true' }}
     runs-on: ubuntu-latest
     name: Cost Impact and Budget Approval
     needs: changes
@@ -317,11 +323,11 @@ jobs:
           # Configure backend for remote state with caching
           ENV_INPUT="${{ github.event.inputs.environment }}"
           if [ -z "$ENV_INPUT" ]; then ENV_INPUT="staging"; fi
-          
+
           # Use cached terraform if available
           export TF_PLUGIN_CACHE_DIR=~/.terraform.d/plugin-cache
           mkdir -p $TF_PLUGIN_CACHE_DIR
-          
+
           if [ "$ENV_INPUT" = "production" ]; then
             terraform init -backend-config=backend-production.hcl
           else
@@ -377,7 +383,7 @@ jobs:
           else
             echo "📊 Cost analysis: \$$ESTIMATED_COST/month"
             COST_INT=$(echo "$ESTIMATED_COST" | cut -d'.' -f1)
-            
+
             if [ "$COST_INT" -gt 25 ]; then
               echo "❌ COST GATE FAILED: \$$ESTIMATED_COST exceeds \$25/month"
               echo "approved=false" >> "$GITHUB_OUTPUT"
@@ -398,7 +404,9 @@ jobs:
 
   # Stage 3: Deploy to Staging (Wait for relevant gates)
   deploy-to-staging:
-    if: ${{ (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && (needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true') }}
+    if: >
+      ${{ (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
+          (needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true') }}
     runs-on: ubuntu-latest
     name: Deploy Infrastructure and Functions to Staging
     needs: [changes, security-gate, cost-gate]
@@ -522,7 +530,10 @@ jobs:
 
   # Stage 4: Fast Integration Tests (Skip if tests disabled)
   run-integration-tests:
-    if: ${{ (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') && (github.event.inputs.skip_tests != 'true') && (needs.changes.outputs.functions == 'true' || needs.changes.outputs.tests == 'true') }}
+    if: >
+      ${{ (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
+          (github.event.inputs.skip_tests != 'true') &&
+          (needs.changes.outputs.functions == 'true' || needs.changes.outputs.tests == 'true') }}
     runs-on: ubuntu-latest
     name: Run Essential Integration Tests
     needs: [changes, deploy-to-staging]
@@ -578,7 +589,7 @@ jobs:
             if curl -s --max-time 10 "$FUNCTION_URL" > /dev/null; then
               # Test SummaryWomble endpoint (should return 401, not 404)
               STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$FUNCTION_URL/api/SummaryWomble" || echo "000")
-              
+
               if [ "$STATUS" = "401" ] || [ "$STATUS" = "400" ]; then
                 echo "✅ Function app ready (SummaryWomble: $STATUS)"
                 READY=true
@@ -602,11 +613,15 @@ jobs:
           # Run fast essential tests only
           export FUNCTION_URL=$FUNCTION_URL
           export FUNCTION_APP_NAME=$FUNCTION_APP_NAME
-          python -m pytest tests/integration/test_pipeline.py::TestContentPipeline::test_summary_womble_endpoint -v --tb=short --timeout=60
+          python -m pytest tests/integration/test_pipeline.py::TestContentPipeline::test_summary_womble_endpoint \
+            -v --tb=short --timeout=60
 
   # Stage 5: Deploy to Production (main branch only, after all validations)
   deploy-to-production:
-    if: ${{ github.ref == 'refs/heads/main' && ((github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')) && (needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true') }}
+    if: >
+      ${{ github.ref == 'refs/heads/main' &&
+          ((github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')) &&
+          (needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true') }}
     runs-on: ubuntu-latest
     name: Deploy Infrastructure and Functions to Production
     needs: [changes, security-gate, cost-gate, run-integration-tests]
@@ -739,23 +754,23 @@ jobs:
           echo "## 🚀 Pipeline Execution Summary"
           echo "**Changed Components:**"
           echo "- Infrastructure: ${{ needs.changes.outputs.infrastructure }}"
-          echo "- Functions: ${{ needs.changes.outputs.functions }}"  
+          echo "- Functions: ${{ needs.changes.outputs.functions }}"
           echo "- Tests: ${{ needs.changes.outputs.tests }}"
           echo "- Docs: ${{ needs.changes.outputs.docs }}"
           echo ""
-          
+
           if [ "${{ needs.deploy-to-staging.result }}" == "success" ]; then
             echo "✅ Staging deployment completed successfully"
           elif [ "${{ needs.deploy-to-staging.result }}" == "skipped" ]; then
             echo "⏭️ Staging deployment skipped (no infrastructure/function changes)"
           fi
-          
+
           if [ "${{ needs.deploy-to-production.result }}" == "success" ]; then
             echo "✅ Production deployment completed successfully"
           elif [ "${{ needs.deploy-to-production.result }}" == "skipped" ]; then
             echo "⏭️ Production deployment skipped (not main branch or no changes)"
           fi
-          
+
           if [ "${{ needs.deploy-to-staging.result }}" == "failure" ] || [ "${{ needs.deploy-to-production.result }}" == "failure" ]; then
             echo "❌ Deployment failed - check logs for details"
             exit 1
