@@ -139,6 +139,14 @@ def rank_topic_functional(topic: Dict[str, Any], config: Dict[str, Any]) -> Dict
     Returns a new topic dict with ranking data added.
     """
     weights = config['weights']
+    
+    # Default weights for missing values
+    default_weights = {
+        'engagement': 0.3,
+        'freshness': 0.2,
+        'monetization': 0.3,
+        'seo_potential': 0.2
+    }
 
     # Calculate individual scores
     engagement = calculate_engagement_score(topic)
@@ -146,23 +154,23 @@ def rank_topic_functional(topic: Dict[str, Any], config: Dict[str, Any]) -> Dict
     monetization = calculate_monetization_score(topic)
     seo = calculate_seo_score(topic)
 
-    # Weighted final score
+    # Weighted final score with defaults for missing weights
     final_score = (
-        engagement * weights['engagement'] +
-        freshness * weights['freshness'] +
-        monetization * weights['monetization'] +
-        seo * weights['seo']
+        engagement * weights.get('engagement', default_weights['engagement']) +
+        freshness * weights.get('freshness', default_weights['freshness']) +
+        monetization * weights.get('monetization', default_weights['monetization']) +
+        seo * weights.get('seo_potential', default_weights['seo_potential'])
     )
 
     # Create new topic with ranking data (immutable)
     return {
         **topic,
         'ranking_score': round(final_score, 3),
-        'score_breakdown': {
+        'ranking_details': {
             'engagement': engagement,
             'freshness': freshness,
             'monetization': monetization,
-            'seo': seo,
+            'seo_potential': seo,
             'final': round(final_score, 3)
         }
     }
@@ -309,15 +317,18 @@ def create_ranking_output(ranked_topics: List[Dict[str, Any]],
     Matches the expected output format for ContentEnricher.
     """
     return {
-        'generated_at': datetime.now(timezone.utc).isoformat(),
-        'source_files': source_files,
-        'total_topics': len(ranked_topics),
-        'ranking_criteria': {
+        'ranked_topics': ranked_topics,
+        'metadata': {
+            'timestamp': datetime.now(timezone.utc).isoformat(),
+            'source_files': source_files,
+            'total_topics': len(ranked_topics),
+            'filtered_topics': len(ranked_topics)  # Assuming all topics passed filtering
+        },
+        'ranking_config': {
             'min_score_threshold': config.get('min_score_threshold', 100),
             'min_comments_threshold': config.get('min_comments_threshold', 10),
             'weights': config.get('weights', {})
-        },
-        'topics': ranked_topics
+        }
     }
 
 
