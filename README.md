@@ -1,8 +1,8 @@
 # AI Content Farm
 
-A secure, enterprise-grade Azure Functions application that fetches trending topics from Reddit and processes them for AI-generated content. Features comprehensive security scanning, cost governance, and compliance controls.
+A secure, enterprise-grade Azure Functions application that fetches trending topics from Reddit and processes them for AI-generated content. Features comprehensive security scanning, cost governance, compliance controls, and a unified CI/CD pipeline with comprehensive testing.
 
-Test 5: Full pipeline test - comprehensive change validation (2025-08-12T11:10:30Z).
+Updated: Consolidated CI/CD pipeline with integrated testing (2025-08-12).
 
 ## 📚 Documentation
 
@@ -31,6 +31,39 @@ GetHotTopics (Timer) → SummaryWomble (HTTP/Async) → ContentRanker (BlobTrigg
 ```
 
 ### Next: ContentEnricher and ContentPublisher Functions
+
+## 🔄 CI/CD Pipeline (Updated 2025-08-12)
+
+### Unified Workflow
+Single `consolidated-pipeline.yml` workflow handling all CI/CD operations:
+- **Security Gate**: Multi-tool scanning (Checkov, TFSec, Terrascan)
+- **Cost Gate**: Infracost impact analysis for infrastructure changes
+- **Testing Pipeline**: Matrix execution of unit, function, and integration tests
+- **Deployment**: Environment-specific deployment (staging → production)
+- **Quality Gates**: All validations must pass before deployment
+
+### Testing Coverage
+- **Unit Tests**: Function-level testing with pytest
+- **Function Tests**: Complete function behavior testing
+- **Integration Tests**: End-to-end testing against deployed environment
+- **Coverage Reporting**: Codecov integration for test coverage tracking
+- **PR Feedback**: Automatic test result comments on pull requests
+
+### Pipeline Stages
+1. **Changes Detection**: Conditional execution based on modified files
+2. **Security & Cost Gates**: Parallel validation (security + cost analysis)
+3. **Unit & Function Tests**: Parallel matrix execution for fast feedback
+4. **Deploy to Staging**: Automated deployment after all gates pass
+5. **Integration Tests**: End-to-end validation against staging environment
+6. **Deploy to Production**: Main branch only, after all validations
+7. **Deployment Summary**: Comprehensive reporting with test results
+
+### Quality Standards
+- ✅ **YAML Validation**: yamllint and actionlint clean
+- ✅ **Shell Scripts**: Proper quoting and error handling
+- ✅ **Line Endings**: Unix LF format (prevents deployment failures)
+- ✅ **Security Scanning**: Comprehensive multi-tool analysis
+- ✅ **Cost Governance**: Impact analysis for all infrastructure changes
 
 ## 🚀 Quick Start
 
