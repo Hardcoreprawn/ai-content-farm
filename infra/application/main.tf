@@ -89,14 +89,15 @@ resource "azurerm_key_vault_secret" "summarywomble_function_key" {
 
   content_type = "function-key"
   tags = {
-    Purpose     = "summarywomble-auth"
-    Environment = var.environment
-    ManagedBy   = "terraform"
+    Purpose       = "summarywomble-auth"
+    Environment   = var.environment
+    ManagedBy     = "terraform"
+    file-encoding = "utf-8"  # Azure automatically adds this tag
   }
 
-  # Ignore changes to value since it will be updated by deployment process
+  # Ignore changes to value and file-encoding since they will be updated by deployment process
   lifecycle {
-    ignore_changes = [value]
+    ignore_changes = [value, tags["file-encoding"]]
   }
 
   depends_on = [
@@ -113,14 +114,15 @@ resource "azurerm_key_vault_secret" "contentranker_function_key" {
 
   content_type = "function-key"
   tags = {
-    Purpose     = "contentranker-auth"
-    Environment = var.environment
-    ManagedBy   = "terraform"
+    Purpose       = "contentranker-auth"
+    Environment   = var.environment
+    ManagedBy     = "terraform"
+    file-encoding = "utf-8"  # Azure automatically adds this tag
   }
 
-  # Ignore changes to value since it will be updated by deployment process
+  # Ignore changes to value and file-encoding since they will be updated by deployment process
   lifecycle {
-    ignore_changes = [value]
+    ignore_changes = [value, tags["file-encoding"]]
   }
 
   depends_on = [
@@ -141,10 +143,10 @@ resource "null_resource" "update_function_keys" {
     command = "sleep 45 && echo 'Getting function app keys...' && FUNCTION_KEY=$(az functionapp keys list --resource-group ${azurerm_resource_group.main.name} --name ${azurerm_linux_function_app.main.name} --query 'functionKeys.default' --output tsv) && if [ -n \"$FUNCTION_KEY\" ] && [ \"$FUNCTION_KEY\" != \"null\" ]; then echo 'Updating Key Vault secrets with function keys...' && az keyvault secret set --vault-name ${azurerm_key_vault.main.name} --name 'summarywomble-function-key' --value \"$FUNCTION_KEY\" --output none && az keyvault secret set --vault-name ${azurerm_key_vault.main.name} --name 'contentranker-function-key' --value \"$FUNCTION_KEY\" --output none && echo 'Function keys updated successfully'; else echo 'Error: Could not retrieve function key' && exit 1; fi"
   }
 
-  # Trigger re-run if function app changes
+  # Trigger re-run only if function app changes, not on every deployment
   triggers = {
     function_app_id = azurerm_linux_function_app.main.id
-    timestamp       = timestamp()
+    # Removed timestamp to prevent forced replacement on every run
   }
 }
 
@@ -230,10 +232,13 @@ resource "azurerm_storage_account" "main" {
   account_replication_type      = "LRS"
   public_network_access_enabled = true
   shared_access_key_enabled     = true
+  
+  # Azure automatically adds network_rules - explicitly define to prevent drift
   network_rules {
     default_action = "Allow"
     bypass         = ["AzureServices"]
   }
+  
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"
 }
@@ -288,6 +293,8 @@ resource "azurerm_linux_function_app" "main" {
     OUTPUT_STORAGE_ACCOUNT                = azurerm_storage_account.main.name
     FUNCTIONS_WORKER_RUNTIME              = "python"
     WEBSITE_RUN_FROM_PACKAGE              = "1"
+    
+    # Application Insights settings - Azure adds these automatically, define explicitly to prevent drift
     APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.main.instrumentation_key
     APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.main.connection_string
 
@@ -309,6 +316,13 @@ resource "azurerm_linux_function_app" "main" {
     application_stack {
       python_version = "3.11"
     }
+  }
+
+  # Ignore changes to WEBSITE_RUN_FROM_PACKAGE as it gets updated during function deployments
+  lifecycle {
+    ignore_changes = [
+      app_settings["WEBSITE_RUN_FROM_PACKAGE"]
+    ]
   }
 }
 

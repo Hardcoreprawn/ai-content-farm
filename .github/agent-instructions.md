@@ -227,9 +227,44 @@ make clean             # Remove all build artifacts and temp files
 1. **Local Development**: Implement and test locally
 2. **Security Validation**: `make security-scan` must pass
 3. **Cost Analysis**: `make cost-estimate` for infrastructure changes
-4. **Staging Deployment**: Deploy to staging for integration testing
-5. **Production Approval**: Manual review and approval process
-6. **Production Deployment**: Deploy from main branch only
+4. **Infrastructure Drift Check**: Run `terraform plan` to verify no unexpected changes
+5. **Staging Deployment**: Deploy to staging for integration testing
+6. **Production Approval**: Manual review and approval process
+7. **Production Deployment**: Deploy from main branch only
+
+## Infrastructure Efficiency Guidelines
+
+### Preventing Configuration Drift (CRITICAL)
+Azure automatically adds properties to resources that must be explicitly defined in Terraform to prevent unnecessary updates on every deployment:
+
+#### Key Vault Secrets
+- Always include `content_type = "function-key"` for function keys
+- Include Azure's automatic `file-encoding = "utf-8"` tag
+- Use `lifecycle.ignore_changes` for properties updated by deployment processes
+
+#### Function Apps
+- Explicitly define `APPINSIGHTS_INSTRUMENTATIONKEY` and `APPLICATIONINSIGHTS_CONNECTION_STRING`
+- Use lifecycle rules to ignore `WEBSITE_RUN_FROM_PACKAGE` changes during deployments
+- Define all app settings that Azure adds automatically
+
+#### Storage Accounts
+- Always include explicit `network_rules` block even if using defaults:
+  ```hcl
+  network_rules {
+    default_action = "Allow"
+    bypass         = ["AzureServices"]
+  }
+  ```
+
+#### Null Resources
+- Never use `timestamp()` in triggers as it forces replacement on every run
+- Only trigger on actual resource changes that require the provisioner to re-run
+
+### Best Practices
+- Run `terraform plan` before any deployment to identify drift
+- When Azure provider updates introduce new properties, add them to Terraform proactively
+- Use `lifecycle.ignore_changes` strategically for Azure-managed properties
+- Monitor deployment times - unexpected increases may indicate new drift issues
 
 ## Technology Stack & Current Architecture
 
