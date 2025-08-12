@@ -3,7 +3,7 @@ variable "location" {
   default     = "westeurope"
 }
 
-# Test comment for pipeline optimization - infra change Test 2 (2025-08-12 15:05)
+# Updated 2025-08-12T11:06:45Z - Test 2b: infrastructure-only change for conditional execution fix
 
 variable "subscription_id" {
   description = "The Azure Subscription ID to use. Leave blank to use the default from Azure CLI context."

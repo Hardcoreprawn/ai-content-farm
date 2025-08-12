@@ -113,11 +113,14 @@ jobs:
 
   # Stage 1: Parallel Validation Gates
   security-gate:
-    # Skip security scans for docs-only changes
+    # Skip security scans for docs-only changes (no infrastructure, functions, tests, or workflows)
     if: >
       (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
       (github.event.inputs.skip_security != 'true') &&
-      needs.changes.outputs.docs != 'true'
+      (needs.changes.outputs.infrastructure == 'true' || 
+       needs.changes.outputs.functions == 'true' || 
+       needs.changes.outputs.tests == 'true' || 
+       needs.changes.outputs.workflows == 'true')
     runs-on: ubuntu-latest
     name: Security and Compliance Validation
     needs: changes
@@ -406,7 +409,9 @@ jobs:
   deploy-to-staging:
     if: >
       (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
-      (needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true')
+      (needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true') &&
+      (needs.security-gate.result == 'success' || needs.security-gate.result == 'skipped') &&
+      (needs.cost-gate.result == 'success' || needs.cost-gate.result == 'skipped')
     runs-on: ubuntu-latest
     name: Deploy Infrastructure and Functions to Staging
     needs: [changes, security-gate, cost-gate]
