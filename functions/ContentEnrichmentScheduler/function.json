@@ -1,0 +1,11 @@
+{
+    "bindings": [
+        {
+            "name": "inputBlob",
+            "type": "blobTrigger",
+            "direction": "in",
+            "path": "content-pipeline/ranked-topics/{name}",
+            "connection": "AzureWebJobsStorage"
+        }
+    ]
+}

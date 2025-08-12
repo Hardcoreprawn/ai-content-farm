@@ -1,18 +1,18 @@
 {
     "bindings": [
         {
-            "name": "inputBlob",
-            "type": "blobTrigger",
+            "authLevel": "function",
+            "type": "httpTrigger",
             "direction": "in",
-            "path": "hot-topics/{name}",
-            "connection": "AzureWebJobsStorage"
+            "name": "req",
+            "methods": [
+                "post"
+            ]
         },
         {
-            "name": "outputBlob",
-            "type": "blob",
+            "type": "http",
             "direction": "out",
-            "path": "content-pipeline/ranked-topics/ranked_{DateTime}.json",
-            "connection": "AzureWebJobsStorage"
+            "name": "$return"
         }
     ]
 }

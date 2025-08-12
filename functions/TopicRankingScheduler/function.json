@@ -1,0 +1,11 @@
+{
+    "bindings": [
+        {
+            "name": "inputBlob",
+            "type": "blobTrigger",
+            "direction": "in",
+            "path": "hot-topics/{name}",
+            "connection": "AzureWebJobsStorage"
+        }
+    ]
+}

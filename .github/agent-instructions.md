@@ -65,10 +65,35 @@ This is an **enterprise-grade A#### Event-Driven Integration (Secondary, After R
 
 ### Architecture Patterns
 
-#### Azure Functions REST API Pattern (MANDATORY)
-**ALL FUNCTIONS MUST BE PROPER REST APIs WITH CLEAR CONTRACTS**
+#### Worker/Scheduler Pattern (MANDATORY)
+**ALL FUNCTIONS MUST FOLLOW CLEAN WORKER/SCHEDULER SEPARATION**
 
-- **HTTP-First Design**: Every function must have an HTTP endpoint as primary interface
+Our Azure Functions follow a clean architectural pattern that separates concerns:
+
+**Worker Functions** (HTTP endpoints):
+- Accept specific input/output blob paths via HTTP POST
+- Return immediate acknowledgment response  
+- Process asynchronously and write to specified output location
+- Can be manually triggered with specific parameters
+- Examples: `ContentRanker`, `ContentEnricher`
+
+**Scheduler Functions** (Event-driven):
+- Monitor blob containers, timers, or other triggers
+- Call worker functions with appropriate parameters  
+- Handle event-driven automation of pipeline
+- Examples: `TopicRankingScheduler`, `ContentEnrichmentScheduler`
+
+This pattern provides:
+- Manual control over any processing step
+- Event-driven automation for normal pipeline flow  
+- Clear separation of concerns
+- Easy testing and debugging
+- No confusing duplicate functions with "Manual" suffixes
+
+#### Worker Function API Requirements:
+**ALL WORKER FUNCTIONS MUST BE PROPER REST APIs WITH CLEAR CONTRACTS**
+
+- **HTTP-First Design**: Every worker function must have an HTTP endpoint as primary interface
 - **Proper REST Semantics**: Use correct HTTP methods, status codes, and response formats  
 - **Clear API Contracts**: Document inputs, outputs, authentication, and error responses
 - **Observable Operations**: All functions must provide status, health, and progress endpoints

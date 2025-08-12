@@ -2,18 +2,18 @@
     "scriptFile": "__init__.py",
     "bindings": [
         {
-            "name": "inputBlob",
-            "type": "blobTrigger",
+            "authLevel": "function",
+            "type": "httpTrigger",
             "direction": "in",
-            "path": "content-pipeline/ranked-topics/{name}",
-            "connection": "AzureWebJobsStorage"
+            "name": "req",
+            "methods": [
+                "post"
+            ]
         },
         {
-            "name": "outputBlob",
-            "type": "blob",
+            "type": "http",
             "direction": "out",
-            "path": "content-pipeline/enriched-topics/enriched_{datetime:yyyy-MM-dd_HH-mm-ss}.json",
-            "connection": "AzureWebJobsStorage"
+            "name": "$return"
         }
     ]
 }
