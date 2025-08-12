@@ -98,7 +98,7 @@ resource "azurerm_key_vault_secret" "summarywomble_function_key" {
 
   # Ignore changes to value and file-encoding since they will be updated by deployment process
   lifecycle {
-    ignore_changes = [value, tags["file-encoding"]]
+    ignore_changes = [value]
   }
 
   depends_on = [
@@ -123,7 +123,7 @@ resource "azurerm_key_vault_secret" "contentranker_function_key" {
 
   # Ignore changes to value and file-encoding since they will be updated by deployment process
   lifecycle {
-    ignore_changes = [value, tags["file-encoding"]]
+    ignore_changes = [value]
   }
 
   depends_on = [
