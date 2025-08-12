@@ -3,6 +3,8 @@ import azure.functions as func
 import json
 import os
 from datetime import datetime
+
+# Test comment for pipeline optimization - function change (2025-08-12 14:37)
 from azure.storage.blob import BlobServiceClient
 
 # Import the functional core from local module

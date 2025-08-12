@@ -4,6 +4,8 @@ Unit tests for Content Ranker functional implementation.
 Tests core ranking algorithms using existing data as baseline.
 """
 
+# Test comment for pipeline optimization - test change (2025-08-12 14:36)
+
 import json
 import pytest
 import os
