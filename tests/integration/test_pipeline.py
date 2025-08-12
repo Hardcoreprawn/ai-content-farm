@@ -7,6 +7,8 @@ import time
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 
+# Test 5: Full pipeline test - comprehensive change (2025-08-12T11:10:30Z)
+
 class TestContentPipeline:
     """Integration tests for the content processing pipeline"""
     

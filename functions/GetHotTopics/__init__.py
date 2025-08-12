@@ -6,6 +6,7 @@ import os
 import time
 from datetime import datetime
 
+# Test 5: Full pipeline test - comprehensive change (2025-08-12T11:10:30Z)
 
 def check_job_status(womble_url, job_id, headers):
     """Helper function to check job status"""

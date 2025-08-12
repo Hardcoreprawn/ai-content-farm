@@ -3,7 +3,7 @@ variable "location" {
   default     = "westeurope"
 }
 
-# Updated 2025-08-12T11:06:45Z - Test 2b: infrastructure-only change for conditional execution fix
+# Test 5: Full pipeline test - comprehensive change (2025-08-12T11:10:30Z)
 
 variable "subscription_id" {
   description = "The Azure Subscription ID to use. Leave blank to use the default from Azure CLI context."
