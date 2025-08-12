@@ -1,4 +1,5 @@
 azure-functions
+azure-functions-worker
 azure-storage-blob
 azure-identity
 azure-keyvault-secrets
