@@ -19,6 +19,16 @@ This is an **enterprise-grade A#### Event-Driven Integration (Secondary, After R
 - **Clean architecture**: Event-driven functions with clear separation of concerns
 - **Documentation as code**: Keep docs current, concise, and actionable
 
+## AI Agent Working Principles
+- **Code Quality First**: Always consider linting, formatting, and best practices
+- **Test Integrity**: Never skip or remove tests - fix them to work properly. Tests prove code works.
+- **Think Before Acting**: Research and discuss solutions before implementing
+- **No Unnatural Acts**: Use tools as designed. If it's not working, reconsider the approach or tool choice
+- **Bad News Early**: Stop and explain issues/errors immediately when discovered, then collaborate on resolution
+- **Slow is Smooth, Smooth is Fast**: Steady incremental progress over rushed changes. Avoid massive refactors or unexpected diversions without strong justification
+- **Incremental & Safe**: Prefer staged rollouts and targeted changes when appropriate
+- **Security-Conscious**: Apply principle of least privilege, scope permissions appropriately
+
 ## Documentation Rules - CRITICAL
 - **NO ROOT POLLUTION** - Never create status/log files in project root
 - **Use `/docs` folder** for detailed documentation, NOT root directory
