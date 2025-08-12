@@ -237,7 +237,7 @@ resource "azurerm_storage_account" "main" {
   # Azure automatically adds network_rules - explicitly define to prevent drift
   network_rules {
     default_action = "Allow"
-    bypass         = ["AzureServices"]
+    bypass         = ["AzureServices",]
   }
   
   allow_nested_items_to_be_public = false
@@ -247,6 +247,13 @@ resource "azurerm_storage_account" "main" {
 resource "azurerm_storage_container" "topics" {
   # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
   name                  = "hot-topics"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+}
+
+resource "azurerm_storage_container" "function_releases" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "function-releases"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
 }
@@ -293,7 +300,7 @@ resource "azurerm_linux_function_app" "main" {
     OUTPUT_CONTAINER                      = azurerm_storage_container.topics.name
     OUTPUT_STORAGE_ACCOUNT                = azurerm_storage_account.main.name
     FUNCTIONS_WORKER_RUNTIME              = "python"
-    WEBSITE_RUN_FROM_PACKAGE              = "1"
+    WEBSITE_RUN_FROM_PACKAGE              = var.function_package_url != "" ? var.function_package_url : "1"
     
     # Application Insights settings - Azure adds these automatically, define explicitly to prevent drift
     APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.main.instrumentation_key
@@ -317,13 +324,6 @@ resource "azurerm_linux_function_app" "main" {
     application_stack {
       python_version = "3.11"
     }
-  }
-
-  # Ignore changes to WEBSITE_RUN_FROM_PACKAGE as it gets updated during function deployments
-  lifecycle {
-    ignore_changes = [
-      app_settings["WEBSITE_RUN_FROM_PACKAGE"]
-    ]
   }
 }
 

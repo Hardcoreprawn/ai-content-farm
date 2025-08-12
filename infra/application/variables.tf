@@ -86,3 +86,9 @@ variable "github_actions_object_id" {
   type        = string
   default     = ""
 }
+
+variable "function_package_url" {
+  description = "URL to function deployment package in blob storage"
+  type        = string
+  default     = ""
+}

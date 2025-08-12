@@ -468,7 +468,76 @@ jobs:
           flags: unittests
           name: codecov-umbrella
 
-  # Stage 4: Deploy to Staging (Wait for relevant gates)
+  # Stage 4a: Build and Upload Function Package (Before Infrastructure)
+  build-functions:
+    if: >
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
+      needs.changes.outputs.functions == 'true' &&
+      (needs.security-gate.result == 'success' || needs.security-gate.result == 'skipped') &&
+      (needs.cost-gate.result == 'success' || needs.cost-gate.result == 'skipped') &&
+      (needs.unit-and-function-tests.result == 'success' || needs.unit-and-function-tests.result == 'skipped')
+    runs-on: ubuntu-latest
+    name: Build and Upload Function Package
+    needs: [changes, security-gate, cost-gate, unit-and-function-tests]
+    environment: staging
+    outputs:
+      package-url: ${{ steps.upload.outputs.package-url }}
+      package-version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Generate Package Version
+        id: version
+        run: |
+          VERSION="$(date +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Generated package version: $VERSION"
+
+      - name: Create Function Package
+        run: |
+          cd functions
+          # Create deployment package for Python Azure Functions
+          zip -r ../function-app-${{ steps.version.outputs.version }}.zip . \
+            -x "*.pyc" "*/__pycache__/*" ".python_packages/*" "tests/*"
+          echo "Function package created: function-app-${{ steps.version.outputs.version }}.zip"
+
+      - name: Upload Package to Storage
+        id: upload
+        run: |
+          # Upload to function-releases container
+          az storage blob upload \
+            --account-name "hottopicsstoraget0t36m" \
+            --container-name "function-releases" \
+            --name "function-app-${{ steps.version.outputs.version }}.zip" \
+            --file "function-app-${{ steps.version.outputs.version }}.zip" \
+            --auth-mode login \
+            --overwrite
+
+          # Generate SAS URL with long expiration for Terraform
+          PACKAGE_URL="$(az storage blob generate-sas \
+            --account-name "hottopicsstoraget0t36m" \
+            --container-name "function-releases" \
+            --name "function-app-${{ steps.version.outputs.version }}.zip" \
+            --permissions r \
+            --expiry "$(date -d "+1 year" --iso-8601)" \
+            --full-uri \
+            --auth-mode login)"
+
+          echo "package-url=$PACKAGE_URL" >> "$GITHUB_OUTPUT"
+          echo "Package uploaded and SAS URL generated"
+
+  # Stage 4b: Deploy Infrastructure with Function Package URL
   deploy-to-staging:
     if: >
       (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
@@ -478,7 +547,7 @@ jobs:
       (needs.unit-and-function-tests.result == 'success' || needs.unit-and-function-tests.result == 'skipped')
     runs-on: ubuntu-latest
     name: Deploy Infrastructure and Functions to Staging
-    needs: [changes, security-gate, cost-gate, unit-and-function-tests]
+    needs: [changes, security-gate, cost-gate, unit-and-function-tests, build-functions]
     environment: staging
 
     steps:
@@ -520,9 +589,12 @@ jobs:
           # Fast terraform init (providers cached)
           terraform init -backend-config=backend-staging.hcl
 
-          terraform apply -auto-approve -var-file="staging.tfvars"
+          # Deploy infrastructure with function package URL
+          terraform apply -auto-approve \
+            -var-file="staging.tfvars" \
+            -var="function_package_url=${{ needs.build-functions.outputs.package-url }}"
 
-          # Get outputs for function deployment
+          # Get outputs for any remaining tasks
           FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
           RESOURCE_GROUP=$(terraform output -raw resource_group_name)
           KEY_VAULT_NAME=$(terraform output -raw key_vault_name)
@@ -532,24 +604,6 @@ jobs:
             echo "RESOURCE_GROUP=$RESOURCE_GROUP"
             echo "KEY_VAULT_NAME=$KEY_VAULT_NAME"
           } >> "$GITHUB_ENV"
-
-      - name: Deploy Python Function App
-        run: |
-          cd functions
-
-          # Create deployment package for Python Azure Functions
-          # Azure Functions expects the function files directly, not in a venv
-          zip -r ../function-app.zip . -x "*.pyc" "*/__pycache__/*" ".python_packages/*"
-
-          # Deploy using Azure CLI (works reliably for Python functions)
-          echo "Deploying function app package..."
-          az functionapp deployment source config-zip \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$FUNCTION_APP_NAME" \
-            --src ../function-app.zip
-
-          echo "Function app deployment completed"
-          echo "Note: Functions may need time to register after deployment (cold start)"
 
       - name: Wire SummaryWomble key to app setting
         run: |
@@ -782,7 +836,74 @@ jobs:
               body: comment
             });
 
-  # Stage 6: Deploy to Production (main branch only, after all validations)
+  # Stage 6a: Build Functions for Production
+  build-functions-production:
+    if: >
+      github.ref == 'refs/heads/main' &&
+      ((github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success')) &&
+      needs.changes.outputs.functions == 'true'
+    runs-on: ubuntu-latest
+    name: Build and Upload Function Package for Production
+    needs: [changes, security-gate, cost-gate, unit-and-function-tests, run-integration-tests]
+    environment: production
+    outputs:
+      package-url: ${{ steps.upload.outputs.package-url }}
+      package-version: ${{ steps.version.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Generate Package Version
+        id: version
+        run: |
+          VERSION="$(date +%Y%m%d%H%M%S)-$(git rev-parse --short HEAD)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Generated package version: $VERSION"
+
+      - name: Create Function Package
+        run: |
+          cd functions
+          # Create deployment package for Python Azure Functions
+          zip -r ../function-app-${{ steps.version.outputs.version }}.zip . \
+            -x "*.pyc" "*/__pycache__/*" ".python_packages/*" "tests/*"
+          echo "Function package created: function-app-${{ steps.version.outputs.version }}.zip"
+
+      - name: Upload Package to Storage
+        id: upload
+        run: |
+          # Upload to function-releases container (production storage account)
+          STORAGE_ACCOUNT="$(az storage account list --resource-group "ai-content-production-rg" --query "[0].name" -o tsv)"
+
+          az storage blob upload \
+            --account-name "$STORAGE_ACCOUNT" \
+            --container-name "function-releases" \
+            --name "function-app-${{ steps.version.outputs.version }}.zip" \
+            --file "function-app-${{ steps.version.outputs.version }}.zip" \
+            --auth-mode login \
+            --overwrite
+
+          # Generate SAS URL with long expiration for Terraform
+          PACKAGE_URL="$(az storage blob generate-sas \
+            --account-name "$STORAGE_ACCOUNT" \
+            --container-name "function-releases" \
+            --name "function-app-${{ steps.version.outputs.version }}.zip" \
+            --permissions r \
+            --expiry "$(date -d "+1 year" --iso-8601)" \
+            --full-uri \
+            --auth-mode login)"
+
+          echo "package-url=$PACKAGE_URL" >> "$GITHUB_OUTPUT"
+          echo "Package uploaded and SAS URL generated"
+
+  # Stage 6b: Deploy to Production (main branch only, after all validations)
   deploy-to-production:
     if: >
       github.ref == 'refs/heads/main' &&
@@ -790,7 +911,7 @@ jobs:
       (needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true')
     runs-on: ubuntu-latest
     name: Deploy Infrastructure and Functions to Production
-    needs: [changes, security-gate, cost-gate, unit-and-function-tests, run-integration-tests]
+    needs: [changes, security-gate, cost-gate, unit-and-function-tests, run-integration-tests, build-functions-production]
     environment: production
 
     steps:
@@ -832,9 +953,12 @@ jobs:
           # Configure backend for remote state
           terraform init -backend-config=backend-production.hcl
 
-           terraform apply -auto-approve -var-file="production.tfvars"
+          # Deploy infrastructure with function package URL
+          terraform apply -auto-approve \
+            -var-file="production.tfvars" \
+            -var="function_package_url=${{ needs.build-functions-production.outputs.package-url }}"
 
-          # Get outputs for function deployment
+          # Get outputs for any remaining tasks
           FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
           RESOURCE_GROUP=$(terraform output -raw resource_group_name)
 
@@ -842,19 +966,6 @@ jobs:
             echo "FUNCTION_APP_NAME=$FUNCTION_APP_NAME"
             echo "RESOURCE_GROUP=$RESOURCE_GROUP"
           } >> "$GITHUB_ENV"
-
-      - name: Deploy Python Function App to Production
-        run: |
-          cd functions
-
-          # Create deployment package for Python Azure Functions
-          zip -r ../function-app-prod.zip . -x "*.pyc" "*/__pycache__/*" ".python_packages/*"
-
-          # Deploy using Azure CLI
-          az functionapp deployment source config-zip \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$FUNCTION_APP_NAME" \
-            --src ../function-app-prod.zip
 
       - name: Wire SummaryWomble key to app setting (production)
         run: |
