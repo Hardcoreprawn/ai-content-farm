@@ -40,7 +40,12 @@ on:
         default: false
         type: boolean
       skip_tests:
-        description: 'Skip integration tests (for urgent deployments)'
+        description: 'Skip unit and function tests'
+        required: false
+        default: false
+        type: boolean
+      skip_integration:
+        description: 'Skip integration tests (useful for development iterations)'
         required: false
         default: false
         type: boolean
