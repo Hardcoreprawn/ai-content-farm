@@ -3,7 +3,7 @@ variable "location" {
   default     = "westeurope"
 }
 
-# Test comment for pipeline optimization - infra change (2025-08-12 14:35)
+# Test comment for pipeline optimization - infra change Test 2 (2025-08-12 15:05)
 
 variable "subscription_id" {
   description = "The Azure Subscription ID to use. Leave blank to use the default from Azure CLI context."
