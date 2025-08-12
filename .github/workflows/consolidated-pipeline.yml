@@ -7,6 +7,8 @@ on:
       - 'functions/**'
       - 'infra/**'
       - 'tests/**'
+      - 'pytest.ini'
+      - 'requirements.txt'
       - '.github/workflows/**'
   pull_request:
     branches: [ main ]
@@ -14,6 +16,8 @@ on:
       - 'functions/**'
       - 'infra/**'
       - 'tests/**'
+      - 'pytest.ini'
+      - 'requirements.txt'
       - '.github/workflows/**'
   workflow_dispatch:
     inputs:
@@ -77,6 +81,8 @@ jobs:
               - 'functions/**'
             tests:
               - 'tests/**'
+              - 'pytest.ini'
+              - 'requirements.txt'
             docs:
               - 'docs/**'
               - '*.md'
@@ -405,16 +411,74 @@ jobs:
           path: cost-analysis/
           retention-days: 7
 
-  # Stage 3: Deploy to Staging (Wait for relevant gates)
+  # Stage 3: Comprehensive Testing Suite
+  unit-and-function-tests:
+    if: >
+      (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
+      (github.event.inputs.skip_tests != 'true') &&
+      (needs.changes.outputs.functions == 'true' || needs.changes.outputs.tests == 'true')
+    runs-on: ubuntu-latest
+    name: Unit and Function Tests
+    needs: changes
+    strategy:
+      matrix:
+        test-type: [unit, function]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r functions/requirements.txt
+          pip install pytest pytest-cov pytest-html pytest-xdist requests
+
+      - name: Run ${{ matrix.test-type }} tests
+        run: |
+          python -m pytest -m "${{ matrix.test-type }}" \
+            --tb=short \
+            --maxfail=3 \
+            --cov=functions \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --junitxml=test-results-${{ matrix.test-type }}.xml \
+            -v
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-${{ matrix.test-type }}
+          path: |
+            test-results-${{ matrix.test-type }}.xml
+            coverage.xml
+
+      - name: Upload coverage to Codecov
+        if: matrix.test-type == 'unit'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+
+  # Stage 4: Deploy to Staging (Wait for relevant gates)
   deploy-to-staging:
     if: >
       (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
       (needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true') &&
       (needs.security-gate.result == 'success' || needs.security-gate.result == 'skipped') &&
-      (needs.cost-gate.result == 'success' || needs.cost-gate.result == 'skipped')
+      (needs.cost-gate.result == 'success' || needs.cost-gate.result == 'skipped') &&
+      (needs.unit-and-function-tests.result == 'success' || needs.unit-and-function-tests.result == 'skipped')
     runs-on: ubuntu-latest
     name: Deploy Infrastructure and Functions to Staging
-    needs: [changes, security-gate, cost-gate]
+    needs: [changes, security-gate, cost-gate, unit-and-function-tests]
     environment: staging
 
     steps:
@@ -533,15 +597,17 @@ jobs:
           # Restart to ensure settings are applied
           az functionapp restart --name "$FUNCTION_APP_NAME" --resource-group "$RESOURCE_GROUP"
 
-  # Stage 4: Fast Integration Tests (Skip if tests disabled)
+  # Stage 5: Integration Tests (after staging deployment)
   run-integration-tests:
     if: >
       (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
       (github.event.inputs.skip_tests != 'true') &&
       (needs.changes.outputs.functions == 'true' || needs.changes.outputs.tests == 'true')
     runs-on: ubuntu-latest
-    name: Run Essential Integration Tests
+    name: Run Integration Tests
     needs: [changes, deploy-to-staging]
+    environment:
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
 
     steps:
       - name: Checkout code
@@ -567,34 +633,38 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: Fast Integration Tests
+      - name: Install dependencies
         run: |
-          # Install test dependencies quickly
-          pip install pytest requests azure-identity azure-keyvault-secrets
+          python -m pip install --upgrade pip
+          pip install -r functions/requirements.txt
+          pip install pytest pytest-cov requests azure-identity azure-keyvault-secrets
 
-          # Get function app URL from terraform outputs (cached providers)
-          cd infra/application
-          export TF_PLUGIN_CACHE_DIR=~/.terraform.d/plugin-cache
-          terraform init -backend-config=backend-staging.hcl
+      - name: Run integration tests
+        env:
+          FUNCTION_URL: ${{ secrets.FUNCTION_APP_URL }}
+          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+        run: |
+          # Get function app URL from terraform outputs if not in secrets
+          if [ -z "$FUNCTION_URL" ]; then
+            cd infra/application
+            export TF_PLUGIN_CACHE_DIR=~/.terraform.d/plugin-cache
+            terraform init -backend-config=backend-staging.hcl
+            FUNCTION_URL=$(terraform output -raw function_app_url)
+            FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
+            cd ../..
+            echo "Testing function app: $FUNCTION_APP_NAME"
+            echo "Function URL: $FUNCTION_URL"
+          fi
 
-          FUNCTION_URL=$(terraform output -raw function_app_url)
-          FUNCTION_APP_NAME=$(terraform output -raw function_app_name)
-          cd ../..
-
-          echo "Testing function app: $FUNCTION_APP_NAME"
-          echo "Function URL: $FUNCTION_URL"
-
-          # Optimized readiness check (reduced from 30 attempts x 15s = 7.5min to 10 attempts x 10s = 1.7min max)
-          echo "Fast readiness check..."
+          # Optimized readiness check
+          echo "Checking function app readiness..."
           READY=false
           for i in {1..10}; do
             echo "Attempt $i/10: Checking function app..."
-
-            # Quick health check
             if curl -s --max-time 10 "$FUNCTION_URL" > /dev/null; then
-              # Test SummaryWomble endpoint (should return 401, not 404)
               STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$FUNCTION_URL/api/SummaryWomble" || echo "000")
-
               if [ "$STATUS" = "401" ] || [ "$STATUS" = "400" ]; then
                 echo "✅ Function app ready (SummaryWomble: $STATUS)"
                 READY=true
@@ -607,7 +677,6 @@ jobs:
             else
               echo "⏳ Function app not responding"
             fi
-
             sleep 10
           done
 
@@ -615,13 +684,105 @@ jobs:
             echo "⚠️  Function app not ready within timeout, running tests anyway"
           fi
 
-          # Run fast essential tests only
+          # Run integration tests
           export FUNCTION_URL=$FUNCTION_URL
           export FUNCTION_APP_NAME=$FUNCTION_APP_NAME
-          python -m pytest tests/integration/test_pipeline.py::TestContentPipeline::test_summary_womble_endpoint \
-            -v --tb=short --timeout=60
+          python -m pytest -m "integration" \
+            --tb=short \
+            --maxfail=1 \
+            --junitxml=test-results-integration.xml \
+            -v
 
-  # Stage 5: Deploy to Production (main branch only, after all validations)
+      - name: Upload integration test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-integration
+          path: test-results-integration.xml
+
+  # Test Results Summary and Reporting
+  test-report:
+    runs-on: ubuntu-latest
+    needs: [unit-and-function-tests, run-integration-tests]
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all test artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: test-artifacts
+
+      - name: Generate test summary
+        run: |
+          {
+            echo "# Test Results Summary"
+            echo ""
+
+            # Count test files
+            unit_files=$(find test-artifacts -name "*unit*" -type f | wc -l)
+            function_files=$(find test-artifacts -name "*function*" -type f | wc -l)
+            integration_files=$(find test-artifacts -name "*integration*" -type f | wc -l)
+
+            echo "## Test Execution"
+            echo "- Unit Tests: ${unit_files} artifact(s)"
+            echo "- Function Tests: ${function_files} artifact(s)"
+            echo "- Integration Tests: ${integration_files} artifact(s)"
+            echo ""
+
+            # Check for failures
+            if [ "${{ needs.unit-and-function-tests.result }}" != "success" ]; then
+              echo "❌ Unit/Function tests failed"
+            else
+              echo "✅ Unit/Function tests passed"
+            fi
+
+            if [ "${{ needs.run-integration-tests.result }}" != "success" ] && [ "${{ needs.run-integration-tests.result }}" != "skipped" ]; then
+              echo "❌ Integration tests failed"
+            elif [ "${{ needs.run-integration-tests.result }}" == "success" ]; then
+              echo "✅ Integration tests passed"
+            else
+              echo "⏭️ Integration tests skipped"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Read test results and create comment
+            let comment = '## 🧪 Test Results\n\n';
+
+            if ('${{ needs.unit-and-function-tests.result }}' === 'success') {
+              comment += '✅ Unit and Function tests passed\n';
+            } else {
+              comment += '❌ Unit and Function tests failed\n';
+            }
+
+            if ('${{ needs.run-integration-tests.result }}' === 'success') {
+              comment += '✅ Integration tests passed\n';
+            } else if ('${{ needs.run-integration-tests.result }}' === 'skipped') {
+              comment += '⏭️ Integration tests skipped (PR only)\n';
+            } else {
+              comment += '❌ Integration tests failed\n';
+            }
+
+            comment += '\n[View detailed results in Actions](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})';
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
+  # Stage 6: Deploy to Production (main branch only, after all validations)
   deploy-to-production:
     if: >
       github.ref == 'refs/heads/main' &&
@@ -629,7 +790,7 @@ jobs:
       (needs.changes.outputs.infrastructure == 'true' || needs.changes.outputs.functions == 'true')
     runs-on: ubuntu-latest
     name: Deploy Infrastructure and Functions to Production
-    needs: [changes, security-gate, cost-gate, run-integration-tests]
+    needs: [changes, security-gate, cost-gate, unit-and-function-tests, run-integration-tests]
     environment: production
 
     steps:
@@ -746,11 +907,11 @@ jobs:
 
           az functionapp restart --name "$FUNCTION_APP_NAME" --resource-group "$RESOURCE_GROUP"
 
-  # Stage 6: Deployment Summary
+  # Stage 7: Deployment Summary
   deployment-notification:
     runs-on: ubuntu-latest
     name: Pipeline Summary
-    needs: [changes, deploy-to-staging, deploy-to-production]
+    needs: [changes, deploy-to-staging, deploy-to-production, test-report]
     if: always()
 
     steps:
@@ -764,6 +925,18 @@ jobs:
           echo "- Docs: ${{ needs.changes.outputs.docs }}"
           echo ""
 
+          # Test Results Summary
+          echo "**Test Results:**"
+          if [ "${{ needs.test-report.result }}" == "success" ]; then
+            echo "✅ All tests completed successfully"
+          elif [ "${{ needs.test-report.result }}" == "skipped" ]; then
+            echo "⏭️ Tests skipped (no function/test changes)"
+          else
+            echo "❌ Test failures detected"
+          fi
+          echo ""
+
+          # Deployment Results
           if [ "${{ needs.deploy-to-staging.result }}" == "success" ]; then
             echo "✅ Staging deployment completed successfully"
           elif [ "${{ needs.deploy-to-staging.result }}" == "skipped" ]; then
