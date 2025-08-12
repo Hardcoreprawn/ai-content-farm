@@ -251,13 +251,6 @@ resource "azurerm_storage_container" "topics" {
   container_access_type = "private"
 }
 
-resource "azurerm_storage_container" "function_releases" {
-  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
-  name                  = "function-releases"
-  storage_account_id    = azurerm_storage_account.main.id
-  container_access_type = "private"
-}
-
 
 resource "azurerm_service_plan" "main" {
   # checkov:skip=CKV_AZURE_212: Not applicable to consumption plan
