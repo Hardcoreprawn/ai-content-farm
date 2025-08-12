@@ -203,27 +203,27 @@ class TestContentRankerIntegration:
 
 class TestContentRankerEdgeCases:
     """Test edge cases and error conditions"""
-    
+
     @pytest.mark.unit
     def test_empty_topics_list(self, ranking_config):
         """Test handling of empty topics list"""
         result = rank_topics_functional([], ranking_config)
         assert result == []
-    
+
     @pytest.mark.unit
     def test_invalid_topic_data(self, ranking_config):
         """Test handling of malformed topic data"""
         invalid_topic = {"title": "Missing required fields"}
-        
+
         # Should not crash, should filter out invalid topics
         result = rank_topics_functional([invalid_topic], ranking_config)
         assert len(result) == 0
-    
+
     @pytest.mark.unit
     def test_missing_config_values(self, sample_reddit_topic):
         """Test handling of incomplete configuration"""
         incomplete_config = {"weights": {"engagement": 1.0}}
-        
+
         # Should use defaults or handle gracefully
         try:
             rank_topic_functional(sample_reddit_topic, incomplete_config)

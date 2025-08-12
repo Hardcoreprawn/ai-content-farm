@@ -9,7 +9,7 @@ from azure.storage.blob import BlobServiceClient
 from azure.identity import DefaultAzureCredential
 
 # Import the functional core from local module
-from ranker_core import process_content_ranking
+from .ranker_core import process_content_ranking
 
 
 # Ranking configuration
