@@ -1,18 +1,92 @@
 # API Contracts and Data Formats
 
+## Foundational Principles
+
+### REST-First Architecture
+**All functions MUST be HTTP endpoints** with clear REST patterns:
+- ✅ **Testable**: Every function accessible via HTTP for manual testing
+- ✅ **Observable**: Clear status, error messages, and progress indicators
+- ✅ **Controllable**: Manual trigger capability with proper authentication
+- ✅ **Debuggable**: Detailed responses explaining what happened and why
+
+### Standard Response Format
+All HTTP endpoints MUST return consistent response structure:
+
+```json
+{
+  "status": "success|error|processing",
+  "message": "Human-readable description",
+  "data": { /* actual response data */ },
+  "errors": [ /* detailed error information */ ],
+  "metadata": {
+    "timestamp": "2025-08-12T14:30:00Z",
+    "function": "ContentRanker",
+    "execution_time_ms": 1250
+  }
+}
+```
+
+### Authentication Standards
+- **Function-level keys** for manual testing and debugging
+- **Clear auth errors**: "401 Unauthorized - Function key required" 
+- **Internal calls**: Use managed identity or service-to-service keys
+
+### Error Handling Requirements
+- **No silent failures**: Always return meaningful HTTP status codes
+- **Detailed error messages**: Explain what went wrong and how to fix it
+- **Structured errors**: Include error codes, categories, and suggestions
+
 ## Content Processing Pipeline Data Flow
 
 ### 1. GetHotTopics → SummaryWomble
 **Trigger**: Timer function (every 6 hours)
 **Method**: HTTP POST to SummaryWomble
+**Authentication**: Internal service-to-service key
 **Payload**:
 ```json
 {
   "source": "reddit",
-  "num_posts": 25,
-  "subreddits": ["technology", "MachineLearning", "artificial"]
+  "topics": ["technology", "MachineLearning", "artificial"],
+  "limit": 10,
+  "credentials": {
+    "source": "keyvault"
+  }
 }
 ```
+
+**Expected Response**:
+```json
+{
+  "status": "accepted",
+  "message": "Topic collection job started successfully", 
+  "data": {
+    "job_id": "uuid-string",
+    "topics_requested": ["technology", "MachineLearning", "artificial"],
+    "estimated_completion": "2025-08-12T14:35:00Z"
+  },
+  "metadata": {
+    "timestamp": "2025-08-12T14:30:00Z",
+    "function": "SummaryWomble",
+    "execution_time_ms": 250
+  }
+}
+```
+
+## Current Functions Needing REST API Upgrades
+
+### ❌ ContentRanker (Currently blob-trigger only)
+**NEEDS**: HTTP endpoint `/api/content-ranker/process`
+**Current**: Only `ContentRankerManual` exists but returns 500 errors
+**Required**: Proper REST API with clear error messages
+
+### ❌ ContentEnricher (Currently blob-trigger only)  
+**NEEDS**: HTTP endpoint `/api/content-enricher/process`
+**Current**: Only `ContentEnricherManual` exists but needs testing
+**Required**: Proper REST API with authentication and error handling
+
+### ✅ SummaryWomble (HTTP endpoint exists)
+**Status**: Has HTTP endpoint but may need response format updates
+**Enhancement**: Add `/health` and `/status` endpoints
 
 ### 2. SummaryWomble → Blob Storage (Raw Topics)
 **Location**: `hot-topics` container

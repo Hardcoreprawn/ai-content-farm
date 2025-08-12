@@ -1,7 +1,14 @@
 # Copilot Agent Instructions for AI Content Farm
 
 ## Project Overview
-This is an **enterprise-grade AI content farm** built on Azure Functions with comprehensive security, cost governance, and compliance controls. The system processes Reddit topics through an automated pipeline: collection → ranking → enrichment → publication.
+This is an **enterprise-grade A#### Event-Driven Integration (Secondary, After REST API):
+- **Blob/Timer Triggers**: Optional automation after HTTP endpoint is proven working
+- **Pattern**: `EventTrigger` → calls → `HTTP Endpoint` (same business logic)
+- **Benefits**: Automatic processing while maintaining manual control and debugging
+- **Requirements**: HTTP endpoint must exist first, event trigger calls it internally
+- **Example**: `ContentEnricher` blob trigger calls `ContentEnricherManual` HTTP logic
+
+#### Project Structure (Enforced):ntent farm** built on Azure Functions with comprehensive security, cost governance, and compliance controls. The system processes Reddit topics through an automated pipeline: collection → ranking → enrichment → publication.
 
 **Always check README.md and TODO.md first** to understand current status and next priorities.
 
@@ -35,6 +42,11 @@ This is an **enterprise-grade AI content farm** built on Azure Functions with co
 - This prevents CI/CD deployment failures (recurring critical issue)
 
 ### Code Quality Standards
+- **Azure Functions REST API Standard**: ALL functions must be proper HTTP REST APIs first
+- **Clear API Contracts**: Document all endpoints with inputs, outputs, errors, authentication
+- **Standardized Responses**: Use consistent JSON format with status, data, metadata, errors
+- **Observable Functions**: Every function must provide health, status, and documentation endpoints
+- **Authentication Clarity**: Return 401 with helpful messages, not generic 500 errors
 - **Azure Functions Logging**: `az functionapp logs tail` only works for .NET functions, NOT Python
   - For Python functions: Use Azure portal logs or Application Insights queries
   - Python logs are buffered and don't stream in real-time like .NET
@@ -53,12 +65,79 @@ This is an **enterprise-grade AI content farm** built on Azure Functions with co
 
 ### Architecture Patterns
 
-#### Azure Functions Pattern (Event-Driven)
-- **Separate event handlers from business logic**: Event/timer functions should call HTTP functions
-- **Pattern**: `EventHandler` (timer/blob/queue) → calls → `ProcessorHTTP` (business logic)
-- **Benefits**: Easy testing, debugging, reusability, monitoring
-- **Trade-offs**: ~2x cost, but saves significant development time
-- **Example**: `ContentRanker` (blob trigger) + `ContentRankerManual` (HTTP trigger + shared logic)
+#### Azure Functions REST API Pattern (MANDATORY)
+**ALL FUNCTIONS MUST BE PROPER REST APIs WITH CLEAR CONTRACTS**
+
+- **HTTP-First Design**: Every function must have an HTTP endpoint as primary interface
+- **Proper REST Semantics**: Use correct HTTP methods, status codes, and response formats  
+- **Clear API Contracts**: Document inputs, outputs, authentication, and error responses
+- **Observable Operations**: All functions must provide status, health, and progress endpoints
+- **Standardized Responses**: Consistent JSON format with status, data, errors, and metadata
+- **Authentication Transparency**: Clear error messages for auth failures ("401 Unauthorized - Function key required")
+- **Manual Testing Capability**: Every function testable via curl/Postman for debugging
+- **No Silent Failures**: Always return meaningful HTTP status codes and error descriptions
+
+#### Required REST Endpoints for Each Function:
+```
+GET  /api/{function-name}/health     # Health check
+POST /api/{function-name}/process    # Main processing endpoint  
+GET  /api/{function-name}/status     # Operation status/progress
+```
+
+#### Standard Response Format (MANDATORY):
+```json
+{
+  "status": "success|error|processing",
+  "message": "Human-readable description of what happened",
+  "data": { /* actual response data */ },
+  "errors": [ /* detailed error information if applicable */ ],
+  "metadata": {
+    "timestamp": "2025-08-12T14:30:00Z",
+    "function": "FunctionName",
+    "execution_time_ms": 1250,
+    "version": "1.0.0"
+  }
+}
+```
+
+#### Error Response Requirements:
+- **401 Unauthorized**: "Function key required" or "Invalid authentication"
+- **400 Bad Request**: "Missing required field: blob_name" 
+- **404 Not Found**: "Blob not found: ranked-topics/file.json"
+- **500 Internal Error**: Include specific error details and suggested fixes
+```
+GET  /api/{function-name}/health     # Health check (200/500)
+GET  /api/{function-name}/status     # Current status and metrics
+POST /api/{function-name}/process    # Main processing endpoint
+GET  /api/{function-name}/docs       # API documentation
+```
+
+#### Response Format Standard:
+```json
+{
+  "status": "success|error|processing",
+  "message": "Human-readable description",
+  "data": {...},
+  "metadata": {
+    "timestamp": "ISO-8601",
+    "function": "function-name",
+    "version": "1.0.0",
+    "execution_time_ms": 1234
+  },
+  "errors": ["specific error messages"]
+}
+```
+
+#### Authentication Handling:
+- **Clear auth errors**: Return 401 with helpful message, not generic 500
+- **Multiple auth methods**: Support both function keys and anonymous for testing
+- **Auth documentation**: Clear instructions on how to authenticate
+
+#### Event-Driven Integration (Secondary):
+- **HTTP functions can have blob/timer triggers**: But HTTP is primary interface
+- **Event handlers call HTTP endpoints**: Timer/blob triggers call HTTP functions internally
+- **Benefits**: Testability, debuggability, manual control, clear contracts
+- **Trade-offs**: ~2x cost, but essential for production reliability
 
 #### Project Structure (Enforced)
 - **Functions** in `/functions/` directory (main application code)
