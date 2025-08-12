@@ -633,6 +633,7 @@ jobs:
     if: >
       (github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success') &&
       (github.event.inputs.skip_tests != 'true') &&
+      (github.event.inputs.skip_integration != 'true') &&
       (needs.changes.outputs.functions == 'true' || needs.changes.outputs.tests == 'true')
     runs-on: ubuntu-latest
     name: Run Integration Tests
