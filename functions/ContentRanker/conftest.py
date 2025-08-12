@@ -40,8 +40,10 @@ def sample_reddit_topics(sample_reddit_topic):
     for i in range(3):
         topic = sample_reddit_topic.copy()
         topic["reddit_id"] = f"example{i}"
-        topic["title"] = f"AI Content Generation Best Practices {i}"  # Make titles unique
-        topic["external_url"] = f"https://example.com/ai-content-{i}"  # Make URLs unique
+        # Make titles unique
+        topic["title"] = f"AI Content Generation Best Practices {i}"
+        # Make URLs unique
+        topic["external_url"] = f"https://example.com/ai-content-{i}"
         topic["score"] = 1000 + (i * 200)
         topic["num_comments"] = 50 + (i * 25)
         topics.append(topic)

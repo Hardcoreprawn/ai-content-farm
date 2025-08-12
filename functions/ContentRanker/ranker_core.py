@@ -139,7 +139,7 @@ def rank_topic_functional(topic: Dict[str, Any], config: Dict[str, Any]) -> Dict
     Returns a new topic dict with ranking data added.
     """
     weights = config['weights']
-    
+
     # Default weights for missing values
     default_weights = {
         'engagement': 0.3,
@@ -322,7 +322,8 @@ def create_ranking_output(ranked_topics: List[Dict[str, Any]],
             'timestamp': datetime.now(timezone.utc).isoformat(),
             'source_files': source_files,
             'total_topics': len(ranked_topics),
-            'filtered_topics': len(ranked_topics)  # Assuming all topics passed filtering
+            # Assuming all topics passed filtering
+            'filtered_topics': len(ranked_topics)
         },
         'ranking_config': {
             'min_score_threshold': config.get('min_score_threshold', 100),
