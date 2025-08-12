@@ -9,7 +9,7 @@ from azure.storage.blob import BlobServiceClient
 from azure.identity import DefaultAzureCredential
 
 # Import the functional core from local module
-from .ranker_core import process_content_ranking
+from ranker_core import process_content_ranking
 
 
 # Ranking configuration
@@ -62,10 +62,11 @@ def get_standardized_blob_client(storage_account_name: str = None):
     """Create standardized blob service client with Managed Identity"""
     if not storage_account_name:
         storage_account_name = os.environ.get('OUTPUT_STORAGE_ACCOUNT')
-    
+
     if not storage_account_name:
-        raise ValueError("Storage account name not provided and OUTPUT_STORAGE_ACCOUNT not set")
-    
+        raise ValueError(
+            "Storage account name not provided and OUTPUT_STORAGE_ACCOUNT not set")
+
     credential = DefaultAzureCredential()
     return BlobServiceClient(
         account_url=f"https://{storage_account_name}.blob.core.windows.net",
@@ -77,11 +78,11 @@ def process_blob_path(blob_path: str):
     """Parse and validate blob path in format 'container/blob-name'"""
     if not blob_path:
         raise ValueError("Blob path is required")
-    
+
     parts = blob_path.split('/', 1)
     if len(parts) != 2:
         raise ValueError("Path must be in format 'container/blob-name'")
-    
+
     return parts[0], parts[1]  # container, blob_name
 
 
@@ -185,7 +186,8 @@ This function processes topics and generates ranking scores.
 
         # Extract container and blob name from input path
         try:
-            input_container, input_blob_name = process_blob_path(input_blob_path)
+            input_container, input_blob_name = process_blob_path(
+                input_blob_path)
         except ValueError as e:
             return func.HttpResponse(
                 json.dumps(create_standard_response(
@@ -237,7 +239,8 @@ This function processes topics and generates ranking scores.
 
         # Extract container and blob name from output path
         try:
-            output_container, output_blob_name = process_blob_path(output_blob_path)
+            output_container, output_blob_name = process_blob_path(
+                output_blob_path)
         except ValueError as e:
             return func.HttpResponse(
                 json.dumps(create_standard_response(
