@@ -20,6 +20,8 @@ from azure.keyvault.secrets import SecretClient
 app = func.FunctionApp()
 
 # Standardized helper functions
+
+
 def create_standard_response(status: str, message: str, data=None, errors=None, metadata=None):
     """Create standardized API response format"""
     response = {
@@ -34,6 +36,7 @@ def create_standard_response(status: str, message: str, data=None, errors=None, 
     if metadata is not None:
         response["metadata"] = metadata
     return response
+
 
 def get_standardized_blob_client(storage_account_name: str = None):
     """Create standardized blob service client with Managed Identity"""
@@ -50,6 +53,7 @@ def get_standardized_blob_client(storage_account_name: str = None):
         credential=credential
     )
 
+
 def process_blob_path(blob_path: str):
     """Parse and validate blob path in format 'container/blob-name'"""
     if not blob_path:
@@ -60,6 +64,7 @@ def process_blob_path(blob_path: str):
         raise ValueError("Path must be in format 'container/blob-name'")
 
     return parts[0], parts[1]  # container, blob_name
+
 
 # Ranking configuration
 RANKING_CONFIG = {
@@ -74,11 +79,13 @@ RANKING_CONFIG = {
 }
 
 # Test Function - Minimal validation function
+
+
 @app.route(route="test", auth_level=func.AuthLevel.ANONYMOUS)
 def test_function(req: func.HttpRequest) -> func.HttpResponse:
     """Simple test function to validate runtime works"""
     logging.info('Test function processed a request.')
-    
+
     return func.HttpResponse(
         json.dumps({
             "status": "success",
@@ -98,6 +105,8 @@ def test_function(req: func.HttpRequest) -> func.HttpResponse:
     )
 
 # ContentRanker Worker Function
+
+
 @app.route(route="contentranker", methods=["POST"], auth_level=func.AuthLevel.FUNCTION)
 def content_ranker(req: func.HttpRequest) -> func.HttpResponse:
     """
@@ -193,7 +202,8 @@ def content_ranker(req: func.HttpRequest) -> func.HttpResponse:
 
         # Extract container and blob name from input path
         try:
-            input_container, input_blob_name = process_blob_path(input_blob_path)
+            input_container, input_blob_name = process_blob_path(
+                input_blob_path)
         except ValueError as e:
             return func.HttpResponse(
                 json.dumps(create_standard_response(
@@ -245,7 +255,8 @@ def content_ranker(req: func.HttpRequest) -> func.HttpResponse:
 
         # Extract container and blob name from output path
         try:
-            output_container, output_blob_name = process_blob_path(output_blob_path)
+            output_container, output_blob_name = process_blob_path(
+                output_blob_path)
         except ValueError as e:
             return func.HttpResponse(
                 json.dumps(create_standard_response(
@@ -260,7 +271,8 @@ def content_ranker(req: func.HttpRequest) -> func.HttpResponse:
 
         # Ensure output container exists
         try:
-            container_client = blob_service_client.get_container_client(output_container)
+            container_client = blob_service_client.get_container_client(
+                output_container)
             container_client.create_container()
             logging.info(f"Created container: {output_container}")
         except Exception:

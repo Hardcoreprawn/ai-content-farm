@@ -16,6 +16,7 @@ Welcome to the comprehensive documentation for the AI Content Farm project - an 
 
 ### 🚀 Deployment & Operations  
 - **[Deployment Guide](deployment-guide.md)** - Step-by-step deployment procedures for all environments
+- **[Azure Functions Development Lifecycle](azure-functions-development-lifecycle.md)** - Function development, testing, and deployment lifecycle
 - **[Key Vault Integration](key-vault-integration.md)** - Secure secrets management and configuration
 
 ### 🧪 Testing & Quality Assurance

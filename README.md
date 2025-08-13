@@ -13,6 +13,7 @@ Updated: Consolidated CI/CD pipeline with integrated testing (2025-08-12).
 - **[API Contracts](docs/api-contracts.md)** - Data format specifications for pipeline stages
 - **[Async Job System](docs/async-job-system.md)** - Modern async processing with job tickets
 - **[Content Processing Workflow](docs/content-processing-workflow.md)** - Complete content pipeline documentation
+- **[Azure Functions Development Lifecycle](docs/azure-functions-development-lifecycle.md)** - Function development, testing, and deployment
 - **[Deployment Guide](docs/deployment-guide.md)** - Step-by-step deployment
 - **[Key Vault Integration](docs/key-vault-integration.md)** - Secrets management
 - **[Testing Guide](docs/testing-guide.md)** - Function testing procedures
