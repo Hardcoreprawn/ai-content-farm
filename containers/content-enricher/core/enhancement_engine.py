@@ -292,6 +292,25 @@ def generate_fallback_content(topic: Dict[str, Any]) -> EnhancementResult:
     # Basic summary (just truncated title)
     summary = title[:200] + "..." if len(title) > 200 else title
     
+    # Don't generate anything for empty content
+    if not title.strip():
+        return EnhancementResult(
+            topic_id=topic_id,
+            summary=None,
+            key_insights=[],
+            tags=[],
+            sentiment=None,
+            enhancement_metadata={
+                "method": "rule_based_fallback",
+                "openai_available": False,
+                "error": "No content available for enhancement",
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            },
+            processing_time_seconds=0.1,
+            success=False,
+            error="No content available for enhancement"
+        )
+    
     return EnhancementResult(
         topic_id=topic_id,
         summary=summary,
@@ -301,7 +320,7 @@ def generate_fallback_content(topic: Dict[str, Any]) -> EnhancementResult:
         enhancement_metadata={
             "method": "rule_based_fallback",
             "openai_available": False,
-            "timestamp": datetime.utcnow().isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat()
         },
         processing_time_seconds=0.1,
         success=True
@@ -338,7 +357,7 @@ async def enhance_content(topic: Dict[str, Any], config: Optional[EnhancementCon
             sentiment=None,
             enhancement_metadata={
                 "error": "No content available for enhancement",
-                "timestamp": datetime.utcnow().isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat()
             },
             processing_time_seconds=time.time() - start_time,
             success=False,
@@ -399,7 +418,7 @@ async def enhance_content(topic: Dict[str, Any], config: Optional[EnhancementCon
         enhancement_metadata={
             "method": "openai_enhanced",
             "model": config.openai_model,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "content_length": len(content),
             "errors": errors if errors else None
         },
@@ -439,7 +458,7 @@ async def enhance_topics_batch(topics: List[Dict[str, Any]], config: Optional[En
                 sentiment=None,
                 enhancement_metadata={
                     "error": str(e),
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 },
                 processing_time_seconds=0.0,
                 success=False,
