@@ -27,5 +27,32 @@ services:
       retries: 3
       start_period: 40s
 
+  content-ranker:
+    build:
+      context: ./containers/content-ranker
+      dockerfile: Dockerfile
+    ports:
+      - "8001:8001"
+    environment:
+      - ENVIRONMENT=development
+      - HOST=0.0.0.0
+      - PORT=8001
+      # Azure credentials (set these in .env file or environment)
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID:-}
+      # Storage configuration (for blob processing)
+      - STORAGE_ACCOUNT_NAME=${STORAGE_ACCOUNT_NAME:-}
+      - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING:-}
+    volumes:
+      - ./containers/content-ranker:/app
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8001/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
 volumes:
   app_data:
