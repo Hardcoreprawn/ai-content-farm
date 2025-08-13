@@ -1,53 +1,136 @@
 # AI Content Farm
 
-A secure, enterprise-grade Azure Functions application that fetches trending topics from Reddit and processes them for AI-generated content. Features comprehensive security scanning, cost governance, compliance controls, and a unified CI/CD pipeline with comprehensive testing.
+A secure, enterprise-grade content processing pipeline built on Azure Container Apps. The system collects trending topics from various sources (Reddit, RSS feeds), processes them through AI-powered ranking and enrichment, and generates markdown content for headless CMS integration.
 
-Updated: Consolidated CI/CD pipeline with integrated testing (2025-08-12).
+**Architecture**: Migrated from Azure Functions to Container Apps for better maintainability, local development, and scalability.
+
+## 🏗️ Container Apps Architecture
+
+### Services
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Content       │    │   Content       │    │   Content       │
+│   Processor     │───▶│   Ranker        │───▶│   Enricher      │
+│   (Port 8000)   │    │   (Port 8001)   │    │   (Port 8002)   │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Scheduler     │    │       SSG       │    │   Blob Storage  │
+│   (Port 8003)   │───▶│   (Port 8004)   │───▶│   (Azurite)     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │
+         ▼
+┌─────────────────┐
+│     Redis       │
+│   (Port 6379)   │
+└─────────────────┘
+```
+
+### Complete Pipeline
+
+**Content Collection** → **Content Ranking** → **Content Enrichment** → **Static Site Generation** → **CMS Publishing**
+
+## 🚀 Quick Start
+
+### Local Development
+
+```bash
+# Clone repository
+git clone https://github.com/Hardcoreprawn/ai-content-farm.git
+cd ai-content-farm
+
+# Start all services
+docker compose up -d
+
+# Verify services
+python scripts/validate_services.py
+
+# View API documentation
+open http://localhost:8000/docs  # Content Processor
+open http://localhost:8001/docs  # Content Ranker  
+open http://localhost:8002/docs  # Content Enricher
+open http://localhost:8003/docs  # Scheduler
+open http://localhost:8004/docs  # SSG
+```
+
+### Service Endpoints
+
+- **Content Processor**: http://localhost:8000 - Content collection (Reddit, RSS)
+- **Content Ranker**: http://localhost:8001 - Multi-factor content scoring
+- **Content Enricher**: http://localhost:8002 - AI-powered summarization and categorization
+- **Scheduler**: http://localhost:8003 - Workflow orchestration
+- **SSG**: http://localhost:8004 - Static site generation
+- **Redis**: localhost:6379 - Job queuing
+- **Azurite**: localhost:10000 - Local blob storage
 
 ## 📚 Documentation
 
 **Complete documentation is available in the [`/docs`](docs/) folder:**
 
+- **[Container Apps Architecture Guide](docs/container-apps-architecture.md)** - Complete architecture overview
 - **[Documentation Index](docs/README.md)** - Start here for navigation
 - **[System Design](docs/system-design.md)** - Architecture and components
-- **[API Contracts](docs/api-contracts.md)** - Data format specifications for pipeline stages
-- **[Async Job System](docs/async-job-system.md)** - Modern async processing with job tickets
-- **[Content Processing Workflow](docs/content-processing-workflow.md)** - Complete content pipeline documentation
-- **[Azure Functions Development Lifecycle](docs/azure-functions-development-lifecycle.md)** - Function development, testing, and deployment
+- **[API Contracts](docs/api-contracts.md)** - Data format specifications
 - **[Deployment Guide](docs/deployment-guide.md)** - Step-by-step deployment
-- **[Key Vault Integration](docs/key-vault-integration.md)** - Secrets management
-- **[Testing Guide](docs/testing-guide.md)** - Function testing procedures
+- **[Testing Guide](docs/testing-guide.md)** - Testing procedures
+
+### Legacy Documentation (Azure Functions)
+- **[Azure Functions Development Lifecycle](docs/azure-functions-development-lifecycle.md)** - Legacy function development
 - **[Security Policy](docs/security-policy.md)** - Governance framework
 
-## 🎯 Current Status: Function Standardization & Pipeline Completion
+## ✅ Implementation Status
 
-### Completed Functions
-- **GetHotTopics**: Timer-triggered function (every 6 hours) that initiates content collection
-- **SummaryWomble**: HTTP-triggered function with async job processing system
-- **ContentRanker**: ✅ **Standardized** - Managed Identity, helper functions, comprehensive testing
+### Core Services (All Complete)
+- **Content Processor** (Port 8000): ✅ Content collection from Reddit, RSS feeds  
+- **Content Ranker** (Port 8001): ✅ Multi-factor scoring (engagement, monetization, recency, quality)
+- **Content Enricher** (Port 8002): ✅ AI-powered summarization, categorization, sentiment analysis
+- **Scheduler** (Port 8003): ✅ Workflow orchestration and job management
+- **SSG** (Port 8004): ✅ Static site generation and markdown conversion
+
+### Supporting Infrastructure
+- **Redis** (Port 6379): ✅ Job queuing and caching
+- **Azurite** (Ports 10000-10002): ✅ Local blob storage emulation
+- **Docker Compose**: ✅ Complete local development environment
+- **Health Checks**: ✅ All services implement `/health` endpoints
+- **API Documentation**: ✅ OpenAPI/Swagger docs at `/docs` for each service
 
 ### Pipeline Flow
 ```
-GetHotTopics (Timer) → SummaryWomble (HTTP/Async) → ContentRanker (Standardized ✅) → [ContentEnricher] → [ContentPublisher]
+Content Sources → Content Processor → Content Ranker → Content Enricher → SSG → CMS/Static Site
+                         ↓                ↓              ↓           ↓
+                    Blob Storage    Ranked Topics   Enhanced    Markdown
+                                                   Content      Output
 ```
 
-### Current Focus: Function Standardization
-- **Template Pattern**: Managed Identity authentication, standardized helper functions
-- **Security-First**: DefaultAzureCredential, proper permission scoping
-- **Test Integrity**: All tests passing in CI/CD pipeline
-- **Infrastructure Automation**: Proper role assignments and Key Vault integration
+### Testing & Quality
+- **Integration Tests**: ✅ Complete service communication validation
+- **Health Monitoring**: ✅ Service validation script
+- **Local Development**: ✅ Full pipeline runs locally with Docker Compose
+- **Production Ready**: ✅ Azure Container Apps deployment configuration
 
-### Next: ContentEnricher and ContentPublisher Standardization
+## 🔄 CI/CD Pipeline
 
-## 🔄 CI/CD Pipeline (Updated 2025-08-12)
+### Container Apps Deployment
+Modern Container Apps deployment pipeline:
+- **Infrastructure as Code**: Terraform for Azure Container Apps
+- **Container Builds**: Multi-stage Docker builds with dependency caching
+- **Service Mesh**: Container-to-container communication
+- **Auto-scaling**: Based on HTTP metrics and queue depth
+- **Blue-Green Deployments**: Zero-downtime deployments
 
-### Unified Workflow
-Single `consolidated-pipeline.yml` workflow handling all CI/CD operations:
-- **Security Gate**: Multi-tool scanning (Checkov, TFSec, Terrascan)
-- **Cost Gate**: Infracost impact analysis for infrastructure changes
-- **Testing Pipeline**: Matrix execution of unit, function, and integration tests
-- **Deployment**: Environment-specific deployment (staging → production)
-- **Quality Gates**: All validations must pass before deployment
+### Testing Pipeline
+- **Unit Tests**: Fast, isolated component testing
+- **Integration Tests**: Service-to-service communication validation  
+- **Health Checks**: Automated service validation
+- **Performance Tests**: Load testing and bottleneck identification
+
+### Security & Compliance
+- **Security Scanning**: Container image vulnerability scanning
+- **Secrets Management**: Azure Key Vault integration
+- **Network Security**: Private container networking
+- **Cost Governance**: Resource usage monitoring and alerting
 
 ### Testing Coverage
 - **Unit Tests**: Function-level testing with pytest
