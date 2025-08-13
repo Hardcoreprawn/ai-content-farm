@@ -1,0 +1,255 @@
+---
+title: "AI Content Farm"
+description: "Discover trending tech content curated by AI from Reddit, LinkedIn, and top tech publications"
+---
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={Astro.url} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content={Astro.url} />
+    <meta property="twitter:title" content={title} />
+    <meta property="twitter:description" content={description} />
+  </head>
+  
+  <body class="bg-gray-50 dark:bg-gray-900">
+    <div id="app">
+      <!-- Navigation -->
+      <nav class="bg-white dark:bg-gray-800 shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="flex justify-between h-16">
+            <div class="flex items-center">
+              <h1 class="text-xl font-bold text-gray-900 dark:text-white">
+                🤖 AI Content Farm
+              </h1>
+            </div>
+            <div class="flex items-center space-x-4">
+              <a href="/topics" class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
+                Topics
+              </a>
+              <a href="/sources" class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
+                Sources
+              </a>
+              <a href="/api" class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white">
+                API
+              </a>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <!-- Hero Section -->
+      <div class="bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+          <div class="text-center">
+            <h1 class="text-4xl md:text-6xl font-bold mb-6">
+              Trending Tech Content
+            </h1>
+            <p class="text-xl md:text-2xl mb-8 opacity-90">
+              AI-curated content from Reddit, LinkedIn, ArsTechnica, and The New Stack
+            </p>
+            <div class="flex justify-center space-x-4">
+              <a href="#latest" class="bg-white text-blue-600 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors">
+                View Latest
+              </a>
+              <a href="/api" class="border border-white text-white px-6 py-3 rounded-lg font-semibold hover:bg-white hover:text-blue-600 transition-colors">
+                API Access
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Section -->
+      <div class="bg-white dark:bg-gray-800 py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-8 text-center">
+            <div>
+              <div class="text-3xl font-bold text-blue-600 dark:text-blue-400" id="total-articles">
+                Loading...
+              </div>
+              <div class="text-gray-600 dark:text-gray-400 mt-2">
+                Articles Processed
+              </div>
+            </div>
+            <div>
+              <div class="text-3xl font-bold text-green-600 dark:text-green-400" id="sources-count">
+                4
+              </div>
+              <div class="text-gray-600 dark:text-gray-400 mt-2">
+                Content Sources
+              </div>
+            </div>
+            <div>
+              <div class="text-3xl font-bold text-purple-600 dark:text-purple-400" id="ai-score">
+                Loading...
+              </div>
+              <div class="text-gray-600 dark:text-gray-400 mt-2">
+                Avg AI Score
+              </div>
+            </div>
+            <div>
+              <div class="text-3xl font-bold text-orange-600 dark:text-orange-400" id="last-update">
+                Loading...
+              </div>
+              <div class="text-gray-600 dark:text-gray-400 mt-2">
+                Last Updated
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Latest Content Section -->
+      <div id="latest" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h2 class="text-3xl font-bold text-gray-900 dark:text-white mb-8">
+          Latest Trending Content
+        </h2>
+        
+        <div id="content-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <!-- Content will be loaded dynamically -->
+          <div class="animate-pulse">
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2"></div>
+              <div class="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-4"></div>
+              <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+              <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-full mb-2"></div>
+              <div class="h-3 bg-gray-200 dark:bg-gray-700 rounded w-2/3"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <footer class="bg-gray-800 dark:bg-gray-900 text-white py-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div>
+              <h3 class="text-lg font-semibold mb-4">AI Content Farm</h3>
+              <p class="text-gray-400">
+                Automated content curation powered by AI, bringing you the best tech content from across the web.
+              </p>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold mb-4">Sources</h3>
+              <ul class="text-gray-400 space-y-2">
+                <li>Reddit (r/technology, r/MachineLearning)</li>
+                <li>LinkedIn Tech Posts</li>
+                <li>Ars Technica</li>
+                <li>The New Stack</li>
+              </ul>
+            </div>
+            <div>
+              <h3 class="text-lg font-semibold mb-4">API</h3>
+              <ul class="text-gray-400 space-y-2">
+                <li><a href="/api/health" class="hover:text-white">Health Check</a></li>
+                <li><a href="/api/content" class="hover:text-white">Latest Content</a></li>
+                <li><a href="/api/rebuild" class="hover:text-white">Rebuild Site</a></li>
+                <li><a href="/api/docs" class="hover:text-white">Documentation</a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="border-t border-gray-700 mt-8 pt-8 text-center text-gray-400">
+            <p>&copy; 2025 AI Content Farm. Built with Container Apps architecture.</p>
+          </div>
+        </div>
+      </footer>
+    </div>
+
+    <script>
+      // Load dynamic content
+      async function loadStats() {
+        try {
+          const response = await fetch('/api/stats');
+          const stats = await response.json();
+          
+          document.getElementById('total-articles').textContent = stats.total_articles || '0';
+          document.getElementById('ai-score').textContent = (stats.avg_score || 0).toFixed(1);
+          document.getElementById('last-update').textContent = stats.last_update || 'Never';
+        } catch (error) {
+          console.error('Failed to load stats:', error);
+        }
+      }
+
+      async function loadLatestContent() {
+        try {
+          const response = await fetch('/api/content?limit=9');
+          const data = await response.json();
+          
+          const grid = document.getElementById('content-grid');
+          grid.innerHTML = '';
+          
+          data.articles?.forEach(article => {
+            const card = document.createElement('div');
+            card.className = 'bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow';
+            card.innerHTML = `
+              <div class="flex justify-between items-start mb-2">
+                <span class="text-sm text-blue-600 dark:text-blue-400 font-medium">${article.source}</span>
+                <span class="text-sm text-gray-500">${article.score || 0} pts</span>
+              </div>
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2 line-clamp-2">
+                <a href="${article.url}" target="_blank" rel="noopener noreferrer" class="hover:text-blue-600 dark:hover:text-blue-400">
+                  ${article.title}
+                </a>
+              </h3>
+              <p class="text-gray-600 dark:text-gray-400 text-sm mb-4 line-clamp-3">
+                ${article.content || article.summary || 'No description available.'}
+              </p>
+              <div class="flex justify-between items-center text-xs text-gray-500">
+                <span>by ${article.author || 'Unknown'}</span>
+                <span>${article.created_utc ? new Date(article.created_utc).toLocaleDateString() : ''}</span>
+              </div>
+              ${article.final_score ? `
+                <div class="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                  <div class="flex justify-between text-xs">
+                    <span>AI Score: ${(article.final_score * 100).toFixed(1)}%</span>
+                    <span>${article.num_comments || 0} comments</span>
+                  </div>
+                </div>
+              ` : ''}
+            `;
+            grid.appendChild(card);
+          });
+        } catch (error) {
+          console.error('Failed to load content:', error);
+          document.getElementById('content-grid').innerHTML = '<p class="text-gray-500 text-center col-span-full">Failed to load content. Please try again later.</p>';
+        }
+      }
+
+      // Load content when page loads
+      document.addEventListener('DOMContentLoaded', () => {
+        loadStats();
+        loadLatestContent();
+      });
+    </script>
+
+    <style>
+      .line-clamp-2 {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      
+      .line-clamp-3 {
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+    </style>
+  </body>
+</html>
