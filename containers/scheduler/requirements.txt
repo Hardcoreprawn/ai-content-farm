@@ -6,3 +6,13 @@ azure-identity==1.15.0
 python-multipart==0.0.6
 httpx==0.25.0
 apscheduler==3.10.4
+
+# Service communication
+aiohttp==3.9.0
+redis==5.0.0
+
+# Testing dependencies
+pytest==8.4.1
+pytest-asyncio==0.24.0
+pytest-cov==6.2.1
+pytest-mock==3.12.0
