@@ -445,6 +445,18 @@ resource "azurerm_storage_container" "dead_letter_queue" {
   }
 }
 
+# Deployment packages container (private)
+resource "azurerm_storage_container" "deployment_packages" {
+  name                  = "deployment-packages"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private" # Private access, will use SAS token
+
+  metadata = {
+    purpose     = "deployment-packages"
+    description = "Function app deployment packages"
+  }
+}
+
 resource "azurerm_service_plan" "main" {
   # checkov:skip=CKV_AZURE_212: Not applicable to consumption plan
   # checkov:skip=CKV_AZURE_225: Not applicable to consumption plan
@@ -455,12 +467,33 @@ resource "azurerm_service_plan" "main" {
   sku_name            = "Y1"
 }
 
+# Install Python dependencies into package
+resource "null_resource" "pip_install" {
+  triggers = {
+    requirements_md5 = filemd5("${path.module}/../../functions/requirements.txt")
+  }
+
+  provisioner "local-exec" {
+    command     = "pip install --target='.python_packages/lib/site-packages' -r requirements.txt"
+    working_dir = "${path.module}/../../functions"
+  }
+}
+
 # Create function package archive from source directory
 data "archive_file" "function_package" {
   type        = "zip"
   source_dir  = "${path.module}/../../functions"
   output_path = "${path.module}/function-package.zip"
-  excludes    = ["__pycache__", "*.pyc", "tests", ".pytest_cache"]
+  excludes = [
+    "**/__pycache__/**",
+    "**/*.pyc",
+    "**/test_*.py",
+    "**/.pytest_cache/**",
+    "**/tests/**",
+    "**/*.log"
+  ]
+
+  depends_on = [null_resource.pip_install]
 }
 
 resource "azurerm_linux_function_app" "main" {
@@ -511,10 +544,13 @@ resource "azurerm_linux_function_app" "main" {
     # SummaryWomble function key for internal authenticated calls
     SUMMARY_WOMBLE_KEY = "@Microsoft.KeyVault(SecretUri=${azurerm_key_vault.main.vault_uri}secrets/${azurerm_key_vault_secret.summarywomble_function_key.name})"
   }
-  
-  # Deploy function package using Terraform-managed archive
+
+  # Deploy cleaned function package (without __pycache__ and test files)
   zip_deploy_file = data.archive_file.function_package.output_path
-  
+
+  # Alternative deployment method using Storage Blob (more reliable than zip_deploy_file)
+  builtin_logging_enabled = false
+
   site_config {
     application_insights_connection_string = azurerm_application_insights.main.connection_string
     application_insights_key               = azurerm_application_insights.main.instrumentation_key
