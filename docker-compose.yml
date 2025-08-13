@@ -56,23 +56,55 @@ services:
     depends_on:
       - azurite
 
-  ssg:
+  content-enricher:
     build:
-      context: ./containers/ssg
+      context: ./containers/content-enricher
       dockerfile: Dockerfile
-      target: dev
     ports:
-      - "3000:3000"
+      - "8002:8002"
     environment:
-      - NODE_ENV=development
-      - CONTENT_PROCESSOR_URL=http://content-processor:8000
-      - CONTENT_RANKER_URL=http://content-ranker:8001
+      - ENVIRONMENT=development
+      - HOST=0.0.0.0
+      - PORT=8002
+      # Azure Storage (local development uses Azurite)
+      - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;}
+      - AZURE_STORAGE_ACCOUNT_NAME=${AZURE_STORAGE_ACCOUNT_NAME:-}
+      # Azure credentials for production
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID:-}
     volumes:
-      - ./containers/ssg:/app
-      - /app/node_modules
+      - ./containers/content-enricher:/app
     restart: unless-stopped
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:3000/api/health" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:8002/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - azurite
+
+  scheduler:
+    build:
+      context: ./containers/scheduler
+      dockerfile: Dockerfile
+    ports:
+      - "8003:8003"
+    environment:
+      - ENVIRONMENT=development
+      - HOST=0.0.0.0
+      - PORT=8003
+      # Service URLs for workflow orchestration
+      - CONTENT_PROCESSOR_URL=http://content-processor:8000
+      - CONTENT_RANKER_URL=http://content-ranker:8001
+      - CONTENT_ENRICHER_URL=http://content-enricher:8002
+      - SSG_URL=http://ssg:8004
+    volumes:
+      - ./containers/scheduler:/app
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8003/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -80,6 +112,36 @@ services:
     depends_on:
       - content-processor
       - content-ranker
+      - content-enricher
+
+  ssg:
+    build:
+      context: ./containers/ssg
+      dockerfile: Dockerfile
+    ports:
+      - "8004:8004"
+    environment:
+      - ENVIRONMENT=development
+      - HOST=0.0.0.0
+      - PORT=8004
+      # Service URLs
+      - CONTENT_PROCESSOR_URL=http://content-processor:8000
+      - CONTENT_RANKER_URL=http://content-ranker:8001
+      - CONTENT_ENRICHER_URL=http://content-enricher:8002
+      # Azure Storage (local development uses Azurite)
+      - AZURE_STORAGE_CONNECTION_STRING=${AZURE_STORAGE_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;}
+      - AZURE_STORAGE_ACCOUNT_NAME=${AZURE_STORAGE_ACCOUNT_NAME:-}
+    volumes:
+      - ./containers/ssg:/app
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8004/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      - azurite
 
   # Local blob storage emulation
   azurite:

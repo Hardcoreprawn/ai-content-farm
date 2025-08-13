@@ -14,46 +14,17 @@ from typing import Dict, Any, Optional, List
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 
+from core.enricher_model import (
+    EnrichmentRequest, EnrichmentJobResponse, EnrichmentJobStatusRequest, 
+    EnrichmentJobStatusResponse, EnrichmentConfig
+)
+from core.enricher_engine import process_content_enrichment
+
 # Router instance
 router = APIRouter(prefix="/api/content-enricher", tags=["content-enricher"])
 
 # In-memory job storage (would be replaced with Redis/database in production)
 job_storage: Dict[str, Dict[str, Any]] = {}
-
-
-class EnrichmentRequest(BaseModel):
-    """HTTP request model for content enrichment"""
-    source: str = Field(..., description="Content source (reddit, etc.)")
-    topics: Optional[List[Dict[str, Any]]] = Field(None, description="Direct topic data")
-    blob_path: Optional[str] = Field(None, description="Blob storage path to topic data")
-    config: Optional[Dict[str, Any]] = Field(None, description="Custom enrichment configuration")
-    output_path: Optional[str] = Field(None, description="Optional output blob path")
-
-
-class JobResponse(BaseModel):
-    """Response for job creation"""
-    job_id: str
-    status: str
-    message: str
-    timestamp: str
-    source: str
-    topics_count: Optional[int] = None
-
-
-class JobStatusRequest(BaseModel):
-    """Request for checking job status"""
-    action: str = Field(..., description="Action type (must be 'status')")
-    job_id: str = Field(..., description="Job ID to check")
-
-
-class JobStatusResponse(BaseModel):
-    """Response for job status check"""
-    job_id: str
-    status: str  # queued, processing, completed, failed
-    updated_at: str
-    progress: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
-    results: Optional[Dict[str, Any]] = None
 
 
 def update_job_status(
@@ -79,41 +50,42 @@ async def process_enrichment_job(
     request: EnrichmentRequest
 ):
     """
-    Process content enrichment asynchronously.
-    
-    Placeholder implementation - would integrate with AI services like OpenAI.
+    Process content enrichment asynchronously using the enricher engine.
     """
     try:
         # Update status to processing
         update_job_status(job_id, "processing")
         
-        # Simulate AI processing time
-        await asyncio.sleep(2)
+        # Prepare configuration
+        config = request.config or {}
+        default_config = EnrichmentConfig().dict()
+        enrichment_config = {**default_config, **config}
         
-        # Mock enrichment results
-        enriched_topics = []
+        # Prepare topics data
+        topics_data = {"source": request.source}
         if request.topics:
-            for topic in request.topics:
-                enriched_topic = topic.copy()
-                enriched_topic.update({
-                    "ai_summary": f"AI-generated summary for: {topic.get('title', 'Untitled')}",
-                    "category": "Technology",
-                    "sentiment": "positive",
-                    "key_phrases": ["AI", "technology", "innovation"],
-                    "reading_time": "3 min read",
-                    "enrichment_timestamp": datetime.utcnow().isoformat()
-                })
-                enriched_topics.append(enriched_topic)
+            topics_data["topics"] = request.topics
+        elif request.blob_path:
+            # In a full implementation, would load from blob storage
+            topics_data["topics"] = []
+        
+        # Process enrichment using core engine
+        result = process_content_enrichment(topics_data, enrichment_config)
+        
+        # Convert EnrichedTopic objects to dicts for JSON serialization
+        enriched_topics_dict = [topic.dict() for topic in result.enriched_topics]
         
         # Update job with successful results
         update_job_status(
             job_id,
             "completed",
             results={
-                "total_enriched": len(enriched_topics),
-                "enriched_topics": enriched_topics,
-                "processing_time": "2.0 seconds",
-                "ai_model": "gpt-3.5-turbo (placeholder)"
+                "source": result.source,
+                "total_enriched": result.total_enriched,
+                "enriched_topics": enriched_topics_dict,
+                "processing_time": f"{result.processing_time:.2f} seconds",
+                "ai_model": result.ai_model_used,
+                "errors": result.errors
             }
         )
         
@@ -137,7 +109,7 @@ async def health_check():
     }
 
 
-@router.post("/process", response_model=JobResponse)
+@router.post("/process", response_model=EnrichmentJobResponse)
 async def create_enrichment_job(
     request: EnrichmentRequest,
     background_tasks: BackgroundTasks
@@ -164,7 +136,7 @@ async def create_enrichment_job(
     )
     
     # Return job ticket
-    return JobResponse(
+    return EnrichmentJobResponse(
         job_id=job_id,
         status="queued",
         message="Content enrichment started. Use job_id to check status.",
@@ -174,8 +146,8 @@ async def create_enrichment_job(
     )
 
 
-@router.post("/status", response_model=JobStatusResponse)
-async def check_job_status(request: JobStatusRequest):
+@router.post("/status", response_model=EnrichmentJobStatusResponse)
+async def check_job_status(request: EnrichmentJobStatusRequest):
     """Check the status of a content enrichment job"""
     if request.action != "status":
         raise HTTPException(
@@ -190,7 +162,7 @@ async def check_job_status(request: JobStatusRequest):
             detail=f"Job {request.job_id} not found"
         )
     
-    return JobStatusResponse(**job_data)
+    return EnrichmentJobStatusResponse(**job_data)
 
 
 @router.get("/docs")
@@ -208,11 +180,19 @@ async def get_api_documentation():
                     "Content categorization", 
                     "Sentiment analysis",
                     "Key phrase extraction",
-                    "Reading time estimation"
+                    "Reading time estimation",
+                    "Quality scoring"
                 ]
             },
             "POST /status": "Check job status",
             "GET /health": "Health check",
             "GET /docs": "This documentation"
+        },
+        "configuration": {
+            "enable_ai_summary": "Generate AI summaries (default: true)",
+            "enable_sentiment_analysis": "Analyze sentiment (default: true)", 
+            "enable_categorization": "Categorize content (default: true)",
+            "enable_key_phrases": "Extract key phrases (default: true)",
+            "max_summary_length": "Maximum summary length (default: 300)"
         }
     }

@@ -57,6 +57,30 @@ else
     services_healthy=false
 fi
 
+# Check Content Enricher
+if curl -f http://localhost:8002/health >/dev/null 2>&1; then
+    echo "✅ Content Enricher API is running at http://localhost:8002"
+else
+    echo "❌ Content Enricher API failed to start"
+    services_healthy=false
+fi
+
+# Check Scheduler
+if curl -f http://localhost:8003/health >/dev/null 2>&1; then
+    echo "✅ Scheduler API is running at http://localhost:8003"
+else
+    echo "❌ Scheduler API failed to start"
+    services_healthy=false
+fi
+
+# Check SSG (Static Site Generator)
+if curl -f http://localhost:8004/health >/dev/null 2>&1; then
+    echo "✅ SSG API is running at http://localhost:8004"
+else
+    echo "❌ SSG API failed to start"
+    services_healthy=false
+fi
+
 # Check Azurite (blob storage emulation)
 if curl -f http://localhost:10000 >/dev/null 2>&1; then
     echo "✅ Azurite blob storage emulation is running at http://localhost:10000"
@@ -72,10 +96,16 @@ if [ "$services_healthy" = true ]; then
     echo "📖 Service Documentation:"
     echo "   • Content Processor: http://localhost:8000/docs"
     echo "   • Content Ranker: http://localhost:8001/docs"
+    echo "   • Content Enricher: http://localhost:8002/docs"
+    echo "   • Scheduler: http://localhost:8003/docs"
+    echo "   • SSG (Static Site Generator): http://localhost:8004/docs"
     echo ""
     echo "🔍 Health Checks:"
     echo "   • Content Processor: http://localhost:8000/health"
     echo "   • Content Ranker: http://localhost:8001/health"
+    echo "   • Content Enricher: http://localhost:8002/health"
+    echo "   • Scheduler: http://localhost:8003/health"
+    echo "   • SSG: http://localhost:8004/health"
     echo ""
     echo "🧪 Quick API Tests:"
     echo ""
@@ -89,22 +119,37 @@ if [ "$services_healthy" = true ]; then
     echo "     -H 'Content-Type: application/json' \\"
     echo "     -d '{\"source\": \"reddit\", \"topics\": [{\"title\": \"AI breakthrough\", \"score\": 1000, \"num_comments\": 50, \"created_utc\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"}]}'"
     echo ""
-    echo "📊 Monitoring:"
-    echo "   • View logs: docker-compose logs -f"
-    echo "   • View specific service: docker-compose logs -f content-processor"
+    echo "   # Test content enrichment:"
+    echo "   curl -X POST http://localhost:8002/api/content-enricher/process \\"
+    echo "     -H 'Content-Type: application/json' \\"
+    echo "     -d '{\"source\": \"reddit\", \"topics\": [{\"title\": \"AI News\", \"content\": \"Sample content about AI\"}]}'"
     echo ""
-    echo "🛑 Stop services: docker-compose down"
+    echo "   # Test workflow orchestration:"
+    echo "   curl -X POST http://localhost:8003/api/scheduler/workflows \\"
+    echo "     -H 'Content-Type: application/json' \\"
+    echo "     -d '{\"workflow_type\": \"hot-topics\", \"config\": {\"targets\": [\"technology\"], \"limit\": 5}}'"
+    echo ""
+    echo "   # Test static site generation:"
+    echo "   curl -X POST http://localhost:8004/api/ssg/generate \\"
+    echo "     -H 'Content-Type: application/json' \\"
+    echo "     -d '{\"config\": {\"site_title\": \"Test Site\"}, \"content_source\": \"sample/data\"}'"
+    echo ""
+    echo "📊 Monitoring:"
+    echo "   • View logs: docker compose logs -f"
+    echo "   • View specific service: docker compose logs -f content-processor"
+    echo ""
+    echo "🛑 Stop services: docker compose down"
     echo ""
     echo "🔧 Troubleshooting:"
-    echo "   • Rebuild: docker-compose build --no-cache"
-    echo "   • Reset storage: docker-compose down -v && docker-compose up -d"
+    echo "   • Rebuild: docker compose build --no-cache"
+    echo "   • Reset storage: docker compose down -v && docker compose up -d"
 else
     echo ""
     echo "❌ Some services failed to start. Check logs:"
-    echo "   docker-compose logs"
+    echo "   docker compose logs"
     echo ""
     echo "🔧 Try rebuilding:"
-    echo "   docker-compose down"
-    echo "   docker-compose build --no-cache"
-    echo "   docker-compose up -d"
+    echo "   docker compose down"
+    echo "   docker compose build --no-cache"
+    echo "   docker compose up -d"
 fi
