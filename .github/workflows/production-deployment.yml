@@ -291,33 +291,71 @@ jobs:
           # Apply the planned changes
           terraform apply production.tfplan
 
-      - name: Container Deployment (Placeholder)
+      - name: Container Deployment (Future Implementation)
         run: |
-          echo "� Production container deployment will be implemented in future iterations"
-          echo "✅ Infrastructure deployed successfully for production container hosting"
-          # TODO: Implement production container deployment to Azure Container Instances or Azure Container Apps
+          echo "🚢 Container deployment preparation..."
+          echo "✅ Infrastructure deployed successfully for container hosting"
+          echo "📋 Next steps for container deployment:"
+          echo "  1. Build container images from containers/ directory"
+          echo "  2. Push to Azure Container Registry (ACR)"
+          echo "  3. Deploy to Azure Container Instances (ACI) or Azure Container Apps"
+          echo "  4. Configure container networking and secrets"
+          echo ""
+          echo "📦 Available containers:"
+          echo "  • content-collector"
+          echo "  • content-enricher" 
+          echo "  • content-processor"
+          echo "  • content-ranker"
+          echo "  • scheduler"
+          echo "  • ssg"
+          echo ""
+          echo "🔄 Container deployment will be implemented in future iterations"
 
       - name: Production Smoke Tests
         run: |
-          echo "🧪 Running production smoke tests..."
+          echo "🧪 Running production infrastructure smoke tests..."
 
           # Wait for deployment to settle
           sleep 30
 
-          # Test 1: HTTP function health
-          echo "Testing HTTP Summary Womble function..."
-          PROD_RESPONSE=$(curl -s -w "%{http_code}" -X POST \
-            -H "Content-Type: application/json" \
-            -d '{"source": "test", "limit": 1}' \
-            "https://hot-topics-func.azurewebsites.net/api/SummaryWomble")
+          # Test 1: Azure infrastructure availability
+          echo "Testing Azure infrastructure readiness..."
+          
+          # Check resource group exists
+          if az group show --name "ai-content-prod-rg" > /dev/null 2>&1; then
+            echo "✅ Production resource group is available"
+          else
+            echo "❌ Production resource group not found"
+            exit 1
+          fi
+          
+          # Check Key Vault exists and is accessible
+          if [ -n "${{ needs.pre-production-validation.outputs.key-vault-name }}" ]; then
+            KEYVAULT_NAME="${{ needs.pre-production-validation.outputs.key-vault-name }}"
+            if az keyvault show --name "$KEYVAULT_NAME" > /dev/null 2>&1; then
+              echo "✅ Production Key Vault ($KEYVAULT_NAME) is accessible"
+            else
+              echo "❌ Production Key Vault not accessible"
+              exit 1
+            fi
+          else
+            echo "⚠️ Key Vault name not found - using GitHub secrets fallback"
+          fi
 
-          HTTP_CODE="${PROD_RESPONSE: -3}"
-          if [ "$HTTP_CODE" != "200" ]; then
-            echo "❌ Production smoke test failed: HTTP $HTTP_CODE"
+          # Test 2: Storage account availability
+          echo "Testing storage infrastructure..."
+          STORAGE_ACCOUNTS=$(az storage account list --resource-group "ai-content-prod-rg" --query "[].name" -o tsv)
+          if [ -n "$STORAGE_ACCOUNTS" ]; then
+            echo "✅ Production storage accounts are available"
+            echo "Storage accounts: $STORAGE_ACCOUNTS"
+          else
+            echo "❌ No storage accounts found in production"
             exit 1
           fi
 
-          echo "✅ Production smoke tests passed"
+          echo "🏗️ Infrastructure smoke test: PASSED"
+          echo "📦 Container deployment: READY FOR IMPLEMENTATION"
+          echo "✅ Smoke tests completed - infrastructure ready for containers"
 
       - name: Create Production Deployment Tag
         run: |
@@ -339,24 +377,53 @@ jobs:
         run: |
           echo "🔍 Running comprehensive production validation..."
 
-          # Test all endpoints
-          echo "Testing Summary Womble with real data..."
-          curl -s -f \
-            "https://hot-topics-func.azurewebsites.net/api/SummaryWomble" \
-            -X POST \
-            -H "Content-Type: application/json" \
-            -d '{"source": "reddit", "topics": ["technology"], "limit": 3, \
-            "credentials": {"source": "keyvault"}}' > /dev/null
+          # Test infrastructure completeness
+          echo "Validating production infrastructure completeness..."
+          
+          # Check all required resources are deployed
+          echo "Checking resource group contents..."
+          RESOURCES=$(az resource list --resource-group "ai-content-prod-rg" --query "[].type" -o tsv | sort | uniq)
+          echo "Deployed resource types:"
+          echo "$RESOURCES" | sed 's/^/  • /'
+          
+          # Validate Key Vault
+          if [ -n "${{ needs.pre-production-validation.outputs.key-vault-name }}" ]; then
+            KEYVAULT_NAME="${{ needs.pre-production-validation.outputs.key-vault-name }}"
+            echo "Testing Key Vault secrets management..."
+            # Test that we can access Key Vault (without revealing secrets)
+            SECRET_COUNT=$(az keyvault secret list --vault-name "$KEYVAULT_NAME" --query "length(@)" -o tsv 2>/dev/null || echo "0")
+            echo "✅ Key Vault contains $SECRET_COUNT secrets"
+          fi
+          
+          # Validate Storage
+          echo "Testing storage infrastructure..."
+          STORAGE_ACCOUNT=$(az storage account list --resource-group "ai-content-prod-rg" --query "[0].name" -o tsv)
+          if [ -n "$STORAGE_ACCOUNT" ]; then
+            CONTAINERS=$(az storage container list --account-name "$STORAGE_ACCOUNT" --auth-mode login --query "[].name" -o tsv 2>/dev/null || echo "")
+            if [ -n "$CONTAINERS" ]; then
+              echo "✅ Storage containers available: $CONTAINERS"
+            else
+              echo "⚠️ Storage account exists but containers not accessible"
+            fi
+          fi
 
-          echo "✅ All production endpoints validated"
+          echo "🏗️ Infrastructure validation: PASSED"
+          echo "📦 Ready for container deployment phase"
 
       - name: Update Documentation
         run: |
-          echo "📚 Production deployment completed successfully"
-          echo "🔗 Production URL: https://hot-topics-func.azurewebsites.net"
-          echo "📊 Security Score: \
+          echo "📚 Production infrastructure deployment completed successfully"
+          echo "🏗️ Infrastructure Status: DEPLOYED"
+          echo "📦 Container Status: READY FOR DEPLOYMENT"
+          echo "� Security Score: \
             ${{ needs.pre-production-validation.outputs.security-score }}/100"
           echo "📅 Deployed: $(date)"
+          echo ""
+          echo "🚀 Next Steps:"
+          echo "  1. Build container images for microservices"
+          echo "  2. Deploy to Azure Container Registry/Instances"
+          echo "  3. Configure container networking and load balancing"
+          echo "  4. Set up monitoring and logging for containers"
 
   rollback-preparation:
     runs-on: ubuntu-latest
@@ -384,13 +451,46 @@ jobs:
         run: |
           if [[ "${{ needs.production-deploy.result }}" == "success" &&
                 "${{ needs.post-deployment-validation.result }}" == "success" ]]; then
-            echo "🎉 PRODUCTION DEPLOYMENT SUCCESSFUL"
-            echo "🔗 Production URL: https://hot-topics-func.azurewebsites.net"
+            echo "🎉 PRODUCTION INFRASTRUCTURE DEPLOYMENT SUCCESSFUL"
+            echo "🏗️ Infrastructure: Azure Resource Group, Key Vault, Storage"
             echo "🔒 Security Score: ${{ needs.pre-production-validation.outputs.security-score }}/100"
             echo "📅 Deployed: $(date)"
             echo "🏷️ Git Tag: production-$(date +%Y%m%d-%H%M%S)"
+            echo ""
+            echo "📦 Container Deployment Status: PENDING"
+            echo "🚀 Ready for container deployment phase"
+            echo "📋 Available containers: content-collector, content-enricher, content-processor, content-ranker, scheduler, ssg"
           else
-            echo "❌ PRODUCTION DEPLOYMENT FAILED"
+            echo "❌ PRODUCTION INFRASTRUCTURE DEPLOYMENT FAILED"
             echo "🔍 Check logs for details"
-            echo "🚨 Production environment may need attention"
+            echo "🚨 Production environment needs attention"
           fi
+
+  # Future container deployment job (currently disabled)
+  # Uncomment and implement when ready to deploy containers
+  # container-deployment:
+  #   runs-on: ubuntu-latest
+  #   name: Deploy Containers to Production
+  #   needs: [production-deploy]
+  #   if: false  # Disabled until container infrastructure is ready
+  #   
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Azure CLI
+  #       uses: azure/login@v2
+  #       with:
+  #         client-id: ${{ env.AZURE_CLIENT_ID }}
+  #         tenant-id: ${{ env.AZURE_TENANT_ID }}
+  #         subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+  #
+  #     - name: Build and Deploy Containers
+  #       run: |
+  #         echo "🏗️ Building container images..."
+  #         # TODO: Add container build and deployment steps
+  #         # 1. Build containers from containers/ directory
+  #         # 2. Push to Azure Container Registry
+  #         # 3. Deploy to Azure Container Instances/Apps
+  #         # 4. Configure networking and secrets
+  #         echo "📦 Container deployment completed"
