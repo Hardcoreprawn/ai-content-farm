@@ -1,14 +1,7 @@
 # Copilot Agent Instructions for AI Content Farm
 
 ## Project Overview
-This is an **enterprise-grade A#### Event-Driven Integration (Secondary, After REST API):
-- **Blob/Timer Triggers**: Optional automation after HTTP endpoint is proven working
-- **Pattern**: `EventTrigger` → calls → `HTTP Endpoint` (same business logic)
-- **Benefits**: Automatic processing while maintaining manual control and debugging
-- **Requirements**: HTTP endpoint must exist first, event trigger calls it internally
-- **Example**: `ContentEnricher` blob trigger calls `ContentEnricherManual` HTTP logic
-
-#### Project Structure (Enforced):ntent farm** built on Azure Functions with comprehensive security, cost governance, and compliance controls. The system processes Reddit topics through an automated pipeline: collection → ranking → enrichment → publication.
+This is an **enterprise-grade containerized content farm** built on Azure Container Apps with comprehensive security, cost governance, and compliance controls. The system processes Reddit topics through an automated pipeline: collection → ranking → enrichment → publication.
 
 **Always check README.md and TODO.md first** to understand current status and next priorities.
 
@@ -16,7 +9,7 @@ This is an **enterprise-grade A#### Event-Driven Integration (Secondary, After R
 - **Security-first**: Every change must pass security scanning (Checkov, Trivy, Terrascan)
 - **Cost-conscious**: All deployments include cost impact analysis with Infracost
 - **Production-ready**: Focus on reliability, monitoring, and maintainability over features
-- **Clean architecture**: Event-driven functions with clear separation of concerns
+- **Clean architecture**: Event-driven containers with clear separation of concerns
 - **Documentation as code**: Keep docs current, concise, and actionable
 
 ## AI Agent Working Principles
@@ -36,7 +29,7 @@ Use GitHub Issues for specific, actionable tasks while keeping TODO.md for high-
 - **Auto-create Issues**: When starting new work phases, create detailed issues based on TODO.md analysis
 - **Technical Precision**: Include specific file paths, function names, acceptance criteria
 - **Reference Template**: Link to existing working examples (e.g., ContentRanker pattern)
-- **Label Appropriately**: Use labels for categorization (function-standardization, content-pipeline, infrastructure)
+- **Label Appropriately**: Use labels for categorization (service-standardization, content-pipeline, infrastructure)
 
 ### Issue Lifecycle Management  
 - **Start Work**: Before implementing, check for related issues or create new ones
@@ -45,7 +38,7 @@ Use GitHub Issues for specific, actionable tasks while keeping TODO.md for high-
 - **Close on Completion**: Close issues when work is complete with summary comment
 
 ### Issue Status Keywords
-- **When asked to "start work on function standardization"**: Check for existing issues, create if needed
+- **When asked to "start work on service standardization"**: Check for existing issues, create if needed
 - **When user says "I finished issue #X"**: Close the issue with completion summary, update related issues
 - **When user says "update the issues"**: Review current status, close completed items, create new issues for next work
 
@@ -71,7 +64,7 @@ Link to existing working examples or documentation
 ```
 
 ### Issue Labels to Use
-- `function-standardization` - Applying ContentRanker template to other functions
+- `service-standardization` - Applying ContentRanker template to other services
 - `content-pipeline` - Building end-to-end content flow
 - `infrastructure` - Terraform, CI/CD, Azure resources
 - `documentation` - Updates to docs, README, guides
@@ -101,14 +94,12 @@ Link to existing working examples or documentation
 - This prevents CI/CD deployment failures (recurring critical issue)
 
 ### Code Quality Standards
-- **Azure Functions REST API Standard**: ALL functions must be proper HTTP REST APIs first
+- **Container REST API Standard**: ALL services must be proper HTTP REST APIs running in containers
 - **Clear API Contracts**: Document all endpoints with inputs, outputs, errors, authentication
 - **Standardized Responses**: Use consistent JSON format with status, data, metadata, errors
-- **Observable Functions**: Every function must provide health, status, and documentation endpoints
+- **Observable Services**: Every service must provide health, status, and documentation endpoints
 - **Authentication Clarity**: Return 401 with helpful messages, not generic 500 errors
-- **Azure Functions Logging**: `az functionapp logs tail` only works for .NET functions, NOT Python
-  - For Python functions: Use Azure portal logs or Application Insights queries
-  - Python logs are buffered and don't stream in real-time like .NET
+- **Container Logging**: Use structured logging with correlation IDs for distributed tracing
 - **Keep logs ASCII-clean** - Avoid emojis in logs (makes parsing difficult)
 - **Pin all versions** - Never use 'latest' tags; pin Terraform, Actions, package versions
 - **Test all changes** - Verify locally before deploying to any environment
@@ -124,21 +115,21 @@ Link to existing working examples or documentation
 
 ### Architecture Patterns
 
-#### Worker/Scheduler Pattern (MANDATORY)
-**ALL FUNCTIONS MUST FOLLOW CLEAN WORKER/SCHEDULER SEPARATION**
+#### Microservices/Container Pattern (MANDATORY)
+**ALL SERVICES MUST FOLLOW CLEAN MICROSERVICES CONTAINER ARCHITECTURE**
 
-Our Azure Functions follow a clean architectural pattern that separates concerns:
+Our containerized services follow a clean architectural pattern that separates concerns:
 
-**Worker Functions** (HTTP endpoints):
-- Accept specific input/output blob paths via HTTP POST
+**Worker Services** (HTTP REST APIs):
+- Accept specific input/output storage paths via HTTP POST
 - Return immediate acknowledgment response  
 - Process asynchronously and write to specified output location
 - Can be manually triggered with specific parameters
-- Examples: `ContentRanker`, `ContentEnricher`
+- Examples: `ContentRanker`, `ContentEnricher`, `ContentCollector`
 
-**Scheduler Functions** (Event-driven):
+**Scheduler Services** (Event-driven):
 - Monitor blob containers, timers, or other triggers
-- Call worker functions with appropriate parameters  
+- Call worker services with appropriate parameters  
 - Handle event-driven automation of pipeline
 - Examples: `TopicRankingScheduler`, `ContentEnrichmentScheduler`
 
@@ -147,25 +138,26 @@ This pattern provides:
 - Event-driven automation for normal pipeline flow  
 - Clear separation of concerns
 - Easy testing and debugging
-- No confusing duplicate functions with "Manual" suffixes
+- Scalable container deployment
+- No monolithic dependencies
 
-#### Worker Function API Requirements:
-**ALL WORKER FUNCTIONS MUST BE PROPER REST APIs WITH CLEAR CONTRACTS**
+#### Container Service API Requirements:
+**ALL CONTAINER SERVICES MUST BE PROPER REST APIS WITH CLEAR CONTRACTS**
 
-- **HTTP-First Design**: Every worker function must have an HTTP endpoint as primary interface
+- **HTTP-First Design**: Every worker service must have an HTTP endpoint as primary interface
 - **Proper REST Semantics**: Use correct HTTP methods, status codes, and response formats  
 - **Clear API Contracts**: Document inputs, outputs, authentication, and error responses
-- **Observable Operations**: All functions must provide status, health, and progress endpoints
+- **Observable Operations**: All services must provide status, health, and progress endpoints
 - **Standardized Responses**: Consistent JSON format with status, data, errors, and metadata
-- **Authentication Transparency**: Clear error messages for auth failures ("401 Unauthorized - Function key required")
-- **Manual Testing Capability**: Every function testable via curl/Postman for debugging
+- **Authentication Transparency**: Clear error messages for auth failures ("401 Unauthorized - API key required")
+- **Manual Testing Capability**: Every service testable via curl/Postman for debugging
 - **No Silent Failures**: Always return meaningful HTTP status codes and error descriptions
 
-#### Required REST Endpoints for Each Function:
+#### Required REST Endpoints for Each Service:
 ```
-GET  /api/{function-name}/health     # Health check
-POST /api/{function-name}/process    # Main processing endpoint  
-GET  /api/{function-name}/status     # Operation status/progress
+GET  /api/{service-name}/health     # Health check
+POST /api/{service-name}/process    # Main processing endpoint  
+GET  /api/{service-name}/status     # Operation status/progress
 ```
 
 #### Standard Response Format (MANDATORY):
@@ -177,7 +169,7 @@ GET  /api/{function-name}/status     # Operation status/progress
   "errors": [ /* detailed error information if applicable */ ],
   "metadata": {
     "timestamp": "2025-08-12T14:30:00Z",
-    "function": "FunctionName",
+    "service": "ServiceName",
     "execution_time_ms": 1250,
     "version": "1.0.0"
   }
@@ -185,7 +177,7 @@ GET  /api/{function-name}/status     # Operation status/progress
 ```
 
 #### Error Response Requirements:
-- **401 Unauthorized**: "Function key required" or "Invalid authentication"
+- **401 Unauthorized**: "API key required" or "Invalid authentication"
 - **400 Bad Request**: "Missing required field: blob_name" 
 - **404 Not Found**: "Blob not found: ranked-topics/file.json"
 - **500 Internal Error**: Include specific error details and suggested fixes
@@ -204,7 +196,7 @@ GET  /api/{function-name}/docs       # API documentation
   "data": {...},
   "metadata": {
     "timestamp": "ISO-8601",
-    "function": "function-name",
+    "service": "service-name",
     "version": "1.0.0",
     "execution_time_ms": 1234
   },
@@ -214,17 +206,17 @@ GET  /api/{function-name}/docs       # API documentation
 
 #### Authentication Handling:
 - **Clear auth errors**: Return 401 with helpful message, not generic 500
-- **Multiple auth methods**: Support both function keys and anonymous for testing
+- **Multiple auth methods**: Support both API keys and anonymous for testing
 - **Auth documentation**: Clear instructions on how to authenticate
 
 #### Event-Driven Integration (Secondary):
-- **HTTP functions can have blob/timer triggers**: But HTTP is primary interface
-- **Event handlers call HTTP endpoints**: Timer/blob triggers call HTTP functions internally
+- **HTTP services can have blob/timer triggers**: But HTTP is primary interface
+- **Event handlers call HTTP endpoints**: Timer/blob triggers call HTTP services internally
 - **Benefits**: Testability, debuggability, manual control, clear contracts
 - **Trade-offs**: ~2x cost, but essential for production reliability
 
 #### Project Structure (Enforced)
-- **Functions** in `/functions/` directory (main application code)
+- **Containers** in `/containers/` directory (main application code)
 - **Infrastructure** in `/infra/` with bootstrap vs application separation
 - **Documentation** in `/docs/` only, not scattered across root
 - **Working files** in `.temp/` (gitignored) or deleted after session
@@ -271,10 +263,10 @@ make clean             # Remove all build artifacts and temp files
 ```
 
 ### Testing Strategy
-- **Co-located Tests**: Each function has tests alongside implementation (functions/[Function]/test_*.py)
-- **Unit Tests**: Required for all business logic functions (pytest -m unit)
+- **Co-located Tests**: Each container service has tests alongside implementation (containers/[Service]/test_*.py)
+- **Unit Tests**: Required for all business logic services (pytest -m unit)
 - **Integration Tests**: Automated testing against staging environment (pytest -m integration)
-- **Function Tests**: Test complete function behavior with mocks (pytest -m function)
+- **Service Tests**: Test complete service behavior with mocks (pytest -m service)
 - **Security Testing**: Comprehensive scanning with multiple tools
 - **Cost Validation**: Impact analysis for all infrastructure changes
 - **End-to-End**: Full pipeline testing from Reddit → published articles
@@ -297,14 +289,14 @@ make clean             # Remove all build artifacts and temp files
 Azure automatically adds properties to resources that must be explicitly defined in Terraform to prevent unnecessary updates on every deployment:
 
 #### Key Vault Secrets
-- Always include `content_type = "function-key"` for function keys
+- Always include `content_type = "text/plain"` for API keys and secrets
 - Include Azure's automatic `file-encoding = "utf-8"` tag
 - Use `lifecycle.ignore_changes` for properties updated by deployment processes
 
-#### Function Apps
+#### Container Apps
 - Explicitly define `APPINSIGHTS_INSTRUMENTATIONKEY` and `APPLICATIONINSIGHTS_CONNECTION_STRING`
-- Use lifecycle rules to ignore `WEBSITE_RUN_FROM_PACKAGE` changes during deployments
-- Define all app settings that Azure adds automatically
+- Use lifecycle rules to ignore container image changes during deployments
+- Define all environment variables that Azure adds automatically
 
 #### Storage Accounts
 - Always include explicit `network_rules` block even if using defaults:
@@ -328,7 +320,7 @@ Azure automatically adds properties to resources that must be explicitly defined
 ## Technology Stack & Current Architecture
 
 ### Platform & Infrastructure
-- **Cloud Platform**: Microsoft Azure (Functions, Key Vault, Storage, Application Insights)
+- **Cloud Platform**: Microsoft Azure (Container Apps, Key Vault, Storage, Application Insights)
 - **Infrastructure as Code**: Terraform with state management and workspace separation
 - **Authentication**: OIDC integration for secure credential management
 - **Secrets Management**: Azure Key Vault with environment-specific access controls
@@ -336,21 +328,21 @@ Azure automatically adds properties to resources that must be explicitly defined
 
 ### Application Architecture
 - **Event-Driven Pipeline**: Timer → HTTP → Blob triggers for content processing
-- **Serverless Functions**: Azure Functions with Python runtime
+- **Containerized Services**: Azure Container Apps with Python runtime
 - **Content Flow**: Reddit → Collection → Ranking → Enrichment → Publication
 - **Data Storage**: JSON-based intermediate storage with blob triggers
 - **Static Site**: Eleventy (11ty) for article publication and site generation
 
-### Current Functions (Production Ready)
-- **GetHotTopics**: Timer-triggered (6 hours) Reddit topic collection
-- **SummaryWomble**: HTTP-triggered with async job processing system  
+### Current Services (Container-Based)
+- **ContentCollector**: Timer-triggered (6 hours) Reddit topic collection
+- **ContentProcessor**: HTTP-triggered with async job processing system  
 - **ContentRanker**: Blob-triggered functional ranking with comprehensive scoring
-- **ContentEnricher**: [Next Implementation] - Research and fact-checking
+- **ContentEnricher**: [Implementation Complete] - Research and fact-checking
 - **ContentPublisher**: [Next Implementation] - Markdown generation with frontmatter
 
 ### Development Environment
 - **Container**: Dev container with pre-configured tools and dependencies
-- **IDE**: VS Code with Azure Functions, Python, and Terraform extensions
+- **IDE**: VS Code with Container Apps, Python, and Terraform extensions
 - **CLI Tools**: Azure CLI, Terraform, GitHub CLI, Docker CLI pre-installed
 - **Security Tools**: Checkov, Trivy, Terrascan for comprehensive scanning
 - **Cost Tools**: Infracost for impact analysis and budget governance
@@ -360,18 +352,19 @@ Azure automatically adds properties to resources that must be explicitly defined
 ### Business Objective
 Automated AI content farm that transforms trending Reddit topics into high-quality, SEO-optimized articles for content marketing and traffic generation.
 
-### Current Status: Event-Driven Content Pipeline
-- ✅ **Infrastructure**: Terraform-managed Azure resources with OIDC auth
-- ✅ **Collection**: Automated Reddit topic harvesting every 6 hours
+### Current Status: Containerized Content Pipeline
+- ✅ **Infrastructure**: Terraform-managed Azure resources with OIDC auth (Azure Functions removed)
+- ✅ **Containers**: Content processing services containerized and ready for deployment
 - ✅ **Processing**: Async job system with comprehensive topic ranking
 - ✅ **Security**: Multi-tool scanning pipeline with governance controls
-- 🚧 **Enrichment**: Research and fact-checking implementation in progress
+- ✅ **Migration**: Azure Functions infrastructure successfully removed
+- 🚧 **Container Deployment**: Container deployment workflows need implementation
 - 🚧 **Publication**: Markdown article generation with SEO optimization
 
-### Immediate Priorities (Q3 2025)
-1. **Complete ContentEnricher Function**: Implement research and fact-checking
-2. **Complete ContentPublisher Function**: Generate SEO-optimized markdown articles
-3. **End-to-End Pipeline Testing**: Validate complete Reddit → published flow
+### Immediate Priorities (Q4 2025)
+1. **Container Deployment Workflows**: Implement Azure Container Apps deployment
+2. **Complete ContentPublisher Service**: Generate SEO-optimized markdown articles
+3. **End-to-End Pipeline Testing**: Validate complete Reddit → published flow in containers
 4. **Production Hardening**: Monitor performance, costs, and reliability
 5. **Content Quality Controls**: Implement editorial review and approval workflows
 
@@ -384,7 +377,7 @@ Automated AI content farm that transforms trending Reddit topics into high-quali
 - **`.gitignore`** - Comprehensive exclusions for security and build artifacts
 
 ### Critical Directories
-- **`/functions/`** - Azure Functions application code (main business logic)
+- **`/containers/`** - Containerized services application code (main business logic)
 - **`/infra/`** - Terraform infrastructure (bootstrap + application separation)
 - **`/docs/`** - ALL detailed documentation (system design, deployment guides, etc.)
 - **`/content_processor/`** - Local content processing pipeline for development
@@ -405,7 +398,7 @@ Automated AI content farm that transforms trending Reddit topics into high-quali
 When users use these phrases, automatically interact with GitHub Issues:
 
 ### Starting Work
-- **"Start function standardization"** → Check/create issues for remaining functions
+- **"Start service standardization"** → Check/create issues for remaining services
 - **"Begin content pipeline work"** → Create issues for ContentPublisher and end-to-end testing  
 - **"Work on infrastructure"** → Create targeted infrastructure improvement issues
 - **"Continue: [phase name]"** → Check existing issues in that phase, create if missing
@@ -418,13 +411,13 @@ When users use these phrases, automatically interact with GitHub Issues:
 ### Status Queries
 - **"What issues are open?"** → List current issues by priority/label
 - **"What's next?"** → Check open issues, suggest highest priority items
-- **"Show me function standardization progress"** → List issues with that label
+- **"Show me service standardization progress"** → List issues with that label
 
 ## Common Tasks - Development Priority Order
 
-### 1. Function Development & Deployment (Highest Priority)
+### 1. Container Development & Deployment (Highest Priority)
 ```bash
-make verify-functions    # Validate function code and configuration
+make verify-containers   # Validate container code and configuration
 make deploy-staging     # Deploy to staging for testing
 make test-staging       # Run integration tests
 make deploy-production  # Deploy to production (main branch only)
