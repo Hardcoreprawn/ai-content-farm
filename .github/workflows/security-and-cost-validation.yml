@@ -1,17 +1,14 @@
-# This workflow provides comprehensive security and cost validation for ALL changes
-# It runs on every commit/PR to ensure security posture regardless of file changes
+# This workflow provides comprehensive security and cost validation for PR changes
+# Production deployments use the integrated security validation in production-deployment.yml
 name: Security and Cost Validation
 
 on:
-  # Run on main branch pushes (production)
-  push:
-    branches: [ main ]
-  # Run on pull requests targeting main
+  # Run on pull requests targeting main (pre-merge validation)
   pull_request:
     branches: [ main ]
-  # Allow manual triggers
+  # Allow manual triggers for ad-hoc security checks
   workflow_dispatch:
-  # Run weekly for dependency updates
+  # Run weekly for dependency updates and periodic security audits
   schedule:
     - cron: '0 2 * * 1'  # Monday 2 AM UTC
 
