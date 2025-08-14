@@ -5,13 +5,13 @@ on:
     branches: [ main, develop ]
     paths: 
       - 'infra/**'
-      - 'azure-function-deploy/**'
+      - 'containers/**'
       - '.github/workflows/**'
   pull_request:
     branches: [ main ]
     paths:
       - 'infra/**'
-      - 'azure-function-deploy/**'
+      - 'containers/**'
 
 jobs:
   security-scan:
@@ -133,10 +133,19 @@ jobs:
       run: |
         curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b /usr/local/bin
 
-    - name: Generate Python SBOM
+    - name: Generate Container SBOM
       run: |
-        cd azure-function-deploy
-        syft . -o json=sbom-python.json
+        # Generate SBOM for container services
+        cd containers
+        if [ -d content-collector ]; then
+          cd content-collector && syft . -o json=sbom-content-collector.json && cd ..
+        fi
+        if [ -d content-enricher ]; then
+          cd content-enricher && syft . -o json=sbom-content-enricher.json && cd ..
+        fi
+        if [ -d content-processor ]; then
+          cd content-processor && syft . -o json=sbom-content-processor.json && cd ..
+        fi
 
     - name: Generate Node.js SBOM
       run: |
@@ -151,7 +160,7 @@ jobs:
       with:
         name: software-bill-of-materials
         path: |
-          azure-function-deploy/sbom-python.json
+          containers/*/sbom-*.json
           sbom-nodejs.json
         retention-days: 90
 

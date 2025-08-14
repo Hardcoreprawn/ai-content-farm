@@ -1,22 +1,11 @@
-name: Parallel Security & Cost Analys    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+name: Parallel Security & Cost Analysis
 
-    - name: Azure Login (for Key Vault access)
-      if: matrix.scanner.name == 'infracost'
-      uses: azure/login@v1
-      with:
-        creds: ${{ secrets.AZURE_CREDENTIALS }}
-
-    - name: Setup Python (if needed)
-      if: matrix.scanner.name == 'python'
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11' push:
+on:
+  push:
     branches: [ main, develop ]
     paths: 
       - 'infra/**'
-      - 'azure-function-deploy/**'
+      - 'containers/**'
       - '.github/workflows/**'
       - '**/*.py'
       - 'requirements.txt'
@@ -25,7 +14,7 @@ name: Parallel Security & Cost Analys    steps:
     branches: [ main ]
     paths:
       - 'infra/**'
-      - 'azure-function-deploy/**'
+      - 'containers/**'
       - '**/*.py'
       - 'requirements.txt'
       - '**/requirements.txt'
