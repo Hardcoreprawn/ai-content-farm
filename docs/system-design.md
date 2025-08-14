@@ -76,7 +76,7 @@ functions/
 
 #### Security Scanning Pipeline
 - **Checkov**: Infrastructure security scanning
-- **TFSec**: Terraform-specific security checks
+- **Trivy**: Terraform-specific security checks
 - **Terrascan**: Policy compliance validation
 - **SBOM Generation**: Software Bill of Materials with Syft
 - **Cost Analysis**: Infracost for deployment cost estimation

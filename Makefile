@@ -1,6 +1,11 @@
 # Makefile for AI Content Farm Project
 
-.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format apply verify destroy security-scan cost-estimate sbom tfsec terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles
+.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-con		else \
+			echo "💰 Generating cost breakdown with pricing..."; \
+			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format json --out-file /workspace/infracost-base.json; \
+			echo "📊 Displaying cost summary..."; \
+			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format table; \
+			echo "📋 Generating HTML report..."; \ank-topics enrich-content publish-articles content-status cleanup-articles scan-containers
 
 help:
 	@echo "Available targets:"
@@ -11,9 +16,25 @@ help:
 	@echo "  deploy-functions - Deploy Azure Functions after verification"
 	@echo "  test-womble      - Test the HTTP Summary Womble function"
 	@echo "  test-womble-verbose - Test the HTTP Summary Womble with verbose output"
-	@echo "  security-scan    - Run comprehensive security scanning (Checkov, TFSec, Terrascan)"
-	@echo "  cost-estimate    - Generate cost estimates with Infracost"
-	@echo "  sbom             - Generate Software Bill of Materials"
+	@echo ""
+	@echo "Security & Cost Analysis (Containerized & Cached):"
+	@echo "  trivy           - Scan infrastructure configuration with Trivy"
+	@echo "  checkov         - Validate Terraform with Checkov best practices"
+	@echo "  terrascan       - Static analysis with Terrascan policies (full scan)"
+	@echo "  terrascan-fast  - Fast Terrascan scan (HIGH severity only)"
+	@echo "  scan-python     - Comprehensive Python security scanning (Safety, Semgrep, Trivy)"
+	@echo "  scan-containers - Scan container images for vulnerabilities"
+	@echo "  cost-estimate   - Full cost analysis with Infracost (auto Key Vault integration)"
+	@echo "  infracost-parallel - Streamlined cost analysis for CI/CD pipelines"
+	@echo "  scan-all        - Run all security and cost analysis sequentially"
+	@echo "  scan-parallel   - Run all analysis in parallel (faster for CI/CD)"
+	@echo "  security-scan   - Alias for scan-parallel (GitHub Actions compatibility)"
+	@echo "  cache-pull      - Pre-pull all analysis container images"
+	@echo "  cache-clean     - Clean analysis caches and results"
+	@echo ""
+	@echo "Infrastructure:"
+	@echo "  cost-estimate   - Generate cost estimates with Infracost (bootstrap/env Key Vault)"
+	@echo "  sbom            - Generate Software Bill of Materials"
 	@echo "  verify          - Run full verification pipeline (security, cost, compliance)"
 	@echo "  apply           - Deploy infrastructure after verification"
 	@echo "  destroy         - Destroy infrastructure"
@@ -29,6 +50,7 @@ help:
 	@echo ""
 	@echo "Key Vault integration:"
 	@echo "  setup-keyvault   - Configure secrets in Azure Key Vault"
+	@echo "  setup-infracost  - Store Infracost API key in bootstrap/environment Key Vault"
 	@echo "  get-secrets      - Retrieve secrets from Key Vault for local development"
 	@echo "  validate-secrets - Validate Key Vault secret configuration"
 	@echo ""
@@ -60,76 +82,221 @@ terraform-plan:
 
 checkov:
 	@echo "🔒 Running Checkov security scan..."
-	~/.local/bin/checkov -d infra --quiet --compact --output cli --output json --output-file-path infra/checkov-results.json
-	@echo "🔒 Running Checkov on Azure Functions..."
-	~/.local/bin/checkov -d azure-function-deploy --quiet --compact
-
-# Enhanced security scanning with multiple tools
-tfsec:
-	@echo "🔐 Running TFSec security scanner..."
-	@if command -v tfsec >/dev/null 2>&1; then \
-		cd infra && tfsec . --format json --out tfsec-results.json --soft-fail; \
-		echo "✅ TFSec scan completed"; \
+	@if command -v docker >/dev/null 2>&1; then \
+		if ! docker images bridgecrew/checkov:latest -q | grep -q .; then \
+			echo "📥 Pulling Checkov image (first time or outdated)..."; \
+			docker pull bridgecrew/checkov:latest; \
+		fi; \
+		docker run --rm -v $(PWD):/workspace -v checkov-cache:/root/.cache bridgecrew/checkov:latest -d /workspace/infra --quiet --compact --output json > infra/checkov-results.json; \
+		echo "🔒 Running Checkov on Azure Functions..."; \
+		docker run --rm -v $(PWD):/workspace -v checkov-cache:/root/.cache bridgecrew/checkov:latest -d /workspace/azure-function-deploy --quiet --compact || true; \
 	else \
-		echo "⚠️  TFSec not installed. Installing..."; \
-		curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash; \
-		cd infra && tfsec . --format json --out tfsec-results.json --soft-fail; \
+		echo "⚠️  Docker not available. Please install Docker to run Checkov"; \
+		exit 1; \
+	fi
+
+# Enhanced security scanning with multiple tools - optimized with caching
+trivy:
+	@echo "🔐 Running Trivy security scanner..."
+	@if command -v docker >/dev/null 2>&1; then \
+		if ! docker images aquasec/trivy:latest -q | grep -q .; then \
+			echo "📥 Pulling Trivy image (first time or outdated)..."; \
+			docker pull aquasec/trivy:latest; \
+		fi; \
+		docker run --rm -v $(PWD):/workspace -v trivy-cache:/root/.cache/trivy aquasec/trivy:latest config /workspace/infra --format json --output /workspace/infra/trivy-results.json --exit-code 0; \
+		echo "✅ Trivy scan completed"; \
+	else \
+		echo "⚠️  Docker not available. Please install Docker to run Trivy"; \
+		exit 1; \
 	fi
 
 terrascan:
 	@echo "🔍 Running Terrascan policy scanner..."
-	@if command -v terrascan >/dev/null 2>&1; then \
-		cd infra && terrascan scan -i terraform --output json > terrascan-results.json || true; \
-		echo "✅ Terrascan scan completed"; \
+	@if command -v docker >/dev/null 2>&1; then \
+		if ! docker images tenable/terrascan:latest -q | grep -q .; then \
+			echo "📥 Pulling Terrascan image (first time or outdated)..."; \
+			docker pull tenable/terrascan:latest; \
+		fi; \
+		echo "🔍 Scanning infrastructure files with Terrascan..."; \
+		echo "📁 Target directory: infra/ (excluding subdirectories)"; \
+		echo "⏳ Scanning for security policy violations..."; \
+		docker run --rm -v $$(pwd):/workspace tenable/terrascan:latest scan -i terraform -d /workspace/infra --non-recursive --verbose --output human; \
+		echo "💾 Generating JSON report..."; \
+		docker run --rm -v $$(pwd):/workspace tenable/terrascan:latest scan -i terraform -d /workspace/infra --non-recursive --output json > infra/terrascan-results.json 2>/dev/null || echo "⚠️  JSON report generation completed with warnings"; \
+		echo "✅ Terrascan scan completed - results saved to infra/terrascan-results.json"; \
 	else \
-		echo "⚠️  Terrascan not installed. Installing..."; \
-		LATEST_URL=$$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.*Linux_x86_64.tar.gz" | head -1); \
-		curl -L "$$LATEST_URL" > terrascan.tar.gz; \
-		tar -xf terrascan.tar.gz terrascan && rm terrascan.tar.gz; \
-		sudo mv terrascan /usr/local/bin; \
-		cd infra && terrascan scan -i terraform --output json > terrascan-results.json || true; \
+		echo "⚠️  Docker not available. Please install Docker to run Terrascan"; \
+		exit 1; \
 	fi
 
-# Comprehensive security scan combining all tools
-security-scan: checkov tfsec terrascan
-	@echo "📊 Generating security scan summary..."
-	@echo "🔒 Security Scan Results Summary:" > infra/security-summary.txt
-	@echo "=================================" >> infra/security-summary.txt
-	@echo "" >> infra/security-summary.txt
-	@echo "Checkov Issues:" >> infra/security-summary.txt
+# Fast Terrascan scan with just medium/high issues
+terrascan-fast:
+	@echo "⚡ Running Terrascan fast scan (MEDIUM/HIGH only)..."
+	@if command -v docker >/dev/null 2>&1; then \
+		if ! docker images tenable/terrascan:latest -q | grep -q .; then \
+			echo "📥 Pulling Terrascan image..."; \
+			docker pull tenable/terrascan:latest; \
+		fi; \
+		echo "🔍 Fast scanning infrastructure with Terrascan..."; \
+		docker run --rm -v $$(pwd):/workspace tenable/terrascan:latest scan -i terraform -d /workspace/infra --non-recursive --severity HIGH --verbose --output human || echo "⚠️ No HIGH severity issues found"; \
+		echo "✅ Fast Terrascan scan completed"; \
+	else \
+		echo "⚠️  Docker not available. Please install Docker to run Terrascan"; \
+		exit 1; \
+	fi
+
+# Comprehensive security and cost analysis (sequential)
+scan-all: checkov trivy terrascan scan-python cost-estimate
+	@echo "📊 Generating comprehensive security and cost analysis summary..."
+	@$(MAKE) scan-summary
+
+# Parallel security and cost analysis for faster CI/CD execution
+scan-parallel:
+	@echo "🚀 Running security and cost analysis in parallel..."
+	@echo "Starting parallel analysis at $$(date)"
+	@$(MAKE) -j5 checkov trivy terrascan scan-python infracost-parallel || echo "⚠️ Some scans completed with warnings"
+	@echo "📊 Generating comprehensive analysis summary..."
+	@$(MAKE) scan-summary
+
+# Legacy target for GitHub Actions compatibility
+security-scan: scan-parallel
+
+# Generate security summary report
+scan-summary:
+	@echo "🔒 Security Scan Results Summary:" > security-summary.txt
+	@echo "=================================" >> security-summary.txt
+	@echo "Generated on: $$(date)" >> security-summary.txt
+	@echo "" >> security-summary.txt
+	@echo "Infrastructure Security:" >> security-summary.txt
+	@echo "----------------------" >> security-summary.txt
+	@echo "Checkov Issues:" >> security-summary.txt
 	@if [ -f infra/checkov-results.json ]; then \
-		jq -r '.summary.failed' infra/checkov-results.json >> infra/security-summary.txt 2>/dev/null || echo "Failed to parse Checkov results" >> infra/security-summary.txt; \
+		jq -r '.summary.failed' infra/checkov-results.json >> security-summary.txt 2>/dev/null || echo "Failed to parse Checkov results" >> security-summary.txt; \
 	fi
-	@echo "" >> infra/security-summary.txt
-	@echo "TFSec Issues:" >> infra/security-summary.txt
-	@if [ -f infra/tfsec-results.json ]; then \
-		jq -r '.results | length' infra/tfsec-results.json >> infra/security-summary.txt 2>/dev/null || echo "Failed to parse TFSec results" >> infra/security-summary.txt; \
+	@echo "" >> security-summary.txt
+	@echo "Trivy Issues:" >> security-summary.txt
+	@if [ -f infra/trivy-results.json ]; then \
+		jq -r '[.Results[]?.Misconfigurations[]?] | length' infra/trivy-results.json >> security-summary.txt 2>/dev/null || echo "Failed to parse Trivy results" >> security-summary.txt; \
 	fi
-	@echo "" >> infra/security-summary.txt
-	@echo "Terrascan Issues:" >> infra/security-summary.txt
+	@echo "" >> security-summary.txt
+	@echo "Terrascan Issues:" >> security-summary.txt
 	@if [ -f infra/terrascan-results.json ]; then \
-		jq -r '.results.violations | length' infra/terrascan-results.json >> infra/security-summary.txt 2>/dev/null || echo "Failed to parse Terrascan results" >> infra/security-summary.txt; \
+		jq -r '.results.violations | length' infra/terrascan-results.json >> security-summary.txt 2>/dev/null || echo "Failed to parse Terrascan results" >> security-summary.txt; \
 	fi
-	@echo "📊 Security scan complete. Check infra/security-summary.txt for results"
+	@echo "" >> security-summary.txt
+	@echo "Python Security:" >> security-summary.txt
+	@echo "---------------" >> security-summary.txt
+	@echo "Safety Vulnerabilities:" >> security-summary.txt
+	@if [ -f python-safety-results.json ]; then \
+		jq -r 'length' python-safety-results.json >> security-summary.txt 2>/dev/null || echo "No vulnerabilities found" >> security-summary.txt; \
+	fi
+	@echo "" >> security-summary.txt
+	@echo "Semgrep Issues:" >> security-summary.txt
+	@if [ -f python-semgrep-results.json ]; then \
+		jq -r '.results | length' python-semgrep-results.json >> security-summary.txt 2>/dev/null || echo "No issues found" >> security-summary.txt; \
+	fi
+	@echo "" >> security-summary.txt
+	@echo "Cost Analysis:" >> security-summary.txt
+	@echo "-------------" >> security-summary.txt
+	@if [ -f infra/infracost-results.json ]; then \
+		echo "Infracost Analysis:" >> security-summary.txt; \
+		jq -r '.totalMonthlyCost // "Cost data not available"' infra/infracost-results.json >> security-summary.txt 2>/dev/null || echo "Cost analysis completed" >> security-summary.txt; \
+	else \
+		echo "Cost analysis not available" >> security-summary.txt; \
+	fi
+	@echo "📊 Comprehensive security and cost analysis complete. Check security-summary.txt for results"
 
-# Cost estimation with Infracost
+# Cache management for security tools
+cache-pull:
+	@echo "📥 Pre-pulling all security and cost analysis images..."
+	@if command -v docker >/dev/null 2>&1; then \
+		docker pull aquasec/trivy:latest; \
+		docker pull bridgecrew/checkov:latest; \
+		docker pull tenable/terrascan:latest; \
+		docker pull pyupio/safety:latest; \
+		docker pull returntocorp/semgrep:latest; \
+		docker pull infracost/infracost:latest; \
+		echo "✅ All security and cost analysis images cached locally"; \
+	else \
+		echo "⚠️  Docker not available"; \
+	fi
+
+cache-clean:
+	@echo "🧹 Cleaning security scan caches and results..."
+	@docker volume rm trivy-cache checkov-cache 2>/dev/null || true
+	@rm -f infra/*-results.json infra/infracost-*.json infra/infracost-*.html python-*-results.json security-summary.txt 2>/dev/null || true
+	@echo "✅ Caches and results cleaned"
+
+# Container image security scanning
+scan-containers:
+	@echo "🐳 Scanning container images for vulnerabilities..."
+	@if command -v docker >/dev/null 2>&1; then \
+		echo "🔍 Scanning available container images..."; \
+		for image in $$(docker images --format "{{.Repository}}:{{.Tag}}" | grep -v "<none>" | head -10); do \
+			echo "Scanning $$image..."; \
+			docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v trivy-cache:/root/.cache/trivy aquasec/trivy:latest image $$image --severity HIGH,CRITICAL --format table || true; \
+		done; \
+	else \
+		echo "⚠️  Docker not available. Cannot scan container images"; \
+	fi
+
+# Python security scanning with multiple tools
+scan-python:
+	@echo "🐍 Running Python security scans..."
+	@if command -v docker >/dev/null 2>&1; then \
+		echo "� Running Safety for dependency vulnerabilities..."; \
+		if ! docker images pyupio/safety:latest -q | grep -q .; then \
+			echo "📥 Pulling Python security scanning images..."; \
+			docker pull pyupio/safety:latest; \
+		fi; \
+		docker run --rm -v $(PWD):/workspace pyupio/safety:latest check --json --file /workspace/requirements.txt > python-safety-results.json 2>/dev/null || echo "No requirements.txt or vulnerabilities found"; \
+		echo "🔍 Running Semgrep for code security analysis..."; \
+		if ! docker images returntocorp/semgrep:latest -q | grep -q .; then \
+			docker pull returntocorp/semgrep:latest; \
+		fi; \
+		docker run --rm -v $(PWD):/src returntocorp/semgrep:latest semgrep --config=auto --json --output=/src/python-semgrep-results.json /src || true; \
+		echo "🔐 Running Trivy filesystem scan for Python dependencies..."; \
+		docker run --rm -v $(PWD):/workspace -v trivy-cache:/root/.cache/trivy aquasec/trivy:latest filesystem /workspace --skip-dirs .venv,node_modules,containers --scanners vuln --severity HIGH,CRITICAL --format json --output /workspace/python-trivy-results.json || true; \
+		echo "✅ Python security scans completed"; \
+	else \
+		echo "⚠️  Docker not available. Cannot run Python security scans"; \
+	fi
+
+# Cost estimation with Infracost (containerized)
 cost-estimate:
 	@echo "💰 Running cost estimation with Infracost..."
-	@if command -v infracost >/dev/null 2>&1; then \
+	@if command -v docker >/dev/null 2>&1; then \
+		if ! docker images infracost/infracost:latest -q | grep -q .; then \
+			echo "📥 Pulling Infracost image (first time or outdated)..."; \
+			docker pull infracost/infracost:latest; \
+		fi; \
 		if [ -z "$$INFRACOST_API_KEY" ]; then \
 			echo "🔑 Trying to retrieve Infracost API key from Key Vault..."; \
 			export ENVIRONMENT=$${ENVIRONMENT:-staging}; \
-			KEYVAULT_NAME=$$(az keyvault list --resource-group "ai-content-farm-$$ENVIRONMENT" --query "[0].name" -o tsv 2>/dev/null || echo ""); \
-			if [ -n "$$KEYVAULT_NAME" ]; then \
-				export INFRACOST_API_KEY=$$(az keyvault secret show --vault-name "$$KEYVAULT_NAME" --name "infracost-api-key" --query "value" -o tsv 2>/dev/null || echo ""); \
+			echo "🔍 Checking bootstrap Key Vault first..."; \
+			BOOTSTRAP_KEYVAULT=$$(az keyvault list --resource-group "ai-content-farm-bootstrap" --query "[0].name" -o tsv 2>/dev/null || echo ""); \
+			if [ -n "$$BOOTSTRAP_KEYVAULT" ]; then \
+				export INFRACOST_API_KEY=$$(az keyvault secret show --vault-name "$$BOOTSTRAP_KEYVAULT" --name "infracost-api-key" --query "value" -o tsv 2>/dev/null || echo ""); \
 				if [ -n "$$INFRACOST_API_KEY" ] && [ "$$INFRACOST_API_KEY" != "placeholder-get-from-infracost-io" ]; then \
-					echo "✅ Using Infracost API key from Key Vault"; \
+					echo "✅ Using Infracost API key from bootstrap Key Vault"; \
 				else \
-					echo "⚠️  Infracost API key not found in Key Vault."; \
-					INFRACOST_API_KEY=""; \
+					echo "⚠️  Infracost API key is placeholder in bootstrap Key Vault. Checking environment Key Vault..."; \
+					KEYVAULT_NAME=$$(az keyvault list --resource-group "ai-content-$$ENVIRONMENT-rg" --query "[0].name" -o tsv 2>/dev/null || echo ""); \
+					if [ -n "$$KEYVAULT_NAME" ]; then \
+						export INFRACOST_API_KEY=$$(az keyvault secret show --vault-name "$$KEYVAULT_NAME" --name "infracost-api-key" --query "value" -o tsv 2>/dev/null || echo ""); \
+						if [ -n "$$INFRACOST_API_KEY" ] && [ "$$INFRACOST_API_KEY" != "placeholder-get-from-infracost-io" ]; then \
+							echo "✅ Using Infracost API key from environment Key Vault"; \
+						else \
+							echo "⚠️  Infracost API key not found in environment Key Vault."; \
+							INFRACOST_API_KEY=""; \
+						fi; \
+					else \
+						echo "⚠️  Environment Key Vault not found (infrastructure not deployed yet)."; \
+						INFRACOST_API_KEY=""; \
+					fi; \
 				fi; \
 			else \
-				echo "⚠️  Key Vault not found (infrastructure not deployed yet)."; \
+				echo "⚠️  Bootstrap Key Vault not found."; \
 			fi; \
 		fi; \
 		if [ -z "$$INFRACOST_API_KEY" ]; then \
@@ -141,15 +308,17 @@ cost-estimate:
 			echo ""; \
 			echo "❌ Infracost API key required. Skipping cost estimation."; \
 		else \
-			cd infra && infracost breakdown --path . --format json --out-file infracost-base.json; \
-			infracost breakdown --path . --format table; \
-			infracost breakdown --path . --format html --out-file infracost-report.html; \
-			echo "✅ Cost estimation complete. See infracost-report.html for detailed breakdown"; \
+			echo "💰 Generating cost breakdown with Infracost..."; \
+			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format json --out-file /workspace/infracost-base.json; \
+			echo "📊 Displaying cost summary..."; \
+			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format table; \
+			echo "📋 Generating HTML report..."; \
+			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format html --out-file /workspace/infracost-report.html; \
+			echo "✅ Cost estimation complete. See infra/infracost-report.html for detailed breakdown"; \
 		fi; \
 	else \
-		echo "⚠️  Infracost not installed. Installing..."; \
-		curl -fsSL https://raw.githubusercontent.com/infracost/infracost/master/scripts/install.sh | sh; \
-		echo "After installation, set INFRACOST_API_KEY environment variable and retry"; \
+		echo "⚠️  Docker not available. Please install Docker to run Infracost"; \
+		exit 1; \
 	fi
 
 # Setup Infracost API key in Key Vault
@@ -163,16 +332,74 @@ setup-infracost:
 	@read -p "Enter your Infracost API key: " INFRACOST_KEY; \
 	if [ -n "$$INFRACOST_KEY" ]; then \
 		export ENVIRONMENT=$${ENVIRONMENT:-staging}; \
-		KEYVAULT_NAME=$$(az keyvault list --resource-group "ai-content-farm-$$ENVIRONMENT" --query "[0].name" -o tsv 2>/dev/null || echo ""); \
-		if [ -n "$$KEYVAULT_NAME" ]; then \
-			az keyvault secret set --vault-name "$$KEYVAULT_NAME" --name "infracost-api-key" --value "$$INFRACOST_KEY" > /dev/null; \
-			echo "✅ Infracost API key stored in Key Vault: $$KEYVAULT_NAME"; \
+		echo "🔍 Trying to store in bootstrap Key Vault first..."; \
+		BOOTSTRAP_KEYVAULT=$$(az keyvault list --resource-group "ai-content-farm-bootstrap" --query "[0].name" -o tsv 2>/dev/null || echo ""); \
+		if [ -n "$$BOOTSTRAP_KEYVAULT" ]; then \
+			az keyvault secret set --vault-name "$$BOOTSTRAP_KEYVAULT" --name "infracost-api-key" --value "$$INFRACOST_KEY" > /dev/null; \
+			echo "✅ Infracost API key stored in bootstrap Key Vault: $$BOOTSTRAP_KEYVAULT"; \
 		else \
-			echo "❌ Key Vault not found. Please deploy infrastructure first with 'make deploy-staging'"; \
-			echo "💡 For now, you can use: export INFRACOST_API_KEY=$$INFRACOST_KEY"; \
+			echo "⚠️  Bootstrap Key Vault not found. Trying environment Key Vault..."; \
+			KEYVAULT_NAME=$$(az keyvault list --resource-group "ai-content-$$ENVIRONMENT-rg" --query "[0].name" -o tsv 2>/dev/null || echo ""); \
+			if [ -n "$$KEYVAULT_NAME" ]; then \
+				az keyvault secret set --vault-name "$$KEYVAULT_NAME" --name "infracost-api-key" --value "$$INFRACOST_KEY" > /dev/null; \
+				echo "✅ Infracost API key stored in environment Key Vault: $$KEYVAULT_NAME"; \
+			else \
+				echo "❌ No Key Vault found. Please deploy infrastructure first with 'make deploy-staging'"; \
+				echo "💡 For now, you can use: export INFRACOST_API_KEY=$$INFRACOST_KEY"; \
+			fi; \
 		fi; \
 	else \
 		echo "❌ No API key provided"; \
+	fi
+
+# Streamlined Infracost for parallel execution in CI/CD
+infracost-parallel:
+	@echo "💰 Running Infracost cost analysis..."
+	@if command -v docker >/dev/null 2>&1; then \
+		if ! docker images infracost/infracost:latest -q | grep -q .; then \
+			echo "📥 Pulling Infracost image..."; \
+			docker pull infracost/infracost:latest; \
+		fi; \
+		if [ -z "$$INFRACOST_API_KEY" ]; then \
+			echo "🔑 Retrieving API key from Key Vault..."; \
+			export ENVIRONMENT=$${ENVIRONMENT:-staging}; \
+			echo "🔍 Checking bootstrap Key Vault first..."; \
+			BOOTSTRAP_KEYVAULT=$$(az keyvault list --resource-group "ai-content-farm-bootstrap" --query "[0].name" -o tsv 2>/dev/null || echo ""); \
+			if [ -n "$$BOOTSTRAP_KEYVAULT" ]; then \
+				export INFRACOST_API_KEY=$$(az keyvault secret show --vault-name "$$BOOTSTRAP_KEYVAULT" --name "infracost-api-key" --query "value" -o tsv 2>/dev/null || echo ""); \
+				if [ -n "$$INFRACOST_API_KEY" ] && [ "$$INFRACOST_API_KEY" != "placeholder-get-from-infracost-io" ]; then \
+					echo "✅ Retrieved Infracost API key from bootstrap Key Vault: $$BOOTSTRAP_KEYVAULT"; \
+				else \
+					echo "⚠️  Infracost API key is placeholder in bootstrap Key Vault. Checking environment Key Vault..."; \
+					KEYVAULT_NAME=$$(az keyvault list --resource-group "ai-content-$$ENVIRONMENT-rg" --query "[0].name" -o tsv 2>/dev/null || echo ""); \
+					if [ -n "$$KEYVAULT_NAME" ]; then \
+						export INFRACOST_API_KEY=$$(az keyvault secret show --vault-name "$$KEYVAULT_NAME" --name "infracost-api-key" --query "value" -o tsv 2>/dev/null || echo ""); \
+						if [ -n "$$INFRACOST_API_KEY" ] && [ "$$INFRACOST_API_KEY" != "placeholder-get-from-infracost-io" ]; then \
+							echo "✅ Retrieved Infracost API key from environment Key Vault: $$KEYVAULT_NAME"; \
+						else \
+							echo "⚠️  Infracost API key not found in environment Key Vault: $$KEYVAULT_NAME"; \
+							INFRACOST_API_KEY=""; \
+						fi; \
+					else \
+						echo "⚠️  Environment Key Vault not found in resource group ai-content-$$ENVIRONMENT-rg"; \
+						INFRACOST_API_KEY=""; \
+					fi; \
+				fi; \
+			else \
+				echo "⚠️  Bootstrap Key Vault not found in resource group ai-content-farm-bootstrap"; \
+			fi; \
+		fi; \
+		if [ -z "$$INFRACOST_API_KEY" ] || [ "$$INFRACOST_API_KEY" = "placeholder-get-from-infracost-io" ]; then \
+			echo "⚠️  Infracost API key not available. Generating cost breakdown without pricing..."; \
+			docker run --rm -v $$(pwd)/infra:/workspace infracost/infracost:latest breakdown --path /workspace --format json --out-file /workspace/infracost-results.json --no-color || echo "Cost analysis completed with limited data"; \
+		else \
+			echo "💰 Generating cost breakdown with pricing..."; \
+			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format json --out-file /workspace/infracost-results.json --no-color; \
+		fi; \
+		echo "✅ Infracost analysis completed - results saved to infra/infracost-results.json"; \
+	else \
+		echo "⚠️  Docker not available. Cannot run Infracost"; \
+		exit 1; \
 	fi
 
 # Help users get started with Infracost before deployment
@@ -354,7 +581,7 @@ infra:
 clean:
 	cd site && rm -rf node_modules _site
 	cd infra && rm -rf .terraform
-	cd infra && rm -rf *.json *.txt *.html tfsec terrascan
+	cd infra && rm -rf *.json *.txt *.html trivy terrascan
 	cd azure-function-deploy && rm -rf .python_packages __pycache__ GetHotTopics/__pycache__ SummaryWomble/__pycache__
 	cd azure-function-deploy && rm -f *.json
 	rm -f sbom-nodejs.json latest_tech.json
@@ -446,9 +673,9 @@ rollback-production:
 # Security validation for different environments
 security-scan-strict:
 	@echo "🔒 Running strict security scan for production..."
-	~/.local/bin/checkov -d infra --hard-fail-on HIGH,CRITICAL --quiet --compact
-	~/.local/bin/checkov -d azure-function-deploy --hard-fail-on HIGH,CRITICAL --quiet --compact
-	cd infra && tfsec . --minimum-severity HIGH
+	docker run --rm -v $(PWD):/workspace bridgecrew/checkov -d /workspace/infra --hard-fail-on HIGH,CRITICAL --quiet --compact
+	docker run --rm -v $(PWD):/workspace bridgecrew/checkov -d /workspace/azure-function-deploy --hard-fail-on HIGH,CRITICAL --quiet --compact
+	docker run --rm -v $(PWD):/workspace aquasec/trivy config /workspace/infra --severity HIGH,CRITICAL --exit-code 1
 	@echo "✅ Strict security validation passed"
 
 # Key Vault integration targets

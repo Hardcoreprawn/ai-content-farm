@@ -28,12 +28,10 @@ jobs:
         python-version: '3.11'
 
     - name: Install Checkov
-      run: pip install checkov
+      run: echo "Using Checkov Docker image - no installation needed"
 
-    - name: Install TFSec
-      run: |
-        curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
-        sudo mv tfsec /usr/local/bin/
+    - name: Install Trivy
+      run: echo "Using Trivy Docker image - no installation needed"
 
     - name: Install Terrascan
       run: |
@@ -72,9 +70,9 @@ jobs:
         if [ -f infra/checkov-results.json ]; then
           CRITICAL_ISSUES=$(jq -r '.summary.failed // 0' infra/checkov-results.json)
         fi
-        if [ -f infra/tfsec-results.json ]; then
-          TFSEC_CRITICAL=$(jq -r '[.results[] | select(.severity == "CRITICAL" or .severity == "HIGH")] | length' infra/tfsec-results.json)
-          CRITICAL_ISSUES=$((CRITICAL_ISSUES + TFSEC_CRITICAL))
+        if [ -f infra/trivy-results.json ]; then
+          TRIVY_CRITICAL=$(jq -r '[.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL" or .Severity == "HIGH")] | length' infra/trivy-results.json)
+          CRITICAL_ISSUES=$((CRITICAL_ISSUES + TRIVY_CRITICAL))
         fi
         
         echo "Critical security issues found: $CRITICAL_ISSUES"

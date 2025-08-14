@@ -1,2 +1,0 @@
-# Content Processing Pipeline Requirements
-requests>=2.31.0

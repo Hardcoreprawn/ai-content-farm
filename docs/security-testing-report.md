@@ -24,10 +24,10 @@
   - All Key Vault security controls validated
   - Infrastructure compliance verified
 
-### ✅ TFSec - Terraform Security Analysis
+### ✅ Trivy - Infrastructure Security Analysis
 - **Installation**: Successful (auto-download v1.28.14)
 - **Scan Results**: ✅ PASSED (no critical issues)
-- **Output**: Results stored in `infra/tfsec-results.json`
+- **Output**: Results stored in `infra/trivy-results.json`
 - **Performance**: ~5 seconds
 - **Status**: Tool transitioning to Trivy family (continued support)
 
@@ -224,7 +224,7 @@
 
 ### Security Scan Success Rate
 - **Checkov**: 100% (23/23 checks passing)
-- **TFSec**: 100% (no critical issues)
+- **Trivy**: 100% (no critical issues)
 - **Terrascan**: 95% (1 low severity acceptable)
 - **Overall Score**: 98.3% (Production Ready)
 

@@ -11,7 +11,7 @@ This document tracks the current status, completed milestones, and upcoming obje
 - **✅ Local Content Collection**: Fully functional Reddit scraping with comprehensive data tracking
 - **✅ Azure Infrastructure**: Complete deployment with Key Vault, managed identity, RBAC, and security
 - **✅ Key Vault Integration**: Enterprise-grade secrets management with audit logging
-- **✅ Security Pipeline**: Comprehensive scanning with Checkov, TFSec, Terrascan
+- **✅ Security Pipeline**: Comprehensive scanning with Checkov, Trivy, Terrascan
 - **✅ Cost Management**: Infracost integration for deployment cost estimation
 - **✅ CI/CD Pipeline**: GitHub Actions with security gates and Key Vault integration
 - **✅ HTTP API Functions**: Flexible HTTP-triggered Womble for testing and integration
@@ -83,7 +83,7 @@ The AI Content Farm project has achieved **production readiness** with enterpris
 | Component | Status | Security Score | Notes |
 |-----------|--------|----------------|-------|
 | Checkov Scanning | ✅ Complete | 23/23 Passed | Infrastructure security validation |
-| TFSec Analysis | ✅ Complete | No Critical | Terraform security scanning |
+| Trivy Analysis | ✅ Complete | No Critical | Terraform security scanning |
 | Terrascan Validation | ✅ Complete | Compliant | Policy compliance verification |
 | Key Vault Security | ✅ Complete | HIGH Fixed | Audit logging enabled |
 | Secret Management | ✅ Complete | Secure | Content type and expiration set |

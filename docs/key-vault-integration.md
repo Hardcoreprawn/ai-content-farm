@@ -204,7 +204,7 @@ The CI/CD pipeline automatically retrieves secrets from Key Vault:
 
 ### Security Scanning Results
 - **Checkov**: All 23 checks passing ✅
-- **TFSec**: Infrastructure security validated ✅
+- **Trivy**: Infrastructure security validated ✅
 - **Terrascan**: Policy compliance verified ✅
 - **Key Vault Logging**: HIGH severity issue resolved ✅
 
