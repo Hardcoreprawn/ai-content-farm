@@ -57,17 +57,7 @@ resource "azurerm_key_vault_access_policy" "current_user" {
   ]
 }
 
-# Key Vault access policy for Function App managed identity
-resource "azurerm_key_vault_access_policy" "function_app" {
-  key_vault_id = azurerm_key_vault.main.id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = azurerm_linux_function_app.main.identity[0].principal_id
 
-  secret_permissions = [
-    "Get",
-    "List"
-  ]
-}
 
 # Key Vault diagnostic settings for security compliance
 resource "azurerm_monitor_diagnostic_setting" "key_vault" {
@@ -195,65 +185,11 @@ resource "azurerm_storage_container" "topics" {
 }
 
 
-resource "azurerm_service_plan" "main" {
-  # checkov:skip=CKV_AZURE_212: Not applicable to consumption plan
-  # checkov:skip=CKV_AZURE_225: Not applicable to consumption plan
-  name                = "${var.resource_prefix}-plan"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  os_type             = "Linux"
-  sku_name            = "Y1"
-}
 
-resource "azurerm_linux_function_app" "main" {
-  # checkov:skip=CKV_AZURE_221: Public access is acceptable for this use case
-  # checkov:skip=CKV_AZURE_97: No authentication required for this use case
-  name                        = "${var.resource_prefix}-func"
-  location                    = azurerm_resource_group.main.location
-  resource_group_name         = azurerm_resource_group.main.name
-  service_plan_id             = azurerm_service_plan.main.id
-  storage_account_name        = azurerm_storage_account.main.name
-  storage_account_access_key  = azurerm_storage_account.main.primary_access_key
-  functions_extension_version = "~4"
-  https_only                  = true
 
-  identity {
-    type = "SystemAssigned"
-  }
 
-  app_settings = {
-    AzureWebJobsStorage                   = azurerm_storage_account.main.primary_connection_string
-    OUTPUT_CONTAINER                      = azurerm_storage_container.topics.name
-    OUTPUT_STORAGE_ACCOUNT                = azurerm_storage_account.main.name
-    FUNCTIONS_WORKER_RUNTIME              = "python"
-    WEBSITE_RUN_FROM_PACKAGE              = "1"
-    APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.main.instrumentation_key
-    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.main.connection_string
-  }
-  #zip_deploy_file = filebase64("${path.module}/function.zip")
-  site_config {
-    application_insights_connection_string = azurerm_application_insights.main.connection_string
-    application_insights_key               = azurerm_application_insights.main.instrumentation_key
-    application_stack {
-      python_version = "3.11"
-    }
-  }
-}
 
-# Role assignments for managed identity
-resource "azurerm_role_assignment" "storage_blob_data_contributor" {
-  scope                = azurerm_storage_account.main.id
-  role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = azurerm_linux_function_app.main.identity[0].principal_id
-  depends_on           = [azurerm_linux_function_app.main]
-}
 
-resource "azurerm_role_assignment" "storage_account_contributor" {
-  scope                = azurerm_storage_account.main.id
-  role_definition_name = "Storage Account Contributor"
-  principal_id         = azurerm_linux_function_app.main.identity[0].principal_id
-  depends_on           = [azurerm_linux_function_app.main]
-}
 
 # Optionally add Cognitive Account and Key Vault secret if OpenAI integration is needed
 # resource "azurerm_cognitive_account" "openai" { ... }

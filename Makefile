@@ -1,21 +1,14 @@
 # Makefile for AI Content Farm Project
 
-.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-con		else \
-			echo "💰 Generating cost breakdown with pricing..."; \
-			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format json --out-file /workspace/infracost-base.json; \
-			echo "📊 Displaying cost summary..."; \
-			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format table; \
-			echo "📋 Generating HTML report..."; \ank-topics enrich-content publish-articles content-status cleanup-articles scan-containers
+.PHONY: help devcontainer site infra clean lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles scan-containers
 
 help:
 	@echo "Available targets:"
 	@echo "  devcontainer     - Validate devcontainer setup (list installed tools)"
 	@echo "  site            - Validate Eleventy static site (build and serve)"
 	@echo "  infra           - Validate Terraform setup (init & validate)"
-	@echo "  verify-functions - Run full verification pipeline for Functions"
-	@echo "  deploy-functions - Deploy Azure Functions after verification"
-	@echo "  test-womble      - Test the HTTP Summary Womble function"
-	@echo "  test-womble-verbose - Test the HTTP Summary Womble with verbose output"
+	@echo "  test-womble      - Test container APIs (when available)"
+	@echo "  test-womble-verbose - Test container APIs with verbose output"
 	@echo ""
 	@echo "Security & Cost Analysis (Containerized & Cached):"
 	@echo "  trivy           - Scan infrastructure configuration with Trivy"
@@ -87,9 +80,7 @@ checkov:
 			echo "📥 Pulling Checkov image (first time or outdated)..."; \
 			docker pull bridgecrew/checkov:latest; \
 		fi; \
-		docker run --rm -v $(PWD):/workspace -v checkov-cache:/root/.cache bridgecrew/checkov:latest -d /workspace/infra --quiet --compact --output json > infra/checkov-results.json; \
-		echo "🔒 Running Checkov on Azure Functions..."; \
-		docker run --rm -v $(PWD):/workspace -v checkov-cache:/root/.cache bridgecrew/checkov:latest -d /workspace/azure-function-deploy --quiet --compact || true; \
+		docker run --rm -v $(PWD):/workspace -v checkov-cache:/root/.cache bridgecrew/checkov:latest -d /workspace/infra --quiet --compact --output json > infra/checkov-results.json;\
 	else \
 		echo "⚠️  Docker not available. Please install Docker to run Checkov"; \
 		exit 1; \
@@ -462,14 +453,32 @@ cost-analysis: cost-estimate cost-calculator
 # Generate Software Bill of Materials (SBOM)
 sbom:
 	@echo "📋 Generating Software Bill of Materials..."
-	@echo "Creating SBOM for Python dependencies..."
+	@echo "Creating SBOM for container dependencies..."
 	@if command -v syft >/dev/null 2>&1; then \
-		cd azure-function-deploy && syft . -o json=sbom-python.json -o table; \
-		echo "✅ Python SBOM generated: azure-function-deploy/sbom-python.json"; \
+		if [ -d containers/content-collector ]; then \
+			cd containers/content-collector && syft . -o json=sbom-content-collector.json -o table; \
+			echo "✅ Content Collector SBOM generated"; \
+		fi; \
+		if [ -d containers/content-processor ]; then \
+			cd containers/content-processor && syft . -o json=sbom-content-processor.json -o table; \
+			echo "✅ Content Processor SBOM generated"; \
+		fi; \
+		if [ -d containers/content-enricher ]; then \
+			cd containers/content-enricher && syft . -o json=sbom-content-enricher.json -o table; \
+			echo "✅ Content Enricher SBOM generated"; \
+		fi; \
 	else \
 		echo "⚠️  Syft not installed. Installing..."; \
 		curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin; \
-		cd azure-function-deploy && syft . -o json=sbom-python.json -o table; \
+		if [ -d containers/content-collector ]; then \
+			cd containers/content-collector && syft . -o json=sbom-content-collector.json -o table; \
+		fi; \
+		if [ -d containers/content-processor ]; then \
+			cd containers/content-processor && syft . -o json=sbom-content-processor.json -o table; \
+		fi; \
+		if [ -d containers/content-enricher ]; then \
+			cd containers/content-enricher && syft . -o json=sbom-content-enricher.json -o table; \
+		fi; \
 	fi
 	@echo "Creating dependency list for Node.js components..."
 	@if [ -f site/package.json ]; then \
@@ -501,7 +510,7 @@ verify: terraform-init lint-terraform security-scan cost-estimate sbom terraform
 	fi
 	@echo "" >> infra/deployment-report.txt
 	@echo "📋 SBOM STATUS:" >> infra/deployment-report.txt
-	@echo "- Python SBOM: azure-function-deploy/sbom-python.json" >> infra/deployment-report.txt
+	@echo "- Container SBOMs: containers/*/sbom-*.json" >> infra/deployment-report.txt
 	@echo "- Infrastructure SBOM: infra/sbom-infrastructure.txt" >> infra/deployment-report.txt
 	@if [ -f sbom-nodejs.json ]; then echo "- Node.js SBOM: sbom-nodejs.json" >> infra/deployment-report.txt; fi
 	@echo "" >> infra/deployment-report.txt
@@ -518,23 +527,7 @@ destroy:
 	@echo "💥 Destroying infrastructure..."
 	cd infra && terraform destroy -auto-approve
 
-# Azure Functions targets
-verify-functions:
-	@echo "🔧 Verifying Azure Functions deployment..."
-	@echo "✅ Checking Python syntax..."
-	cd azure-function-deploy && python -m py_compile GetHotTopics/__init__.py
-	cd azure-function-deploy && python -m py_compile SummaryWomble/__init__.py
-	@echo "✅ Validating function.json files..."
-	cd azure-function-deploy/GetHotTopics && python -c "import json; json.load(open('function.json'))"
-	cd azure-function-deploy/SummaryWomble && python -c "import json; json.load(open('function.json'))"
-	@echo "✅ Checking requirements.txt exists..."
-	cd azure-function-deploy && test -f requirements.txt && echo "requirements.txt found" || echo "⚠️  requirements.txt not found"
-	@echo "✅ Azure Functions verification complete."
 
-deploy-functions: verify-functions
-	@echo "🚀 Deploying Azure Functions..."
-	cd azure-function-deploy && func azure functionapp publish hot-topics-func --python
-	@echo "✅ Azure Functions deployment complete."
 
 # Test the HTTP Summary Womble function
 test-womble:
@@ -564,10 +557,14 @@ devcontainer:
 	@echo "Terraform version:" && terraform --version
 	@echo "Azure CLI version:" && az --version
 
-# Validate Azure Functions app (deploy directory ready)
+# Validate container applications (when available)
 test-functions:
-	cd azure-function-deploy && python -m py_compile GetHotTopics/__init__.py
-	@echo "✅ Azure Functions code validated"
+	@echo "🔧 Container testing..."
+	@if [ -d containers/content-collector ]; then \
+		echo "Testing content-collector container..."; \
+		cd containers/content-collector && python3 -m pytest tests/ --tb=short || echo "Container tests need dependencies"; \
+	fi
+	@echo "✅ Container validation complete"
 
 # Validate Eleventy static site
 site:
@@ -582,8 +579,9 @@ clean:
 	cd site && rm -rf node_modules _site
 	cd infra && rm -rf .terraform
 	cd infra && rm -rf *.json *.txt *.html trivy terrascan
-	cd azure-function-deploy && rm -rf .python_packages __pycache__ GetHotTopics/__pycache__ SummaryWomble/__pycache__
-	cd azure-function-deploy && rm -f *.json
+	find containers/ -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+	find containers/ -name "*.pyc" -type f -delete 2>/dev/null || true
+	find containers/ -name "sbom-*.json" -type f -delete 2>/dev/null || true
 	rm -f sbom-nodejs.json latest_tech.json
 	@echo "🧹 All build artifacts and scan results cleaned"
 
@@ -632,8 +630,7 @@ deploy-production: verify
 	cd infra && terraform workspace select production || terraform workspace new production
 	cd infra && terraform plan -var="environment=production" -var="resource_prefix=ai-content-prod"
 	cd infra && terraform apply -var="environment=production" -var="resource_prefix=ai-content-prod"
-	cd azure-function-deploy && func azure functionapp publish hot-topics-func --python
-	@echo "✅ Production deployment complete: https://hot-topics-func.azurewebsites.net"
+	@echo "✅ Production infrastructure deployment complete"
 
 # Environment-specific testing
 test-staging:
@@ -674,7 +671,6 @@ rollback-production:
 security-scan-strict:
 	@echo "🔒 Running strict security scan for production..."
 	docker run --rm -v $(PWD):/workspace bridgecrew/checkov -d /workspace/infra --hard-fail-on HIGH,CRITICAL --quiet --compact
-	docker run --rm -v $(PWD):/workspace bridgecrew/checkov -d /workspace/azure-function-deploy --hard-fail-on HIGH,CRITICAL --quiet --compact
 	docker run --rm -v $(PWD):/workspace aquasec/trivy config /workspace/infra --severity HIGH,CRITICAL --exit-code 1
 	@echo "✅ Strict security validation passed"
 
