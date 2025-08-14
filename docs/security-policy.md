@@ -20,10 +20,10 @@ All infrastructure and application code is scanned before deployment using multi
 - **Blocking**: Critical/High severity issues block deployment
 - **Current Status**: ✅ 23/23 checks passing
 
-#### 2. TFSec - Terraform Security Scanner
+#### 2. Trivy - Infrastructure Security Scanner
 - **Purpose**: Static analysis of Terraform for security issues
 - **Scope**: All `.tf` files in `infra/`
-- **Output**: JSON results with security findings stored in `infra/tfsec-results.json`
+- **Output**: JSON results with security findings stored in `infra/trivy-results.json`
 - **Blocking**: Critical/High severity issues block deployment
 - **Integration**: Transitioning to Trivy for enhanced capabilities
 
@@ -48,7 +48,7 @@ All infrastructure and application code is scanned before deployment using multi
 
 ### Current Security Status
 - **Checkov**: 23 checks passed, 0 failed ✅
-- **TFSec**: Infrastructure security validated ✅
+- **Trivy**: Infrastructure security validated ✅
 - **Terrascan**: Policy compliance verified ✅
 - **Key Vault**: HIGH severity logging issue resolved ✅
 

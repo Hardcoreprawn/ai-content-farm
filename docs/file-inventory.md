@@ -44,7 +44,7 @@ This document provides a comprehensive catalog of all files in the AI Content Fa
 
 #### Security and Compliance Results
 - **`checkov-results.json`** - Infrastructure security scan results
-- **`tfsec-results.json`** - Terraform security analysis
+- **`trivy-results.json`** - Infrastructure security analysis
 - **`terrascan-results.json`** - Policy compliance validation
 - **`security-summary.txt`** - Consolidated security status
 
@@ -114,7 +114,7 @@ This document provides a comprehensive catalog of all files in the AI Content Fa
 #### Security Validation Pipeline
 - **`security-and-cost-validation.yml`** - Comprehensive security scanning
   - Checkov infrastructure security scanning
-  - TFSec Terraform security analysis
+  - Trivy infrastructure security analysis
   - Terrascan policy compliance validation
   - SBOM generation with Syft
   - Infracost deployment cost estimation
@@ -138,7 +138,7 @@ This document provides a comprehensive catalog of all files in the AI Content Fa
 
 #### Build Automation
 - **`Makefile`** - Comprehensive build automation
-  - **Security Targets**: `security-scan`, `checkov`, `tfsec`, `terrascan`
+  - **Security Targets**: `security-scan`, `checkov`, `trivy`, `terrascan`
   - **Cost Management**: `cost-estimate`, `cost-baseline`
   - **SBOM Generation**: `generate-sbom`
   - **Infrastructure**: `deploy-staging`, `deploy-production`
@@ -226,7 +226,7 @@ This document provides a comprehensive catalog of all files in the AI Content Fa
 
 #### Security Scan Results
 - **`infra/checkov-results.json`** - Infrastructure security findings
-- **`infra/tfsec-results.json`** - Terraform security analysis
+- **`infra/trivy-results.json`** - Infrastructure security analysis
 - **`infra/terrascan-results.json`** - Policy compliance results
 - **`infra/security-summary.txt`** - Consolidated security status
 

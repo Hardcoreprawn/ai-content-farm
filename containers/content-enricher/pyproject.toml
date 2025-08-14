@@ -1,0 +1,25 @@
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["tests"]
+markers = [
+    "unit: Unit tests (fast, isolated)",
+    "integration: Integration tests (slower, external dependencies)",
+    "performance: Performance tests (timing sensitive)",
+]
+addopts = [
+    "--strict-markers",
+    "--disable-warnings",
+    "-v"
+]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::PendingDeprecationWarning",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+
+[tool.isort]
+profile = "black"
+line_length = 88

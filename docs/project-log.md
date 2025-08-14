@@ -67,7 +67,7 @@ This file records the development history and major milestones for the AI Conten
 
 ### 2025-08-02: Security Pipeline Enhancement
 **Multi-Tool Security Scanning**
-- Integrated Checkov, TFSec, and Terrascan for comprehensive security validation
+- Integrated Checkov, Trivy, and Terrascan for comprehensive security validation
 - Added SBOM generation with Syft for dependency tracking
 - Implemented Infracost for deployment cost estimation
 - Created security score requirements for deployment gates
@@ -161,7 +161,7 @@ This file records the development history and major milestones for the AI Conten
 ### Tool Integration
 - **Terraform**: Infrastructure as Code for all Azure resources
 - **Checkov**: Infrastructure security scanning and compliance
-- **TFSec**: Terraform-specific security validation
+- **Trivy**: Terraform-specific security validation
 - **Terrascan**: Policy compliance and governance
 - **Syft**: Software Bill of Materials generation
 - **Infracost**: Infrastructure cost estimation and control
@@ -169,7 +169,7 @@ This file records the development history and major milestones for the AI Conten
 
 ### Security Evolution
 - **Phase 1**: Basic security scanning with Checkov
-- **Phase 2**: Multi-tool security pipeline with TFSec and Terrascan
+- **Phase 2**: Multi-tool security pipeline with Trivy and Terrascan
 - **Phase 3**: SBOM generation and dependency tracking
 - **Phase 4**: Key Vault integration and centralized secrets
 - **Phase 5**: Complete security compliance with zero critical findings
@@ -179,7 +179,7 @@ This file records the development history and major milestones for the AI Conten
 ### Development Metrics
 - **Total Development Time**: 13 days (July 23 - August 5, 2025)
 - **Major Refactoring Sessions**: 3 (Reddit API, Security Pipeline, Key Vault)
-- **Security Scans Implemented**: 3 (Checkov, TFSec, Terrascan)
+- **Security Scans Implemented**: 3 (Checkov, Trivy, Terrascan)
 - **Documentation Files**: 8 comprehensive guides
 - **Infrastructure Components**: 7 Azure resources with full configuration
 
