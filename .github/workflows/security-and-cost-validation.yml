@@ -1,17 +1,19 @@
+# This workflow provides comprehensive security and cost validation for ALL changes
+# It runs on every commit/PR to ensure security posture regardless of file changes
 name: Security and Cost Validation
 
 on:
+  # Run on ALL pushes to ensure security (no path restrictions)
   push:
-    branches: [ main, develop ]
-    paths: 
-      - 'infra/**'
-      - 'containers/**'
-      - '.github/workflows/**'
+    branches: [ main, develop, 'feature/*' ]
+  # Run on ALL pull requests  
   pull_request:
-    branches: [ main ]
-    paths:
-      - 'infra/**'
-      - 'containers/**'
+    branches: [ main, develop ]
+  # Allow manual triggers
+  workflow_dispatch:
+  # Run weekly for dependency updates
+  schedule:
+    - cron: '0 2 * * 1'  # Monday 2 AM UTC
 
 jobs:
   security-scan:

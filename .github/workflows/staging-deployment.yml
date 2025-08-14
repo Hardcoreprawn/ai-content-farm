@@ -1,10 +1,14 @@
 name: Staging Deployment
 
 on:
+  # Only run staging deployment on pushes to develop branch
   push:
-    branches: [ develop, feature/* ]
+    branches: [ develop ]
+  # Run on PRs targeting develop for validation
   pull_request:
-    branches: [ develop, main ]
+    branches: [ develop ]
+  # Allow manual staging deployments
+  workflow_dispatch:
 
 env:
   ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
