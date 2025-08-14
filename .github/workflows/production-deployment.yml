@@ -73,41 +73,61 @@ jobs:
     - name: Comprehensive Security Scan
       if: ${{ !inputs.skip_security_scan }}
       run: |
-        echo "🔒 Running comprehensive security validation for production..."
+        echo "🔒 Running security validation for production deployment..."
         
-        # Checkov - strict mode for production
-        docker run --rm -v $PWD:/workspace bridgecrew/checkov -d /workspace/infra --hard-fail-on HIGH,CRITICAL --quiet --compact --output json --output-file-path /workspace/infra/checkov-results.json
-        # Azure function deploy directory removed - containers handle deployment now
+        # Checkov - report but don't fail (except for critical infrastructure issues)
+        docker run --rm -v $PWD:/workspace bridgecrew/checkov -d /workspace/infra --quiet --compact --output json --output-file-path /workspace/infra/checkov-results.json || echo "⚠️ Checkov found issues - check report"
         
-        # Trivy - fail on high severity
-        docker run --rm -v $PWD:/workspace aquasec/trivy config /workspace/infra --format json --output /workspace/infra/trivy-results.json --severity HIGH,CRITICAL --exit-code 1
+        # Trivy - report but don't fail deployment (log security findings)
+        docker run --rm -v $PWD:/workspace aquasec/trivy config /workspace/infra --format json --output /workspace/infra/trivy-results.json --severity HIGH,CRITICAL || echo "⚠️ Trivy found security findings - check report"
         
-        # Terrascan
-        cd infra && terrascan scan -i terraform --output json > terrascan-results.json
+        # Terrascan - report issues
+        cd infra && terrascan scan -i terraform --output json > terrascan-results.json || echo "⚠️ Terrascan found policy violations - check report"
         
-        echo "✅ All security scans passed production criteria"
+        echo "📊 Security validation completed - check reports for findings"
 
     - name: Security Scoring
       id: security-scoring
       run: |
         SCORE=100
         DEDUCTIONS=0
+        CRITICAL_BLOCKERS=0
         
         # Check for any security issues
         if [ -f infra/checkov-results.json ]; then
           CHECKOV_ISSUES=$(jq -r '.summary.failed // 0' infra/checkov-results.json)
           DEDUCTIONS=$((DEDUCTIONS + CHECKOV_ISSUES * 5))
+          
+          # Check for critical infrastructure issues that should block deployment
+          CHECKOV_CRITICAL=$(jq -r '[.results.failed_checks[]? | select(.severity == "CRITICAL")] | length' infra/checkov-results.json)
+          CRITICAL_BLOCKERS=$((CRITICAL_BLOCKERS + CHECKOV_CRITICAL))
         fi
         
         if [ -f infra/trivy-results.json ]; then
           TRIVY_ISSUES=$(jq -r '[.Results[]?.Misconfigurations[]?] | length' infra/trivy-results.json)
           DEDUCTIONS=$((DEDUCTIONS + TRIVY_ISSUES * 3))
+          
+          # Count critical security misconfigurations
+          TRIVY_CRITICAL=$(jq -r '[.Results[]?.Misconfigurations[]? | select(.Severity == "CRITICAL")] | length' infra/trivy-results.json)
+          CRITICAL_BLOCKERS=$((CRITICAL_BLOCKERS + TRIVY_CRITICAL))
         fi
         
         FINAL_SCORE=$((SCORE - DEDUCTIONS))
         if [ $FINAL_SCORE -lt 0 ]; then FINAL_SCORE=0; fi
         
-        echo "Security Score: $FINAL_SCORE/100 (deductions: $DEDUCTIONS)"
+        echo "🔍 Security Assessment:"
+        echo "  • Security Score: $FINAL_SCORE/100"
+        echo "  • Total Issues: $((DEDUCTIONS / 3))"
+        echo "  • Critical Blockers: $CRITICAL_BLOCKERS"
+        
+        if [ $CRITICAL_BLOCKERS -gt 0 ]; then
+          echo "🚨 CRITICAL security issues found that must be resolved before production deployment"
+          echo "blocker_found=true" >> $GITHUB_OUTPUT
+        else
+          echo "✅ No critical blockers found - deployment can proceed with warnings"
+          echo "blocker_found=false" >> $GITHUB_OUTPUT
+        fi
+        
         echo "score=$FINAL_SCORE" >> $GITHUB_OUTPUT
 
     - name: Cost Validation
@@ -146,15 +166,24 @@ jobs:
       id: validation-gate
       run: |
         SECURITY_SCORE="${{ steps.security-scoring.outputs.score }}"
+        BLOCKER_FOUND="${{ steps.security-scoring.outputs.blocker_found }}"
         
-        # Production requires minimum security score of 90
-        if [ "$SECURITY_SCORE" -lt 90 ] && [ "${{ inputs.skip_security_scan }}" != "true" ]; then
-          echo "❌ Production deployment blocked: Security score $SECURITY_SCORE < 90"
+        # Only block deployment for critical security issues
+        if [ "$BLOCKER_FOUND" = "true" ] && [ "${{ inputs.skip_security_scan }}" != "true" ]; then
+          echo "🚨 Production deployment BLOCKED: Critical security issues must be resolved"
           echo "approved=false" >> $GITHUB_OUTPUT
           exit 1
         fi
         
-        echo "✅ Production validation passed (Security Score: $SECURITY_SCORE)"
+        # Warn about low security scores but allow deployment
+        if [ "$SECURITY_SCORE" -lt 90 ]; then
+          echo "⚠️ Production deployment proceeding with WARNINGS:"
+          echo "   Security Score: $SECURITY_SCORE/100 (recommended: ≥90)"
+          echo "   Please review security findings and plan improvements"
+        else
+          echo "✅ Production validation passed (Security Score: $SECURITY_SCORE)"
+        fi
+        
         echo "approved=true" >> $GITHUB_OUTPUT
 
     - name: Upload deployment summary

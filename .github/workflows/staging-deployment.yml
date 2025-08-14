@@ -4,15 +4,12 @@
 name: "[DISABLED] Staging Deployment"
 
 on:
-  # Disabled - no longer using persistent staging
-  # push:
-  #   branches: [ develop ]
-  # pull_request:
-  #   branches: [ develop ]
+  # COMPLETELY DISABLED - no triggers
+  # Replaced by ephemeral PR environments
   workflow_dispatch:
     inputs:
-      confirm_manual_staging:
-        description: 'Type "confirm" to manually deploy staging (not recommended)'
+      force_enable_staging:
+        description: 'Type "I understand this is deprecated" to force enable'
         required: true
         default: ''
 

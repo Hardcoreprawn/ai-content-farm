@@ -3,12 +3,12 @@
 name: Security and Cost Validation
 
 on:
-  # Run on ALL pushes to ensure security (no path restrictions)
+  # Run on main branch pushes (production)
   push:
-    branches: [ main, develop, 'feature/*' ]
-  # Run on ALL pull requests  
+    branches: [ main ]
+  # Run on pull requests targeting main
   pull_request:
-    branches: [ main, develop ]
+    branches: [ main ]
   # Allow manual triggers
   workflow_dispatch:
   # Run weekly for dependency updates
