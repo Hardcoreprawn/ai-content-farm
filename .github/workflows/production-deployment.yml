@@ -70,7 +70,7 @@ jobs:
         
         # Checkov - strict mode for production
         docker run --rm -v $PWD:/workspace bridgecrew/checkov -d /workspace/infra --hard-fail-on HIGH,CRITICAL --quiet --compact --output json --output-file-path /workspace/infra/checkov-results.json
-        docker run --rm -v $PWD:/workspace bridgecrew/checkov -d /workspace/azure-function-deploy --hard-fail-on HIGH,CRITICAL --quiet --compact
+        # Azure function deploy directory removed - containers handle deployment now
         
         # Trivy - fail on high severity
         docker run --rm -v $PWD:/workspace aquasec/trivy config /workspace/infra --format json --output /workspace/infra/trivy-results.json --severity HIGH,CRITICAL --exit-code 1
@@ -150,17 +150,13 @@ jobs:
         echo "✅ Production validation passed (Security Score: $SECURITY_SCORE)"
         echo "approved=true" >> $GITHUB_OUTPUT
 
-    - name: Upload Production Validation Results
-      uses: actions/upload-artifact@v3
+    - name: Upload deployment summary
+      uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: production-validation-results
-        path: |
-          infra/checkov-results.json
-          infra/trivy-results.json
-          infra/terrascan-results.json
-          infra/infracost-production.json
-        retention-days: 90
+        name: deployment-summary
+        path: deployment-summary.txt
+        retention-days: 30
 
   production-deployment-approval:
     runs-on: ubuntu-latest
@@ -220,16 +216,11 @@ jobs:
         # Apply the planned changes
         terraform apply production.tfplan
 
-    - name: Deploy Functions to Production
+    - name: Container Deployment (Placeholder)
       run: |
-        echo "📦 Deploying Azure Functions to production..."
-        cd azure-function-deploy
-        
-        # Install Azure Functions Core Tools
-        npm install -g azure-functions-core-tools@4 --unsafe-perm true
-        
-        # Deploy to production function app
-        func azure functionapp publish hot-topics-func --python
+        echo "� Production container deployment will be implemented in future iterations"
+        echo "✅ Infrastructure deployed successfully for production container hosting"
+        # TODO: Implement production container deployment to Azure Container Instances or Azure Container Apps
 
     - name: Production Smoke Tests
       run: |
