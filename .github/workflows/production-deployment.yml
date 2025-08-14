@@ -150,17 +150,13 @@ jobs:
         echo "✅ Production validation passed (Security Score: $SECURITY_SCORE)"
         echo "approved=true" >> $GITHUB_OUTPUT
 
-    - name: Upload Production Validation Results
-      uses: actions/upload-artifact@v3
+    - name: Upload deployment summary
+      uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: production-validation-results
-        path: |
-          infra/checkov-results.json
-          infra/trivy-results.json
-          infra/terrascan-results.json
-          infra/infracost-production.json
-        retention-days: 90
+        name: deployment-summary
+        path: deployment-summary.txt
+        retention-days: 30
 
   production-deployment-approval:
     runs-on: ubuntu-latest

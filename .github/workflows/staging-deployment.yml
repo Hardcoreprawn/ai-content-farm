@@ -120,20 +120,13 @@ jobs:
           echo "approved=true" >> $GITHUB_OUTPUT
         fi
 
-    - name: Upload Security Results
-      uses: actions/upload-artifact@v3
+    - name: Upload Terraform state summary
+      uses: actions/upload-artifact@v4
       if: always()
       with:
-        name: security-scan-results
-        path: |
-          infra/checkov-results.json
-          infra/trivy-results.json
-          infra/terrascan-results.json
-          containers-sbom-placeholder.txt
-          infra/sbom-infrastructure.txt
-        retention-days: 30
-
-  cost-estimation:
+        name: terraform-state-summary
+        path: terraform-state-summary.txt
+        retention-days: 7  cost-estimation:
     runs-on: ubuntu-latest
     name: Cost Impact Analysis
     needs: [security-validation]
