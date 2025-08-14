@@ -1,14 +1,7 @@
 # Copilot Agent Instructions for AI Content Farm
 
 ## Project Overview
-This is an **enterprise-grade A#### Event-Driven Integration (Secondary, After REST API):
-- **Blob/Timer Triggers**: Optional automation after HTTP endpoint is proven working
-- **Pattern**: `EventTrigger` → calls → `HTTP Endpoint` (same business logic)
-- **Benefits**: Automatic processing while maintaining manual control and debugging
-- **Requirements**: HTTP endpoint must exist first, event trigger calls it internally
-- **Example**: `ContentEnricher` blob trigger calls `ContentEnricherManual` HTTP logic
-
-#### Project Structure (Enforced):ntent farm** built on Azure Functions with comprehensive security, cost governance, and compliance controls. The system processes Reddit topics through an automated pipeline: collection → ranking → enrichment → publication.
+This is an **enterprise-grade AI content farm** built on containerized services with comprehensive security, cost governance, and compliance controls. The system processes Reddit topics through an automated pipeline: collection → ranking → enrichment → publication.
 
 **Always check README.md and TODO.md first** to understand current status and next priorities.
 
@@ -16,7 +9,7 @@ This is an **enterprise-grade A#### Event-Driven Integration (Secondary, After R
 - **Security-first**: Every change must pass security scanning (Checkov, Trivy, Terrascan)
 - **Cost-conscious**: All deployments include cost impact analysis with Infracost
 - **Production-ready**: Focus on reliability, monitoring, and maintainability over features
-- **Clean architecture**: Event-driven functions with clear separation of concerns
+- **Clean architecture**: Container-based services with clear separation of concerns
 - **Documentation as code**: Keep docs current, concise, and actionable
 
 ## AI Agent Working Principles
@@ -101,16 +94,16 @@ Link to existing working examples or documentation
 - This prevents CI/CD deployment failures (recurring critical issue)
 
 ### Code Quality Standards
-- **Azure Functions REST API Standard**: ALL functions must be proper HTTP REST APIs first
+- **Container API Standard**: ALL services must be proper HTTP REST APIs first
 - **Clear API Contracts**: Document all endpoints with inputs, outputs, errors, authentication
 - **Standardized Responses**: Use consistent JSON format with status, data, metadata, errors
-- **Observable Functions**: Every function must provide health, status, and documentation endpoints
+- **Observable Services**: Every service must provide health, status, and documentation endpoints
 - **Authentication Clarity**: Return 401 with helpful messages, not generic 500 errors
-- **Azure Functions Logging**: `az functionapp logs tail` only works for .NET functions, NOT Python
-  - For Python functions: Use Azure portal logs or Application Insights queries
-  - Python logs are buffered and don't stream in real-time like .NET
+- **Container Logging**: Use structured logging with proper log levels and JSON format
+  - Logs should be written to stdout/stderr for container orchestration
+  - Use Application Insights integration for centralized logging
 - **Keep logs ASCII-clean** - Avoid emojis in logs (makes parsing difficult)
-- **Pin all versions** - Never use 'latest' tags; pin Terraform, Actions, package versions
+- **Pin all versions** - Never use 'latest' tags; pin container images, package versions
 - **Test all changes** - Verify locally before deploying to any environment
 - **Functional programming preferred** - Pure functions for thread safety and scalability
 
@@ -124,48 +117,48 @@ Link to existing working examples or documentation
 
 ### Architecture Patterns
 
-#### Worker/Scheduler Pattern (MANDATORY)
-**ALL FUNCTIONS MUST FOLLOW CLEAN WORKER/SCHEDULER SEPARATION**
+#### Container Service/Scheduler Pattern (MANDATORY)
+**ALL SERVICES MUST FOLLOW CLEAN WORKER/SCHEDULER SEPARATION**
 
-Our Azure Functions follow a clean architectural pattern that separates concerns:
+Our container services follow a clean architectural pattern that separates concerns:
 
-**Worker Functions** (HTTP endpoints):
+**Worker Services** (HTTP APIs):
 - Accept specific input/output blob paths via HTTP POST
 - Return immediate acknowledgment response  
 - Process asynchronously and write to specified output location
 - Can be manually triggered with specific parameters
-- Examples: `ContentRanker`, `ContentEnricher`
+- Examples: `content-collector`, `content-enricher`, `content-processor`
 
-**Scheduler Functions** (Event-driven):
+**Scheduler Services** (Event-driven):
 - Monitor blob containers, timers, or other triggers
-- Call worker functions with appropriate parameters  
+- Call worker services with appropriate parameters  
 - Handle event-driven automation of pipeline
-- Examples: `TopicRankingScheduler`, `ContentEnrichmentScheduler`
+- Examples: Container orchestration triggers, timer-based scheduling
 
 This pattern provides:
 - Manual control over any processing step
 - Event-driven automation for normal pipeline flow  
 - Clear separation of concerns
 - Easy testing and debugging
-- No confusing duplicate functions with "Manual" suffixes
+- Containerized deployment flexibility
 
-#### Worker Function API Requirements:
-**ALL WORKER FUNCTIONS MUST BE PROPER REST APIs WITH CLEAR CONTRACTS**
+#### Container Service API Requirements:
+**ALL CONTAINER SERVICES MUST BE PROPER REST APIs WITH CLEAR CONTRACTS**
 
-- **HTTP-First Design**: Every worker function must have an HTTP endpoint as primary interface
+- **HTTP-First Design**: Every container service must have an HTTP endpoint as primary interface
 - **Proper REST Semantics**: Use correct HTTP methods, status codes, and response formats  
 - **Clear API Contracts**: Document inputs, outputs, authentication, and error responses
-- **Observable Operations**: All functions must provide status, health, and progress endpoints
+- **Observable Operations**: All services must provide status, health, and progress endpoints
 - **Standardized Responses**: Consistent JSON format with status, data, errors, and metadata
-- **Authentication Transparency**: Clear error messages for auth failures ("401 Unauthorized - Function key required")
-- **Manual Testing Capability**: Every function testable via curl/Postman for debugging
+- **Authentication Transparency**: Clear error messages for auth failures ("401 Unauthorized - API key required")
+- **Manual Testing Capability**: Every service testable via curl/Postman for debugging
 - **No Silent Failures**: Always return meaningful HTTP status codes and error descriptions
 
-#### Required REST Endpoints for Each Function:
+#### Required REST Endpoints for Each Service:
 ```
-GET  /api/{function-name}/health     # Health check
-POST /api/{function-name}/process    # Main processing endpoint  
-GET  /api/{function-name}/status     # Operation status/progress
+GET  /api/{service-name}/health     # Health check
+POST /api/{service-name}/process    # Main processing endpoint  
+GET  /api/{service-name}/status     # Operation status/progress
 ```
 
 #### Standard Response Format (MANDATORY):
@@ -177,7 +170,7 @@ GET  /api/{function-name}/status     # Operation status/progress
   "errors": [ /* detailed error information if applicable */ ],
   "metadata": {
     "timestamp": "2025-08-12T14:30:00Z",
-    "function": "FunctionName",
+    "service": "ServiceName",
     "execution_time_ms": 1250,
     "version": "1.0.0"
   }
@@ -185,16 +178,10 @@ GET  /api/{function-name}/status     # Operation status/progress
 ```
 
 #### Error Response Requirements:
-- **401 Unauthorized**: "Function key required" or "Invalid authentication"
+- **401 Unauthorized**: "API key required" or "Invalid authentication"
 - **400 Bad Request**: "Missing required field: blob_name" 
 - **404 Not Found**: "Blob not found: ranked-topics/file.json"
 - **500 Internal Error**: Include specific error details and suggested fixes
-```
-GET  /api/{function-name}/health     # Health check (200/500)
-GET  /api/{function-name}/status     # Current status and metrics
-POST /api/{function-name}/process    # Main processing endpoint
-GET  /api/{function-name}/docs       # API documentation
-```
 
 #### Response Format Standard:
 ```json
@@ -204,7 +191,7 @@ GET  /api/{function-name}/docs       # API documentation
   "data": {...},
   "metadata": {
     "timestamp": "ISO-8601",
-    "function": "function-name",
+    "service": "service-name",
     "version": "1.0.0",
     "execution_time_ms": 1234
   },
@@ -214,17 +201,17 @@ GET  /api/{function-name}/docs       # API documentation
 
 #### Authentication Handling:
 - **Clear auth errors**: Return 401 with helpful message, not generic 500
-- **Multiple auth methods**: Support both function keys and anonymous for testing
+- **Multiple auth methods**: Support both API keys and anonymous for testing
 - **Auth documentation**: Clear instructions on how to authenticate
 
 #### Event-Driven Integration (Secondary):
-- **HTTP functions can have blob/timer triggers**: But HTTP is primary interface
-- **Event handlers call HTTP endpoints**: Timer/blob triggers call HTTP functions internally
+- **HTTP services can have blob/timer triggers**: But HTTP is primary interface
+- **Event handlers call HTTP endpoints**: Timer/blob triggers call HTTP services internally
 - **Benefits**: Testability, debuggability, manual control, clear contracts
-- **Trade-offs**: ~2x cost, but essential for production reliability
+- **Container orchestration**: Kubernetes/Docker Compose for deployment and scaling
 
 #### Project Structure (Enforced)
-- **Functions** in `/functions/` directory (main application code)
+- **Containers** in `/containers/` directory (main application code)
 - **Infrastructure** in `/infra/` with bootstrap vs application separation
 - **Documentation** in `/docs/` only, not scattered across root
 - **Working files** in `.temp/` (gitignored) or deleted after session
@@ -336,21 +323,21 @@ Azure automatically adds properties to resources that must be explicitly defined
 
 ### Application Architecture
 - **Event-Driven Pipeline**: Timer → HTTP → Blob triggers for content processing
-- **Serverless Functions**: Azure Functions with Python runtime
+- **Serverless Platform**: Container-based microservices architecture
 - **Content Flow**: Reddit → Collection → Ranking → Enrichment → Publication
 - **Data Storage**: JSON-based intermediate storage with blob triggers
 - **Static Site**: Eleventy (11ty) for article publication and site generation
 
-### Current Functions (Production Ready)
-- **GetHotTopics**: Timer-triggered (6 hours) Reddit topic collection
-- **SummaryWomble**: HTTP-triggered with async job processing system  
-- **ContentRanker**: Blob-triggered functional ranking with comprehensive scoring
+### Current Services (Production Ready)
+- **content-collector**: Timer-triggered (6 hours) Reddit topic collection
+- **content-enricher**: HTTP-triggered with async job processing system  
+- **content-processor**: Event-driven content ranking with comprehensive scoring
 - **ContentEnricher**: [Next Implementation] - Research and fact-checking
 - **ContentPublisher**: [Next Implementation] - Markdown generation with frontmatter
 
 ### Development Environment
 - **Container**: Dev container with pre-configured tools and dependencies
-- **IDE**: VS Code with Azure Functions, Python, and Terraform extensions
+- **IDE**: VS Code with Docker, Python, and Terraform extensions
 - **CLI Tools**: Azure CLI, Terraform, GitHub CLI, Docker CLI pre-installed
 - **Security Tools**: Checkov, Trivy, Terrascan for comprehensive scanning
 - **Cost Tools**: Infracost for impact analysis and budget governance
@@ -384,7 +371,7 @@ Automated AI content farm that transforms trending Reddit topics into high-quali
 - **`.gitignore`** - Comprehensive exclusions for security and build artifacts
 
 ### Critical Directories
-- **`/functions/`** - Azure Functions application code (main business logic)
+- **`/containers/`** - Container services application code (main business logic)
 - **`/infra/`** - Terraform infrastructure (bootstrap + application separation)
 - **`/docs/`** - ALL detailed documentation (system design, deployment guides, etc.)
 - **`/content_processor/`** - Local content processing pipeline for development
