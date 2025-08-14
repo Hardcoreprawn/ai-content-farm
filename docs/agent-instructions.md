@@ -1,7 +1,7 @@
 # AI Assistant Guidelines
 
 **Created:** August 5, 2025  
-**Last Updated:** August 13, 2025
+**Last Updated:** August 14, 2025
 
 ## 🎯 Core Development Principles
 
@@ -109,7 +109,7 @@ def test_azure_integration():
 - **Key Vault for secrets** - no environment variables for sensitive data
 - **Managed identity** - no service principal keys
 - **Application Insights** - structured logging with correlation IDs
-- **Consumption plans** - cost-effective scaling
+- **Container platforms** - cost-effective and scalable deployment
 
 ## � Container Development Checklist
 
@@ -186,14 +186,14 @@ make security-scan
 - **Monitor** actual vs estimated costs
 
 ### Resource Optimization
-- **Use** consumption plans for Azure Functions
+- **Use** container platforms for cost-effective scaling
 - **Implement** storage lifecycle policies
 - **Configure** appropriate monitoring retention
 - **Review** resource utilization regularly
 
 ## 🧪 Testing Approach
 
-### Function Testing
+### Container API Testing
 ```bash
 # Use HTTP endpoints for testing
 curl -X POST \
@@ -204,14 +204,15 @@ curl -X POST \
     "limit": 2,
     "credentials": {"source": "keyvault"}
   }' \
-  "https://ai-content-staging-func.azurewebsites.net/api/SummaryWomble"
+  "https://content-processor.example.com/api/process"
 ```
 
 ### Integration Testing
-- **Validate** Key Vault access in functions
+- **Validate** Key Vault access in containers
 - **Test** storage operations and data persistence
 - **Verify** monitoring and logging functionality
 - **Confirm** error handling and recovery
+- **Test** container health endpoints
 
 ### Security Testing
 - **Run** all security scans before deployment
@@ -231,7 +232,7 @@ curl -X POST \
 2. **Cost Estimation**: Verify acceptable cost impact
 3. **Key Vault Check**: Ensure secret accessibility
 4. **Infrastructure Deploy**: Use Terraform with appropriate variables
-5. **Function Deploy**: Use CI/CD pipeline
+5. **Container Deploy**: Use CI/CD pipeline for container deployment
 6. **Post-Deploy Testing**: Validate end-to-end functionality
 
 ### Rollback Procedures
@@ -243,7 +244,7 @@ curl -X POST \
 ## 📊 Monitoring and Maintenance
 
 ### Regular Tasks
-- **Daily**: Review function execution logs
+- **Daily**: Review container execution logs
 - **Weekly**: Security scan results analysis
 - **Monthly**: Cost analysis and optimization review
 - **Quarterly**: Documentation review and updates
@@ -251,8 +252,8 @@ curl -X POST \
 ### Key Metrics
 - **Security**: Zero HIGH severity findings
 - **Cost**: Within 110% of estimates
-- **Performance**: Function execution under 30 seconds
-- **Reliability**: 99.9% successful function executions
+- **Performance**: Container response time under 10 seconds
+- **Reliability**: 99.9% successful container executions
 
 ### Alerting
 - **Security**: Immediate alerts for HIGH severity findings
@@ -282,7 +283,7 @@ curl -X POST \
 - **Use** consistent naming conventions (kebab-case for files)
 - **Include** comprehensive error handling
 - **Add** appropriate logging and monitoring
-- **Follow** Azure Functions best practices
+- **Follow** container development best practices
 
 ### Infrastructure
 - **Use** Terraform for all Azure resources

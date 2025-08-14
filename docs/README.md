@@ -1,9 +1,9 @@
 # AI Content Farm Documentation
 
 **Created:** August 5, 2025  
-**Last Updated:** August 5, 2025
+**Last Updated:** August 14, 2025
 
-Welcome to the comprehensive documentation for the AI Content Farm project - an automated content aggregation system using Azure Functions, Reddit API integration, and enterprise-grade security controls.
+Welcome to the comprehensive documentation for the AI Content Farm project - an automated content aggregation system using containerized microservices, Reddit API integration, and enterprise-grade security controls.
 
 ## 📚 Documentation Structure
 
@@ -16,7 +16,7 @@ Welcome to the comprehensive documentation for the AI Content Farm project - an 
 - **[Key Vault Integration](key-vault-integration.md)** - Secure secrets management and configuration
 
 ### 🧪 Testing & Quality Assurance
-- **[Testing Guide](testing-guide.md)** - Comprehensive testing procedures for Womble functions
+- **[Testing Guide](testing-guide.md)** - Comprehensive testing procedures for container services
 - **[Security Testing Report](security-testing-report.md)** - Security validation results and compliance
 
 ### 🔐 Security & Governance
@@ -31,7 +31,7 @@ Welcome to the comprehensive documentation for the AI Content Farm project - an 
 
 ### For Developers
 1. **[System Design](system-design.md)** - Understand the architecture
-2. **[Testing Guide](testing-guide.md)** - Learn how to test functions
+2. **[Testing Guide](testing-guide.md)** - Learn how to test container services
 3. **[Deployment Guide](deployment-guide.md)** - Deploy to staging
 
 ### For Operators  
@@ -107,7 +107,7 @@ Welcome to the comprehensive documentation for the AI Content Farm project - an 
 - **Management**: [Progress Tracking](progress-tracking.md), [Project Log](project-log.md), [Security Policy](security-policy.md)
 
 ### By Topic
-- **Azure Functions**: [System Design](system-design.md), [Testing Guide](testing-guide.md), [Deployment Guide](deployment-guide.md)
+- **Container Services**: [System Design](system-design.md), [Testing Guide](testing-guide.md), [Deployment Guide](deployment-guide.md)
 - **Reddit API**: [System Design](system-design.md), [Key Vault Integration](key-vault-integration.md), [Testing Guide](testing-guide.md)
 - **Security**: [Security Policy](security-policy.md), [Key Vault Integration](key-vault-integration.md), [Security Testing Report](security-testing-report.md)
 - **Infrastructure**: [System Design](system-design.md), [Deployment Guide](deployment-guide.md), [Security Policy](security-policy.md)
