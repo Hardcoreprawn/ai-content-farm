@@ -1,12 +1,13 @@
 # Outputs
 
-output "function_app_name" {
-  value = azurerm_linux_function_app.main.name
-}
-
-output "function_app_default_hostname" {
-  value = azurerm_linux_function_app.main.default_hostname
-}
+# Container outputs (to be added when container infrastructure is deployed)
+# output "container_app_name" {
+#   value = azurerm_container_app.main.name
+# }
+#
+# output "container_app_hostname" {
+#   value = azurerm_container_app.main.fqdn
+# }
 
 output "storage_account_name" {
   value = azurerm_storage_account.main.name
