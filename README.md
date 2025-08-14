@@ -35,7 +35,7 @@ Each service is an independent FastAPI microservice with comprehensive test cove
 - **[Development Workflow](docs/development-workflow.md)** - Guide for implementing remaining containers
 - **[Content Collector API](docs/content-collector-api.md)** - Complete API documentation
 - **[System Design](docs/system-design.md)** - Architecture and components
-- **[Testing Guide](docs/testing-guide.md)** - Function testing procedures
+- **[Testing Guide](docs/testing-guide.md)** - Container service testing procedures
 
 ## 🚀 Quick Start
 
@@ -91,21 +91,22 @@ cd containers/content-enricher && python -m pytest tests/ -v
 
 ### Local Testing
 
-Test the HTTP-triggered Summary Womble function:
+Test the HTTP-triggered Content Processor service:
 ```bash
 # Test with default parameters
-curl -X POST "http://localhost:7071/api/SummaryWomble" \
+curl -X POST "http://localhost:8080/api/process" \
   -H "Content-Type: application/json" \
   -d '{"source": "test", "num_posts": 5}'
 ```
 
 ## Architecture Overview
 
-- **GetHotTopics**: Timer-triggered function (daily Reddit scan)
-- **SummaryWomble**: HTTP-triggered function (flexible data collection)
+- **ContentCollector**: Timer-triggered service (daily Reddit scan)
+- **ContentProcessor**: HTTP-triggered service (flexible data collection)
+- **ContentEnricher**: Research and fact-checking service
 - **Content Processing Pipeline**: Automated content ranking, enrichment, and publishing
 - **Static Site**: 11ty-generated website for content display
-- **Infrastructure**: Secure Azure deployment with Key Vault integration
+- **Infrastructure**: Secure Azure Container Apps deployment with Key Vault integration
 
 ## Content Processing Pipeline
 
@@ -219,14 +220,15 @@ make validate-secrets   # Validate Key Vault configuration
 ## Project Structure
 
 ```
-├── azure-function-deploy/     # Azure Functions application
-│   ├── GetHotTopics/         # Timer-triggered function
-│   └── SummaryWomble/        # HTTP-triggered function
-├── infra/                    # Terraform infrastructure
-├── site/                     # 11ty static site
-├── .github/workflows/        # CI/CD pipelines
-├── docs/                     # Additional documentation
-└── Makefile                  # Comprehensive build automation
+├── containers/                   # Containerized services
+│   ├── content-collector/       # Timer-triggered Reddit collection
+│   ├── content-enricher/        # Content research and enrichment
+│   └── content-processor/       # HTTP-triggered processing service
+├── infra/                       # Terraform infrastructure
+├── site/                        # 11ty static site
+├── .github/workflows/           # CI/CD pipelines
+├── docs/                        # Additional documentation
+└── Makefile                     # Comprehensive build automation
 ```
 
 ## Security Features
@@ -239,7 +241,7 @@ make validate-secrets   # Validate Key Vault configuration
 
 ## Cost Optimization
 
-- **Consumption Pricing**: Pay-per-execution Azure Functions
+- **Container Scaling**: Pay-per-use Azure Container Apps with auto-scaling
 - **Storage Tiers**: Lifecycle-managed blob storage
 - **Resource Tagging**: Complete cost attribution
 - **Budget Alerts**: Proactive cost monitoring
@@ -254,7 +256,7 @@ make validate-secrets   # Validate Key Vault configuration
 
 ## Monitoring
 
-- **Application Insights**: Function performance and errors
+- **Application Insights**: Container service performance and errors
 - **Security Alerts**: Real-time security issue notifications
 - **Cost Tracking**: Daily cost analysis and trending
 - **Compliance Reports**: Weekly security and compliance status
