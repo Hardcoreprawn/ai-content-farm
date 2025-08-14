@@ -41,10 +41,10 @@ variable "resource_prefix" {
 locals {
   # Use environment_name if provided (for ephemeral), otherwise use environment
   effective_environment = var.environment_name != "" ? var.environment_name : var.environment
-  
+
   # Dynamic resource prefix based on environment
   resource_prefix = var.environment_name != "" ? "ai-content-${var.environment_name}" : var.resource_prefix
-  
+
   # Tags for all resources
   common_tags = {
     Environment = local.effective_environment
