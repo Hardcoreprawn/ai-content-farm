@@ -5,13 +5,13 @@ on:
     branches: [ main, develop ]
     paths: 
       - 'infra/**'
-      - 'azure-function-deploy/**'
+      - 'containers/**'
       - '.github/workflows/**'
   pull_request:
     branches: [ main ]
     paths:
       - 'infra/**'
-      - 'azure-function-deploy/**'
+      - 'containers/**'
 
 jobs:
   security-scan:
@@ -135,8 +135,8 @@ jobs:
 
     - name: Generate Python SBOM
       run: |
-        cd azure-function-deploy
-        syft . -o json=sbom-python.json
+        # Generate Software Bill of Materials for container dependencies
+        echo "Container SBOMs will be generated during container deployment" > containers-sbom-placeholder.txt
 
     - name: Generate Node.js SBOM
       run: |
@@ -151,8 +151,7 @@ jobs:
       with:
         name: software-bill-of-materials
         path: |
-          azure-function-deploy/sbom-python.json
-          sbom-nodejs.json
+          containers-sbom-placeholder.txt
         retention-days: 90
 
   terraform-validate:

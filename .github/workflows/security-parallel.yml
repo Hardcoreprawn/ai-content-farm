@@ -16,7 +16,7 @@ name: Parallel Security & Cost Analys    steps:
     branches: [ main, develop ]
     paths: 
       - 'infra/**'
-      - 'azure-function-deploy/**'
+      - 'containers/**'
       - '.github/workflows/**'
       - '**/*.py'
       - 'requirements.txt'
@@ -25,7 +25,7 @@ name: Parallel Security & Cost Analys    steps:
     branches: [ main ]
     paths:
       - 'infra/**'
-      - 'azure-function-deploy/**'
+      - 'containers/**'
       - '**/*.py'
       - 'requirements.txt'
       - '**/requirements.txt'
