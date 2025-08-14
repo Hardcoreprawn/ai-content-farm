@@ -1,21 +1,64 @@
 # AI Content Farm
 
-A secure, enterprise-grade Azure Functions application that fetches trending topics from Reddit and processes them for AI-generated content. Features comprehensive security scanning, cost governance, and compliance controls.
+A microservices-based content pipeline that collects, processes, and enriches content from various sources. Built with FastAPI, featuring comprehensive test coverage and enterprise-grade architecture.
+
+## 🎯 Project Status
+
+**Current State**: 🟢 **50% Complete** - 3 of 6 containers fully implemented with 119 passing tests
+
+### ✅ Completed Services (Production Ready)
+- **Content Collector** (SummaryWombles) - 44 tests ✅ - *Fetches and normalizes content from Reddit*
+- **Content Processor** - 42 tests ✅ - *Processes and analyzes collected content*  
+- **Content Enricher** - 33 tests ✅ - *AI-powered content enhancement*
+
+### 🔄 Remaining Services (To Implement)
+- **Content Ranker** - *Ranks and prioritizes content*
+- **Scheduler** - *Automated workflow management*
+- **Static Site Generator** - *Generates websites from processed content*
+
+**📊 Total Test Coverage**: 119 tests across implemented containers (100% pass rate)
+
+## 🏗 Architecture
+
+```
+Content Sources → Collector → Processor → Enricher → Ranker → SSG → Published Site
+                    ✅         ✅         ✅        🔄      🔄       🔄
+```
+
+Each service is an independent FastAPI microservice with comprehensive test coverage, proper error handling, and standardized APIs.
 
 ## 📚 Documentation
 
 **Complete documentation is available in the [`/docs`](docs/) folder:**
 
-- **[Documentation Index](docs/README.md)** - Start here for navigation
+- **[Project Status](PROJECT_STATUS.md)** - Current completion status and roadmap
+- **[Development Workflow](docs/development-workflow.md)** - Guide for implementing remaining containers
+- **[Content Collector API](docs/content-collector-api.md)** - Complete API documentation
 - **[System Design](docs/system-design.md)** - Architecture and components
-- **[Deployment Guide](docs/deployment-guide.md)** - Step-by-step deployment
-- **[Key Vault Integration](docs/key-vault-integration.md)** - Secrets management
-- **[Cost Analysis](docs/cost-analysis.md)** - Detailed cost breakdown and projections
-- **[Content Processing Workflow](docs/content-processing-workflow.md)** - Complete content pipeline documentation
 - **[Testing Guide](docs/testing-guide.md)** - Function testing procedures
-- **[Security Policy](docs/security-policy.md)** - Governance framework
 
 ## 🚀 Quick Start
+
+### Running Live Services
+
+```bash
+# Start Content Collector (SummaryWombles)
+cd containers/content-collector
+python main.py
+# Service available at http://localhost:8004
+
+# API Documentation
+open http://localhost:8004/docs
+```
+
+### Testing
+
+```bash
+# Test all completed containers
+cd containers/content-collector && python -m pytest tests/ -v
+cd containers/content-processor && python -m pytest tests/ -v  
+cd containers/content-enricher && python -m pytest tests/ -v
+```
 
 ### Development Setup
 
@@ -102,7 +145,7 @@ This project implements enterprise-grade security and cost controls:
 
 ### Security Scanning
 - **Checkov**: Infrastructure security validation
-- **TFSec**: Terraform security analysis
+- **Trivy**: Terraform security analysis
 - **Terrascan**: Policy compliance checking
 
 ### Cost Management
@@ -161,7 +204,7 @@ make sbom           # Generate software bill of materials
 ### Individual Tools
 ```bash
 make checkov        # Infrastructure security scan
-make tfsec          # Terraform security analysis
+make trivy          # Terraform security analysis
 make terrascan      # Policy compliance check
 ```
 

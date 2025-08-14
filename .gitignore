@@ -6,7 +6,7 @@ infra/infracost-*.json
 infra/infracost-*.html
 azure-function-deploy/sbom-*.json
 sbom-*.json
-tfsec
+trivy
 terrascan
 
 # Python

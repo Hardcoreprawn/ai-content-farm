@@ -1,0 +1,208 @@
+name: Parallel Security & Cost Analys    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Azure Login (for Key Vault access)
+      if: matrix.scanner.name == 'infracost'
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Setup Python (if needed)
+      if: matrix.scanner.name == 'python'
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11' push:
+    branches: [ main, develop ]
+    paths: 
+      - 'infra/**'
+      - 'azure-function-deploy/**'
+      - '.github/workflows/**'
+      - '**/*.py'
+      - 'requirements.txt'
+      - '**/requirements.txt'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'infra/**'
+      - 'azure-function-deploy/**'
+      - '**/*.py'
+      - 'requirements.txt'
+      - '**/requirements.txt'
+
+jobs:
+  # Matrix strategy for parallel execution across multiple runners
+  security-cost-matrix:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false  # Continue other scans even if one fails
+      matrix:
+        scanner: 
+          - { name: "checkov", target: "checkov", description: "Terraform Best Practices" }
+          - { name: "trivy", target: "trivy", description: "Infrastructure Config Security" }
+          - { name: "terrascan", target: "terrascan-fast", description: "Policy Analysis (Fast)" }
+          - { name: "python", target: "scan-python", description: "Python Security Analysis" }
+          - { name: "infracost", target: "infracost-parallel", description: "Cost Analysis" }
+    
+    name: ${{ matrix.scanner.description }}
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup Python
+      if: matrix.scanner.name == 'python'
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Setup Terraform
+      if: matrix.scanner.needs_terraform
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: latest
+
+    - name: Terraform Init
+      if: matrix.scanner.needs_terraform
+      run: |
+        cd infra
+        terraform init
+
+    - name: Run ${{ matrix.scanner.description }}
+      run: make ${{ matrix.scanner.target }}
+      continue-on-error: true
+      env:
+        INFRACOST_API_KEY: ${{ secrets.INFRACOST_API_KEY }}
+
+    - name: Upload ${{ matrix.scanner.name }} Results
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: ${{ matrix.scanner.name }}-results
+        path: |
+          infra/*-results.json
+          infra/infracost-*.json
+          infra/infracost-*.html
+          **/*-results.json
+          security-summary.txt
+        retention-days: 30
+
+  # Combine results and check for critical issues
+  analysis-summary:
+    runs-on: ubuntu-latest
+    needs: security-cost-matrix
+    name: Security & Cost Analysis Summary
+    if: always()
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download all analysis results
+      uses: actions/download-artifact@v4
+      with:
+        merge-multiple: true
+        path: ./analysis-results
+
+    - name: Consolidate Results
+      run: |
+        echo "🔒 Consolidated Security & Cost Analysis Results" > consolidated-analysis-report.md
+        echo "================================================" >> consolidated-analysis-report.md
+        echo "" >> consolidated-analysis-report.md
+        echo "Generated on: $(date)" >> consolidated-analysis-report.md
+        echo "" >> consolidated-analysis-report.md
+        
+        # Process each analysis type
+        for scanner in checkov trivy terrascan python infracost; do
+          echo "## ${scanner^} Results" >> consolidated-analysis-report.md
+          
+          if find ./analysis-results -name "*${scanner}*results.json" -o -name "*${scanner}*.json" -type f | head -1 | xargs test -f; then
+            result_file=$(find ./analysis-results -name "*${scanner}*results.json" -o -name "*${scanner}*.json" -type f | head -1)
+            echo "✅ Analysis completed successfully" >> consolidated-analysis-report.md
+            
+            # Extract key metrics based on scanner type
+            case $scanner in
+              checkov)
+                if command -v jq >/dev/null; then
+                  failed=$(jq -r '.summary.failed // 0' "$result_file" 2>/dev/null || echo "0")
+                  passed=$(jq -r '.summary.passed // 0' "$result_file" 2>/dev/null || echo "0")
+                  echo "- Failed checks: $failed" >> consolidated-analysis-report.md
+                  echo "- Passed checks: $passed" >> consolidated-analysis-report.md
+                fi
+                ;;
+              trivy)
+                if command -v jq >/dev/null; then
+                  high_count=$(jq -r '[.Results[]?.Misconfigurations[]? | select(.Severity == "HIGH")] | length' "$result_file" 2>/dev/null || echo "0")
+                  critical_count=$(jq -r '[.Results[]?.Misconfigurations[]? | select(.Severity == "CRITICAL")] | length' "$result_file" 2>/dev/null || echo "0")
+                  echo "- Critical issues: $critical_count" >> consolidated-analysis-report.md
+                  echo "- High issues: $high_count" >> consolidated-analysis-report.md
+                fi
+                ;;
+              infracost)
+                if command -v jq >/dev/null; then
+                  monthly_cost=$(jq -r '.totalMonthlyCost // "N/A"' "$result_file" 2>/dev/null || echo "N/A")
+                  echo "- Estimated monthly cost: \$${monthly_cost}" >> consolidated-analysis-report.md
+                fi
+                ;;
+            esac
+          else
+            echo "❌ Analysis results not found" >> consolidated-analysis-report.md
+          fi
+          echo "" >> consolidated-analysis-report.md
+        done
+
+    - name: Check Critical Security Issues
+      run: |
+        CRITICAL_ISSUES=0
+        
+        # Check Checkov results
+        if find ./analysis-results -name "*checkov*results.json" -type f | head -1 | xargs test -f; then
+          checkov_file=$(find ./analysis-results -name "*checkov*results.json" -type f | head -1)
+          if command -v jq >/dev/null; then
+            failed=$(jq -r '.summary.failed // 0' "$checkov_file" 2>/dev/null || echo "0")
+            CRITICAL_ISSUES=$((CRITICAL_ISSUES + failed))
+          fi
+        fi
+        
+        # Check Trivy results
+        if find ./analysis-results -name "*trivy*results.json" -type f | head -1 | xargs test -f; then
+          trivy_file=$(find ./analysis-results -name "*trivy*results.json" -type f | head -1)
+          if command -v jq >/dev/null; then
+            critical=$(jq -r '[.Results[]?.Misconfigurations[]? | select(.Severity == "CRITICAL")] | length' "$trivy_file" 2>/dev/null || echo "0")
+            high=$(jq -r '[.Results[]?.Misconfigurations[]? | select(.Severity == "HIGH")] | length' "$trivy_file" 2>/dev/null || echo "0")
+            CRITICAL_ISSUES=$((CRITICAL_ISSUES + critical + high))
+          fi
+        fi
+        
+        echo "Critical security issues found: $CRITICAL_ISSUES"
+        
+        if [ $CRITICAL_ISSUES -gt 0 ]; then
+          echo "❌ Deployment blocked due to critical security issues"
+          echo "Review the security scan results and fix critical/high severity issues before proceeding"
+          exit 1
+        else
+          echo "✅ No critical security issues found - deployment can proceed"
+        fi
+
+    - name: Upload Consolidated Report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: consolidated-analysis-report
+        path: consolidated-analysis-report.md
+        retention-days: 30
+
+    - name: Comment PR with Results (if PR)
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const report = fs.readFileSync('consolidated-analysis-report.md', 'utf8');
+          
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '## 🔒 Security & Cost Analysis Results\n\n' + report
+          });

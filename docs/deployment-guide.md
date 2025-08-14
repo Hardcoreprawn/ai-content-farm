@@ -62,7 +62,7 @@ git push origin main
 
 ### Pre-Deployment Security Checks
 1. **Checkov**: Infrastructure security scanning
-2. **TFSec**: Terraform-specific security validation
+2. **Trivy**: Infrastructure security validation
 3. **Terrascan**: Policy compliance verification
 4. **SBOM Generation**: Software Bill of Materials
 5. **Cost Analysis**: Infracost deployment impact
@@ -74,7 +74,7 @@ git push origin main
 
 ### Current Security Status
 - ✅ **Checkov**: 23/23 checks passing
-- ✅ **TFSec**: No critical issues
+- ✅ **Trivy**: No critical issues
 - ✅ **Terrascan**: Compliance verified
 - ✅ **Key Vault**: Audit logging enabled
 

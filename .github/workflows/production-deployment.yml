@@ -56,8 +56,8 @@ jobs:
     - name: Install Security Tools
       if: ${{ !inputs.skip_security_scan }}
       run: |
-        pip3 install checkov
-        curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+        echo "Using Checkov Docker image - no installation needed"
+        echo "Using Trivy Docker image - no installation needed"
         LATEST_URL=$(curl -s https://api.github.com/repos/tenable/terrascan/releases/latest | grep -o -E "https://.*Linux_x86_64.tar.gz" | head -1)
         curl -L "$LATEST_URL" > terrascan.tar.gz
         tar -xf terrascan.tar.gz terrascan && rm terrascan.tar.gz
@@ -69,11 +69,11 @@ jobs:
         echo "🔒 Running comprehensive security validation for production..."
         
         # Checkov - strict mode for production
-        checkov -d infra --hard-fail-on HIGH,CRITICAL --quiet --compact --output json --output-file-path infra/checkov-results.json
-        checkov -d azure-function-deploy --hard-fail-on HIGH,CRITICAL --quiet --compact
+        docker run --rm -v $PWD:/workspace bridgecrew/checkov -d /workspace/infra --hard-fail-on HIGH,CRITICAL --quiet --compact --output json --output-file-path /workspace/infra/checkov-results.json
+        docker run --rm -v $PWD:/workspace bridgecrew/checkov -d /workspace/azure-function-deploy --hard-fail-on HIGH,CRITICAL --quiet --compact
         
-        # TFSec - fail on high severity
-        cd infra && tfsec . --format json --out tfsec-results.json --minimum-severity HIGH
+        # Trivy - fail on high severity
+        docker run --rm -v $PWD:/workspace aquasec/trivy config /workspace/infra --format json --output /workspace/infra/trivy-results.json --severity HIGH,CRITICAL --exit-code 1
         
         # Terrascan
         cd infra && terrascan scan -i terraform --output json > terrascan-results.json
@@ -92,9 +92,9 @@ jobs:
           DEDUCTIONS=$((DEDUCTIONS + CHECKOV_ISSUES * 5))
         fi
         
-        if [ -f infra/tfsec-results.json ]; then
-          TFSEC_ISSUES=$(jq -r '.results | length' infra/tfsec-results.json)
-          DEDUCTIONS=$((DEDUCTIONS + TFSEC_ISSUES * 3))
+        if [ -f infra/trivy-results.json ]; then
+          TRIVY_ISSUES=$(jq -r '[.Results[]?.Misconfigurations[]?] | length' infra/trivy-results.json)
+          DEDUCTIONS=$((DEDUCTIONS + TRIVY_ISSUES * 3))
         fi
         
         FINAL_SCORE=$((SCORE - DEDUCTIONS))
@@ -157,7 +157,7 @@ jobs:
         name: production-validation-results
         path: |
           infra/checkov-results.json
-          infra/tfsec-results.json
+          infra/trivy-results.json
           infra/terrascan-results.json
           infra/infracost-production.json
         retention-days: 90

@@ -1,103 +1,141 @@
 # AI Assistant Guidelines
 
 **Created:** August 5, 2025  
-**Last Updated:** August 5, 2025
+**Last Updated:** August 13, 2025
 
-## 📋 Project Context
+## 🎯 Core Development Principles
 
-The AI Content Farm is a production-ready, enterprise-grade content aggregation system with comprehensive security, cost controls, and operational excellence. This document provides guidelines for AI assistants working on the project.
+### 1. Test-First Development
+- **Write tests before code** - Every feature starts with a failing test
+- **Small, focused functions** - One responsibility, minimal side effects
+- **Fast feedback loops** - Tests run in seconds, not minutes
+- **Test at every level** - Unit, integration, and end-to-end
 
-### Current Project Status
-- **Production Ready**: Complete system with Azure Functions, Key Vault integration, and security compliance
-- **Architecture**: Multi-component design with infrastructure, functions, and documentation
-- **Security**: Enterprise-grade with zero HIGH severity findings
-- **Deployment**: Automated CI/CD with staging and production environments
-- **Documentation**: Comprehensive guides organized in `/docs` with kebab-case naming
+### 2. Incremental Progress
+- **Working software on main** - Every commit should be deployable
+- **Small chunks** - Changes under 50 lines when possible
+- **Functional style** - Pure functions, immutable data, clear inputs/outputs
+- **Proven in production** - Each container must work live before moving on
 
-## 🎯 Core Principles
+### 3. Security & Quality
+- **Secrets in Key Vault** - Never hardcode credentials
+- **Run security scans** - Before every merge to main
+- **Error handling** - Graceful failures, meaningful logs
+- **Documentation** - Update as you build, not after
 
-### 1. Security First
-- **Always** run security scans before suggesting changes
-- **Never** hardcode secrets or credentials
-- **Require** Key Vault integration for sensitive data
-- **Validate** all security scan results before deployment
+## 🚀 Development Workflow
 
-### 2. Documentation Excellence
-- **Use** kebab-case for all filenames (`system-design.md`)
-- **Include** date headers in all documentation
-- **Organize** documentation by functional area in `/docs`
-- **Maintain** cross-references between related documents
+### For Every Feature
+1. **Write failing test** - Define expected behavior
+2. **Minimal implementation** - Make test pass with simplest code
+3. **Refactor** - Clean up while tests still pass
+4. **Deploy to staging** - Validate in cloud environment
+5. **Deploy to production** - Prove it works live
+6. **Document** - Update relevant docs with current date
 
-### 3. Enterprise Standards
-- **Follow** Azure best practices and naming conventions
-- **Implement** comprehensive error handling and logging
-- **Use** Infrastructure as Code (Terraform) for all resources
-- **Ensure** cost estimation before infrastructure changes
-
-### 4. Testing and Validation
-- **Test** all functions using HTTP endpoints before timer deployment
-- **Validate** Key Vault integration in all environments
-- **Verify** security compliance with multi-tool scanning
-- **Confirm** cost estimates within acceptable limits
-
-## 🛠️ Development Workflow
-
-### 1. Understanding Project State
-Before making any changes:
+### Container Development Process
 ```bash
-# Check current documentation
-ls docs/
-cat docs/README.md
+# 1. Create test structure
+mkdir containers/my-service/tests
+touch containers/my-service/tests/test_main.py
 
-# Review security status
-make security-scan
+# 2. Write failing test
+# 3. Implement minimal solution
+# 4. Test locally
+docker build containers/my-service
+docker run --env-file .env my-service
 
-# Validate current infrastructure
-cd infra && terraform validate
+# 5. Deploy and validate
+make deploy-staging
+make test-integration
+make deploy-production
 ```
 
-### 2. Making Changes
-Follow this sequence for any modifications:
-
-1. **Research**: Read relevant documentation in `/docs`
-2. **Plan**: Consider security and cost implications
-3. **Implement**: Make minimal, focused changes
-4. **Test**: Use HTTP functions for validation
-5. **Scan**: Run security validation
-6. **Document**: Update relevant documentation with dates
-
-### 3. Adding New Features
-For new functionality:
-
-1. **Architecture Review**: Update `docs/system-design.md`
-2. **Security Analysis**: Consider security implications
-3. **Cost Impact**: Run `make cost-estimate`
-4. **Testing Strategy**: Create testing procedures
-5. **Documentation**: Create or update relevant guides
-
-## 📚 Documentation Standards
-
-### File Organization
+## 📁 Container Structure
+Each container follows this pattern:
 ```
-docs/
-├── README.md                    # Documentation index
-├── system-design.md            # Architecture and design
-├── deployment-guide.md         # Operational procedures
-├── key-vault-integration.md    # Security and secrets
-├── testing-guide.md            # Testing procedures
-├── security-policy.md          # Governance framework
-├── file-inventory.md           # Project catalog
-├── project-log.md              # Development history
-├── progress-tracking.md        # Status and milestones
-└── security-testing-report.md  # Security validation
+containers/my-service/
+├── Dockerfile              # Multi-stage, minimal image
+├── requirements.txt        # Pinned dependencies
+├── main.py                 # Entry point, minimal logic
+├── service.py              # Core business logic
+├── config.py               # Environment-based config
+├── tests/
+│   ├── test_main.py        # Integration tests
+│   ├── test_service.py     # Unit tests
+│   └── test_config.py      # Config validation
+└── README.md               # Usage and deployment docs
 ```
 
-### Documentation Template
-```markdown
-# Document Title
+## 🧪 Testing Strategy
 
-**Created:** [Date]  
-**Last Updated:** [Date]
+### Test Types
+- **Unit Tests**: Pure functions, no external dependencies
+- **Integration Tests**: Real Azure services in staging
+- **Contract Tests**: API inputs/outputs match expected schemas
+- **Smoke Tests**: Basic functionality works in production
+
+### Test Requirements
+```python
+# Every function must be testable like this:
+def test_process_data():
+    input_data = {"key": "value"}
+    expected = {"processed": True}
+    result = process_data(input_data)
+    assert result == expected
+
+# Integration tests use real services:
+def test_azure_integration():
+    client = create_azure_client()
+    result = client.process_request(test_data)
+    assert result.status_code == 200
+```
+
+## 🔧 Container Development Guidelines
+
+### Code Quality
+- **Pure functions** where possible - same input, same output
+- **Single responsibility** - each function does one thing well
+- **Explicit dependencies** - inject config, don't import globals
+- **Error boundaries** - catch and handle errors gracefully
+
+### Container Best Practices
+- **Minimal base images** - python:3.11-slim or alpine
+- **Non-root user** - security by default
+- **Health checks** - /health endpoint for monitoring
+- **Graceful shutdown** - handle SIGTERM properly
+
+### Azure Integration
+- **Key Vault for secrets** - no environment variables for sensitive data
+- **Managed identity** - no service principal keys
+- **Application Insights** - structured logging with correlation IDs
+- **Consumption plans** - cost-effective scaling
+
+## � Container Development Checklist
+
+Before moving to next container:
+- [ ] Unit tests pass locally
+- [ ] Integration tests pass in staging
+- [ ] Container builds and runs
+- [ ] Deployed successfully to staging
+- [ ] Deployed successfully to production
+- [ ] Monitoring and logs working
+- [ ] Documentation updated
+- [ ] Security scan passes
+
+## 🎯 Current Project Focus
+
+Building content pipeline containers in this order:
+1. **content-processor** - Core data transformation
+2. **content-enricher** - AI enhancement of content
+3. **content-ranker** - Content scoring and ranking
+4. **scheduler** - Task orchestration
+5. **ssg** - Static site generation
+
+Each container must be **working in production** before starting the next one.
+
+---
+*Focus: Small steps, test-first, working software in production*
 
 ## Overview
 Brief description of document purpose
@@ -129,7 +167,7 @@ make security-scan
 
 # Must achieve these results:
 # - Checkov: All checks passing
-# - TFSec: No critical issues  
+# - Trivy: No critical issues  
 # - Terrascan: Acceptable compliance level
 ```
 

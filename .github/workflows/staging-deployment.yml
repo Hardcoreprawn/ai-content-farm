@@ -48,12 +48,10 @@ jobs:
         python-version: '3.11'
 
     - name: Install Checkov
-      run: |
-        pip3 install checkov
+      run: echo "Using Checkov Docker image - no installation needed"
         
-    - name: Install TFSec
-      run: |
-        curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+    - name: Install Trivy
+      run: echo "Using Trivy Docker image - no installation needed"
 
     - name: Install Terrascan
       run: |
@@ -68,13 +66,13 @@ jobs:
 
     - name: Run Checkov Security Scan
       run: |
-        checkov -d infra --quiet --compact --output json --output-file-path infra/checkov-results.json
-        checkov -d azure-function-deploy --quiet --compact
+        docker run --rm -v $PWD:/workspace bridgecrew/checkov -d /workspace/infra --quiet --compact --output json --output-file-path /workspace/infra/checkov-results.json
+        docker run --rm -v $PWD:/workspace bridgecrew/checkov -d /workspace/azure-function-deploy --quiet --compact
       continue-on-error: true
 
-    - name: Run TFSec Security Scan
+    - name: Run Trivy Security Scan
       run: |
-        cd infra && tfsec . --format json --out tfsec-results.json --soft-fail
+        docker run --rm -v $PWD:/workspace aquasec/trivy config /workspace/infra --format json --output /workspace/infra/trivy-results.json --exit-code 0
       continue-on-error: true
 
     - name: Run Terrascan Policy Scan
@@ -105,11 +103,11 @@ jobs:
           CRITICAL_ISSUES=$((CRITICAL_ISSUES + CHECKOV_FAILED))
         fi
         
-        # Check TFSec results
-        if [ -f infra/tfsec-results.json ]; then
-          TFSEC_HIGH=$(jq -r '[.results[] | select(.severity == "HIGH" or .severity == "CRITICAL")] | length' infra/tfsec-results.json)
-          echo "TFSec high/critical issues: $TFSEC_HIGH"
-          CRITICAL_ISSUES=$((CRITICAL_ISSUES + TFSEC_HIGH))
+        # Check Trivy results
+        if [ -f infra/trivy-results.json ]; then
+          TRIVY_HIGH=$(jq -r '[.Results[]?.Misconfigurations[]? | select(.Severity == "HIGH" or .Severity == "CRITICAL")] | length' infra/trivy-results.json)
+          echo "Trivy high/critical issues: $TRIVY_HIGH"
+          CRITICAL_ISSUES=$((CRITICAL_ISSUES + TRIVY_HIGH))
         fi
         
         # Check if deployment should be blocked
@@ -129,7 +127,7 @@ jobs:
         name: security-scan-results
         path: |
           infra/checkov-results.json
-          infra/tfsec-results.json
+          infra/trivy-results.json
           infra/terrascan-results.json
           azure-function-deploy/sbom-python.json
           sbom-nodejs.json
