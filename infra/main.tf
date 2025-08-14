@@ -7,14 +7,10 @@ resource "random_string" "suffix" {
 }
 
 resource "azurerm_resource_group" "main" {
-  name     = "${var.resource_prefix}-rg"
+  name     = "${local.resource_prefix}-rg"
   location = var.location
 
-  tags = {
-    Environment = var.environment
-    Project     = "ai-content-farm"
-    ManagedBy   = "terraform"
-  }
+  tags = local.common_tags
 }
 
 
@@ -22,7 +18,7 @@ resource "azurerm_key_vault" "main" {
   # checkov:skip=CKV_AZURE_189: Public access is acceptable for this use case
   # checkov:skip=CKV_AZURE_109: Firewall rules not required for this use case
   # checkov:skip=CKV2_AZURE_32: Private endpoint not required for this use case
-  name     = "${replace(var.resource_prefix, "-", "")}kv${random_string.suffix.result}"
+  name     = "${replace(local.resource_prefix, "-", "")}kv${random_string.suffix.result}"
   location = azurerm_resource_group.main.location
 
   resource_group_name        = azurerm_resource_group.main.name

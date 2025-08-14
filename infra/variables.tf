@@ -10,19 +10,48 @@ variable "subscription_id" {
 }
 
 variable "environment" {
-  description = "Environment name (staging, production)"
+  description = "Environment name (staging, production, or dynamic like pr-123)"
   type        = string
   default     = "development"
   validation {
-    condition     = contains(["development", "staging", "production"], var.environment)
-    error_message = "Environment must be development, staging, or production."
+    condition     = contains(["development", "staging", "production"], var.environment) || can(regex("^pr-[0-9]+$", var.environment))
+    error_message = "Environment must be development, staging, production, or pr-{number} format."
   }
 }
 
+variable "environment_name" {
+  description = "Dynamic environment name for ephemeral environments (overrides environment)"
+  type        = string
+  default     = ""
+}
+
+variable "branch_name" {
+  description = "Git branch name for ephemeral environments"
+  type        = string
+  default     = ""
+}
+
 variable "resource_prefix" {
-  description = "Prefix for all resource names"
+  description = "Prefix for all resource names (will be dynamic for ephemeral environments)"
   type        = string
   default     = "ai-content-dev"
+}
+
+# Computed locals for dynamic naming
+locals {
+  # Use environment_name if provided (for ephemeral), otherwise use environment
+  effective_environment = var.environment_name != "" ? var.environment_name : var.environment
+  
+  # Dynamic resource prefix based on environment
+  resource_prefix = var.environment_name != "" ? "ai-content-${var.environment_name}" : var.resource_prefix
+  
+  # Tags for all resources
+  common_tags = {
+    Environment = local.effective_environment
+    Project     = "ai-content-farm"
+    ManagedBy   = "terraform"
+    BranchName  = var.branch_name != "" ? var.branch_name : "main"
+  }
 }
 
 # Reddit API Configuration

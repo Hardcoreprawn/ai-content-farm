@@ -1,14 +1,20 @@
-name: Staging Deployment
+# DEPRECATED: Replaced by ephemeral-environment.yml for PR-based testing
+# This workflow is disabled - we now use main-branch development with dynamic PR environments
+
+name: "[DISABLED] Staging Deployment"
 
 on:
-  # Only run staging deployment on pushes to develop branch
-  push:
-    branches: [ develop ]
-  # Run on PRs targeting develop for validation
-  pull_request:
-    branches: [ develop ]
-  # Allow manual staging deployments
+  # Disabled - no longer using persistent staging
+  # push:
+  #   branches: [ develop ]
+  # pull_request:
+  #   branches: [ develop ]
   workflow_dispatch:
+    inputs:
+      confirm_manual_staging:
+        description: 'Type "confirm" to manually deploy staging (not recommended)'
+        required: true
+        default: ''
 
 env:
   ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
@@ -17,7 +23,29 @@ env:
   ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
 
 jobs:
+  # Safety check to prevent accidental staging deployments
+  safety-check:
+    runs-on: ubuntu-latest
+    name: 🚨 Staging Deployment Safety Check
+    steps:
+    - name: Confirm Manual Staging
+      if: github.event.inputs.confirm_manual_staging != 'confirm'
+      run: |
+        echo "🚨 STAGING DEPLOYMENT DISABLED"
+        echo "This workflow has been replaced by ephemeral-environment.yml"
+        echo "For testing: Create a PR and get an ephemeral environment"
+        echo "For production: Push to main branch"
+        echo ""
+        echo "To force staging deployment, re-run with 'confirm' input"
+        exit 1
+        
+    - name: Manual Staging Confirmed
+      if: github.event.inputs.confirm_manual_staging == 'confirm'
+      run: |
+        echo "⚠️ Manual staging deployment confirmed - proceeding"
+
   security-validation:
+    needs: safety-check
     runs-on: ubuntu-latest
     name: Security and Compliance Validation
     outputs:
