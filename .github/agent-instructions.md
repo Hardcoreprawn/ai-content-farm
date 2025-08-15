@@ -294,81 +294,16 @@ make clean             # Remove all build artifacts and temp files
 ## Infrastructure Efficiency Guidelines
 
 ### Azure Resource Naming Standards (MANDATORY)
-**ALL NEW RESOURCES MUST FOLLOW THESE NAMING CONVENTIONS**
+**ALL NEW RESOURCES MUST FOLLOW ESTABLISHED NAMING CONVENTIONS**
 
-Our project follows strict naming standards for consistency, automation, and environment clarity. See `docs/naming-standards.md` for complete documentation.
+See **`docs/naming-standards.md`** for complete Azure resource naming standards including:
+- Base naming patterns for all resource types
+- Environment-specific examples (prod/dev/ephemeral)
+- Terraform implementation with `local.clean_prefix` 
+- Guidelines for adding new resource types
+- Migration procedures and best practices
 
-#### Base Naming Pattern
-```
-ai-content-{environment}-{resource-type}-{suffix}
-```
-
-#### Environment Abbreviations
-- **Production**: `prod` → `ai-content-prod`
-- **Development**: `dev` → `ai-content-dev`  
-- **Ephemeral/PR**: `pr{number}` → `ai-content-pr123`
-
-#### Standard Resource Types & Patterns
-
-| Azure Resource | Abbreviation | Pattern | Example |
-|---------------|-------------|---------|---------|
-| **Resource Group** | `rg` | `{prefix}-rg` | `ai-content-prod-rg` |
-| **Key Vault** | `kv` | `{clean-prefix}kv{random}` | `aicontentprodkv8x4k2m` |
-| **Storage Account** | `st` | `{clean-prefix}st{random}` | `aicontentprodst8x4k2m` |
-| **Storage Container** | - | `{service-name}` | `content-topics` |
-| **Container Registry** | `acr` | `{clean-prefix}acr{random}` | `aicontentprodacr8x4k2m` |
-| **Container Instance** | `aci` | `{prefix}-{service}-aci` | `ai-content-prod-collector-aci` |
-| **Log Analytics** | `la` | `{prefix}-la` | `ai-content-prod-la` |
-| **Application Insights** | `insights` | `{prefix}-insights` | `ai-content-prod-insights` |
-| **Function App** | `func` | `{prefix}-func` | `ai-content-prod-func` |
-| **App Service Plan** | `asp` | `{prefix}-asp` | `ai-content-prod-asp` |
-| **Container Apps Environment** | `cae` | `{prefix}-cae` | `ai-content-prod-cae` |
-| **Container App** | `ca` | `{prefix}-{service}-ca` | `ai-content-prod-collector-ca` |
-
-#### Terraform Implementation Standards
-```hcl
-locals {
-  # Environment-based prefix
-  resource_prefix = "ai-content-${var.environment}"
-  
-  # Clean prefix for resources that don't allow hyphens
-  clean_prefix = replace(local.resource_prefix, "-", "")
-  
-  # Random suffix for uniqueness
-  suffix = random_string.suffix.result
-}
-
-# Example implementations
-resource "azurerm_resource_group" "main" {
-  name = "${local.resource_prefix}-rg"
-}
-
-resource "azurerm_key_vault" "main" {
-  name = "${local.clean_prefix}kv${local.suffix}"
-}
-
-resource "azurerm_storage_account" "main" {
-  name = "${local.clean_prefix}st${local.suffix}"
-}
-
-resource "azurerm_container_registry" "main" {
-  name = "${local.clean_prefix}acr${local.suffix}"
-}
-```
-
-#### When Adding New Resource Types
-1. **Check naming standards**: Reference `docs/naming-standards.md`
-2. **Follow the pattern**: Use appropriate prefix (clean vs hyphenated)
-3. **Add to documentation**: Update the standards doc with new resource type
-4. **Use consistent locals**: `local.resource_prefix` or `local.clean_prefix`
-5. **Test across environments**: Ensure names work for prod/dev/ephemeral
-
-#### Benefits of This Standard
-- **Environment clarity**: Easy to identify prod vs dev resources
-- **Azure compliance**: Follows all Azure naming restrictions
-- **Automation friendly**: Predictable patterns for scripts and workflows
-- **Cost tracking**: Easy grouping by environment and service
-- **Security**: Clear separation between environments
+**Quick Reference**: Use `ai-content-{environment}-{resource-type}` pattern with `local.resource_prefix` for hyphens allowed, `local.clean_prefix` for resources like Key Vault and Storage Account that don't allow hyphens.
 
 ### Preventing Configuration Drift (CRITICAL)
 Azure automatically adds properties to resources that must be explicitly defined in Terraform to prevent unnecessary updates on every deployment:
