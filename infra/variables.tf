@@ -44,6 +44,9 @@ locals {
 
   # Dynamic resource prefix based on environment
   resource_prefix = var.environment_name != "" ? "ai-content-${var.environment_name}" : var.resource_prefix
+  
+  # Clean prefix for resources that don't allow hyphens (Key Vault, Storage Account)
+  clean_prefix = replace(local.resource_prefix, "-", "")
 
   # Tags for all resources
   common_tags = {

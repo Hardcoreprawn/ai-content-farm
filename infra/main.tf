@@ -18,7 +18,7 @@ resource "azurerm_key_vault" "main" {
   # checkov:skip=CKV_AZURE_189: Public access is acceptable for this use case
   # checkov:skip=CKV_AZURE_109: Firewall rules not required for this use case
   # checkov:skip=CKV2_AZURE_32: Private endpoint not required for this use case
-  name     = "${replace(local.resource_prefix, "-", "")}kv${random_string.suffix.result}"
+  name     = "${local.clean_prefix}kv${random_string.suffix.result}"
   location = azurerm_resource_group.main.location
 
   resource_group_name        = azurerm_resource_group.main.name
@@ -133,7 +133,7 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
 }
 
 resource "azurerm_log_analytics_workspace" "main" {
-  name                = "${var.resource_prefix}-logs"
+  name                = "${local.resource_prefix}-la"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   sku                 = "PerGB2018"
@@ -141,7 +141,7 @@ resource "azurerm_log_analytics_workspace" "main" {
 }
 
 resource "azurerm_application_insights" "main" {
-  name                = "${var.resource_prefix}-insights"
+  name                = "${local.resource_prefix}-insights"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   workspace_id        = azurerm_log_analytics_workspace.main.id
@@ -158,7 +158,7 @@ resource "azurerm_storage_account" "main" {
   # checkov:skip=CKV2_AZURE_38: Not required for non-critical data
   # checkov:skip=CKV2_AZURE_40: Shared Key authorization required for Terraform compatibility; access is restricted and secure
   # checkov:skip=CKV2_AZURE_41: No SAS tokens used
-  name                          = "hottopicsstorage${random_string.suffix.result}"
+  name                          = "${local.clean_prefix}st${random_string.suffix.result}"
   resource_group_name           = azurerm_resource_group.main.name
   location                      = azurerm_resource_group.main.location
   account_tier                  = "Standard"
@@ -175,7 +175,7 @@ resource "azurerm_storage_account" "main" {
 
 resource "azurerm_storage_container" "topics" {
   # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
-  name                  = "hot-topics"
+  name                  = "content-topics"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
 }
