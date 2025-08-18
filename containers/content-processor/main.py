@@ -9,7 +9,7 @@ This is the API layer - business logic is in processor.py
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from typing import List, Dict, Any, Optional
 import uvicorn
@@ -46,10 +46,74 @@ class RedditPost(BaseModel):
 
 
 class ProcessRequest(BaseModel):
-    source: str = Field(..., description="Data source (e.g., 'reddit')")
-    data: List[RedditPost] = Field(..., description="List of posts to process")
-    options: Dict[str, Any] = Field(
-        default_factory=dict, description="Processing options")
+    """
+    Flexible processing request that supports multiple input formats.
+
+    Supports both:
+    - Legacy format: {source: "reddit", data: [...]}
+    - New format: {items: [...], source: "reddit"} 
+    """
+    # Primary fields (new format)
+    items: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="List of content items to process (new format)"
+    )
+
+    # Legacy fields (backward compatibility)
+    source: Optional[str] = Field(
+        default=None,
+        description="Data source (e.g., 'reddit') - legacy format"
+    )
+    data: Optional[List[Dict[str, Any]]] = Field(
+        default=None,
+        description="List of posts to process - legacy format"
+    )
+
+    # Options (flexible)
+    options: Optional[Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Processing options"
+    )
+
+    class Config:
+        # Allow extra fields and ignore them for forward compatibility
+        extra = "ignore"
+
+    @field_validator('items', 'data', mode='before')
+    @classmethod
+    def validate_items_or_data(cls, v):
+        """Ensure we have valid item data."""
+        if v is not None and not isinstance(v, list):
+            raise ValueError("Items/data must be a list")
+        return v
+
+    @model_validator(mode='after')
+    def validate_has_items_or_data(self):
+        """Ensure we have either items or data field provided."""
+        if self.items is None and self.data is None:
+            raise ValueError("Either 'items' or 'data' field is required")
+        return self
+
+    def get_items(self) -> List[Dict[str, Any]]:
+        """Get items from either new format or legacy format."""
+        if self.items is not None:
+            return self.items
+        elif self.data is not None:
+            return self.data
+        else:
+            raise ValueError("Either 'items' or 'data' field is required")
+
+    def get_source(self) -> str:
+        """Get source, defaulting to 'unknown' if not specified."""
+        if self.source:
+            return self.source
+        # Try to infer from first item
+        items = self.get_items()
+        if items and len(items) > 0:
+            first_item = items[0]
+            if isinstance(first_item, dict):
+                return first_item.get('source', 'unknown')
+        return 'unknown'
 
 
 class ProcessedItem(BaseModel):
@@ -101,9 +165,26 @@ async def json_error_handler(request: Request, exc: json.JSONDecodeError):
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handle Pydantic validation errors"""
     logger.error(f"Validation error: {exc}")
+    # Ensure errors are serializable (stringify any non-serializable entries)
+    try:
+        errors = exc.errors()
+    except Exception:
+        errors = [str(exc)]
+
+    # Stringify context objects that may contain exceptions
+    safe_errors = []
+    for e in errors:
+        try:
+            # Attempt to JSON-serialize the error; if not possible, stringify
+            import json as _json
+            _json.dumps(e)
+            safe_errors.append(e)
+        except Exception:
+            safe_errors.append({k: (str(v) if not isinstance(v, (str, int, float, bool, list, dict, type(None))) else v) for k, v in (e.items() if isinstance(e, dict) else {"error": str(e)}.items())})
+
     return JSONResponse(
         status_code=422,
-        content={"detail": "Validation error", "errors": exc.errors()}
+        content={"detail": "Validation error", "errors": safe_errors}
     )
 
 
@@ -140,34 +221,47 @@ async def process_content(request: ProcessRequest):
     """Process Reddit data into structured content"""
     try:
         # Validate source
-        if request.source != "reddit":
-            raise HTTPException(
-                status_code=422,
-                detail=f"Unsupported source: {request.source}"
-            )
+        # Get source and items using the flexible methods
+        source = request.get_source()
+        items = request.get_items()
+
+        # For now, we primarily support Reddit data
+        # Future: Add other source processors
+        if source not in ["reddit", "unknown"]:
+            logger.warning(f"Processing source '{source}' as generic content")
 
         # Validate data
-        if not request.data:
+        if not items:
             raise HTTPException(
                 status_code=422,
-                detail="No data provided"
+                detail="No items provided"
             )
 
-        # Convert Pydantic models to dicts for processing
-        reddit_posts = [post.model_dump() for post in request.data]
+        # Process the data (items are already dicts)
+        if source == "reddit":
+            processed_items_raw = process_reddit_batch(items)
+        else:
+            # Generic processing for unknown sources
+            processed_items_raw = process_reddit_batch(
+                items)  # Use Reddit processor as fallback
 
-        # Process the data
-        processed_items_raw = process_reddit_batch(reddit_posts)
-
-        # Convert back to Pydantic models for response
-        processed_items = [ProcessedItem(**item)
-                           for item in processed_items_raw]
+        # Convert to Pydantic models for response validation
+        processed_items = []
+        for item in processed_items_raw:
+            try:
+                processed_items.append(ProcessedItem(**item))
+            except ValidationError as e:
+                logger.error(f"Failed to validate processed item: {e}")
+                # Skip invalid items but continue processing
+                continue
 
         # Create response metadata
         metadata = {
-            "source": request.source,
+            "source": source,
             "items_processed": len(processed_items),
-            "options": request.options,
+            "items_received": len(items),
+            "items_skipped": len(items) - len(processed_items),
+            "options": request.options or {},
             "processing_version": "1.0.0"
         }
 

@@ -1,0 +1,218 @@
+# Docker Compose for AI Content Farm Local Development
+# Using official Microsoft Azure Functions Python base images
+# Automatically loads environment variables from .env file
+
+services:
+  # Azurite - Azure Storage Emulator for local development
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: ai-content-farm-azurite
+    ports:
+      - "10000:10000" # Blob service
+      - "10001:10001" # Queue service  
+      - "10002:10002" # Table service
+    volumes:
+      - azurite-data:/data
+    environment:
+      - AZURITE_ACCOUNTS=devstoreaccount1:Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==
+    command: [ "azurite", "--silent", "--location", "/data", "--debug", "/data/debug.log", "--blobHost", "0.0.0.0", "--queueHost", "0.0.0.0", "--tableHost", "0.0.0.0" ]
+    networks:
+      - content-farm-network
+    restart: unless-stopped
+
+  # Content Collector - Gathers content from Reddit and other sources
+  content-collector:
+    build:
+      context: .
+      dockerfile: ./containers/content-collector/Dockerfile
+    container_name: ai-content-farm-collector
+    ports:
+      - "8001:8000"
+      - ENVIRONMENT=development
+      - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+      # Azure Key Vault configuration (optional for local dev)
+      - AZURE_KEY_VAULT_URL=${AZURE_KEY_VAULT_URL:-}
+      - AZURE_CLIENT_ID=${AZURE_CLIENT_ID:-}
+      - AZURE_CLIENT_SECRET=${AZURE_CLIENT_SECRET:-}
+      - AZURE_TENANT_ID=${AZURE_TENANT_ID:-}
+      # Reddit credentials (fallback to environment variables)
+      - REDDIT_CLIENT_ID=${REDDIT_CLIENT_ID:-}
+      - REDDIT_CLIENT_SECRET=${REDDIT_CLIENT_SECRET:-}
+      - REDDIT_USER_AGENT=${REDDIT_USER_AGENT:-ai-content-farm-local/1.0}
+    volumes:
+      - ./output:/app/output # Mount output directory for local file access
+    networks:
+      - content-farm-network
+    depends_on:
+      - azurite
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Content Processor - Cleans and normalizes content
+  content-processor:
+    build:
+      context: .
+      dockerfile: ./containers/content-processor/Dockerfile
+    container_name: ai-content-farm-processor
+    ports:
+      - "8002:8000"
+      - ENVIRONMENT=development
+      - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+    depends_on:
+      - content-collector
+      - azurite
+    networks:
+      - content-farm-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Content Enricher - Adds AI analysis and metadata
+  content-enricher:
+    build:
+      context: .
+      dockerfile: ./containers/content-enricher/Dockerfile
+    container_name: ai-content-farm-enricher
+    ports:
+      - "8003:8000"
+      - ENVIRONMENT=development
+      - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    depends_on:
+      - content-processor
+      - azurite
+    networks:
+      - content-farm-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Content Ranker - Ranks content using multi-factor scoring
+  content-ranker:
+    build:
+      context: .
+      dockerfile: ./containers/content-ranker/Dockerfile
+    container_name: ai-content-farm-ranker
+    ports:
+      - "8004:8000"
+      - ENVIRONMENT=development
+      - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+      # Ranking Configuration
+      - WEIGHT_ENGAGEMENT=0.4
+      - WEIGHT_RECENCY=0.35
+      - WEIGHT_TOPIC_RELEVANCE=0.25
+      - RECENCY_HALF_LIFE_HOURS=24
+      - MAX_RANKING_ITEMS=1000
+    depends_on:
+      - content-enricher
+      - azurite
+    networks:
+      - content-farm-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Static Site Generator - Creates websites from curated content
+  site-generator:
+    build:
+      context: .
+      dockerfile: ./containers/site-generator/Dockerfile
+    container_name: ai-content-farm-site-generator
+    ports:
+      - "8005:8000"
+      - ENVIRONMENT=development
+      - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+    depends_on:
+      - content-ranker
+      - azurite
+    networks:
+      - content-farm-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Markdown Generator - Watches for ranked content and generates markdown
+  markdown-generator:
+    build:
+      context: .
+      dockerfile: ./containers/markdown-generator/Dockerfile
+    container_name: ai-content-farm-markdown-generator
+    ports:
+      - "8007:8000"
+      - ENVIRONMENT=development
+    volumes:
+      - ./output:/app/output
+    depends_on:
+      - content-ranker
+    networks:
+      - content-farm-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Markdown Converter - Watches for markdown and triggers static site generation
+  markdown-converter:
+    build:
+      context: .
+      dockerfile: ./containers/markdown-converter/Dockerfile
+    container_name: ai-content-farm-markdown-converter
+    ports:
+      - "8006:8000"
+      - ENVIRONMENT=development
+      - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+    depends_on:
+      - site-generator
+      - markdown-generator
+      - azurite
+    networks:
+      - content-farm-network
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Collector Scheduler - triggers collector on a schedule
+  collector-scheduler:
+    build:
+      context: .
+      dockerfile: ./containers/collector-scheduler/Dockerfile
+    container_name: ai-content-farm-collector-scheduler - COLLECTOR_URL=http://content-collector:8000/collect - SCHEDULE_SECONDS=1800 - RUN_ONCE=false
+    depends_on:
+      - content-collector
+    networks:
+      - content-farm-network
+    restart: unless-stopped
+
+networks:
+  content-farm-network:
+    driver: bridge
+    name: ai-content-farm-network
+
+volumes:
+  content-data:
+    driver: local
+    name: ai-content-farm-data
+  azurite-data:
+    driver: local
+    name: ai-content-farm-azurite

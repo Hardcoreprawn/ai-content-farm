@@ -1,14 +1,9 @@
-# Copilot Agent Instructions for AI Content Farm
+# Copilot Agent Instructions for Personal Content Curation Platform
 
 ## Project Overview
-This is an **enterprise-grade A#### Event-Driven Integration (Secondary, After REST API):
-- **Blob/Timer Triggers**: Optional automation after HTTP endpoint is proven working
-- **Pattern**: `EventTrigger` → calls → `HTTP Endpoint` (same business logic)
-- **Benefits**: Automatic processing while maintaining manual control and debugging
-- **Requirements**: HTTP endpoint must exist first, event trigger calls it internally
-- **Example**: `ContentEnricher` blob trigger calls `ContentEnricherManual` HTTP logic
+This is a **personal content aggregation and curation platform** that collects interesting articles from various sources and presents them in a clean, ad-free, low-stress reading environment. The system uses AI for fact-checking, reference finding, and summarization to create trustworthy content with both high-level summaries and deep-dive options.
 
-#### Project Structure (Enforced):ntent farm** built on Azure Functions with comprehensive security, cost governance, and compliance controls. The system processes Reddit topics through an automated pipeline: collection → ranking → enrichment → publication.
+**Core Vision**: Create a personal reading grid that aggregates cool and interesting content about topics you care about (technology, science, etc.), eliminating the need to search hundreds of sites. Future plans include multi-modal experiences (audio for walking/driving), AI imagery/video support, multiple AI "writer" perspectives, and community sharing capabilities.
 
 **Always check README.md and TODO.md first** to understand current status and next priorities.
 

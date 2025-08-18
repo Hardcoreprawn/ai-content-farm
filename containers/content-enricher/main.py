@@ -187,6 +187,11 @@ async def enrich_content(request: EnrichmentRequest) -> Dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"Error during content enrichment: {e}")
+        logger.error(f"Exception type: {type(e)}")
+        logger.error(
+            f"Request items: {len(request.items) if request.items else 'None'}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(
             status_code=500, detail="Enrichment processing failed")
 

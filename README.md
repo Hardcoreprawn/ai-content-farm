@@ -1,118 +1,141 @@
 # AI Content Farm
 
-A microservices-based content pipeline that collects, processes, and enriches content from various sources. Built with FastAPI, featuring comprehensive test coverage and enterprise-grade architecture.
+**An intelligent, event-driven content aggregation and curation system** that collects interesting articles from various sources and presents them as high-quality static websites. Built with Docker microservices and Azure blob storage for scalability and reliability.
 
-## 🎯 Project Status
+## 🎯 Vision
 
-**Current State**: 🟢 **50% Complete** - 3 of 6 containers fully implemented with 119 passing tests
+Create a **personal content curation platform** that automatically:
+- **🧹 Aggregates Quality Content**: Collect from Reddit, HackerNews, and other sources
+- **🤖 AI-Enhanced Processing**: Smart ranking, enrichment, and fact-checking
+- **📚 Generates Static Sites**: Beautiful, fast-loading websites for consumption
+- **🔄 Event-Driven Automation**: Fully automated pipeline with minimal manual intervention
+- **☁️ Cloud-Native Design**: Scalable, secure, and cost-effective
 
-### ✅ Completed Services (Production Ready)
-- **Content Collector** (SummaryWombles) - 44 tests ✅ - *Fetches and normalizes content from Reddit*
-- **Content Processor** - 42 tests ✅ - *Processes and analyzes collected content*  
-- **Content Enricher** - 33 tests ✅ - *AI-powered content enhancement*
+## 🏗️ Architecture
 
-### 🔄 Remaining Services (To Implement)
-- **Content Ranker** - *Ranks and prioritizes content*
-- **Scheduler** - *Automated workflow management*
-- **Static Site Generator** - *Generates websites from processed content*
-
-**📊 Total Test Coverage**: 119 tests across implemented containers (100% pass rate)
+**Event-Driven Microservices Pipeline**:
+```
+Sources → Collector → Processor → Enricher → Ranker → Generator → SSG → Website
+   ↓         ↓          ↓          ↓         ↓         ↓        ↓        ↓
+[Reddit]  [collected] [processed] [enriched] [ranked] [markdown] [sites] [preview]
 ```
 
-**actionlint reports 7 errors:**
+### Core Components
+- **6 Microservices**: Each stage runs in its own Docker container
+- **Azure Blob Storage**: All data persistence through standardized blob containers
+- **Event-Driven Triggers**: Services automatically trigger when new content is available
+- **Standard APIs**: FastAPI-based services with health checks and monitoring
+- **Local Development**: Full stack runs locally with Azurite blob storage emulation
 
-```
-test.yaml:3:5: unexpected key "branch" for "push" section. expected one of "branches", "branches-ignore", "paths", "paths-ignore", "tags", "tags-ignore", "types", "workflows" [syntax-check]
-  |
-3 |     branch: main
-  |     ^~~~~~~
-test.yaml:5:11: character '\' is invalid for branch and tag names. only special characters [, ?, +, *, \, ! can be escaped with \. see `man git-check-ref-format` for more details. note that regular expression is unavailable. note: filter pattern syntax is explained at https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet [glob]
-  |
-5 |       - 'v\d+'
-  |           ^~~~
-test.yaml:10:28: label "linux-latest" is unknown. available labels are "windows-latest", "windows-latest-8-cores", "windows-2025", "windows-2022", "windows-2019", "ubuntu-latest", "ubuntu-latest-4-cores", "ubuntu-latest-8-cores", "ubuntu-latest-16-cores", "ubuntu-24.04", "ubuntu-22.04", "ubuntu-20.04", "macos-latest", "macos-latest-xl", "macos-latest-xlarge", "macos-latest-large", "macos-15-xlarge", "macos-15-large", "macos-15", "macos-14-xl", "macos-14-xlarge", "macos-14-large", "macos-14", "macos-13-xl", "macos-13-xlarge", "macos-13-large", "macos-13", "self-hosted", "x64", "arm", "arm64", "linux", "macos", "windows". if it is a custom label for self-hosted runner, set list of labels in actionlint.yaml config file [runner-label]
-   |
-10 |         os: [macos-latest, linux-latest]
-   |                            ^~~~~~~~~~~~~
-test.yaml:13:41: "github.event.head_commit.message" is potentially untrusted. avoid using it directly in inline scripts. instead, pass it through an environment variable. see https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions for more details [expression]
-   |
-13 |       - run: echo "Checking commit '${{ github.event.head_commit.message }}'"
-   |                                         ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-test.yaml:17:11: input "node_version" is not defined in action "actions/setup-node@v4". available inputs are "always-auth", "architecture", "cache", "cache-dependency-path", "check-latest", "node-version", "node-version-file", "registry-url", "scope", "token" [action]
-   |
-17 |           node_version: 18.x
-   |           ^~~~~~~~~~~~~
-test.yaml:21:20: property "platform" is not defined in object type {os: string} [expression]
-   |
-21 |           key: ${{ matrix.platform }}-node-${{ hashFiles('**/package-lock.json') }}
-   |                    ^~~~~~~~~~~~~~~
-test.yaml:22:17: receiver of object dereference "permissions" must be type of object but got "string" [expression]
-   |
-22 |         if: ${{ github.repository.permissions.admin == true }}
-   |                 ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+## 🚀 Quick Start
+
+### Prerequisites
+- Docker and Docker Compose
+- Python 3.11+
+- Azure CLI (for production deployment)
+
+### Development Setup
+```bash
+# 1. Clone and setup environment
+git clone https://github.com/Hardcoreprawn/ai-content-farm.git
+cd ai-content-farm
+./scripts/setup-local-dev.sh
+
+# 2. Start the development stack
+docker-compose up -d
+
+# 3. Test the pipeline
+./scripts/test-pipeline.sh
+
+# 4. View generated content
+open http://localhost:8002  # SSG preview service
 ```
 
-## Quick start
+## 📚 Documentation
 
-Install `actionlint` command by downloading [the released binary][releases] or by Homebrew or by `go install`. See
-[the installation document][install] for more details like how to manage the command with several package managers
-or run via Docker container.
+### 🚀 Getting Started
+- **[Quick Start Guide](docs/QUICK_START_GUIDE.md)** - Get productive in 30 minutes
+- **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** - Complete system design
 
-```sh
-go install github.com/rhysd/actionlint/cmd/actionlint@latest
+### 👨‍💻 Development
+- **[Container Standards](docs/CONTAINER_DEVELOPMENT_STANDARDS.md)** - Development patterns and templates
+- **[Implementation Roadmap](docs/IMPLEMENTATION_ROADMAP.md)** - Current development plan
+- **[Testing Guide](docs/testing-guide.md)** - Quality assurance practices
+
+### 🚀 Deployment
+- **[Deployment Guide](docs/deployment-guide.md)** - Production deployment
+- **[Security Policy](docs/security-policy.md)** - Security best practices
+
+## 🔧 Development
+
+### Container Services
+```bash
+# Individual service endpoints (when running)
+curl http://localhost:8001/health   # Content Collector
+curl http://localhost:8002/health   # Content Processor  
+curl http://localhost:8003/health   # Content Enricher
+curl http://localhost:8004/health   # Content Ranker
+curl http://localhost:8005/health   # Markdown Generator
+curl http://localhost:8006/health   # Static Site Generator
 ```
 
-Basically all you need to do is run the `actionlint` command in your repository. actionlint automatically detects workflows and
-checks errors. actionlint focuses on finding out mistakes. It tries to catch errors as much as possible and make false positives
-as minimal as possible.
+### Development Workflow
+```bash
+# Make changes to a container
+code containers/ssg/main.py
 
-```sh
-actionlint
+# Rebuild and restart
+docker-compose up -d --build ssg
+
+# Test changes
+curl http://localhost:8006/health
+pytest containers/ssg/tests/
 ```
 
-Another option to try actionlint is [the online playground][playground]. Your browser can run actionlint through WebAssembly.
+## 🧪 Testing
 
-See [the usage document][usage] for more details.
+```bash
+# Run all tests
+pytest tests/
 
-## Documents
+# Run integration tests
+pytest tests/integration/
 
-- [Checks][checks]: Full list of all checks done by actionlint with example inputs, outputs, and playground links.
-- [Installation][install]: Installation instructions. Prebuilt binaries, a Docker image, building from source, a download script
-  (for CI), supports by several package managers are available.
-- [Usage][usage]: How to use `actionlint` command locally or on GitHub Actions, the online playground, an official Docker image,
-  and integrations with reviewdog, Problem Matchers, super-linter, pre-commit, VS Code.
-- [Configuration][config]: How to configure actionlint behavior. Currently, the labels of self-hosted runners, the configuration
-  variables, and ignore patterns of errors for each file paths can be set.
-- [Go API][api]: How to use actionlint as Go library.
-- [References][refs]: Links to resources.
+# Test specific container
+pytest containers/content-collector/tests/
 
-## Bug reporting
+# Run pipeline test
+./scripts/test-pipeline.sh
+```
 
-When you see some bugs or false positives, it is helpful to [file a new issue][issue-form] with a minimal example
-of input. Giving me some feedbacks like feature requests or ideas of additional checks is also welcome.
+## 📊 Project Status
 
-See the [contribution guide](./CONTRIBUTING.md) for more details.
+### Implementation Progress
+- **Architecture**: ✅ Complete - Fully documented and standardized
+- **Development Standards**: ✅ Complete - Templates and patterns established
+- **Container Framework**: ✅ Complete - Docker infrastructure ready
+- **Blob Storage**: ✅ Complete - Azure integration with local development support
 
-## License
+### Next Steps (Implementation Roadmap)
+1. **Phase 1**: Refactor SSG container to blob storage (remove volume conflicts)
+2. **Phase 2**: Migrate existing containers to standard patterns
+3. **Phase 3**: Implement event-driven triggers
+4. **Phase 4**: Production deployment and monitoring
 
-actionlint is distributed under [the MIT license](./LICENSE.txt).
+See [Implementation Roadmap](docs/IMPLEMENTATION_ROADMAP.md) for detailed timeline.
 
-[ci-badge]: https://github.com/rhysd/actionlint/actions/workflows/ci.yaml/badge.svg
-[ci]: https://github.com/rhysd/actionlint/actions/workflows/ci.yaml
-[apidoc-badge]: https://pkg.go.dev/badge/github.com/rhysd/actionlint.svg
-[apidoc]: https://pkg.go.dev/github.com/rhysd/actionlint
-[repo]: https://github.com/rhysd/actionlint
-[playground]: https://rhysd.github.io/actionlint/
-[shellcheck]: https://github.com/koalaman/shellcheck
-[pyflakes]: https://github.com/PyCQA/pyflakes
-[syntax-doc]: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions
-[filter-pattern-doc]: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
-[script-injection-doc]: https://docs.github.com/en/actions/learn-github-actions/security-hardening-for-github-actions#understanding-the-risk-of-script-injections
-[releases]: https://github.com/rhysd/actionlint/releases
-[checks]: https://github.com/rhysd/actionlint/blob/v1.7.7/docs/checks.md
-[install]: https://github.com/rhysd/actionlint/blob/v1.7.7/docs/install.md
-[usage]: https://github.com/rhysd/actionlint/blob/v1.7.7/docs/usage.md
-[config]: https://github.com/rhysd/actionlint/blob/v1.7.7/docs/config.md
-[api]: https://github.com/rhysd/actionlint/blob/v1.7.7/docs/api.md
-[refs]: https://github.com/rhysd/actionlint/blob/v1.7.7/docs/reference.md
-[issue-form]: https://github.com/rhysd/actionlint/issues/new
+## 🤝 Contributing
+
+1. **Read the Documentation**: Start with [Quick Start Guide](docs/QUICK_START_GUIDE.md)
+2. **Follow Standards**: Use [Container Development Standards](docs/CONTAINER_DEVELOPMENT_STANDARDS.md)
+3. **Check Roadmap**: See current priorities in [Implementation Roadmap](docs/IMPLEMENTATION_ROADMAP.md)
+4. **Test Everything**: Ensure all tests pass before submitting changes
+
+## 📄 License
+
+This project is private and proprietary. All rights reserved.
+
+---
+
+**Built with**: Python, FastAPI, Docker, Azure Storage, and modern DevOps practices  
+**Designed for**: Personal content curation with enterprise-grade architecture

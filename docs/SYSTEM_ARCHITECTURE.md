@@ -1,0 +1,444 @@
+# AI Content Farm - System Architecture & Standards
+
+## Overview
+
+The AI Content Farm is a cloud-native, event-driven content curation and publishing system built with microservices architecture. Each component is containerized and communicates through well-defined APIs and Azure Blob Storage.
+
+## Architecture Principles
+
+### 1. **Cloud-Native Design**
+- All data storage uses Azure Blob Storage (Azurite for local development)
+- No persistent local file systems or volumes
+- Environment-specific configuration via environment variables
+- Stateless container design
+
+### 2. **Event-Driven Architecture**
+- Services communicate through blob storage triggers and HTTP APIs
+- Each service watches for specific blob patterns to trigger processing
+- Loose coupling between services
+- Async processing where appropriate
+
+### 3. **Consistent Container Standards**
+- All containers follow the same structure and patterns
+- Standardized health checks and logging
+- Common base configuration and error handling
+- Unified blob storage integration
+
+## System Components
+
+```mermaid
+graph TD
+    A[Content Collector] --> B[Azure Blob Storage]
+    B --> C[Content Processor]
+    B --> D[Content Enricher]
+    B --> E[Content Ranker]
+    B --> F[Markdown Generator]
+    B --> G[Static Site Generator]
+    
+    H[Scheduler] --> A
+    I[Web Interface] --> B
+    J[CMS Exporters] --> B
+    
+    K[Azurite - Local Dev] --> B
+    L[Azure Storage - Production] --> B
+```
+
+## Container Standards
+
+### Port Allocation
+- **8001**: Content Collector
+- **8002**: Content Processor  
+- **8003**: Content Enricher
+- **8004**: Content Ranker
+- **8005**: Static Site Generator
+- **8006**: Markdown Converter (deprecated - functionality moved to SSG)
+- **8007**: Markdown Generator
+- **8008**: Scheduler
+- **8009**: Web Interface
+
+### Required Endpoints
+Every container MUST implement:
+
+```http
+GET /health
+GET /
+GET /status
+```
+
+### Required Environment Variables
+```bash
+ENVIRONMENT=development|staging|production
+AZURE_STORAGE_CONNECTION_STRING=<connection-string>
+ # PYTHONPATH is no longer set at runtime in containers
+```
+
+### Container Structure
+```
+container-name/
+├── Dockerfile
+├── requirements.txt
+├── main.py              # FastAPI application
+├── config.py            # Configuration management
+├── blob_storage.py      # Blob storage client
+├── business_logic.py    # Core functionality
+└── tests/
+    └── test_*.py
+```
+
+## Data Flow & Storage Containers
+
+### Blob Storage Containers
+
+| Container Name | Purpose | Content Type | Access Pattern |
+|---------------|---------|--------------|----------------|
+| `collected-content` | Raw content from sources | JSON | Write: Collector, Read: Processor |
+| `processed-content` | Cleaned/normalized content | JSON | Write: Processor, Read: Enricher |
+| `enriched-content` | AI-analyzed content | JSON | Write: Enricher, Read: Ranker |
+| `ranked-content` | Scored/ranked content | JSON | Write: Ranker, Read: Markdown Gen |
+| `markdown-content` | Generated markdown files | Markdown | Write: Markdown Gen, Read: SSG |
+| `static-sites` | Generated websites | HTML/CSS/JS | Write: SSG, Read: Web Interface |
+| `pipeline-logs` | System logs and metrics | JSON | Write: All, Read: Monitoring |
+| `cms-exports` | CMS-ready exports | Various | Write: CMS Exporters, Read: External |
+
+### Blob Naming Convention
+```
+{service-name}_{timestamp}_{content-type}_{unique-id}.{extension}
+
+Examples:
+- collector_20250818_120000_reddit_batch_001.json
+- enricher_20250818_120015_ai_analysis_batch_001.json
+- markdown_20250818_120030_curated_articles.md
+- ssg_20250818_120045_website_v1.zip
+```
+
+## API Standards
+
+### Response Format
+All APIs MUST use consistent response format:
+
+```json
+{
+  "status": "success|error|processing",
+  "message": "Human readable message",
+  "data": {...},
+  "metadata": {
+    "timestamp": "2025-08-18T12:00:00Z",
+    "service": "service-name",
+    "version": "1.0.0",
+    "request_id": "uuid"
+  },
+  "errors": [...] // Only present if status is "error"
+}
+```
+
+### Health Check Response
+```json
+{
+  "status": "healthy|unhealthy|degraded",
+  "timestamp": "2025-08-18T12:00:00Z",
+  "service": "service-name",
+  "version": "1.0.0",
+  "dependencies": {
+    "azure_storage": "healthy",
+    "upstream_service": "healthy"
+  },
+  "metrics": {
+    "uptime_seconds": 3600,
+    "requests_processed": 150,
+    "last_activity": "2025-08-18T11:59:30Z"
+  }
+}
+```
+
+### Error Handling
+```json
+{
+  "status": "error",
+  "message": "Brief error description",
+  "errors": [
+    {
+      "code": "VALIDATION_ERROR",
+      "message": "Detailed error message",
+      "field": "field_name",
+      "details": {...}
+    }
+  ],
+  "metadata": {
+    "timestamp": "2025-08-18T12:00:00Z",
+    "service": "service-name",
+    "request_id": "uuid"
+  }
+}
+```
+
+## Service Specifications
+
+### 1. Content Collector
+**Purpose**: Gather content from external sources (Reddit, RSS, APIs)
+
+**Blob Storage**:
+- Writes to: `collected-content`
+- Blob pattern: `collector_{timestamp}_{source}_{batch_id}.json`
+
+**Key Endpoints**:
+```http
+POST /collect/reddit
+POST /collect/rss
+GET /sources
+GET /collection/status/{batch_id}
+```
+
+**Configuration**:
+```bash
+REDDIT_CLIENT_ID=<reddit-api-key>
+REDDIT_CLIENT_SECRET=<reddit-secret>
+RSS_SOURCES=<comma-separated-urls>
+COLLECTION_SCHEDULE=<cron-expression>
+```
+
+### 2. Content Processor
+**Purpose**: Clean, normalize, and validate collected content
+
+**Blob Storage**:
+- Reads from: `collected-content`
+- Writes to: `processed-content`
+- Blob pattern: `processor_{timestamp}_{batch_id}.json`
+
+**Key Endpoints**:
+```http
+POST /process/batch
+GET /processing/status/{batch_id}
+```
+
+**Processing Steps**:
+1. Content validation and sanitization
+2. Duplicate detection and removal
+3. Schema normalization
+4. Quality scoring
+
+### 3. Content Enricher
+**Purpose**: Add AI analysis, topic classification, sentiment analysis
+
+**Blob Storage**:
+- Reads from: `processed-content`
+- Writes to: `enriched-content`
+- Blob pattern: `enricher_{timestamp}_{analysis_type}_{batch_id}.json`
+
+**Key Endpoints**:
+```http
+POST /enrich/batch
+GET /enrichment/status/{batch_id}
+```
+
+**AI Services**:
+- OpenAI for summaries and analysis
+- Topic classification
+- Sentiment analysis
+- Trend detection
+
+### 4. Content Ranker
+**Purpose**: Score and rank content using multiple factors
+
+**Blob Storage**:
+- Reads from: `enriched-content`
+- Writes to: `ranked-content`
+- Blob pattern: `ranker_{timestamp}_{ranking_algorithm}_{batch_id}.json`
+
+**Key Endpoints**:
+```http
+POST /rank/batch
+GET /ranking/top/{limit}
+GET /ranking/status/{batch_id}
+```
+
+**Ranking Factors**:
+- Engagement metrics (40%)
+- Content freshness (35%)
+- Topic relevance (25%)
+
+### 5. Markdown Generator
+**Purpose**: Convert ranked content to markdown format
+
+**Blob Storage**:
+- Reads from: `ranked-content`
+- Writes to: `markdown-content`
+- Blob pattern: `markdown_{timestamp}_{format}_{batch_id}.md`
+
+**Key Endpoints**:
+```http
+POST /generate/batch
+GET /generation/status/{batch_id}
+```
+
+**Output Formats**:
+- Individual article markdown files
+- Index/listing files
+- CMS-ready frontmatter
+
+### 6. Static Site Generator
+**Purpose**: Create deployable websites from markdown content
+
+**Blob Storage**:
+- Reads from: `markdown-content`
+- Writes to: `static-sites`
+- Blob pattern: `ssg_{timestamp}_{theme}_{version}.tar.gz`
+
+**Key Endpoints**:
+```http
+POST /generate/site
+GET /sites/{site_id}
+GET /preview/{site_id}
+```
+
+**Site Features**:
+- Responsive design
+- Search functionality
+- RSS feeds
+- SEO optimization
+
+## Event-Driven Triggers
+
+### Blob Watch Patterns
+Each service watches specific blob patterns to trigger processing:
+
+```python
+# Example trigger configuration
+TRIGGER_PATTERNS = {
+    "content-processor": "collected-content/collector_*",
+    "content-enricher": "processed-content/processor_*", 
+    "content-ranker": "enriched-content/enricher_*",
+    "markdown-generator": "ranked-content/ranker_*",
+    "static-site-generator": "markdown-content/markdown_*"
+}
+```
+
+### Processing Flow
+```
+1. Collector writes → collected-content/collector_20250818_120000_reddit_001.json
+2. Processor detects new blob → processes → writes processed-content/processor_20250818_120015_001.json  
+3. Enricher detects new blob → enriches → writes enriched-content/enricher_20250818_120030_001.json
+4. Ranker detects new blob → ranks → writes ranked-content/ranker_20250818_120045_001.json
+5. Markdown Generator detects new blob → generates → writes markdown-content/markdown_20250818_120100_001.md
+6. SSG detects new blob → builds site → writes static-sites/ssg_20250818_120115_v1.tar.gz
+```
+
+## Configuration Management
+
+### Environment-Specific Settings
+```bash
+# Development (Azurite)
+ENVIRONMENT=development
+AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;...
+
+# Staging
+ENVIRONMENT=staging  
+AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=aicontentfarmstaging;...
+
+# Production
+ENVIRONMENT=production
+AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=aicontentfarm;...
+```
+
+### Service Discovery
+Services discover each other through:
+1. Docker network (local development)
+2. Azure Service Bus (production)
+3. Configuration-based URLs
+
+## Monitoring & Observability
+
+### Logging Standards
+```python
+# Required log fields
+{
+  "timestamp": "2025-08-18T12:00:00Z",
+  "service": "content-enricher", 
+  "level": "INFO|ERROR|DEBUG|WARN",
+  "message": "Human readable message",
+  "request_id": "uuid",
+  "blob_name": "enricher_20250818_120000_001.json",
+  "processing_time_ms": 1500,
+  "metadata": {...}
+}
+```
+
+### Metrics Collection
+- Processing latency per service
+- Blob storage operations
+- Error rates and types
+- Content quality scores
+- System resource usage
+
+### Health Monitoring
+- Service health checks every 30s
+- Dependency health validation
+- Automated alerting on failures
+- Performance threshold monitoring
+
+## Development Workflow
+
+### Local Development
+1. Start Azurite for blob storage
+2. Run containers with development configuration
+3. Use test data for pipeline validation
+4. Monitor logs for debugging
+
+### Testing Strategy
+- Unit tests for business logic
+- Integration tests for blob storage
+- End-to-end pipeline tests
+- Performance/load testing
+
+### Deployment Pipeline
+1. Code review and approval
+2. Automated testing
+3. Container image builds
+4. Deployment to staging
+5. Production deployment with blue/green strategy
+
+## Security Considerations
+
+### Access Control
+- Service-to-service authentication via managed identities
+- Blob storage access with SAS tokens
+- API rate limiting and throttling
+- Input validation and sanitization
+
+### Data Protection
+- Encryption at rest (Azure Storage)
+- Encryption in transit (HTTPS/TLS)
+- Sensitive data handling (credentials, API keys)
+- Data retention policies
+
+## Scalability & Performance
+
+### Horizontal Scaling
+- Stateless container design enables easy scaling
+- Load balancing across container instances
+- Auto-scaling based on blob storage queue depth
+- Resource optimization per service
+
+### Performance Targets
+- Content processing: < 5 seconds per batch
+- AI enrichment: < 30 seconds per batch  
+- Site generation: < 60 seconds for full site
+- API response times: < 500ms for health checks
+
+## Future Enhancements
+
+### Planned Features
+- Real-time content streaming
+- Advanced AI models for content analysis
+- Multi-language support
+- Enhanced CMS integrations
+- Advanced analytics and reporting
+
+### Architecture Evolution
+- Migration to Azure Functions for serverless execution
+- Event Grid for advanced event routing
+- Cosmos DB for metadata and configuration
+- CDN integration for site delivery
+
+---
+
+This architecture provides a robust, scalable, and maintainable foundation for the AI Content Farm system while maintaining clear separation of concerns and consistent standards across all components.

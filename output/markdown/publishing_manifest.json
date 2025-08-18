@@ -1,0 +1,46 @@
+{
+  "content_batch": {
+    "id": "ai_curated_20250815_165306",
+    "generated_at": "2025-08-15T16:53:06.968863+00:00",
+    "total_posts": 5,
+    "index_file": "output/markdown/live_20250815_165306_index.md",
+    "source_data": "/workspaces/ai-content-farm/output/live_content_20250815_165306.json"
+  },
+  "posts": [
+    {
+      "id": "post_1",
+      "file": "output/markdown/live_20250815_165306_breakthrough-in-quantum-computing-error-correction.md",
+      "status": "ready"
+    },
+    {
+      "id": "post_2",
+      "file": "output/markdown/live_20250815_165306_uk-announces-2bn-investment-in-ai-infrastructure-a.md",
+      "status": "ready"
+    },
+    {
+      "id": "post_3",
+      "file": "output/markdown/live_20250815_165306_open-source-ai-models-challenge-big-tech-dominance.md",
+      "status": "ready"
+    },
+    {
+      "id": "post_4",
+      "file": "output/markdown/live_20250815_165306_webassembly-adoption-surges-as-developers-embrace-.md",
+      "status": "ready"
+    },
+    {
+      "id": "post_5",
+      "file": "output/markdown/live_20250815_165306_european-parliament-approves-comprehensive-ai-regu.md",
+      "status": "ready"
+    }
+  ],
+  "publishing": {
+    "recommended_schedule": "immediate",
+    "content_type": "ai_curated_tech_news",
+    "categories": [
+      "technology",
+      "ai",
+      "news"
+    ],
+    "auto_publish": true
+  }
+}

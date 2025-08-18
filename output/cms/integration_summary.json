@@ -1,0 +1,17 @@
+{
+  "integration_summary": {
+    "prepared_at": "2025-08-15T16:53:07.734433",
+    "cms_platforms": [
+      "strapi",
+      "ghost",
+      "netlify"
+    ],
+    "total_articles": 5,
+    "ready_for_publishing": true
+  },
+  "cms_outputs": {
+    "strapi": "output/cms/strapi/ai_curated_articles.json",
+    "ghost": "output/cms/ghost",
+    "netlify": "output/cms/netlify"
+  }
+}

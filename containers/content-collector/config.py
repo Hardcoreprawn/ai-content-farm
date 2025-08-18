@@ -6,6 +6,7 @@ Environment-based configuration for the content collector.
 
 import os
 from typing import List, Dict, Any, Optional
+from keyvault_client import health_check_keyvault, get_reddit_credentials_with_fallback
 
 
 class Config:
@@ -79,11 +80,20 @@ class Config:
         """Validate configuration and return any issues."""
         issues = []
 
-        if not cls.REDDIT_CLIENT_ID:
-            issues.append("REDDIT_CLIENT_ID not set")
+        # Check Reddit credentials from Key Vault and environment
+        try:
+            credentials = get_reddit_credentials_with_fallback()
 
-        if not cls.REDDIT_CLIENT_SECRET:
-            issues.append("REDDIT_CLIENT_SECRET not set")
+            if not credentials.get("client_id"):
+                issues.append(
+                    "Reddit client_id not found in Key Vault or environment variables")
+
+            if not credentials.get("client_secret"):
+                issues.append(
+                    "Reddit client_secret not found in Key Vault or environment variables")
+
+        except Exception as e:
+            issues.append(f"Error checking Reddit credentials: {e}")
 
         if cls.MAX_REQUESTS_PER_MINUTE <= 0:
             issues.append("MAX_REQUESTS_PER_MINUTE must be positive")
@@ -95,3 +105,25 @@ class Config:
             issues.append("SIMILARITY_THRESHOLD must be between 0 and 1")
 
         return issues
+
+    @classmethod
+    def get_health_status(cls) -> Dict[str, Any]:
+        """Get comprehensive health status including Key Vault."""
+        health_status = {
+            "config_valid": len(cls.validate_config()) == 0,
+            "validation_issues": cls.validate_config(),
+            "environment": cls.ENVIRONMENT,
+            "debug": cls.DEBUG
+        }
+
+        # Add Key Vault health check
+        try:
+            kv_health = health_check_keyvault()
+            health_status["key_vault"] = kv_health
+        except Exception as e:
+            health_status["key_vault"] = {
+                "status": "error",
+                "message": f"Key Vault health check failed: {e}"
+            }
+
+        return health_status

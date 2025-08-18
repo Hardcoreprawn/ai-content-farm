@@ -61,3 +61,11 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# Pytest and type-checker caches
+.pytest_cache/
+.mypy_cache/
+
+# Cython build
+build/
+*.egg-info/

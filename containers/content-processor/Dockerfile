@@ -1,29 +1,36 @@
-# Multi-stage build for efficiency
-FROM python:3.11-slim as builder
+# Multi-stage build for efficiency using Microsoft's official Azure Functions Python base
+FROM mcr.microsoft.com/azure-functions/python:4-python3.11-slim as builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install dependencies
+# Copy requirements and install dependencies to a standard location
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
+# Copy requirements from the container directory when using repo-root build context
+COPY containers/content-processor/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Production stage
-FROM python:3.11-slim
+# Production stage using Microsoft's official Azure Functions Python base
+FROM mcr.microsoft.com/azure-functions/python:4-python3.11-slim
 
 # Create non-root user
 RUN groupadd -g 1000 appuser && \
     useradd -u 1000 -g appuser -m -s /bin/bash appuser
 
 # Copy installed packages from builder
-COPY --from=builder /root/.local /home/appuser/.local
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 WORKDIR /app
-COPY . .
+COPY containers/content-processor/ .
+
+# Copy top-level libs so runtime code can import `libs.blob_storage`
+COPY libs /app/libs
+# Install shared libs package
+RUN pip install --no-cache-dir /app/libs
 
 # Set ownership to appuser
 RUN chown -R appuser:appuser /app

@@ -89,28 +89,50 @@ def health_check() -> Dict[str, Any]:
     Returns:
         Dictionary with health status of various components
     """
+    import requests
+    import os
+
     config = get_config()
+    is_local = config.environment in ["local", "development"]
+
     health_status = {
         "service": config.service_name,
         "version": config.version,
         "environment": config.environment,
         "azure_connectivity": False,
         "openai_available": False,
+        "is_local_development": is_local,
     }
 
     # Check Azure connectivity
     try:
-        if config.azure.subscription_id:
-            # In a real implementation, this would check Azure services
-            health_status["azure_connectivity"] = True
+        if is_local:
+            # For local development, test azurite connectivity
+            response = requests.get(
+                "http://azurite:10000/devstoreaccount1", timeout=3)
+            health_status["azure_connectivity"] = response.status_code in [
+                200, 400]  # 400 is expected
+        else:
+            # For production, check if we have required config
+            if config.azure.subscription_id:
+                # In a real implementation, this would check Azure services
+                health_status["azure_connectivity"] = True
     except Exception as e:
         logger.warning(f"Azure connectivity check failed: {e}")
 
     # Check OpenAI availability
     try:
-        if config.azure.openai_api_key:
-            # In a real implementation, this would ping OpenAI API
-            health_status["openai_available"] = True
+        openai_key = config.azure.openai_api_key or os.getenv("OPENAI_API_KEY")
+        if openai_key:
+            if is_local:
+                # For local development, just check if we have a key
+                health_status["openai_available"] = len(openai_key.strip()) > 0
+            else:
+                # For production, could test actual API connectivity
+                health_status["openai_available"] = True
+        else:
+            # No API key available - this is fine for local development
+            health_status["openai_available"] = False
     except Exception as e:
         logger.warning(f"OpenAI availability check failed: {e}")
 

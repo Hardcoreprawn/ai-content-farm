@@ -1,0 +1,95 @@
+{
+    "items": [
+        {
+            "title": "Revolutionary AI Framework Transforms Machine Learning Development",
+            "url": "https://example.com/ai-framework",
+            "summary": "A groundbreaking new AI framework promises to simplify machine learning development while improving model performance by up to 40%. The framework introduces novel optimization techniques and automated feature engineering capabilities.",
+            "content": "This innovative framework represents a significant leap forward in AI development tools...",
+            "author": "Dr. Sarah Chen",
+            "published_date": "2025-08-18T08:00:00Z",
+            "tags": [
+                "AI",
+                "Machine Learning",
+                "Framework",
+                "Development"
+            ],
+            "score": 95.8,
+            "source": "reddit"
+        },
+        {
+            "title": "Quantum Computing Breakthrough: 1000-Qubit Processor Achieved",
+            "url": "https://example.com/quantum-breakthrough",
+            "summary": "Scientists have successfully demonstrated a 1000-qubit quantum processor that maintains coherence for unprecedented durations, marking a crucial milestone toward practical quantum computing applications.",
+            "content": "The achievement represents years of research into quantum error correction...",
+            "author": "Prof. Michael Rodriguez",
+            "published_date": "2025-08-18T07:30:00Z",
+            "tags": [
+                "Quantum Computing",
+                "Technology",
+                "Research",
+                "Innovation"
+            ],
+            "score": 92.4,
+            "source": "hackernews"
+        },
+        {
+            "title": "Sustainable Tech: Solar Panel Efficiency Reaches 35% in Lab Tests",
+            "url": "https://example.com/solar-efficiency",
+            "summary": "Researchers have achieved a record-breaking 35% efficiency in perovskite-silicon tandem solar cells, bringing us closer to cost-effective renewable energy solutions.",
+            "content": "The breakthrough comes from a novel approach to layering materials...",
+            "author": "Dr. Emma Thompson",
+            "published_date": "2025-08-18T07:00:00Z",
+            "tags": [
+                "Solar Energy",
+                "Sustainability",
+                "Technology",
+                "Research"
+            ],
+            "score": 89.1,
+            "source": "reddit"
+        },
+        {
+            "title": "Cybersecurity Alert: New Zero-Day Vulnerability in Popular Framework",
+            "url": "https://example.com/security-alert",
+            "summary": "Security researchers have discovered a critical zero-day vulnerability affecting millions of applications. Patches are being rapidly deployed across major platforms.",
+            "content": "The vulnerability, designated CVE-2025-XXXX, affects the authentication module...",
+            "author": "SecurityTeam",
+            "published_date": "2025-08-18T06:45:00Z",
+            "tags": [
+                "Cybersecurity",
+                "Vulnerability",
+                "Framework",
+                "Security"
+            ],
+            "score": 87.6,
+            "source": "security_feed"
+        },
+        {
+            "title": "Space Technology: New Propulsion System Cuts Travel Time to Mars",
+            "url": "https://example.com/mars-propulsion",
+            "summary": "A revolutionary ion propulsion system could reduce travel time to Mars from 9 months to just 3 months, opening new possibilities for human space exploration.",
+            "content": "The advanced propulsion system uses a novel plasma acceleration technique...",
+            "author": "Dr. James Park",
+            "published_date": "2025-08-18T06:15:00Z",
+            "tags": [
+                "Space Technology",
+                "Mars",
+                "Propulsion",
+                "Innovation"
+            ],
+            "score": 84.3,
+            "source": "space_news"
+        }
+    ],
+    "metadata": {
+        "generation_time": "2025-08-18T09:10:00Z",
+        "total_items": 5,
+        "sources": [
+            "reddit",
+            "hackernews",
+            "security_feed",
+            "space_news"
+        ],
+        "ranking_algorithm": "weighted_score_v2"
+    }
+}
