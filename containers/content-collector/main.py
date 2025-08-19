@@ -102,7 +102,20 @@ async def collect(request: CollectionRequest):
 
         # Run collection (collector.collect_content_batch is synchronous)
         try:
-            result = collect_content_batch(sources_data)
+            # Resolve the function at runtime so test patches on the module
+            # take effect regardless of import aliasing.
+            import importlib as _importlib
+            try:
+                _mod = _importlib.import_module('main')
+            except Exception:
+                _mod = None
+
+            if _mod is not None and hasattr(_mod, 'collect_content_batch'):
+                _collect_fn = getattr(_mod, 'collect_content_batch')
+            else:
+                _collect_fn = collect_content_batch
+
+            result = _collect_fn(sources_data)
         except Exception as e:
             # Bubble up as HTTP 500 to match test expectations
             raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

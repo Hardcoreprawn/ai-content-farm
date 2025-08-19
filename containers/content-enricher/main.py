@@ -174,7 +174,25 @@ async def enrich_content(request: EnrichmentRequest) -> Dict[str, Any]:
         items_data = [item.model_dump() for item in request.items]
 
         # Process the enrichment
-        result = enrich_content_batch(items_data)
+        # Resolve the function at runtime so test patches on the module take
+        # effect regardless of how modules were imported during the full run.
+        try:
+            import importlib as _importlib
+            _mod = None
+            try:
+                _mod = _importlib.import_module('main')
+            except Exception:
+                _mod = None
+
+            if _mod is not None and hasattr(_mod, 'enrich_content_batch'):
+                _enrich_fn = getattr(_mod, 'enrich_content_batch')
+            else:
+                _enrich_fn = enrich_content_batch
+
+            result = _enrich_fn(items_data)
+        except Exception:
+            # Let outer exception handler translate to HTTPException
+            raise
 
         # Add options to metadata
         if request.options is not None:

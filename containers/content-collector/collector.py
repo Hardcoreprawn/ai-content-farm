@@ -109,8 +109,19 @@ def fetch_reddit_posts(subreddits: List[str], limit: int = 10) -> List[Dict[str,
         _sys.stderr.write(
             f"[collector.debug] fetch_from_subreddit -> (unavailable)\n")
 
+    import importlib
+
     for subreddit in subreddits:
-        posts = fetch_from_subreddit(subreddit, limit)
+        # Resolve the callable from the collector module at runtime so tests
+        # that patch `collector.fetch_from_subreddit` will affect this call.
+        try:
+            collector_mod = importlib.import_module('collector')
+            fetch_fn = getattr(
+                collector_mod, 'fetch_from_subreddit', fetch_from_subreddit)
+        except Exception:
+            fetch_fn = fetch_from_subreddit
+
+        posts = fetch_fn(subreddit, limit)
         all_posts.extend(posts)
 
     return all_posts
@@ -353,7 +364,26 @@ def collect_content_batch(sources: List[Dict[str, Any]]) -> Dict[str, Any]:
                 subreddits = source.get('subreddits', []) or []
                 limit = source.get('limit', 10)
                 try:
-                    raw_posts = fetch_reddit_posts(subreddits, limit=limit)
+                    # Resolve the fetch_reddit_posts symbol at runtime from the
+                    # collector module so tests that patch the function on the
+                    # module object are effective even if multiple module
+                    # instances exist during the full test run.
+                    import importlib as _importlib
+                    _mod = None
+                    try:
+                        _mod = _importlib.import_module('collector')
+                    except Exception:
+                        try:
+                            _mod = _importlib.import_module(__name__)
+                        except Exception:
+                            _mod = None
+
+                    if _mod is not None and hasattr(_mod, 'fetch_reddit_posts'):
+                        _fetch = getattr(_mod, 'fetch_reddit_posts')
+                    else:
+                        _fetch = fetch_reddit_posts
+
+                    raw_posts = _fetch(subreddits, limit=limit)
                     sources_processed += 1
                 except Exception as e:
                     print(f"Error fetching reddit posts: {e}")

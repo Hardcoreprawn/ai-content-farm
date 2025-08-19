@@ -136,14 +136,11 @@ def health_check() -> Dict[str, Any]:
         config_status = "ok" if config else "error"
 
         # Overall health status
-        # Tests and local development should be tolerant: if configuration
-        # loads but Azurite is unavailable, report 'healthy' with a note.
+        # Use the actual connectivity result to determine healthy/unhealthy so
+        # tests that patch check_azure_connectivity get deterministic results.
         if config_status == "ok":
-            # If running locally, prefer 'healthy' unless critical config missing
-            if config.environment in ("local", "development"):
-                status = "healthy"
-            else:
-                status = "healthy" if azure_connectivity else "unhealthy"
+            # Determine health based on azure connectivity across environments
+            status = "healthy" if azure_connectivity else "unhealthy"
         else:
             status = "unhealthy"
 
