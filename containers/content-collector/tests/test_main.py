@@ -243,7 +243,7 @@ class TestErrorHandling:
         assert response.status_code == 405
 
     @pytest.mark.unit
-    @patch("main.collect_content_batch")
+    @patch("main.collector_service.collect_and_store_content")
     def test_internal_server_error_handling(self, mock_collect: Mock) -> None:
         """Test handling of internal server errors."""
         # Mock an exception in the collection process

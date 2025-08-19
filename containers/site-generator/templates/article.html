@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}{{ article.title }} | {{ site_metadata.title }}{% endblock %}
+
+{% block extra_head %}
+<meta property="og:title" content="{{ article.title }}">
+<meta property="og:description" content="{{ article.summary }}">
+<meta property="og:url" content="{{ article.url }}">
+<meta property="og:type" content="article">
+{% if article.published_date %}
+<meta property="article:published_time" content="{{ article.published_date.isoformat() }}">
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<nav class="breadcrumb">
+    <a href="/">← Back to Feed</a>
+</nav>
+
+<article class="article-full">
+    <header class="article-header">
+        <h1>{{ article.title }}</h1>
+        
+        <div class="article-meta-full">
+            <div class="meta-row">
+                <span class="source">Source: {{ article.source }}</span>
+                <span class="score">Quality Score: {{ "%.2f"|format(article.score) }}</span>
+            </div>
+            
+            {% if article.published_date or article.author %}
+            <div class="meta-row">
+                {% if article.author %}
+                <span class="author">By {{ article.author }}</span>
+                {% endif %}
+                {% if article.published_date %}
+                <time datetime="{{ article.published_date.isoformat() }}">
+                    {{ article.published_date.strftime('%B %d, %Y') }}
+                </time>
+                {% endif %}
+            </div>
+            {% endif %}
+            
+            {% if article.url %}
+            <div class="meta-row">
+                <a href="{{ article.url }}" target="_blank" rel="noopener noreferrer" class="original-link">
+                    View Original Article →
+                </a>
+            </div>
+            {% endif %}
+        </div>
+        
+        {% if article.tags %}
+        <div class="article-tags">
+            {% for tag in article.tags %}
+            <span class="tag">{{ tag }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </header>
+    
+    <div class="article-content">
+        {% if article.summary %}
+        <div class="article-summary-full">
+            <h2>Summary</h2>
+            <p>{{ article.summary }}</p>
+        </div>
+        {% endif %}
+        
+        {% if article.content %}
+        <div class="article-body">
+            <h2>Content</h2>
+            {{ article.content|safe }}
+        </div>
+        {% endif %}
+    </div>
+</article>
+
+<section class="article-footer">
+    <div class="share-links">
+        <h3>Share this article</h3>
+        <a href="https://twitter.com/intent/tweet?url={{ request.url }}&text={{ article.title }}" target="_blank" rel="noopener">
+            Share on Twitter
+        </a>
+    </div>
+    
+    <div class="navigation">
+        <a href="/">← Back to Feed</a>
+    </div>
+</section>
+{% endblock %}

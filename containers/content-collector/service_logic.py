@@ -8,7 +8,7 @@ import json
 import time
 from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
-from libs.blob_storage import BlobStorageClient
+from libs.blob_storage import BlobStorageClient, BlobContainers
 from collector import collect_content_batch, deduplicate_content
 from config import Config
 
@@ -85,7 +85,7 @@ class ContentCollectorService:
 
             # Save to blob storage if requested
             storage_location = None
-            if save_to_storage and collected_items:
+            if save_to_storage:  # Always save if requested, even with empty collections
                 storage_location = await self._save_to_storage(
                     collection_id, collected_items, metadata
                 )
@@ -135,7 +135,7 @@ class ContentCollectorService:
 
         # Generate storage path
         timestamp = datetime.now(timezone.utc)
-        container_name = "raw-content"
+        container_name = BlobContainers.COLLECTED_CONTENT
         blob_name = f"collections/{timestamp.strftime('%Y/%m/%d')}/{collection_id}.json"
 
         # Save to blob storage
@@ -165,7 +165,7 @@ class ContentCollectorService:
         """
         try:
             # List recent collection files
-            container_name = "raw-content"
+            container_name = BlobContainers.COLLECTED_CONTENT
             blobs = self.storage.list_blobs(
                 container_name=container_name,
                 prefix="collections/"

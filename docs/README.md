@@ -31,6 +31,10 @@ This directory contains the complete documentation for the AI Content Farm proje
 ### 📡 API Documentation
 - **[content-collector-api.md](content-collector-api.md)** - Content collector service API specification
 
+### 🎯 Phase Completion Reports
+- **[PHASE_2B_CONTENT_PROCESSOR_INTEGRATION_20250819.md](PHASE_2B_CONTENT_PROCESSOR_INTEGRATION_20250819.md)** - Content processor blob storage integration completion (Aug 19, 2025)
+- **[PHASE_2C_CONTENT_ENRICHER_INTEGRATION_20250819.md](PHASE_2C_CONTENT_ENRICHER_INTEGRATION_20250819.md)** - Content enricher pipeline integration completion (Aug 19, 2025)
+
 ### 📄 Sample Content
 - **[articles/](articles/)** - Generated sample articles and content examples
 
@@ -69,5 +73,5 @@ This documentation is actively maintained and reflects the current state of the 
 4. Consider if SYSTEM_ARCHITECTURE.md needs updates
 
 ---
-**Last Updated**: August 18, 2025  
-**Next Review**: When implementation roadmap Phase 1 completes
+**Last Updated**: August 19, 2025  
+**Next Review**: When implementation roadmap Phase 2D completes

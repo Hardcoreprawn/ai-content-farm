@@ -12,11 +12,10 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional
-from jinja2 import Environment, FileSystemLoader, Template
-
 from libs.blob_storage import BlobStorageClient, BlobContainers, get_timestamped_blob_name
 from models import GenerationRequest, GenerationStatus, GenerationStatusResponse, ContentItem, SiteMetadata
 from config import get_config
+from template_manager import create_template_manager
 
 logger = logging.getLogger(__name__)
 
@@ -31,25 +30,16 @@ class SiteProcessor:
         self.watch_task = None
         self.generation_status: Dict[str, Dict[str, Any]] = {}
 
-        # Initialize Jinja2 environment
-        self.setup_templates()
+        # Initialize template manager (use local templates in development)
+        use_local = self.config.environment == "development"
+        self.template_manager = create_template_manager(
+            self.blob_client, use_local=use_local)
 
-    def setup_templates(self):
-        """Setup Jinja2 templates for site generation."""
-        # Create templates directory if it doesn't exist
-        template_dir = "/app/templates"
-        os.makedirs(template_dir, exist_ok=True)
+        # Upload local templates to blob storage if using local (for development)
+        if use_local:
+            self.template_manager.upload_templates_to_blob()
 
-        # Create default templates if they don't exist
-        self.create_default_templates(template_dir)
-
-        # Initialize Jinja2 environment
-        self.jinja_env = Environment(
-            loader=FileSystemLoader(template_dir),
-            autoescape=True
-        )
-
-    def create_default_templates(self, template_dir: str):
+    # Template methods removed - now using template_manager for blob-based templates
         """Create default HTML templates."""
         # Base template
         base_template = """<!DOCTYPE html>
@@ -268,15 +258,6 @@ class SiteProcessor:
 </div>
 {% endblock %}"""
 
-        # Write templates to files
-        with open(f"{template_dir}/base.html", "w") as f:
-            f.write(base_template)
-
-        with open(f"{template_dir}/index.html", "w") as f:
-            f.write(index_template)
-
-        logger.info(f"Created default templates in {template_dir}")
-
     async def start(self):
         """Start background processing."""
         if not self.is_running:
@@ -490,9 +471,9 @@ class SiteProcessor:
                 version=self.config.version
             )
 
-            # Render HTML using Jinja2
-            template = self.jinja_env.get_template('index.html')
-            html_content = template.render(
+            # Render HTML using template manager
+            html_content = self.template_manager.render_template(
+                'index.html',
                 articles=articles,
                 site_metadata=site_metadata,
                 site_id=site_id
@@ -511,14 +492,27 @@ class SiteProcessor:
             self.blob_client.upload_text(
                 "published-sites",
                 f"{site_id}/index.html",
-                html_content
+                html_content,
+                content_type="text/html"
             )
+
+            # Upload CSS and other static assets
+            static_assets = self.template_manager.get_static_assets()
+            for asset_path, asset_content in static_assets.items():
+                content_type = "text/css" if asset_path.endswith(
+                    '.css') else "text/plain"
+                self.blob_client.upload_text(
+                    "published-sites",
+                    f"{site_id}/{asset_path}",
+                    asset_content,
+                    content_type=content_type
+                )
 
             # Create a simple manifest
             manifest = {
                 "site_id": site_id,
                 "generation_date": datetime.now(timezone.utc).isoformat(),
-                "files": ["index.html"],
+                "files": ["index.html"] + list(static_assets.keys()),
                 "theme": "modern"
             }
 
@@ -528,7 +522,8 @@ class SiteProcessor:
                 manifest
             )
 
-            logger.info(f"Site {site_id} uploaded successfully")
+            logger.info(
+                f"Site {site_id} uploaded successfully with {len(static_assets)} assets")
 
         except Exception as e:
             logger.error(f"Failed to upload site {site_id}: {e}")
@@ -595,3 +590,43 @@ class SiteProcessor:
         except Exception as e:
             logger.error(f"Failed to list sites: {e}")
             return []
+
+    def _generate_rss_feed(self, articles: List[ContentItem]) -> str:
+        """Generate RSS feed for articles."""
+        # Sort articles by score
+        sorted_articles = sorted(
+            articles, key=lambda x: x.score or 0, reverse=True)
+
+        items = ""
+        for article in sorted_articles[:50]:  # Top 50 for RSS
+            pub_date = article.published_date.strftime(
+                '%a, %d %b %Y %H:%M:%S GMT') if article.published_date else datetime.now().strftime('%a, %d %b %Y %H:%M:%S GMT')
+
+            items += f"""
+            <item>
+                <title><![CDATA[{article.title}]]></title>
+                <link>{article.url}</link>
+                <description><![CDATA[{article.summary}]]></description>
+                <pubDate>{pub_date}</pubDate>
+                <guid>{article.url}</guid>
+            </item>
+            """
+
+        rss = f"""<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+    <channel>
+        <title>AI Content Farm</title>
+        <description>Interesting stuff to read from across the internet</description>
+        <link>https://your-domain.com</link>
+        <lastBuildDate>{datetime.now().strftime('%a, %d %b %Y %H:%M:%S GMT')}</lastBuildDate>
+        {items}
+    </channel>
+</rss>"""
+        return rss
+
+    def _create_slug(self, title: str) -> str:
+        """Create URL-friendly slug from title."""
+        import re
+        slug = re.sub(r'[^\w\s-]', '', title.lower())
+        slug = re.sub(r'[-\s]+', '-', slug)
+        return slug.strip('-')[:50]  # Limit length

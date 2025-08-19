@@ -15,8 +15,9 @@ import json
 
 # Import collector and storage utilities
 from collector import collect_content_batch
-from libs.blob_storage import BlobStorageClient
+from libs.blob_storage import BlobStorageClient, BlobContainers
 from models import CollectionRequest
+from service_logic import ContentCollectorService
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -27,11 +28,10 @@ app = FastAPI(
 
 # Store service start time for uptime calculation
 service_start_time = datetime.now(timezone.utc)
+# Initialize content collector service
+collector_service = ContentCollectorService()
 # Simple in-memory state for last collection and stats (sufficient for tests)
 last_collection: dict = {}
-service_stats = {
-    'collections': 0,
-}
 
 
 # Root endpoint
@@ -72,23 +72,20 @@ async def health_check():
 
 @app.get("/status")
 async def get_status():
-    """Get current service status and statistics."""
+    """Get service status and statistics."""
     uptime = (datetime.now(timezone.utc) - service_start_time).total_seconds()
+    stats = collector_service.get_service_stats()
 
     return {
         "service": "content-collector",
         "status": "running",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
         "uptime": uptime,
-        "last_collection": last_collection,
-        "stats": service_stats,
+        "last_collection": last_collection or {},
+        "stats": stats,
         "config": {
-            "environment": Config.ENVIRONMENT,
-            "debug": Config.DEBUG,
-            "default_subreddits": Config.DEFAULT_SUBREDDITS,
-            "max_posts_per_request": Config.MAX_POSTS_PER_REQUEST,
-            "request_timeout": Config.REQUEST_TIMEOUT,
-            "similarity_threshold": Config.SIMILARITY_THRESHOLD,
+            "default_subreddits": ["technology", "programming", "MachineLearning", "datascience", "artificial", "Futurology"],
+            "max_posts_per_request": 100,
+            "similarity_threshold": 0.8
         }
     }
 
@@ -100,78 +97,26 @@ async def collect(request: CollectionRequest):
         # Convert Pydantic models to plain dicts for collector
         sources_data: List[dict] = [s.model_dump() for s in request.sources]
 
-        # Run collection (collector.collect_content_batch is synchronous)
-        try:
-            # Resolve the function at runtime so test patches on the module
-            # take effect regardless of import aliasing.
-            import importlib as _importlib
-            try:
-                _mod = _importlib.import_module('main')
-            except Exception:
-                _mod = None
+        # Use ContentCollectorService for proper blob storage integration
+        result = await collector_service.collect_and_store_content(
+            sources_data=sources_data,
+            deduplicate=request.deduplicate,
+            similarity_threshold=request.similarity_threshold,
+            save_to_storage=request.save_to_storage
+        )
 
-            if _mod is not None and hasattr(_mod, 'collect_content_batch'):
-                _collect_fn = getattr(_mod, 'collect_content_batch')
-            else:
-                _collect_fn = collect_content_batch
-
-            result = _collect_fn(sources_data)
-        except Exception as e:
-            # Bubble up as HTTP 500 to match test expectations
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-        collected_items = result.get("collected_items", [])
-        metadata = result.get("metadata", {})
-
-        storage_location = None
-        # Save to blob storage if requested and there are items
-        if request.save_to_storage and collected_items:
-            try:
-                storage = BlobStorageClient()
-                collection_id = f"collection_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
-                container_name = "raw-content"
-                blob_name = f"collections/{datetime.now(timezone.utc).strftime('%Y/%m/%d')}/{collection_id}.json"
-
-                content_data = {
-                    "collection_id": collection_id,
-                    "metadata": metadata,
-                    "items": collected_items,
-                    "format_version": "1.0"
-                }
-
-                storage.upload_text(
-                    container_name=container_name,
-                    blob_name=blob_name,
-                    content=json.dumps(
-                        content_data, indent=2, ensure_ascii=False),
-                    content_type="application/json"
-                )
-
-                storage_location = f"{container_name}/{blob_name}"
-            except Exception:
-                # Don't fail the whole request if storage is unavailable; return metadata
-                storage_location = None
-
-        response = {
-            "collection_id": metadata.get("collection_id", f"collection_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"),
-            "collected_items": collected_items,
-            "metadata": metadata,
-            "timestamp": metadata.get("collected_at", datetime.now(timezone.utc).isoformat()),
-            "storage_location": storage_location,
-        }
-
-        # Update in-memory last collection and stats for status
+        # Update in-memory last collection for status endpoint
         try:
             last_collection.clear()
             last_collection.update({
-                'collection_id': response['collection_id'],
-                'total_items': len(collected_items),
-                'timestamp': response['timestamp']
+                'collection_id': result['collection_id'],
+                'total_items': len(result['collected_items']),
+                'timestamp': result['timestamp']
             })
-            service_stats['collections'] += 1
         except Exception:
             pass
 
-        return JSONResponse(status_code=200, content=response)
+        return JSONResponse(status_code=200, content=result)
 
     except Exception as e:
         # Bubble up server errors as 500 for the tests

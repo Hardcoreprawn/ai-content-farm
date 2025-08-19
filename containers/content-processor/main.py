@@ -12,6 +12,7 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from typing import List, Dict, Any, Optional
+from datetime import datetime, timezone
 import uvicorn
 import logging
 import json
@@ -19,6 +20,7 @@ import json
 # Import our business logic
 from processor import transform_reddit_post, process_reddit_batch
 from config import get_config, health_check
+from service_logic import ContentProcessorService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +32,9 @@ app = FastAPI(
     description="Transforms raw Reddit data into structured content",
     version="1.0.0"
 )
+
+# Initialize processor service
+processor_service = ContentProcessorService()
 
 # Pydantic models for request/response
 
@@ -218,7 +223,8 @@ async def health():
         # function has been patched (mock objects are instances of unittest.mock.Mock)
         import unittest.mock as _mock
 
-        is_patched = isinstance(health_check.__globals__.get('check_azure_connectivity', None), _mock.Mock)
+        is_patched = isinstance(health_check.__globals__.get(
+            'check_azure_connectivity', None), _mock.Mock)
 
         status = health_check()
 
@@ -317,7 +323,83 @@ async def root():
         "service": "content-processor",
         "version": "1.0.0",
         "status": "running",
-        "endpoints": ["/health", "/process"]
+        "endpoints": ["/health", "/process", "/process/collection", "/process/batch", "/status"]
+    }
+
+
+# Pipeline integration endpoints
+
+@app.post("/process/collection")
+async def process_collection(collection_data: Dict[str, Any]):
+    """Process a specific collection from the collector."""
+    try:
+        result = await processor_service.process_collected_content(
+            collection_data=collection_data,
+            save_to_storage=True
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error processing collection: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/process/batch")
+async def process_batch():
+    """Process a batch of unprocessed collections."""
+    try:
+        unprocessed = await processor_service.find_unprocessed_collections(limit=5)
+
+        if not unprocessed:
+            return {
+                "message": "No unprocessed collections found",
+                "processed_count": 0,
+                "results": []
+            }
+
+        results = []
+        for collection_info in unprocessed:
+            try:
+                result = await processor_service.process_collected_content(
+                    collection_data=collection_info["collection_data"],
+                    save_to_storage=True
+                )
+                results.append({
+                    "collection_id": collection_info["collection_id"],
+                    "status": "success",
+                    "process_id": result["process_id"],
+                    "processed_items": len(result["processed_items"])
+                })
+            except Exception as e:
+                results.append({
+                    "collection_id": collection_info["collection_id"],
+                    "status": "error",
+                    "error": str(e)
+                })
+
+        return {
+            "message": f"Processed {len(results)} collections",
+            "processed_count": len(results),
+            "results": results
+        }
+    except Exception as e:
+        logger.error(f"Error processing batch: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/status")
+async def get_status():
+    """Get service status and statistics."""
+    stats = processor_service.get_service_stats()
+    unprocessed_count = len(await processor_service.find_unprocessed_collections(limit=100))
+
+    return {
+        "service": "content-processor",
+        "status": "running",
+        "stats": stats,
+        "pipeline": {
+            "unprocessed_collections": unprocessed_count
+        },
+        "timestamp": datetime.now(timezone.utc).isoformat()
     }
 
 # Development server

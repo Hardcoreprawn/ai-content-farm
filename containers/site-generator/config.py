@@ -47,7 +47,7 @@ class ServiceConfig:
         if not self.storage_connection_string:
             raise ValueError("AZURE_STORAGE_CONNECTION_STRING is required")
 
-        if self.environment not in ["development", "staging", "production"]:
+        if self.environment not in ["development", "staging", "production", "testing"]:
             raise ValueError(f"Invalid environment: {self.environment}")
 
 
@@ -59,18 +59,19 @@ def get_config() -> ServiceConfig:
 def validate_environment() -> bool:
     """Validate that the environment is properly configured."""
     try:
+        from libs.blob_storage import BlobStorageClient
+
         config = get_config()
 
         # Test blob storage connectivity
-    from libs.blob_storage import BlobStorageClient
-    blob_client = BlobStorageClient()
+        blob_client = BlobStorageClient()
 
-    # Try to list containers (will create if doesn't exist)
-    test_container = f"health-check-{config.service_name}"
-    blob_client.ensure_container(test_container)
+        # Try to list containers (will create if doesn't exist)
+        test_container = f"health-check-{config.service_name}"
+        blob_client.ensure_container(test_container)
 
-    logger.info("Environment validation successful")
-    return True
+        logger.info("Environment validation successful")
+        return True
 
     except Exception as e:
         logger.error(f"Environment validation failed: {e}")

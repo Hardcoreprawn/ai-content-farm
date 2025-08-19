@@ -3,6 +3,7 @@ Azure Blob Storage Client
 
 Shared module for all containers to handle blob storage operations.
 Works with both Azurite (local) and Azure Storage (production).
+Uses managed identity and secure authentication patterns for Azure environments.
 """
 
 import os
@@ -11,6 +12,7 @@ import logging
 from typing import Dict, Any, Optional, List, BinaryIO, Union
 from datetime import datetime, timezone
 from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
+from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
 from azure.core.exceptions import AzureError, ResourceNotFoundError
 import io
 
@@ -18,22 +20,47 @@ logger = logging.getLogger(__name__)
 
 
 class BlobStorageClient:
-    """Unified blob storage client for all environments."""
+    """Unified blob storage client for all environments with secure authentication."""
 
     def __init__(self):
         self.environment = os.getenv("ENVIRONMENT", "development").lower()
+        self.storage_account_name = os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
         self.connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 
-        if not self.connection_string:
-            raise ValueError(
-                "AZURE_STORAGE_CONNECTION_STRING environment variable is required")
-
         try:
-            self.blob_service_client = BlobServiceClient.from_connection_string(
-                self.connection_string
-            )
-            logger.info(
-                f"Blob storage client initialized for {self.environment} environment")
+            if self.environment == "development" and self.connection_string:
+                # Local development with Azurite or connection string
+                self.blob_service_client = BlobServiceClient.from_connection_string(
+                    self.connection_string
+                )
+                logger.info(
+                    "Blob storage client initialized with connection string (development)")
+
+            elif self.storage_account_name:
+                # Production/Azure environment - use managed identity
+                credential = DefaultAzureCredential()
+                account_url = f"https://{self.storage_account_name}.blob.core.windows.net"
+                self.blob_service_client = BlobServiceClient(
+                    account_url=account_url,
+                    credential=credential
+                )
+                logger.info(
+                    f"Blob storage client initialized with managed identity for account: {self.storage_account_name}")
+
+            else:
+                # Fallback to connection string if provided
+                if self.connection_string:
+                    self.blob_service_client = BlobServiceClient.from_connection_string(
+                        self.connection_string
+                    )
+                    logger.warning(
+                        "Using connection string authentication - consider using managed identity for production")
+                else:
+                    raise ValueError(
+                        "Either AZURE_STORAGE_ACCOUNT_NAME (for managed identity) or "
+                        "AZURE_STORAGE_CONNECTION_STRING must be provided"
+                    )
+
         except Exception as e:
             logger.error(f"Failed to initialize blob storage client: {e}")
             raise
@@ -291,6 +318,29 @@ class BlobStorageClient:
         }
 
         return content_types.get(extension, 'application/octet-stream')
+
+    def health_check(self) -> Dict[str, Any]:
+        """Perform health check on blob storage connectivity."""
+        try:
+            # Try to list containers to verify connectivity
+            containers = list(self.blob_service_client.list_containers())
+
+            return {
+                "status": "healthy",
+                "connection_type": "managed_identity" if self.storage_account_name else "connection_string",
+                "environment": self.environment,
+                "storage_account": self.storage_account_name or "connection_string_based",
+                "containers_accessible": len(containers),
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
+        except Exception as e:
+            return {
+                "status": "unhealthy",
+                "error": str(e),
+                "connection_type": "managed_identity" if self.storage_account_name else "connection_string",
+                "environment": self.environment,
+                "timestamp": datetime.now(timezone.utc).isoformat()
+            }
 
 
 # Container names for different services

@@ -1,23 +1,59 @@
 # Content Processor Container
 
-A containerized microservice that transforms raw Reddit data into structured content for the AI Content Farm pipeline.
+A containerized microservice that processes collected content and transforms it into structured, analyzed data for the AI Content Farm pipeline.
 
-## 🎯 Purpose
+## 🎯 Current Status (Phase 2B Complete)
 
-This service accepts Reddit post data and transforms it into standardized, structured content with:
-- Cleaned and normalized titles
-- Engagement scoring
-- Content type detection
-- Metadata extraction
-- Source attribution
+**✅ Fully Integrated with Blob Storage Pipeline**
+- Reads from `COLLECTED_CONTENT` container (content-collector output)
+- Processes Reddit posts with engagement scoring and content classification
+- Writes to `PROCESSED_CONTENT` container for downstream services
+- Supports batch processing and individual collection processing
+- Complete test coverage: **48/48 tests passing**
+
+## 🏗️ Architecture
+
+### Service Integration
+- **ContentProcessorService**: Central business logic with blob storage integration
+- **Pipeline API**: RESTful endpoints for processing workflow integration
+- **Shared Libraries**: Uses common blob storage abstraction (`../../libs`)
+- **Azurite Integration**: Local development with Azure Blob Storage simulation
+
+### Processing Capabilities
+- **Reddit Content**: Advanced processing with engagement scoring, content type detection
+- **Generic Content**: Fallback processing for non-Reddit sources
+- **Batch Operations**: Processes multiple collections efficiently
+- **Duplicate Prevention**: Tracks processed collections to avoid reprocessing
+
+## 📡 API Endpoints
+
+### Health & Status
+```bash
+GET /health         # Service health check
+GET /status         # Pipeline status with processing statistics
+```
+
+### Pipeline Processing
+```bash
+POST /process/collection    # Process individual collection
+POST /process/batch        # Process unprocessed collections (limit: 5)
+```
+
+### Legacy Processing (Maintained)
+```bash
+POST /process              # Direct Reddit data processing
+```
 
 ## 🚀 Quick Start
 
 ### Local Development
-
 ```bash
 # Install dependencies
 pip install -r requirements.txt
+pip install -e ../../libs  # Shared blob storage libs
+
+# Start Azurite (in separate terminal)
+# (Already running in dev container)
 
 # Run tests
 python -m pytest
@@ -26,133 +62,98 @@ python -m pytest
 python main.py
 ```
 
-### Docker
-
+### Test Pipeline
 ```bash
-# Build container
-docker build -t content-processor .
+# Test individual collection processing
+curl -X POST http://localhost:8000/process/collection \
+  -H "Content-Type: application/json" \
+  -d @sample_collection.json
 
-# Run container
-docker run -p 8000:8000 content-processor
+# Test batch processing
+curl -X POST http://localhost:8000/process/batch
 
-# Test health endpoint
-curl http://localhost:8000/health
+# Check pipeline status
+curl http://localhost:8000/status
 ```
-
-## 📡 API Endpoints
-
-### Health Check
-```
-GET /health
-```
-Returns service health status and dependency connectivity.
-
-### Process Content
-```
-POST /process
-Content-Type: application/json
-
-{
-  "source": "reddit",
-  "data": [
-    {
-      "title": "Amazing AI breakthrough!",
-      "score": 1250,
-      "num_comments": 89,
-      "created_utc": 1692000000,
-      "subreddit": "MachineLearning",
-      "url": "https://reddit.com/r/MachineLearning/comments/test123",
-      "selftext": "Researchers have developed...",
-      "id": "test123"
-    }
-  ],
-  "options": {
-    "format": "structured"
-  }
-}
-```
-
-Returns processed content with normalized fields, engagement scores, and metadata.
 
 ## 🧪 Testing
 
 ```bash
-# Run all tests
+# All tests (48/48 passing)
 python -m pytest
 
-# Run specific test types
-python -m pytest tests/test_processor.py  # Business logic
-python -m pytest tests/test_main.py       # API layer
-python -m pytest -m "not slow"            # Skip performance tests
+# Phase 2B integration tests
+python -m pytest tests/test_phase2b_integration.py -v
 
-# Type checking
-python -m mypy main.py processor.py config.py --ignore-missing-imports
+# Legacy API tests
+python -m pytest tests/test_main.py
+
+# Core processing logic
+python -m pytest tests/test_processor.py
+```
+
+## 📊 Pipeline Data Flow
+
+```
+Content Collector
+      ↓
+COLLECTED_CONTENT container
+      ↓
+Content Processor (finds unprocessed)
+      ↓
+ContentProcessorService.process_collected_content()
+      ↓
+PROCESSED_CONTENT container
+      ↓
+[Ready for Content Enricher - Phase 2C]
 ```
 
 ## 🔧 Configuration
 
 ### Environment Variables
-
 - `ENVIRONMENT`: `local` (default) or `production`
-- `AZURE_KEY_VAULT_URL`: Azure Key Vault URL (production)
-- `AZURE_STORAGE_ACCOUNT`: Azure Storage account (production)
-- `REDDIT_CLIENT_ID`: Reddit API client ID (local dev)
-- `REDDIT_CLIENT_SECRET`: Reddit API secret (local dev)
-- `REDDIT_USER_AGENT`: Reddit API user agent (local dev)
+- `AZURE_STORAGE_CONNECTION_STRING`: For production blob storage
+- Local development uses Azurite on port 10000
 
-### Local Development
+### Dependencies
+- **FastAPI**: Web framework
+- **Shared Libs**: Blob storage abstraction
+- **Azurite**: Local Azure Storage emulation
+- **Pytest**: Testing framework
 
-For local development, the service runs with minimal dependencies and mock Azure services.
+## � Performance & Reliability
 
-### Production
+- **Processing Speed**: Handles large batches efficiently
+- **Error Resilience**: Graceful handling of malformed data
+- **Resource Management**: Configurable batch limits
+- **Monitoring**: Real-time statistics tracking
 
-In production, the service integrates with:
-- Azure Key Vault for secrets management
-- Azure Storage for data persistence
-- Application Insights for monitoring
+## � Integration Points
 
-## 📊 Monitoring
+### Upstream
+- **Content Collector**: Receives collections via blob storage
 
-The service includes:
-- Health checks at `/health`
-- Structured logging
-- Error tracking
-- Performance metrics
+### Downstream (Ready for Phase 2C)
+- **Content Enricher**: Will consume processed content
+- **Content Ranker**: Future integration point
 
-## 🏗️ Architecture
+## � Files Overview
 
-- **API Layer**: FastAPI with Pydantic models
-- **Business Logic**: Pure functions in `processor.py`
-- **Configuration**: Environment-based in `config.py`
-- **Testing**: Comprehensive test coverage with pytest
+### Core Files
+- `main.py`: FastAPI application with pipeline endpoints
+- `service_logic.py`: ContentProcessorService business logic
+- `processor.py`: Reddit content processing functions
+- `config.py`: Environment configuration
 
-## 📋 Development Guidelines
+### Testing
+- `tests/test_phase2b_integration.py`: Phase 2B pipeline tests
+- `tests/test_main.py`: API endpoint tests
+- `tests/test_processor.py`: Business logic tests
+- `tests/test_integration.py`: Infrastructure integration tests
 
-1. **Test-First**: Write tests before implementation
-2. **Pure Functions**: Minimize side effects
-3. **Type Safety**: Use mypy for type checking
-4. **Clean Code**: Follow established patterns
-5. **Zero Warnings**: Keep tests and linting clean
+### Documentation
+- `PHASE_2B_COMPLETION_SUMMARY.md`: Detailed Phase 2B completion report
 
-## 🐳 Container Details
+---
 
-- **Base Image**: python:3.11-slim
-- **Port**: 8000
-- **User**: Non-root (appuser:1000)
-- **Health Check**: Built-in
-- **Multi-stage Build**: Optimized for size
-
-## 📈 Performance
-
-- Processes 1000 Reddit posts in under 5 seconds
-- Lightweight container (<100MB)
-- Fast startup time (<2 seconds)
-- Memory efficient (<50MB runtime)
-
-## 🔒 Security
-
-- Runs as non-root user
-- No hardcoded secrets
-- Input validation on all endpoints
-- Comprehensive error handling
-- Security-focused Docker build
+**Ready for Phase 2C: Content Enricher Integration** 🚀

@@ -11,9 +11,6 @@ RUN apt-get update && apt-get install -y \
 COPY containers/site-generator/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Create application directories (for temp files only)
-RUN mkdir -p /app/temp /app/templates /app/static
-
 # Copy top-level libs for shared modules and add to PYTHONPATH
 # Copy top-level libs and install as a package
 COPY libs /app/libs

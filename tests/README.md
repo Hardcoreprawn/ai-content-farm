@@ -42,8 +42,79 @@ pytest tests/ --cov=containers --cov-report=html
 
 ### Run Specific Test Categories
 ```bash
-# Integration tests only
+# Tests Directory
+
+This directory contains system-level and integration tests for the AI Content Farm platform.
+
+## Directory Structure
+
+```
+tests/
+├── README.md                      # This file
+├── integration/                   # Integration tests across multiple containers
+├── test_article_delivery.py       # End-to-end article delivery pipeline tests
+├── test_complete_pipeline.py      # Complete event-driven pipeline validation
+├── test_event_driven.py          # Event-driven blob processing tests
+└── test_ranked_content.json      # Sample test data for ranked content
+```
+
+## Test Categories
+
+### System Tests
+- **test_complete_pipeline.py**: Validates the entire event-driven architecture
+- **test_event_driven.py**: Tests real-time blob event processing
+
+### Integration Tests
+- **test_article_delivery.py**: End-to-end content generation and delivery
+- **integration/**: Cross-container integration tests
+
+### Container-Specific Tests
+Container-specific tests are located in each container's `tests/` directory:
+- `containers/content-collector/tests/`
+- `containers/content-processor/tests/`
+- `containers/content-enricher/tests/`
+- `containers/content-ranker/tests/`
+- `containers/content-generator/tests/`
+- `containers/site-generator/tests/`
+
+## Running Tests
+
+### All Tests
+```bash
+pytest tests/
+```
+
+### Specific Test Categories
+```bash
+# System tests
+pytest tests/test_complete_pipeline.py
+
+# Integration tests
 pytest tests/integration/
+
+# Container-specific tests
+pytest containers/content-generator/tests/
+```
+
+### With Coverage
+```bash
+pytest --cov=libs --cov=containers tests/
+```
+
+## Test Data
+
+- **test_ranked_content.json**: Sample ranked content data for testing content generation
+- Test data should be realistic but not use real API keys or production data
+- Use mock objects for external services in unit tests
+
+## Environment Setup
+
+Tests require certain environment variables for integration testing:
+- `AZURE_STORAGE_ACCOUNT_NAME`: For blob storage tests
+- `AZURE_OPENAI_ENDPOINT`: For AI service tests (optional)
+- `AZURE_OPENAI_API_KEY`: For AI service tests (optional)
+
+For local development, tests gracefully handle missing cloud resources.
 
 # Unit tests only  
 pytest tests/unit/

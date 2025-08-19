@@ -12,6 +12,7 @@ from fastapi.exceptions import RequestValidationError
 from pydantic import BaseModel, Field, ValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from typing import List, Dict, Any, Optional
+from datetime import datetime, timezone
 import uvicorn
 import logging
 import json
@@ -19,10 +20,14 @@ import json
 # Import our business logic
 from enricher import enrich_content_batch
 from config import get_config, health_check
+from service_logic import ContentEnricherService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize service
+enricher_service = ContentEnricherService()
 
 # Create FastAPI app
 app = FastAPI(
@@ -214,6 +219,94 @@ async def enrich_content(request: EnrichmentRequest) -> Dict[str, Any]:
             status_code=500, detail="Enrichment processing failed")
 
 
+# Pipeline integration endpoints
+
+@app.post("/enrich/processed")
+async def enrich_processed_content(processed_data: Dict[str, Any]):
+    """Enrich processed content from the content-processor."""
+    try:
+        result = await enricher_service.enrich_processed_content(
+            processed_data=processed_data,
+            save_to_storage=True
+        )
+        return result
+    except Exception as e:
+        logger.error(f"Error enriching processed content: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/enrich/batch")
+async def enrich_batch():
+    """Enrich a batch of unenriched processed content."""
+    try:
+        unenriched = await enricher_service.find_unenriched_processed_content(limit=5)
+
+        if not unenriched:
+            return {
+                "message": "No unenriched processed content found",
+                "enriched_count": 0,
+                "results": []
+            }
+
+        results = []
+        for processed_info in unenriched:
+            try:
+                result = await enricher_service.enrich_processed_content(
+                    processed_data=processed_info["processed_data"],
+                    save_to_storage=True
+                )
+                results.append({
+                    "process_id": processed_info["process_id"],
+                    "status": "success",
+                    "enrichment_id": result["enrichment_id"],
+                    "enriched_items": len(result["enriched_items"])
+                })
+            except Exception as e:
+                results.append({
+                    "process_id": processed_info["process_id"],
+                    "status": "error",
+                    "error": str(e)
+                })
+
+        successful_count = sum(1 for r in results if r["status"] == "success")
+        return {
+            "message": f"Enriched {successful_count} processed content items",
+            "enriched_count": successful_count,
+            "results": results
+        }
+    except Exception as e:
+        logger.error(f"Error in batch enrichment: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/status")
+async def get_status():
+    """Get enricher service status and pipeline information."""
+    try:
+        # Get service statistics
+        stats = enricher_service.get_service_stats()
+
+        # Get unenriched count
+        unenriched = await enricher_service.find_unenriched_processed_content(limit=100)
+        unenriched_count = len(unenriched)
+
+        return {
+            "service": "content-enricher",
+            "status": "healthy",
+            "version": "1.0.0",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "stats": stats,
+            "pipeline": {
+                "unenriched_processed_content": unenriched_count,
+                "last_batch_enriched": stats.get("last_enriched"),
+                "enrichment_capacity": "ready"
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error getting status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/")
 async def root() -> Dict[str, Any]:
     """Root endpoint with service information."""
@@ -225,6 +318,9 @@ async def root() -> Dict[str, Any]:
         "endpoints": {
             "health": "/health",
             "enrich": "/enrich (POST)",
+            "enrich_processed": "/enrich/processed (POST)",
+            "enrich_batch": "/enrich/batch (POST)",
+            "status": "/status",
             "docs": "/docs"
         }
     }
