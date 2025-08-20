@@ -233,7 +233,7 @@ cache-pull:
 		docker pull bridgecrew/checkov:latest; \
 		docker pull tenable/terrascan:latest; \
 		docker pull pyupio/safety:latest; \
-		docker pull returntocorp/semgrep:latest; \
+		docker pull semgrep/semgrep:latest; \
 		docker pull infracost/infracost:latest; \
 		echo "All security and cost analysis images cached locally"; \
 	else \
@@ -270,10 +270,10 @@ scan-python:
 		fi; \
 		docker run --rm -v $(PWD):/workspace pyupio/safety:latest check --json --file /workspace/requirements.txt > python-safety-results.json 2>/dev/null || echo "No requirements.txt or vulnerabilities found"; \
 		echo "Running Semgrep for code security analysis..."; \
-		if ! docker images returntocorp/semgrep:latest -q | grep -q .; then \
-			docker pull returntocorp/semgrep:latest; \
+		if ! docker images semgrep/semgrep:latest -q | grep -q .; then \
+			docker pull semgrep/semgrep:latest; \
 		fi; \
-		docker run --rm -v $(PWD):/src returntocorp/semgrep:latest semgrep --config=auto --json --output=/src/python-semgrep-results.json /src || true; \
+		docker run --rm -v $(PWD):/src semgrep/semgrep:latest semgrep --config=auto --json --output=/src/python-semgrep-results.json /src || true; \
 		echo "🔐 Running Trivy filesystem scan for Python dependencies..."; \
 		docker run --rm -v $(PWD):/workspace -v trivy-cache:/root/.cache/trivy aquasec/trivy:latest filesystem /workspace --skip-dirs .venv,node_modules,containers --scanners vuln --severity HIGH,CRITICAL --format json --output /workspace/python-trivy-results.json || true; \
 		echo "Python security scans completed"; \

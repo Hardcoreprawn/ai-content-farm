@@ -68,7 +68,7 @@ runs:
       run: |
         echo "Running Semgrep SAST scan..."
         docker run --rm -v "${WORKSPACE_PATH}":/src \
-          returntocorp/semgrep:latest \
+          semgrep/semgrep:latest \
           semgrep --config=auto --sarif --output=/src/security-results/semgrep.sarif /src || true
 
     - name: Run Python Security Scan

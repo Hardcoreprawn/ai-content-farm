@@ -7,7 +7,7 @@ Updated GitHub Actions to be consistent with the Makefile's containerized approa
 
 ### ✅ Already Containerized (Consistent)
 - **Trivy**: `aquasec/trivy:latest` (infrastructure & container scanning)
-- **Semgrep**: `returntocorp/semgrep:latest` (SAST scanning)
+- **Semgrep**: `semgrep/semgrep:latest` (SAST scanning)
 - **Checkov**: `bridgecrew/checkov:latest` (IaC validation)
 - **Syft**: `anchore/syft:latest` (SBOM generation)
 - **Infracost**: `infracost/infracost:latest` (cost analysis)
@@ -52,7 +52,7 @@ Updated GitHub Actions to be consistent with the Makefile's containerized approa
 | Safety | `pip install` | `pyupio/safety:latest` | ✅ Matches Makefile |
 | Bandit | `pip install` | `pip install` | ⚠️ No container available |
 | Trivy | `aquasec/trivy:latest` | `aquasec/trivy:latest` | ✅ Already consistent |
-| Semgrep | `returntocorp/semgrep:latest` | `returntocorp/semgrep:latest` | ✅ Already consistent |
+| Semgrep | `semgrep/semgrep:latest` | `semgrep/semgrep:latest` | ✅ Already consistent |
 | Checkov | `bridgecrew/checkov:latest` | `bridgecrew/checkov:latest` | ✅ Already consistent |
 
 ## Container Image Sources
