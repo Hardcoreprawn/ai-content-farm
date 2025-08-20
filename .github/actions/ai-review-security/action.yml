@@ -66,26 +66,26 @@ runs:
 
         # Create security context summary
         review_timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-        
+
         # Check data availability
         if [ -d "security-results" ]; then
           scan_results_status="Available"
         else
           scan_results_status="Not available"
         fi
-        
+
         if [ -f "ai-reviews/security/security-changes.diff" ]; then
           code_changes_status="Available"
         else
           code_changes_status="Full codebase review"
         fi
-        
+
         if [ -f "output/sbom-combined.json" ]; then
           sbom_status="Available"
         else
           sbom_status="Not available"
         fi
-        
+
         cat > ai-reviews/security/context.md << EOF
         # Security Review Context
 
@@ -346,7 +346,7 @@ runs:
 
         # Create markdown report
         report_timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-        
+
         # Extract security data
         if [ -f "security-analysis.json" ]; then
           security_score="$(jq -r '.security_score // "N/A"' security-analysis.json)"
@@ -363,7 +363,7 @@ runs:
           best_practices="Manual review recommended"
           summary="Security analysis completed"
         fi
-        
+
         cat > security-review.md << EOF
         # AI Security Review Report
 

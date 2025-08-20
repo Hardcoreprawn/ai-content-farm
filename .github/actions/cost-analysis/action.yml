@@ -118,7 +118,7 @@ runs:
         # Create impact summary
         percentage_change="$(echo "scale=2; ($diff_monthly / $baseline_monthly) * 100" | bc -l 2>/dev/null)" || percentage_change="0"
         analysis_timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-        
+
         impact_json=$(cat << EOF
         {
           "current_monthly": "$current_monthly",
@@ -135,23 +135,23 @@ runs:
 
         # Generate detailed report
         report_timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-        
+
         # Evaluate cost impact
         diff_positive="$(echo "$diff_monthly > 0" | bc -l 2>/dev/null)" || diff_positive="0"
         diff_significant="$(echo "$diff_monthly > 10" | bc -l 2>/dev/null)" || diff_significant="0"
-        
+
         if [ "$diff_positive" -eq 1 ]; then
           impact_assessment="**COST INCREASE** - Review resource changes"
         else
           impact_assessment="**COST NEUTRAL/DECREASE** - Changes look good"
         fi
-        
+
         if [ "$diff_significant" -eq 1 ]; then
           recommendation="- Consider cost optimization before deployment"
         else
           recommendation="- Cost impact is within acceptable range"
         fi
-        
+
         cat > cost-analysis/summary.md << EOF
         # Cost Analysis Report
 

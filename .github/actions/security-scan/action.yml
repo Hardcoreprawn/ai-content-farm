@@ -145,7 +145,7 @@ runs:
         else
           status_message="**FAILED** - Critical vulnerabilities require attention"
         fi
-        
+
         cat > security-results/summary.md << EOF
         # Security Scan Summary
 
