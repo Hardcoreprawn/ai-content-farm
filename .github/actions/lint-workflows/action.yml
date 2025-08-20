@@ -33,7 +33,7 @@ runs:
       shell: bash
       run: |
         echo "🔍 Running yamllint on workflow files..."
-        
+
         # Verify our yamllint config exists
         if [ -f .yamllint.yml ]; then
           echo "📋 Using existing .yamllint.yml configuration"
