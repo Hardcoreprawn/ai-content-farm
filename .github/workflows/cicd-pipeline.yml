@@ -164,7 +164,7 @@ jobs:
 
           # Set the deployment URL output
           if [ -n "$CONTAINER_APP_URL" ]; then
-            echo "deployment-url=https://$CONTAINER_APP_URL" >> $GITHUB_OUTPUT
+            echo "deployment-url=https://$CONTAINER_APP_URL" >> "$GITHUB_OUTPUT"
             echo "Production deployment completed successfully"
             echo "Container App URL: https://$CONTAINER_APP_URL"
           else
