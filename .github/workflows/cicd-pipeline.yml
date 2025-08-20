@@ -69,22 +69,22 @@ jobs:
 
           # Run code formatting checks
           echo "Checking code formatting with black..."
-          black --check --diff . || echo "black_failed=true" >> $GITHUB_ENV
+          black --check --diff . || echo "black_failed=true" >> "$GITHUB_ENV"
 
           # Run import sorting checks
           echo "Checking import sorting with isort..."
-          isort --check-only --diff . || echo "isort_failed=true" >> $GITHUB_ENV
+          isort --check-only --diff . || echo "isort_failed=true" >> "$GITHUB_ENV"
 
           # Run linting
           echo "Running flake8 linting..."
-          flake8 --max-line-length=100 --extend-ignore=E203,W503 . || echo "flake8_failed=true" >> $GITHUB_ENV
+          flake8 --max-line-length=100 --extend-ignore=E203,W503 . || echo "flake8_failed=true" >> "$GITHUB_ENV"
 
           # Check for any failures
-          if [[ "$black_failed" == "true" || "$isort_failed" == "true" || "$flake8_failed" == "true" ]]; then
-            echo "passed=false" >> $GITHUB_OUTPUT
+          if [[ "${black_failed}" == "true" || "${isort_failed}" == "true" || "${flake8_failed}" == "true" ]]; then
+            echo "passed=false" >> "$GITHUB_OUTPUT"
             exit 1
           else
-            echo "passed=true" >> $GITHUB_OUTPUT
+            echo "passed=true" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run Dependency Security Check
@@ -144,19 +144,23 @@ jobs:
           # Check if any quality gate jobs failed
           if [ "${{ needs.quality-gate.result }}" = "failure" ]; then
             echo "❌ Quality gate failed - see individual check results"
-            echo "passed=false" >> $GITHUB_OUTPUT
+            echo "passed=false" >> "$GITHUB_OUTPUT"
 
-            echo "## Quality Gate Summary" >> $GITHUB_STEP_SUMMARY
-            echo "❌ **Status**: FAILED" >> $GITHUB_STEP_SUMMARY
-            echo "Some quality checks did not pass. Review the individual check results above." >> $GITHUB_STEP_SUMMARY
+            {
+              echo "## Quality Gate Summary"
+              echo "❌ **Status**: FAILED"
+              echo "Some quality checks did not pass. Review the individual check results above."
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           else
             echo "✅ Quality gate passed - all checks successful"
-            echo "passed=true" >> $GITHUB_OUTPUT
+            echo "passed=true" >> "$GITHUB_OUTPUT"
 
-            echo "## Quality Gate Summary" >> $GITHUB_STEP_SUMMARY
-            echo "✅ **Status**: PASSED" >> $GITHUB_STEP_SUMMARY
-            echo "All quality checks completed successfully!" >> $GITHUB_STEP_SUMMARY
+            {
+              echo "## Quality Gate Summary"
+              echo "✅ **Status**: PASSED"
+              echo "All quality checks completed successfully!"
+            } >> "$GITHUB_STEP_SUMMARY"
           fi
 
   # Cost Analysis
