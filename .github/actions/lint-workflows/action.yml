@@ -33,22 +33,18 @@ runs:
       shell: bash
       run: |
         echo "🔍 Running yamllint on workflow files..."
+        
+        # Verify our yamllint config exists
+        if [ -f .yamllint.yml ]; then
+          echo "📋 Using existing .yamllint.yml configuration"
+          cat .yamllint.yml
+        else
+          echo "⚠️ No .yamllint.yml found, yamllint will use defaults"
+        fi
 
-        # Create yamllint config
-        cat > .yamllint.yml << EOF
-        extends: default
-        rules:
-          line-length:
-            max: 120
-          comments:
-            min-spaces-from-content: 1
-          indentation:
-            spaces: 2
-        EOF
-
-        # Run yamllint via Docker container (consistent with other tools)
+        # Run yamllint via Docker, mounting our config file
         if docker run --rm -v ${{ github.workspace }}:/workspace \
-          cytopia/yamllint:latest -d relaxed /workspace/.github/; then
+          cytopia/yamllint:latest -c /workspace/.yamllint.yml /workspace/.github/; then
           echo "✅ yamllint passed"
           echo "passed=true" >> $GITHUB_OUTPUT
         else
