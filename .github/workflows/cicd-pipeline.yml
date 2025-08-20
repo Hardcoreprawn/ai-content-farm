@@ -13,6 +13,8 @@ permissions:
   security-events: write
   pull-requests: write
   issues: write
+  actions: read
+  checks: write
 
 jobs:
   # Workflow Validation - Fast fail if workflows are invalid

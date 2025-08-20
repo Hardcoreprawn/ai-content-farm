@@ -49,11 +49,13 @@ runs:
         find . -name "Dockerfile" -type f | while read dockerfile; do
           container_name=$(basename $(dirname "$dockerfile"))
           echo "Scanning $container_name..."
-          docker run --rm -v ${{ github.workspace }}:/workspace \
-            aquasec/trivy:latest config $(dirname "$dockerfile") \
-            --format json \
-            --output /workspace/security-results/trivy-${container_name}.json \
-            --severity HIGH,CRITICAL || true
+          if [ -d "$(dirname "$dockerfile")" ]; then
+            docker run --rm -v ${{ github.workspace }}:/workspace \
+              aquasec/trivy:latest config /workspace/$(dirname "$dockerfile") \
+              --format json \
+              --output /workspace/security-results/trivy-${container_name}.json \
+              --severity HIGH,CRITICAL || true
+          fi
         done
 
     - name: Run Semgrep SAST Scan
@@ -62,10 +64,7 @@ runs:
         echo "🔍 Running Semgrep SAST scan..."
         docker run --rm -v ${{ github.workspace }}:/src \
           returntocorp/semgrep:latest \
-          --config=auto \
-          --sarif \
-          --output=/src/security-results/semgrep.sarif \
-          /src || true
+          semgrep --config=auto --sarif --output=/src/security-results/semgrep.sarif /src || true
 
     - name: Run Python Security Scan
       shell: bash
@@ -78,7 +77,7 @@ runs:
         find . -name "requirements.txt" -type f | while read req_file; do
           container_name=$(basename $(dirname "$req_file"))
           echo "Safety scan for $container_name..."
-          safety check -r "$req_file" --json --output security-results/safety-${container_name}.json || true
+          safety check -r "$req_file" --output json > security-results/safety-${container_name}.json || true
         done
 
         # Run Bandit on Python code

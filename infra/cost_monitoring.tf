@@ -43,8 +43,6 @@ resource "azurerm_consumption_budget_resource_group" "main" {
       # "your-email@example.com"
     ]
   }
-
-  tags = local.common_tags
 }
 
 # Monitor Azure OpenAI usage specifically

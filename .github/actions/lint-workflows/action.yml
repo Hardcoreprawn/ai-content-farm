@@ -26,7 +26,7 @@ runs:
         pip install yamllint
 
         # Install actionlint
-        bash <(curl https://raw.githubusercontent.com/rhymond/actionlint/main/scripts/download-actionlint.bash)
+        curl -fsSL https://github.com/rhymond/actionlint/releases/latest/download/actionlint_linux_amd64.tar.gz | tar -xz
         sudo mv actionlint /usr/local/bin/
 
     - name: Run yamllint
