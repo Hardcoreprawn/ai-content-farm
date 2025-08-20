@@ -1,12 +1,83 @@
 #!/bin/bash
 
-# AI Content Farm - Local Pipeline Test Script
-# Tests the content flow through collector -> processor -> enricher
+# AI Content Farm - Local Pipeline Test Script  
+# Tests both the content flow AND CI/CD pipeline readiness
 
 set -e
 
-echo "🚀 Testing AI Content Farm Local Pipeline"
-echo "========================================="
+echo "🚀 Testing AI Content Farm - Content Pipeline + CI/CD"
+echo "======================================================"
+echo
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Function to print status
+print_status() {
+    if [ $1 -eq 0 ]; then
+        echo -e "${GREEN}✅ $2${NC}"
+    else
+        echo -e "${RED}❌ $2${NC}"
+    fi
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠️  $1${NC}"
+}
+
+echo "PART 1: CI/CD Pipeline Readiness"
+echo "================================="
+
+echo "1. Testing Workflow Syntax..."
+python3 -c "import yaml; yaml.safe_load(open('.github/workflows/cicd-pipeline.yml'))" 2>/dev/null
+print_status $? "Workflow YAML syntax"
+
+echo
+echo "2. Testing Action References..."
+missing_actions=0
+for action_ref in $(grep -o "uses: \./\.github/actions/[^/]*" .github/workflows/cicd-pipeline.yml | cut -d'/' -f4 | sort -u); do
+    if [ -f ".github/actions/$action_ref/action.yml" ]; then
+        echo -e "${GREEN}✅ $action_ref${NC}"
+    else
+        echo -e "${RED}❌ $action_ref${NC}"
+        missing_actions=$((missing_actions + 1))
+    fi
+done
+
+if [ $missing_actions -gt 0 ]; then
+    print_warning "$missing_actions action(s) missing"
+else
+    echo -e "${GREEN}✅ All actions found${NC}"
+fi
+
+echo
+echo "3. Testing Container Test Structure..."
+containers_with_tests=0
+total_containers=0
+for container in containers/*/; do
+    if [ -d "$container" ]; then
+        total_containers=$((total_containers + 1))
+        container_name=$(basename "$container")
+        if [ -d "${container}tests" ]; then
+            test_count=$(find "${container}tests" -name "test_*.py" -o -name "*_test.py" | wc -l)
+            if [ $test_count -gt 0 ]; then
+                echo -e "${GREEN}✅ $container_name ($test_count tests)${NC}"
+                containers_with_tests=$((containers_with_tests + 1))
+            else
+                echo -e "${YELLOW}⚠️  $container_name (no tests)${NC}"
+            fi
+        else
+            echo -e "${RED}❌ $container_name (no test directory)${NC}"
+        fi
+    fi
+done
+
+echo
+echo "PART 2: Content Pipeline Testing"
+echo "================================="
 
 # Wait for services to be healthy
 echo "⏳ Waiting for services to start..."

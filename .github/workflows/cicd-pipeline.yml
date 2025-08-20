@@ -25,19 +25,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Lint Workflows
+      - name: Validate Workflows
         uses: ./.github/actions/lint-workflows
         with:
-          fail-on-error: 'true'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  # Security Gate - Block if security issues found
+  # Security Gate - Combined security scanning
   security-gate:
     name: Security Gate
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
     needs: workflow-validation
     outputs:
-      security-passed: ${{ steps.security-check.outputs.passed }}
+      security-passed: ${{ steps.security-check.outputs.security-passed }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -46,31 +45,45 @@ jobs:
         id: security-check
         uses: ./.github/actions/security-scan
         with:
-          fail-on-critical: 'true'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           upload-sarif: 'true'
 
-  # Cost Analysis - Evaluate infrastructure cost impact
+  # Cost Analysis
   cost-analysis:
     name: Cost Analysis
     runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
     needs: security-gate
-    outputs:
-      cost-impact: ${{ steps.cost-check.outputs.impact }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Analyze Cost Impact
-        id: cost-check
+      - name: Analyze Infrastructure Costs
         uses: ./.github/actions/cost-analysis
         with:
-          infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           comment-on-pr: 'true'
 
-  # SBOM and Dependency Analysis
+  # Dependency Analysis 
   dependency-analysis:
     name: Dependency Analysis
+    runs-on: ubuntu-latest
+    needs: security-gate
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Analyze Dependencies
+        run: |
+          echo "🔍 Analyzing dependencies..."
+          if [ -f "scripts/dependency-analysis.sh" ]; then
+            bash scripts/dependency-analysis.sh
+          else
+            echo "Dependency analysis script not found - using basic analysis"
+          fi
+
+  # Container Tests - Unit, Integration, and Smoke Tests
+  container-tests:
+    name: Container Tests
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     needs: security-gate
@@ -78,17 +91,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Generate SBOM and Analyze Dependencies
-        run: |
-          echo "📊 Running SBOM and dependency analysis..."
-          make sbom || echo "SBOM generation failed"
-
-          # Run dependency analysis if script exists
-          if [ -f "scripts/analyze-dependencies.py" ]; then
-            python scripts/analyze-dependencies.py
-          else
-            echo "Dependency analysis script not found - using basic analysis"
-          fi
+      - name: Run Container Tests
+        uses: ./.github/actions/container-tests
+        with:
+          test-type: 'all'
+          fail-fast: 'false'
+          upload-coverage: 'true'
 
   # AI Multi-Perspective Review
   ai-security-review:
@@ -97,33 +105,20 @@ jobs:
     needs: security-gate
     if: always() && (needs.security-gate.result == 'success' || needs.security-gate.result == 'failure')
     steps:
-      - uses: actions/checkout@v4
-      - uses: ./.github/actions/ai-review-security
-        with:
-          # openai-api-key: ${{ secrets.OPENAI_API_KEY }}  # Optional - leave commented to use Copilot instead
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          comment-on-pr: 'true'
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: AI Cost Review
-        uses: ./.github/actions/ai-review-cost
+      - name: AI Security Review
+        uses: ./.github/actions/ai-review-security
         with:
-          # openai-api-key: ${{ secrets.OPENAI_API_KEY }}  # Optional - leave commented to use Copilot instead
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          comment-on-pr: 'true'
-
-      - name: AI Operations Review
-        uses: ./.github/actions/ai-review-operations
-        with:
-          # openai-api-key: ${{ secrets.OPENAI_API_KEY }}  # Optional - leave commented to use Copilot instead
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          comment-on-pr: 'true'
 
   # Create Ephemeral Environment for PR Testing
   create-ephemeral-env:
     name: Create PR Environment
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && needs.security-gate.outputs.security-passed == 'true'
-    needs: [security-gate, cost-analysis, dependency-analysis, ai-security-review]
+    needs: [security-gate, cost-analysis, dependency-analysis, container-tests, ai-security-review]
     environment: pr-${{ github.event.number }}
     outputs:
       environment-url: ${{ steps.deploy.outputs.environment-url }}
@@ -139,9 +134,9 @@ jobs:
           environment-name: pr-${{ github.event.number }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  # Run Integration Tests in PR Environment
-  integration-tests:
-    name: Integration Tests
+  # End-to-End Integration Tests
+  e2e-tests:
+    name: End-to-End Tests
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request' && needs.create-ephemeral-env.result == 'success'
     needs: create-ephemeral-env
@@ -149,12 +144,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run Integration Tests
+      - name: Run E2E Tests
         run: |
-          echo "🧪 Running integration tests..."
+          echo "🧪 Running end-to-end tests..."
           echo "Environment URL: ${{ needs.create-ephemeral-env.outputs.environment-url }}"
-
-          # Basic health check
+          
+          # Run integration tests against the ephemeral environment
           if [ -n "${{ needs.create-ephemeral-env.outputs.environment-url }}" ]; then
             echo "Testing environment health..."
             # Add actual integration tests here
@@ -163,20 +158,96 @@ jobs:
             echo "⚠️ Environment URL not available"
           fi
 
+  # Production Quality Gates (main branch pushes)
+  production-security-scan:
+    name: Production Security Scan
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: workflow-validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Production Security Scan
+        uses: ./.github/actions/security-scan
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          upload-sarif: 'true'
+
+  production-dependency-analysis:
+    name: Production Dependency Analysis
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: workflow-validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Production Dependency Analysis
+        run: |
+          echo "🔍 Production dependency analysis..."
+          if [ -f "scripts/dependency-analysis.sh" ]; then
+            bash scripts/dependency-analysis.sh --production
+          else
+            echo "Dependency analysis script not found"
+          fi
+
+  production-cost-analysis:
+    name: Production Cost Analysis
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: workflow-validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Production Cost Analysis
+        uses: ./.github/actions/cost-analysis
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-on-pr: 'false'
+
+  production-ai-security-review:
+    name: Production AI Security Review
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: workflow-validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: AI Security Review
+        uses: ./.github/actions/ai-review-security
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          comment-on-pr: 'false'
+
+  production-container-tests:
+    name: Production Container Tests
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: workflow-validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Container Tests
+        uses: ./.github/actions/container-tests
+        with:
+          test-type: 'all'
+          fail-fast: 'true'
+          upload-coverage: 'true'
+
   # Production Deployment (main branch only)
   production-deployment:
     name: Production Deployment
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [workflow-validation, production-security-scan, production-dependency-analysis, production-cost-analysis, production-ai-security-review, production-container-tests]
     environment: production
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Final Security Validation
-        uses: ./.github/actions/security-scan
-        with:
-          fail-on-critical: 'true'
 
       - name: Deploy to Production
         run: |
