@@ -132,6 +132,42 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
   }
 }
 
+# Service Bus encryption key
+resource "azurerm_key_vault_key" "servicebus" {
+  name         = "servicebus-encryption-key"
+  key_vault_id = azurerm_key_vault.main.id
+  key_type     = "RSA"
+  key_size     = 2048
+
+  key_opts = [
+    "decrypt",
+    "encrypt",
+    "sign",
+    "unwrapKey",
+    "verify",
+    "wrapKey",
+  ]
+
+  depends_on = [azurerm_key_vault_access_policy.current_user]
+
+  tags = local.common_tags
+}
+
+# Access policy for Service Bus managed identity
+resource "azurerm_key_vault_access_policy" "servicebus" {
+  key_vault_id = azurerm_key_vault.main.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = azurerm_user_assigned_identity.servicebus.principal_id
+
+  key_permissions = [
+    "Get",
+    "UnwrapKey",
+    "WrapKey"
+  ]
+
+  depends_on = [azurerm_user_assigned_identity.servicebus]
+}
+
 resource "azurerm_log_analytics_workspace" "main" {
   name                = "${local.resource_prefix}-la"
   location            = azurerm_resource_group.main.location
@@ -184,6 +220,39 @@ resource "azurerm_storage_container" "topics" {
 # Azure Functions infrastructure removed as part of container migration
 # Container services now handle the content processing pipeline
 
-# Optionally add Cognitive Account and Key Vault secret if OpenAI integration is needed
-# resource "azurerm_cognitive_account" "openai" { ... }
-# resource "azurerm_key_vault_secret" "openai_key" { ... }
+# Azure OpenAI Cognitive Services Account
+resource "azurerm_cognitive_account" "openai" {
+  name                = "${local.resource_prefix}-openai"
+  location            = "East US"  # OpenAI is only available in specific regions
+  resource_group_name = azurerm_resource_group.main.name
+  kind                = "OpenAI"
+  sku_name            = "S0"
+
+  # Security settings
+  public_network_access_enabled = false
+  
+  # Custom subdomain required for private endpoints
+  custom_subdomain_name = "${replace(local.resource_prefix, "-", "")}openai"
+
+  # Network access restrictions
+  network_acls {
+    default_action = "Deny"
+    
+    # Allow access from Container Apps subnet when implemented
+    # virtual_network_rules {
+    #   subnet_id = azurerm_subnet.container_apps.id
+    # }
+  }
+
+  tags = local.common_tags
+}
+
+# Store OpenAI key in Key Vault
+resource "azurerm_key_vault_secret" "openai_key" {
+  name         = "openai-api-key"
+  value        = azurerm_cognitive_account.openai.primary_access_key
+  key_vault_id = azurerm_key_vault.main.id
+  depends_on   = [azurerm_key_vault_access_policy.current_user]
+
+  tags = local.common_tags
+}

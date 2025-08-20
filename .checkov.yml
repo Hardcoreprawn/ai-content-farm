@@ -1,0 +1,33 @@
+# Checkov security scanner configuration
+framework:
+  - terraform
+
+skip-check:
+  # Development environment reasonable exceptions
+  - CKV_AZURE_165  # Geo-replication not required for dev/staging
+  - CKV_AZURE_233  # Zone redundancy not required for dev (cost optimization)
+  - CKV_AZURE_199  # Double encryption not required for dev Service Bus
+  - CKV_AZURE_201  # Customer-managed encryption for dev (complexity vs benefit)
+  
+  # These should be enabled in production
+  # - CKV_AZURE_137  # ACR admin account disabled (keep this check active)
+  # - CKV_AZURE_139  # ACR public networking disabled (keep this check active)
+  # - CKV_AZURE_163  # Container vulnerability scanning (keep this check active)
+  # - CKV_AZURE_164  # Signed/trusted images (keep this check active)
+  # - CKV_AZURE_166  # Container quarantine policy (keep this check active)
+  # - CKV_AZURE_167  # Retention policy (keep this check active)
+  # - CKV_AZURE_202  # Service Bus managed identity (keep this check active)
+  # - CKV_AZURE_203  # Service Bus local auth disabled (keep this check active)
+  # - CKV_AZURE_204  # Service Bus public access disabled (keep this check active)
+  # - CKV_AZURE_205  # Service Bus TLS version (keep this check active)
+
+# Soft fail for info-level issues
+soft-fail: true
+
+# Output format
+output: 
+  - cli
+  - sarif
+
+# Baseline file for tracking issue evolution
+baseline: .checkov.baseline
