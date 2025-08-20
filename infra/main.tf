@@ -134,10 +134,11 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
 
 # Service Bus encryption key
 resource "azurerm_key_vault_key" "servicebus" {
-  name         = "servicebus-encryption-key"
-  key_vault_id = azurerm_key_vault.main.id
-  key_type     = "RSA"
-  key_size     = 2048
+  name            = "servicebus-encryption-key"
+  key_vault_id    = azurerm_key_vault.main.id
+  key_type        = "RSA" # Use standard RSA key (HSM requires Premium Key Vault)
+  key_size        = 2048
+  expiration_date = timeadd(timestamp(), "8760h") # 1 year expiration
 
   key_opts = [
     "decrypt",
@@ -230,9 +231,15 @@ resource "azurerm_cognitive_account" "openai" {
 
   # Security settings
   public_network_access_enabled = false
+  local_auth_enabled            = false # Disable local authentication for security
 
   # Custom subdomain required for private endpoints
   custom_subdomain_name = "${replace(local.resource_prefix, "-", "")}openai"
+
+  # Enable managed identity
+  identity {
+    type = "SystemAssigned"
+  }
 
   # Network access restrictions
   network_acls {
@@ -249,10 +256,12 @@ resource "azurerm_cognitive_account" "openai" {
 
 # Store OpenAI key in Key Vault
 resource "azurerm_key_vault_secret" "openai_key" {
-  name         = "openai-api-key"
-  value        = azurerm_cognitive_account.openai.primary_access_key
-  key_vault_id = azurerm_key_vault.main.id
-  depends_on   = [azurerm_key_vault_access_policy.current_user]
+  name            = "openai-api-key"
+  value           = azurerm_cognitive_account.openai.primary_access_key
+  key_vault_id    = azurerm_key_vault.main.id
+  content_type    = "text/plain"
+  expiration_date = timeadd(timestamp(), "8760h") # 1 year expiration
+  depends_on      = [azurerm_key_vault_access_policy.current_user]
 
   tags = local.common_tags
 }

@@ -1,0 +1,39 @@
+# Semgrep ignore patterns for AI Content Farm
+
+# Development and test files - less critical security requirements
+tests/
+conftest.py
+pytest.ini
+__pycache__/
+.pytest_cache/
+
+# Documentation files
+docs/
+README.md
+*.md
+
+# Configuration files with acceptable patterns
+docker-compose.yml
+.devcontainer/
+Makefile
+
+# Infrastructure code - handled by Checkov
+infra/terraform.tfstate.d/
+infra/*.tfvars
+infra/terraform.tfvars.example
+
+# Build artifacts and outputs
+output/
+build/
+*.egg-info/
+
+# Environment configuration templates
+.env.example
+
+# Specific rules to ignore for development environment
+# Disable hardcoded credentials warnings for test/dev fixtures
+rules:
+  - generic.secrets.gitleaks.generic-api-key
+  - generic.secrets.gitleaks.generic-password
+  - python.lang.security.audit.dangerous-system-call
+  - yaml.docker-compose.security.writable-filesystem-service

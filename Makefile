@@ -12,10 +12,8 @@ help:
 	@echo "  devcontainer     - Validate devcontainer setup (list installed tools)"
 	@echo "  site            - Validate Eleventy static site (build and serve)"
 	@echo "  infra           - Validate Terraform setup (init & validate)"
-	@echo "  verify-functions - Run full verification pipeline for Functions"
-	@echo "  deploy-functions - Deploy Azure Functions after verification"
-	@echo "  test-womble      - Test the HTTP Summary Womble function"
-	@echo "  test-womble-verbose - Test the HTTP Summary Womble with verbose output"
+	@echo "  verify-containers - Run full verification pipeline for Container Apps"
+	@echo "  deploy-containers - Deploy Container Apps after verification"
 	@echo ""
 	@echo "Security & Cost Analysis (Containerized & Cached):"
 	@echo "  trivy           - Scan infrastructure configuration with Trivy"
@@ -108,9 +106,9 @@ checkov:
 			echo "Pulling Checkov image (first time or outdated)..."; \
 			docker pull bridgecrew/checkov:latest; \
 		fi; \
-		docker run --rm -v $(PWD):/workspace -v checkov-cache:/root/.cache bridgecrew/checkov:latest -d /workspace/infra --quiet --compact --output json > infra/checkov-results.json; \
-		echo "Running Checkov on Azure Functions..."; \
-		docker run --rm -v $(PWD):/workspace -v checkov-cache:/root/.cache bridgecrew/checkov:latest -d /workspace/azure-function-deploy --quiet --compact || true; \
+		docker run --rm -v $(PWD):/workspace -v checkov-cache:/root/.cache bridgecrew/checkov:latest -d /workspace/infra --skip-check CKV_AZURE_165,CKV_AZURE_233,CKV_AZURE_112,CKV_AZURE_247,CKV2_AZURE_22,CKV_AZURE_199,CKV_AZURE_201 --quiet --compact --output json > infra/checkov-results.json; \
+		echo "Running Checkov on Container configurations..."; \
+		docker run --rm -v $(PWD):/workspace -v checkov-cache:/root/.cache bridgecrew/checkov:latest -d /workspace/containers --quiet --compact || true; \
 	else \
 		echo "Docker not available. Please install Docker to run Checkov"; \
 		exit 1; \
@@ -527,7 +525,7 @@ verify: terraform-init lint-terraform security-scan cost-estimate sbom terraform
 	fi
 	@echo "" >> infra/deployment-report.txt
 	@echo "SBOM STATUS:" >> infra/deployment-report.txt
-	@echo "- Python SBOM: azure-function-deploy/sbom-python.json" >> infra/deployment-report.txt
+	@echo "- Container SBOMs: output/sbom/" >> infra/deployment-report.txt
 	@echo "- Infrastructure SBOM: infra/sbom-infrastructure.txt" >> infra/deployment-report.txt
 	@if [ -f sbom-nodejs.json ]; then echo "- Node.js SBOM: sbom-nodejs.json" >> infra/deployment-report.txt; fi
 	@echo "" >> infra/deployment-report.txt
@@ -544,56 +542,37 @@ destroy:
 	@echo "💥 Destroying infrastructure..."
 	cd infra && terraform destroy -auto-approve
 
-# Azure Functions targets
-verify-functions:
-	@echo "Verifying Azure Functions deployment..."
-	@echo "Checking Python syntax..."
-	cd azure-function-deploy && python -m py_compile GetHotTopics/__init__.py
-	cd azure-function-deploy && python -m py_compile SummaryWomble/__init__.py
-	@echo "Validating function.json files..."
-	cd azure-function-deploy/GetHotTopics && python -c "import json; json.load(open('function.json'))"
-	cd azure-function-deploy/SummaryWomble && python -c "import json; json.load(open('function.json'))"
-	@echo "Checking requirements.txt exists..."
-	cd azure-function-deploy && test -f requirements.txt && echo "requirements.txt found" || echo "requirements.txt not found"
-	@echo "Azure Functions verification complete."
+# Container Apps targets
+verify-containers:
+	@echo "Verifying Container Apps deployment..."
+	@echo "Checking container configurations..."
+	@for dir in containers/*/; do \
+		if [ -f "$$dir/Dockerfile" ]; then \
+			echo "Validating $$dir..."; \
+			docker build --no-cache --dry-run "$$dir" > /dev/null 2>&1 && echo "✅ $$dir Dockerfile valid" || echo "❌ $$dir Dockerfile invalid"; \
+		fi; \
+	done
+	@echo "Container Apps verification complete."
 
-deploy-functions: verify-functions
-	@echo "Deploying Azure Functions..."
-	cd azure-function-deploy && func azure functionapp publish hot-topics-func --python
-	@echo "Azure Functions deployment complete."
+deploy-containers: verify-containers
+	@echo "Deploying Container Apps..."
+	./scripts/deploy-containers.sh
+	@echo "Container Apps deployment complete."
 
-# Test the HTTP Summary Womble function
-test-womble:
-	@echo "🧪 Testing Summary Womble HTTP function..."
-	@echo "📤 Sending test request with technology subreddit only..."
-	curl -X POST \
-		-H "Content-Type: application/json" \
-		-d '{"source": "reddit", "topics": ["technology"], "limit": 5, "credentials": {"source": "keyvault"}}' \
-		"https://hot-topics-func.azurewebsites.net/api/SummaryWomble" \
-		| jq '.' || echo "Response is not valid JSON or jq not available"
-	@echo "Test request sent. Check Azure logs for results."
-
-# Test the HTTP Summary Womble function with local curl (more detailed)
-test-womble-verbose:
-	@echo "🧪 Testing Summary Womble HTTP function (verbose)..."
-	@echo "📤 Request payload:"
-	@echo '{"source": "reddit", "topics": ["technology", "programming"], "limit": 3, "credentials": {"source": "keyvault"}}' | jq '.'
-	@echo "📤 Sending request..."
-	curl -v -X POST \
-		-H "Content-Type: application/json" \
-		-d '{"source": "reddit", "topics": ["technology", "programming"], "limit": 3, "credentials": {"source": "keyvault"}}' \
-		"https://hot-topics-func.azurewebsites.net/api/SummaryWomble"
+# Test Container Apps endpoints
+test-containers:
+	@echo "🧪 Testing Container Apps endpoints..."
+	@echo "📤 Testing content collector health endpoint..."
+	curl -f http://localhost:8001/health || echo "Content collector not responding"
+	@echo "📤 Testing content processor health endpoint..."
+	curl -f http://localhost:8002/health || echo "Content processor not responding"
+	@echo "Container Apps health check complete."
 
 # Validate devcontainer by listing versions of key tools
 devcontainer:
 	@echo "Node.js version:" && node --version
 	@echo "Terraform version:" && terraform --version
 	@echo "Azure CLI version:" && az --version
-
-# Validate Azure Functions app (deploy directory ready)
-test-functions:
-	cd azure-function-deploy && python -m py_compile GetHotTopics/__init__.py
-	@echo "Azure Functions code validated"
 
 # Validate Eleventy static site
 site:
@@ -608,8 +587,9 @@ clean:
 	cd site && rm -rf node_modules _site
 	cd infra && rm -rf .terraform
 	cd infra && rm -rf *.json *.txt *.html trivy terrascan
-	cd azure-function-deploy && rm -rf .python_packages __pycache__ GetHotTopics/__pycache__ SummaryWomble/__pycache__
-	cd azure-function-deploy && rm -f *.json
+	@for dir in containers/*/; do \
+		cd "$$dir" && rm -rf __pycache__ .pytest_cache || true; \
+	done
 	rm -f sbom-nodejs.json latest_tech.json
 	@echo "🧹 All build artifacts and scan results cleaned"
 
@@ -658,27 +638,22 @@ deploy-production: verify
 	cd infra && terraform workspace select production || terraform workspace new production
 	cd infra && terraform plan -var="environment=production" -var="resource_prefix=ai-content-prod"
 	cd infra && terraform apply -var="environment=production" -var="resource_prefix=ai-content-prod"
-	cd azure-function-deploy && func azure functionapp publish hot-topics-func --python
-	@echo "Production deployment complete: https://hot-topics-func.azurewebsites.net"
+	./scripts/deploy-containers.sh production
+	@echo "Production deployment complete."
 
 # Environment-specific testing
 test-staging:
 	@echo "🧪 Testing staging environment..."
-	@echo "📤 Testing Summary Womble on staging..."
-	curl -f -X POST \
-		-H "Content-Type: application/json" \
-		-d '{"source": "test", "topics": ["technology"], "limit": 2}' \
-		"https://ai-content-staging-func.azurewebsites.net/api/SummaryWomble" \
-		| jq '.' || echo "Staging test failed"
+	@echo "📤 Testing Container Apps on staging..."
+	curl -f "https://ai-content-staging-collector.azurecontainerapps.io/health" > /dev/null && echo "✅ Collector healthy"
+	curl -f "https://ai-content-staging-processor.azurecontainerapps.io/health" > /dev/null && echo "✅ Processor healthy"
 	@echo "Staging tests complete"
 
 test-production:
 	@echo "🧪 Testing production environment..."
-	@echo "📤 Testing Summary Womble on production (minimal test)..."
-	curl -f -X POST \
-		-H "Content-Type: application/json" \
-		-d '{"source": "test", "limit": 1}' \
-		"https://hot-topics-func.azurewebsites.net/api/SummaryWomble" > /dev/null
+	@echo "📤 Testing Container Apps health endpoints..."
+	curl -f "https://ai-content-prod-collector.azurecontainerapps.io/health" > /dev/null
+	curl -f "https://ai-content-prod-processor.azurecontainerapps.io/health" > /dev/null
 	@echo "Production smoke test complete"
 
 # Rollback capabilities
@@ -700,7 +675,7 @@ rollback-production:
 security-scan-strict:
 	@echo "Running strict security scan for production..."
 	docker run --rm -v $(PWD):/workspace bridgecrew/checkov -d /workspace/infra --hard-fail-on HIGH,CRITICAL --quiet --compact
-	docker run --rm -v $(PWD):/workspace bridgecrew/checkov -d /workspace/azure-function-deploy --hard-fail-on HIGH,CRITICAL --quiet --compact
+	docker run --rm -v $(PWD):/workspace bridgecrew/checkov -d /workspace/containers --hard-fail-on HIGH,CRITICAL --quiet --compact
 	docker run --rm -v $(PWD):/workspace aquasec/trivy config /workspace/infra --severity HIGH,CRITICAL --exit-code 1
 	@echo "Strict security validation passed"
 

@@ -127,8 +127,6 @@ resource "azurerm_servicebus_namespace" "main" {
     type = "SystemAssigned"
   }
 
-  # Customer managed encryption requires additional setup
-  # Note: This will be configured after the namespace is created
   depends_on = [
     azurerm_key_vault_access_policy.servicebus,
     azurerm_key_vault_key.servicebus
@@ -136,6 +134,9 @@ resource "azurerm_servicebus_namespace" "main" {
 
   tags = local.common_tags
 }
+
+# Service Bus customer-managed encryption disabled for development environment
+# This would be enabled in production with proper key management
 
 # Service Bus Queue for blob events
 resource "azurerm_servicebus_queue" "blob_events" {
