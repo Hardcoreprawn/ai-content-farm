@@ -73,7 +73,7 @@ runs:
         else
           echo "passed=false" >> $GITHUB_OUTPUT
           echo "❌ actionlint failed"
-          
+
           if [ "${{ inputs.fail-on-error }}" = "true" ]; then
             exit 1
           fi
