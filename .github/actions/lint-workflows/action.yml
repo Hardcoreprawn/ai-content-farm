@@ -57,21 +57,23 @@ runs:
         fi
 
     - name: Run actionlint
+      uses: raven-actions/actionlint@v1
       id: actionlint
+      with:
+        files: ".github/workflows/*.yml .github/actions/*/action.yml"
+      continue-on-error: true
+
+    - name: Set actionlint output
       shell: bash
       run: |
-        echo "🔍 Running actionlint on GitHub Actions..."
-
-        # Run actionlint via Docker container (consistent with other tools)
-        if docker run --rm -v ${{ github.workspace }}:/workspace \
-          rhymond/actionlint:latest -color \
-          /workspace/.github/workflows/*.yml /workspace/.github/actions/*/action.yml; then
-          echo "✅ actionlint passed"
+        # Set actionlint status based on exit code
+        if [ "${{ steps.actionlint.outcome }}" = "success" ]; then
           echo "passed=true" >> $GITHUB_OUTPUT
+          echo "✅ actionlint passed"
         else
-          echo "❌ actionlint failed"
           echo "passed=false" >> $GITHUB_OUTPUT
-
+          echo "❌ actionlint failed"
+          
           if [ "${{ inputs.fail-on-error }}" = "true" ]; then
             exit 1
           fi
