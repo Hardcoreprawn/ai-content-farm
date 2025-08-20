@@ -42,19 +42,19 @@ runs:
         CONTAINER_NAME: ${{ inputs.container-name }}
       run: |
         echo "📦 Installing dependencies for ${CONTAINER_NAME}..."
-        
+
         # Install shared libs first
         if [ -f "libs/requirements.txt" ]; then
           echo "Installing shared libs..."
           pip install -r libs/requirements.txt
         fi
-        
+
         # Install libs package in development mode
         if [ -f "libs/pyproject.toml" ]; then
           echo "Installing libs package..."
           pip install -e libs/
         fi
-        
+
         # Install container-specific dependencies
         if [ -f "containers/${CONTAINER_NAME}/requirements.txt" ]; then
           echo "Installing ${CONTAINER_NAME} dependencies..."
@@ -71,12 +71,12 @@ runs:
         INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
       run: |
         echo "🧪 Running unit tests for ${CONTAINER_NAME}..."
-        
+
         pytest_args=""
         if [ "${INPUT_FAIL_FAST}" = "true" ]; then
           pytest_args="$pytest_args -x"
         fi
-        
+
         # Run unit tests for specific container
         python -m pytest \
           $pytest_args \
@@ -96,12 +96,12 @@ runs:
         INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
       run: |
         echo "🔗 Running integration tests for ${CONTAINER_NAME}..."
-        
+
         pytest_args=""
         if [ "${INPUT_FAIL_FAST}" = "true" ]; then
           pytest_args="$pytest_args -x"
         fi
-        
+
         # Run integration tests for specific container
         python -m pytest \
           $pytest_args \
@@ -120,7 +120,7 @@ runs:
         CONTAINER_NAME: ${{ inputs.container-name }}
       run: |
         echo "💨 Running smoke tests for ${CONTAINER_NAME}..."
-        
+
         # Run quick health check tests
         python -m pytest \
           -m "unit and not slow" \
@@ -138,9 +138,9 @@ runs:
         TEST_TYPE: ${{ inputs.test-type }}
       run: |
         echo "📊 Calculating coverage for ${CONTAINER_NAME} (${TEST_TYPE})..."
-        
+
         coverage_file="coverage-${CONTAINER_NAME}-${TEST_TYPE}.xml"
-        
+
         if [ -f "$coverage_file" ]; then
           # Extract coverage percentage from XML
           coverage_pct=$(python -c "
@@ -168,7 +168,7 @@ runs:
         TEST_TYPE: ${{ inputs.test-type }}
       run: |
         echo "📋 Evaluating test results for ${CONTAINER_NAME} (${TEST_TYPE})..."
-        
+
         # Check for test failures
         if [ "$unit_test_failed" = "true" ] || [ "$integration_test_failed" = "true" ] || [ "$smoke_test_failed" = "true" ]; then
           echo "passed=false" >> $GITHUB_OUTPUT
