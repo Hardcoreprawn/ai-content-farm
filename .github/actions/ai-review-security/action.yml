@@ -29,19 +29,22 @@ runs:
   steps:
     - name: Prepare Security Review Context
       shell: bash
+      env:
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        GITHUB_BASE_REF: ${{ github.base_ref }}
       run: |
         echo "Preparing security review context..."
         mkdir -p ai-reviews/security
 
         # Collect security-relevant file changes
-        if [ "${{ github.event_name }}" = "pull_request" ]; then
+        if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
           echo "Collecting changed files for security review..."
 
           # Get list of changed files
-          git diff --name-only origin/${{ github.base_ref }}...HEAD > ai-reviews/security/changed-files.txt
+          git diff --name-only origin/${GITHUB_BASE_REF}...HEAD > ai-reviews/security/changed-files.txt
 
           # Extract security-relevant changes
-          git diff origin/${{ github.base_ref }}...HEAD \
+          git diff origin/${GITHUB_BASE_REF}...HEAD \
             --unified=5 \
             -- '*.py' '*.js' '*.ts' '*.tf' '*.yml' '*.yaml' '*.json' '*.sh' \
             > ai-reviews/security/security-changes.diff
@@ -56,6 +59,11 @@ runs:
 
     - name: Collect Security Scan Results
       shell: bash
+      env:
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_REF: ${{ github.ref }}
+        GITHUB_SHA: ${{ github.sha }}
       run: |
         echo "Collecting security scan results for AI analysis..."
 
@@ -89,10 +97,10 @@ runs:
         cat > ai-reviews/security/context.md << EOF
         # Security Review Context
 
-        **Review Type**: ${{ github.event_name }}
-        **Repository**: ${{ github.repository }}
-        **Branch**: ${{ github.ref }}
-        **Commit**: ${{ github.sha }}
+        **Review Type**: ${GITHUB_EVENT_NAME}
+        **Repository**: ${GITHUB_REPOSITORY}
+        **Branch**: ${GITHUB_REF}
+        **Commit**: ${GITHUB_SHA}
         **Date**: $review_timestamp
 
         ## Available Security Data
@@ -120,7 +128,7 @@ runs:
         echo "🤖 Checking AI security review configuration..."
 
         # Check if OpenAI API key is provided
-        if [ -z "${{ inputs.openai-api-key }}" ]; then
+        if [ -z "${OPENAI_API_KEY}" ]; then
           echo "OpenAI API key not provided - AI review disabled"
           echo "Using Copilot PR reviews instead for AI-powered analysis"
 

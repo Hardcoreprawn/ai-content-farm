@@ -29,21 +29,24 @@ runs:
   steps:
     - name: Prepare Cost Review Context
       shell: bash
+      env:
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        GITHUB_BASE_REF: ${{ github.base_ref }}
       run: |
         echo "💰 Preparing cost review context..."
         mkdir -p ai-reviews/cost
 
         # Collect cost-relevant file changes
-        if [ "${{ github.event_name }}" = "pull_request" ]; then
+        if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
           echo "Collecting infrastructure changes for cost review..."
 
           # Get infrastructure and config changes
-          git diff --name-only origin/${{ github.base_ref }}...HEAD \
+          git diff --name-only origin/${GITHUB_BASE_REF}...HEAD \
             | grep -E '\.(tf|tfvars|yml|yaml|json)$|docker|infra|config' \
             > ai-reviews/cost/changed-files.txt || true
 
           # Extract infrastructure changes
-          git diff origin/${{ github.base_ref }}...HEAD \
+          git diff origin/${GITHUB_BASE_REF}...HEAD \
             --unified=10 \
             -- '*.tf' '*.tfvars' '*.yml' '*.yaml' 'docker-compose*' 'Dockerfile*' \
             > ai-reviews/cost/infrastructure-changes.diff
@@ -56,6 +59,11 @@ runs:
 
     - name: Collect Cost Analysis Results
       shell: bash
+      env:
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_REF: ${{ github.ref }}
+        GITHUB_SHA: ${{ github.sha }}
       run: |
         echo "📊 Collecting cost analysis results for AI review..."
 
@@ -73,10 +81,10 @@ runs:
         cat > ai-reviews/cost/context.md << EOF
         # Cost Review Context
 
-        **Review Type**: ${{ github.event_name }}
-        **Repository**: ${{ github.repository }}
-        **Branch**: ${{ github.ref }}
-        **Commit**: ${{ github.sha }}
+        **Review Type**: ${GITHUB_EVENT_NAME}
+        **Repository**: ${GITHUB_REPOSITORY}
+        **Branch**: ${GITHUB_REF}
+        **Commit**: ${GITHUB_SHA}
         **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 
         ## Available Cost Data
@@ -107,7 +115,7 @@ runs:
         echo "🤖 Checking AI cost review configuration..."
 
         # Check if OpenAI API key is provided
-        if [ -z "${{ inputs.openai-api-key }}" ]; then
+        if [ -z "${OPENAI_API_KEY}" ]; then
           echo "OpenAI API key not provided - AI review disabled"
           echo "Using Copilot PR reviews instead for AI-powered analysis"
 

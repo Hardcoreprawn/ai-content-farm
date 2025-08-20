@@ -52,16 +52,18 @@ runs:
       shell: bash
       env:
         INFRACOST_API_KEY: ${{ inputs.infracost-api-key }}
+        INPUT_BASELINE_BRANCH: ${{ inputs.baseline-branch }}
+        WORKSPACE_PATH: ${{ github.workspace }}
       run: |
         echo "📊 Generating baseline cost for comparison..."
 
         # Checkout baseline branch
-        git fetch origin ${{ inputs.baseline-branch }}
-        git checkout origin/${{ inputs.baseline-branch }} -- infra/
+        git fetch origin "${INPUT_BASELINE_BRANCH}"
+        git checkout "origin/${INPUT_BASELINE_BRANCH}" -- infra/
 
         # Generate baseline cost
         docker run --rm \
-          -v "${{ github.workspace }}/infra":/workspace \
+          -v "${WORKSPACE_PATH}/infra":/workspace \
           -e "INFRACOST_API_KEY=$INFRACOST_API_KEY" \
           infracost/infracost:latest \
           breakdown \

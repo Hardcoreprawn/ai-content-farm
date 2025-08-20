@@ -1,5 +1,20 @@
 name: 'Security Scan'
-description: 'Comprehensive security scanning using multiple tools'
+description: 'Comprehensive security scanning using    - name: Run Python Security Scans
+      shell: bash
+      env:
+        WORKSPACE_PATH: ${{ github.workspace }}
+      run: |
+        echo "Running Python security scans..."
+
+        # Use containerized Safety (consistent with Makefile)
+        find . -name "requirements.txt" -type f | while read -r req_file; do
+          req_file_dir="$(dirname "$req_file")"
+          container_name="$(basename "$req_file_dir")"
+          echo "Safety scan for $container_name..."
+          docker run --rm -v "${WORKSPACE_PATH}":/workspace \
+            pyupio/safety:latest check --json --file "/workspace/$req_file" \
+            > "security-results/safety-${container_name}.json" 2>/dev/null || true
+        dones'
 inputs:
   fail-on-critical:
     description: 'Fail the action if critical vulnerabilities are found'
@@ -33,9 +48,11 @@ runs:
 
     - name: Run Trivy Infrastructure Scan
       shell: bash
+      env:
+        WORKSPACE_PATH: ${{ github.workspace }}
       run: |
         echo "Running Trivy infrastructure scan..."
-        docker run --rm -v ${{ github.workspace }}:/workspace \
+        docker run --rm -v "${WORKSPACE_PATH}":/workspace \
           aquasec/trivy:latest config /workspace \
           --format sarif \
           --output /workspace/security-results/trivy-infra.sarif \
@@ -51,7 +68,7 @@ runs:
           container_name="$(basename "$dockerfile_dir")"
           echo "Scanning $container_name..."
           if [ -d "$dockerfile_dir" ]; then
-            docker run --rm -v "${{ github.workspace }}":/workspace \
+            docker run --rm -v "${WORKSPACE_PATH}":/workspace \
               aquasec/trivy:latest config "/workspace/$dockerfile_dir" \
               --format json \
               --output "/workspace/security-results/trivy-${container_name}.json" \
@@ -61,9 +78,11 @@ runs:
 
     - name: Run Semgrep SAST Scan
       shell: bash
+      env:
+        WORKSPACE_PATH: ${{ github.workspace }}
       run: |
         echo "Running Semgrep SAST scan..."
-        docker run --rm -v ${{ github.workspace }}:/src \
+        docker run --rm -v "${WORKSPACE_PATH}":/src \
           returntocorp/semgrep:latest \
           semgrep --config=auto --sarif --output=/src/security-results/semgrep.sarif /src || true
 
@@ -94,9 +113,11 @@ runs:
 
     - name: Run Checkov Infrastructure Scan
       shell: bash
+      env:
+        WORKSPACE_PATH: ${{ github.workspace }}
       run: |
         echo "Running Checkov infrastructure scan..."
-        docker run --rm -v ${{ github.workspace }}:/tf \
+        docker run --rm -v "${WORKSPACE_PATH}":/tf \
           bridgecrew/checkov:latest \
           -d /tf/infra \
           --framework terraform \
@@ -107,6 +128,9 @@ runs:
     - name: Evaluate Security Results
       id: evaluate
       shell: bash
+      env:
+        FAIL_ON_CRITICAL: ${{ inputs.fail-on-critical }}
+        ENVIRONMENT: ${{ inputs.environment }}
       run: |
         echo "📊 Evaluating security scan results..."
 
@@ -129,8 +153,7 @@ runs:
         echo "critical-count=$critical_count" >> "$GITHUB_OUTPUT"
 
         # Determine if scan passed
-        fail_on_critical="${{ inputs.fail-on-critical }}"
-        if [ "$critical_count" -eq 0 ] || [ "$fail_on_critical" != "true" ]; then
+        if [ "$critical_count" -eq 0 ] || [ "$FAIL_ON_CRITICAL" != "true" ]; then
           echo "passed=true" >> "$GITHUB_OUTPUT"
           echo "Security scan passed"
         else
@@ -149,7 +172,7 @@ runs:
         cat > security-results/summary.md << EOF
         # Security Scan Summary
 
-        **Environment**: ${{ inputs.environment }}
+        **Environment**: $ENVIRONMENT
         **Timestamp**: $report_timestamp
 
         ## Results
@@ -187,9 +210,11 @@ runs:
         retention-days: 30
 
     - name: Fail on Critical Issues
-      if: inputs.fail-on-critical == 'true' && steps.evaluate.outputs.passed != 'true'
       shell: bash
+      env:
+        CRITICAL_COUNT: ${{ steps.evaluate.outputs.critical-count }}
       run: |
-        echo "Security scan failed with ${{ steps.evaluate.outputs.critical-count }} critical issues"
+        echo "Security scan failed with $CRITICAL_COUNT critical issues"
         echo "Please review security-results/ for detailed findings"
         exit 1
+      if: steps.evaluate.outputs.passed == 'false'

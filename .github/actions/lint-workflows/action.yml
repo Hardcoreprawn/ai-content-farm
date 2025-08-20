@@ -31,6 +31,8 @@ runs:
     - name: Run yamllint
       id: yamllint
       shell: bash
+      env:
+        INPUT_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
         echo "Running yamllint via Makefile..."
 
@@ -42,7 +44,7 @@ runs:
           echo "yamllint failed"
           echo "passed=false" >> $GITHUB_OUTPUT
 
-          if [ "${{ inputs.fail-on-error }}" = "true" ]; then
+          if [ "${INPUT_FAIL_ON_ERROR}" = "true" ]; then
             exit 1
           fi
         fi
@@ -50,6 +52,8 @@ runs:
     - name: Run actionlint
       id: actionlint
       shell: bash
+      env:
+        INPUT_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
         echo "Running actionlint via Makefile..."
 
@@ -61,7 +65,7 @@ runs:
           echo "actionlint failed"
           echo "passed=false" >> $GITHUB_OUTPUT
 
-          if [ "${{ inputs.fail-on-error }}" = "true" ]; then
+          if [ "${INPUT_FAIL_ON_ERROR}" = "true" ]; then
             exit 1
           fi
         fi

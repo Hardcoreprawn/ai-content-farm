@@ -31,13 +31,17 @@ runs:
   steps:
     - name: Determine Environment to Cleanup
       shell: bash
+      env:
+        INPUT_ENVIRONMENT_NAME: ${{ inputs.environment-name }}
+        INPUT_RESOURCE_GROUP: ${{ inputs.resource-group }}
+        GITHUB_EVENT_NUMBER: ${{ github.event.number }}
       run: |
         echo "Determining environment to cleanup..."
 
         # Auto-detect environment name if not provided
-        if [ -z "${{ inputs.environment-name }}" ]; then
+        if [ -z "${INPUT_ENVIRONMENT_NAME}" ]; then
           # Create name from PR number and short SHA
-          PR_NUM="${{ github.event.number }}"
+          PR_NUM="${GITHUB_EVENT_NUMBER}"
 
           if [ -n "$PR_NUM" ]; then
             # Try to find environment by PR number pattern
@@ -48,17 +52,17 @@ runs:
             exit 1
           fi
         else
-          ENV_NAME="${{ inputs.environment-name }}"
+          ENV_NAME="${INPUT_ENVIRONMENT_NAME}"
           ENV_PATTERN="$ENV_NAME"
         fi
 
         # Auto-detect resource group if not provided
-        if [ -z "${{ inputs.resource-group }}" ] && [ -n "${ENV_NAME:-}" ]; then
+        if [ -z "${INPUT_RESOURCE_GROUP}" ] && [ -n "${ENV_NAME:-}" ]; then
           RG_NAME="rg-ai-content-farm-${ENV_NAME}-ephemeral"
-        elif [ -z "${{ inputs.resource-group }}" ]; then
+        elif [ -z "${INPUT_RESOURCE_GROUP}" ]; then
           RG_PATTERN="rg-ai-content-farm-pr-${PR_NUM}-*-ephemeral"
         else
-          RG_NAME="${{ inputs.resource-group }}"
+          RG_NAME="${INPUT_RESOURCE_GROUP}"
         fi
 
         echo "ENV_PATTERN=${ENV_PATTERN:-}" >> $GITHUB_ENV
@@ -70,6 +74,7 @@ runs:
       shell: bash
       env:
         AZURE_CREDENTIALS: ${{ inputs.azure-credentials }}
+        WORKSPACE_PATH: ${{ github.workspace }}
       run: |
         echo "🔐 Logging into Azure..."
 
@@ -81,7 +86,7 @@ runs:
 
         # Login to Azure
         docker run --rm \
-          -v ${{ github.workspace }}:/workspace \
+          -v "${WORKSPACE_PATH}":/workspace \
           mcr.microsoft.com/azure-cli:latest \
           az login --service-principal \
           --username "$CLIENT_ID" \
@@ -90,12 +95,14 @@ runs:
 
         # Set subscription
         docker run --rm \
-          -v ${{ github.workspace }}:/workspace \
+          -v "${WORKSPACE_PATH}":/workspace \
           mcr.microsoft.com/azure-cli:latest \
           az account set --subscription "$SUBSCRIPTION_ID"
 
     - name: Find Ephemeral Resources
       shell: bash
+      env:
+        GITHUB_EVENT_NUMBER: ${{ github.event.number }}
       run: |
         echo "Finding ephemeral resources to cleanup..."
 
@@ -117,7 +124,7 @@ runs:
           docker run --rm \
             mcr.microsoft.com/azure-cli:latest \
             az group list \
-            --query "[?contains(name, 'pr-${{ github.event.number }}-') && contains(name, 'ephemeral')].name" \
+            --query "[?contains(name, 'pr-${GITHUB_EVENT_NUMBER}-') && contains(name, 'ephemeral')].name" \
             --output tsv > cleanup-logs/resource-groups.txt
 
         else
@@ -166,6 +173,10 @@ runs:
     - name: Cleanup Ephemeral Resources
       id: cleanup
       shell: bash
+      env:
+        INPUT_FORCE_CLEANUP: ${{ inputs.force-cleanup }}
+        GITHUB_EVENT_NUMBER: ${{ github.event.number }}
+        GITHUB_HEAD_REF: ${{ github.head_ref }}
       run: |
         echo "🧹 Starting cleanup of ephemeral resources..."
 
@@ -215,7 +226,7 @@ runs:
         if [ ! -s cleanup-logs/resource-groups.txt ]; then
           echo "No resource groups found to cleanup"
 
-          if [ "${{ inputs.force-cleanup }}" = "true" ]; then
+          if [ "${INPUT_FORCE_CLEANUP}" = "true" ]; then
             echo "Force cleanup enabled, marking as cleaned up"
             cleaned_up=true
           fi
@@ -234,8 +245,8 @@ runs:
         # Cleanup Summary
 
         **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-        **PR**: #${{ github.event.number }}
-        **Branch**: ${{ github.head_ref }}
+        **PR**: #${GITHUB_EVENT_NUMBER}
+        **Branch**: ${GITHUB_HEAD_REF}
 
         ## Results
         - **Cleanup Status**: $([ "$cleaned_up" = "true" ] && echo "Completed" || echo "No resources found")
@@ -322,7 +333,7 @@ runs:
     - name: Upload Cleanup Logs
       uses: actions/upload-artifact@v4
       with:
-        name: cleanup-logs-pr-${{ github.event.number }}
+        name: cleanup-logs-pr-${{ env.GITHUB_EVENT_NUMBER }}
         path: |
           cleanup-logs/
         retention-days: 30

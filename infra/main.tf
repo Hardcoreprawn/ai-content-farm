@@ -35,6 +35,16 @@ resource "azurerm_key_vault" "main" {
   purge_protection_enabled   = true
   soft_delete_retention_days = 7
 
+  # Network ACLs for security compliance
+  network_acls {
+    default_action = "Deny"
+    bypass         = "AzureServices"
+
+    # Allow access from Azure Container Apps and Azure services
+    virtual_network_subnet_ids = []
+    ip_rules                   = []
+  }
+
   tags = {
     Environment = var.environment
     Project     = "ai-content-farm"
