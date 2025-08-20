@@ -1,20 +1,5 @@
 name: 'Security Scan'
-description: 'Comprehensive security scanning using    - name: Run Python Security Scans
-      shell: bash
-      env:
-        WORKSPACE_PATH: ${{ github.workspace }}
-      run: |
-        echo "Running Python security scans..."
-
-        # Use containerized Safety (consistent with Makefile)
-        find . -name "requirements.txt" -type f | while read -r req_file; do
-          req_file_dir="$(dirname "$req_file")"
-          container_name="$(basename "$req_file_dir")"
-          echo "Safety scan for $container_name..."
-          docker run --rm -v "${WORKSPACE_PATH}":/workspace \
-            pyupio/safety:latest check --json --file "/workspace/$req_file" \
-            > "security-results/safety-${container_name}.json" 2>/dev/null || true
-        dones'
+description: 'Comprehensive security scanning using multiple tools'
 inputs:
   fail-on-critical:
     description: 'Fail the action if critical vulnerabilities are found'
@@ -96,7 +81,7 @@ runs:
           req_file_dir="$(dirname "$req_file")"
           container_name="$(basename "$req_file_dir")"
           echo "Safety scan for $container_name..."
-          docker run --rm -v "${{ github.workspace }}":/workspace \
+          docker run --rm -v "${WORKSPACE_PATH}":/workspace \
             pyupio/safety:latest check --json --file "/workspace/$req_file" \
             > "security-results/safety-${container_name}.json" 2>/dev/null || true
         done
