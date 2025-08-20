@@ -22,12 +22,11 @@ runs:
       run: |
         echo "🔧 Installing workflow linting tools..."
 
-        # Install yamllint
-        pip install yamllint
+        # Use containerized yamllint (cytopia/yamllint)
+        echo "📝 yamllint will be run via Docker container"
 
-        # Install actionlint
-        curl -fsSL https://github.com/rhymond/actionlint/releases/latest/download/actionlint_linux_amd64.tar.gz | tar -xz
-        sudo mv actionlint /usr/local/bin/
+        # Use containerized actionlint (rhymond/actionlint)
+        echo "🔍 actionlint will be run via Docker container"
 
     - name: Run yamllint
       id: yamllint
@@ -47,8 +46,9 @@ runs:
             spaces: 2
         EOF
 
-        # Run yamllint on all YAML files in .github
-        if yamllint .github/; then
+        # Run yamllint via Docker container (consistent with other tools)
+        if docker run --rm -v ${{ github.workspace }}:/workspace \
+          cytopia/yamllint:latest -d relaxed /workspace/.github/; then
           echo "✅ yamllint passed"
           echo "passed=true" >> $GITHUB_OUTPUT
         else
@@ -66,8 +66,10 @@ runs:
       run: |
         echo "🔍 Running actionlint on GitHub Actions..."
 
-        # Run actionlint on workflows and actions
-        if actionlint .github/workflows/*.yml .github/actions/*/action.yml; then
+        # Run actionlint via Docker container (consistent with other tools)
+        if docker run --rm -v ${{ github.workspace }}:/workspace \
+          rhymond/actionlint:latest -color \
+          /workspace/.github/workflows/*.yml /workspace/.github/actions/*/action.yml; then
           echo "✅ actionlint passed"
           echo "passed=true" >> $GITHUB_OUTPUT
         else

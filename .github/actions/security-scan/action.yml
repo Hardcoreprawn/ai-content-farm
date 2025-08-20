@@ -70,17 +70,18 @@ runs:
       shell: bash
       run: |
         echo "🔍 Running Python security scans..."
-        # Install Python security tools
-        pip install safety bandit
-
-        # Run Safety check on all requirements files
+        
+        # Use containerized Safety (consistent with Makefile)
         find . -name "requirements.txt" -type f | while read req_file; do
           container_name=$(basename $(dirname "$req_file"))
           echo "Safety scan for $container_name..."
-          safety check -r "$req_file" --output json > security-results/safety-${container_name}.json || true
+          docker run --rm -v ${{ github.workspace }}:/workspace \
+            pyupio/safety:latest check --json --file /workspace/"$req_file" \
+            > security-results/safety-${container_name}.json 2>/dev/null || true
         done
 
-        # Run Bandit on Python code
+        # Use bandit directly (no official container, but lightweight install)
+        pip install bandit
         find . -name "*.py" -path "./containers/*" -type f | head -20 | xargs bandit -f json -o security-results/bandit.json || true
 
     - name: Generate SBOM and Check Dependencies
