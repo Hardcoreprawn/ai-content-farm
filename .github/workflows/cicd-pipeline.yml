@@ -140,7 +140,7 @@ jobs:
           echo "Running post-deployment health checks..."
           deployment_url="${{ needs.production-deployment.outputs.deployment-url }}"
           if [ -n "$deployment_url" ]; then
-            echo "Testing deployment at: $deployment_url"
+            echo "Testing deployment at: \"$deployment_url\""
             # Add actual health check logic here
             # curl -f "$deployment_url/health" || exit 1
             echo "Health check passed"
