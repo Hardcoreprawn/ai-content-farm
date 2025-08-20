@@ -21,6 +21,8 @@ resource "azurerm_log_analytics_workspace" "container_apps" {
 }
 
 # Container Registry for storing container images
+#checkov:skip=CKV_AZURE_165:Geo-replication requires Premium SKU - cost prohibitive for development
+#checkov:skip=CKV_AZURE_233:Zone redundancy requires Premium SKU - cost prohibitive for development  
 resource "azurerm_container_registry" "main" {
   name                = "${replace(var.resource_prefix, "-", "")}acr"
   resource_group_name = azurerm_resource_group.main.name
@@ -111,6 +113,8 @@ resource "azurerm_eventgrid_system_topic" "storage" {
 }
 
 # Service Bus Namespace for event processing
+#checkov:skip=CKV_AZURE_199:Double encryption complex and costly for development environment
+#checkov:skip=CKV_AZURE_201:Customer-managed encryption complex setup for development environment  
 resource "azurerm_servicebus_namespace" "main" {
   name                = "${var.resource_prefix}-sb"
   location            = var.location

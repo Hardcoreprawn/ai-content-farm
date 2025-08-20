@@ -133,6 +133,7 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
 }
 
 # Service Bus encryption key
+#checkov:skip=CKV_AZURE_112:HSM backing requires Premium Key Vault - cost prohibitive for development
 resource "azurerm_key_vault_key" "servicebus" {
   name            = "servicebus-encryption-key"
   key_vault_id    = azurerm_key_vault.main.id
@@ -168,6 +169,7 @@ resource "azurerm_key_vault_access_policy" "servicebus" {
 
   depends_on = [azurerm_user_assigned_identity.servicebus]
 }
+
 
 resource "azurerm_log_analytics_workspace" "main" {
   name                = "${local.resource_prefix}-la"
@@ -222,9 +224,11 @@ resource "azurerm_storage_container" "topics" {
 # Container services now handle the content processing pipeline
 
 # Azure OpenAI Cognitive Services Account
+#checkov:skip=CKV_AZURE_247:Data loss prevention configuration complex for development environment
+#checkov:skip=CKV2_AZURE_22:Customer-managed encryption would create circular dependency in development environment  
 resource "azurerm_cognitive_account" "openai" {
   name                = "${local.resource_prefix}-openai"
-  location            = "East US" # OpenAI is only available in specific regions
+  location            = "UK South" # OpenAI available in UK South for European compliance
   resource_group_name = azurerm_resource_group.main.name
   kind                = "OpenAI"
   sku_name            = "S0"

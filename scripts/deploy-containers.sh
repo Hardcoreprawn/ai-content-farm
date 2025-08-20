@@ -7,7 +7,7 @@ echo "🚀 Starting Azure Container Apps deployment..."
 
 # Configuration
 RESOURCE_GROUP="ai-content-farm-core-rg"
-LOCATION="West Europe"
+LOCATION="UK South"
 ACR_NAME="aicontentfarm76ko2hacr"
 CONTAINER_APP_ENV="ai-content-farm-core-env"
 

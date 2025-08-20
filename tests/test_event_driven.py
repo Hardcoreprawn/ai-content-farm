@@ -20,8 +20,9 @@ async def test_event_driven_generation():
     # Set up environment variables for testing
     os.environ["AZURE_STORAGE_ACCOUNT_NAME"] = "aicontentfarm76ko2h"
     os.environ["ENVIRONMENT"] = "development"
-    os.environ["AZURE_OPENAI_ENDPOINT"] = "https://westeurope.api.cognitive.microsoft.com/"
-    os.environ["AZURE_OPENAI_API_KEY"] = os.getenv("AZURE_OPENAI_API_KEY", "mock-test-key-for-development")
+    os.environ["AZURE_OPENAI_ENDPOINT"] = "https://uksouth.api.cognitive.microsoft.com/"
+    os.environ["AZURE_OPENAI_API_KEY"] = os.getenv(
+        "AZURE_OPENAI_API_KEY", "mock-test-key-for-development")
     os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"] = "gpt-4o-mini"
 
     print("🎯 Testing Event-Driven Content Generation")

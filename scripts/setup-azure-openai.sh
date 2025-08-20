@@ -7,7 +7,7 @@ set -e  # Exit on any error
 # Configuration
 SUBSCRIPTION_ID=${AZURE_SUBSCRIPTION_ID:-$(az account show --query id -o tsv)}
 RESOURCE_GROUP="ai-content-farm-rg"
-LOCATION="eastus"
+LOCATION="uksouth"
 OPENAI_SERVICE_NAME="ai-content-farm-openai-$(date +%s | tail -c 5)"  # Unique suffix
 DEPLOYMENT_NAME="gpt-35-turbo"
 MODEL_NAME="gpt-35-turbo"
@@ -41,8 +41,8 @@ az group create \
 echo "🔍 Checking OpenAI service availability in $LOCATION..."
 AVAILABLE=$(az cognitiveservices account list-kinds --location "$LOCATION" --query "[?contains(kind, 'OpenAI')]" -o tsv)
 if [ -z "$AVAILABLE" ]; then
-    echo "⚠️ OpenAI service not available in $LOCATION. Trying eastus..."
-    LOCATION="eastus"
+    echo "⚠️ OpenAI service not available in $LOCATION. Trying westeurope as fallback..."
+    LOCATION="westeurope"
 fi
 
 # Create Azure OpenAI service

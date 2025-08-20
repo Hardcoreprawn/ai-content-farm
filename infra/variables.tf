@@ -1,6 +1,6 @@
 variable "location" {
   description = "Azure region to deploy resources."
-  default     = "westeurope"
+  default     = "uksouth"
 }
 
 variable "subscription_id" {
