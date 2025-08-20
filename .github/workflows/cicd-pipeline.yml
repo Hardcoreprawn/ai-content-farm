@@ -148,12 +148,12 @@ jobs:
 
           # Plan and apply infrastructure changes
           terraform plan -var="environment=production" -var="resource_prefix=ai-content-prod" -out=tfplan
-          terraform apply tfplan
+          terraform apply "tfplan"
 
           # Deploy containers using the deployment script
           echo "Deploying containers..."
           cd ..
-          bash scripts/deploy-containers.sh
+          bash "scripts/deploy-containers.sh"
 
           # Get the Container App URL
           CONTAINER_APP_URL=$(az containerapp show \
