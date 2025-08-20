@@ -27,8 +27,6 @@ jobs:
 
       - name: Validate Workflows
         uses: ./.github/actions/lint-workflows
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 
   # Security Gate - Combined security scanning
   security-gate:
@@ -45,7 +43,6 @@ jobs:
         id: security-check
         uses: ./.github/actions/security-scan
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           upload-sarif: 'true'
 
   # Cost Analysis
@@ -60,7 +57,7 @@ jobs:
       - name: Analyze Infrastructure Costs
         uses: ./.github/actions/cost-analysis
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
           comment-on-pr: 'true'
 
   # Dependency Analysis
@@ -204,7 +201,7 @@ jobs:
       - name: Production Cost Analysis
         uses: ./.github/actions/cost-analysis
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
           comment-on-pr: 'false'
 
   production-ai-security-review:
