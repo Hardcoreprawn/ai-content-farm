@@ -132,15 +132,15 @@ runs:
         if [ -f "security-results/semgrep-results.json" ]; then
           # Count all semgrep findings first
           total_semgrep="$(jq -r '.results[] | select(.extra.severity == "ERROR" or .extra.severity == "WARNING") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || total_semgrep="0"
-          
+
           # Subtract acceptable infrastructure findings (documented in docs/SECURITY_EXCEPTIONS.md)
           acceptable_bypass="$(jq -r '.results[] | select(.check_id == "terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_bypass="0"
           acceptable_queue="$(jq -r '.results[] | select(.check_id == "terraform.azure.security.storage.storage-queue-services-logging.storage-queue-services-logging") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_queue="0"
-          
+
           # Only count critical findings (excluding documented acceptable ones)
           semgrep_critical=$((total_semgrep - acceptable_bypass - acceptable_queue))
           critical_count=$((critical_count + semgrep_critical))
-          
+
           echo "Semgrep total findings: $total_semgrep"
           echo "Semgrep acceptable exceptions: $((acceptable_bypass + acceptable_queue))"
           echo "Semgrep critical (blocking): $semgrep_critical"
