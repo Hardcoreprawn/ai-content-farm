@@ -9,7 +9,7 @@ services:
     container_name: ai-content-farm-azurite
     ports:
       - "10000:10000" # Blob service
-      - "10001:10001" # Queue service  
+      - "10001:10001" # Queue service
       - "10002:10002" # Table service
     volumes:
       - azurite-data:/data

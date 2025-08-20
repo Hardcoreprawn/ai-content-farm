@@ -3,10 +3,12 @@
 Quick debug test for blob storage.
 """
 
-from libs.blob_storage import BlobStorageClient, BlobContainers
-import sys
 import os
-sys.path.append('/workspaces/ai-content-farm/libs')
+import sys
+
+from libs.blob_storage import BlobContainers, BlobStorageClient
+
+sys.path.append("/workspaces/ai-content-farm/libs")
 
 
 def test_blob_operations():
@@ -15,8 +17,7 @@ def test_blob_operations():
 
     # Test upload
     test_data = {"id": "debug_test", "content": "test"}
-    client.upload_json(BlobContainers.ENRICHED_CONTENT,
-                       "debug_test.json", test_data)
+    client.upload_json(BlobContainers.ENRICHED_CONTENT, "debug_test.json", test_data)
 
     # Test list
     blobs = client.list_blobs(BlobContainers.ENRICHED_CONTENT)
@@ -26,7 +27,8 @@ def test_blob_operations():
 
     # Test download
     downloaded = client.download_json(
-        BlobContainers.ENRICHED_CONTENT, "debug_test.json")
+        BlobContainers.ENRICHED_CONTENT, "debug_test.json"
+    )
     print("Downloaded:", downloaded)
 
 

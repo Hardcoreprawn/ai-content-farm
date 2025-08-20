@@ -7,9 +7,9 @@ Converts pipeline output into markdown format suitable for headless CMS publishi
 
 import json
 import os
-from datetime import datetime, timezone
-from typing import List, Dict, Any
 import re
+from datetime import datetime, timezone
+from typing import Any, Dict, List
 
 
 class MarkdownGenerator:
@@ -23,25 +23,24 @@ class MarkdownGenerator:
         """Generate markdown for a single content item."""
 
         # Extract key information
-        title = item.get('title', 'Untitled')
-        clean_title = item.get('clean_title', title)
-        source_url = item.get('source_url', '')
-        content_type = item.get('content_type', 'article')
+        title = item.get("title", "Untitled")
+        clean_title = item.get("clean_title", title)
+        source_url = item.get("source_url", "")
+        content_type = item.get("content_type", "article")
 
         # Get enrichment data
-        ai_summary = item.get('ai_summary', 'Summary not available')
-        topics = item.get('topics', [])
-        sentiment = item.get('sentiment', 'neutral')
+        ai_summary = item.get("ai_summary", "Summary not available")
+        topics = item.get("topics", [])
+        sentiment = item.get("sentiment", "neutral")
 
         # Get scoring data
-        final_score = item.get('final_score', 0)
-        engagement_score = item.get('engagement_score', 0)
+        final_score = item.get("final_score", 0)
+        engagement_score = item.get("engagement_score", 0)
 
         # Get source metadata
-        source_metadata = item.get('source_metadata', {})
-        site_name = source_metadata.get('site_name', 'Unknown Source')
-        published_at = item.get(
-            'published_at', datetime.now(timezone.utc).isoformat())
+        source_metadata = item.get("source_metadata", {})
+        site_name = source_metadata.get("site_name", "Unknown Source")
+        published_at = item.get("published_at", datetime.now(timezone.utc).isoformat())
 
         # Create slug from title
         slug = self._create_slug(clean_title)
@@ -58,7 +57,7 @@ class MarkdownGenerator:
             published_at=published_at,
             score=final_score,
             rank=rank,
-            content_type=content_type
+            content_type=content_type,
         )
 
         # Generate main content
@@ -71,13 +70,13 @@ class MarkdownGenerator:
         # Convert to lowercase and replace spaces with hyphens
         slug = title.lower()
         # Remove special characters, keep only alphanumeric and hyphens
-        slug = re.sub(r'[^a-z0-9\s-]', '', slug)
+        slug = re.sub(r"[^a-z0-9\s-]", "", slug)
         # Replace spaces with hyphens
-        slug = re.sub(r'\s+', '-', slug)
+        slug = re.sub(r"\s+", "-", slug)
         # Remove multiple consecutive hyphens
-        slug = re.sub(r'-+', '-', slug)
+        slug = re.sub(r"-+", "-", slug)
         # Remove leading/trailing hyphens
-        slug = slug.strip('-')
+        slug = slug.strip("-")
         # Limit length
         return slug[:50]
 
@@ -87,12 +86,13 @@ class MarkdownGenerator:
         # Parse published date
         try:
             pub_date = datetime.fromisoformat(
-                kwargs['published_at'].replace('Z', '+00:00'))
-            date_str = pub_date.strftime('%Y-%m-%d')
-            time_str = pub_date.strftime('%H:%M:%S')
+                kwargs["published_at"].replace("Z", "+00:00")
+            )
+            date_str = pub_date.strftime("%Y-%m-%d")
+            time_str = pub_date.strftime("%H:%M:%S")
         except:
-            date_str = datetime.now().strftime('%Y-%m-%d')
-            time_str = datetime.now().strftime('%H:%M:%S')
+            date_str = datetime.now().strftime("%Y-%m-%d")
+            time_str = datetime.now().strftime("%H:%M:%S")
 
         frontmatter = f"""---
 title: "{kwargs['title']}"
@@ -121,16 +121,16 @@ featured: {str(kwargs['rank'] <= 3).lower()}
     def _generate_content(self, item: Dict[str, Any]) -> str:
         """Generate the main markdown content."""
 
-        title = item.get('clean_title', 'Untitled')
-        ai_summary = item.get('ai_summary', 'Summary not available')
-        source_url = item.get('source_url', '')
-        source_metadata = item.get('source_metadata', {})
-        site_name = source_metadata.get('site_name', 'Unknown Source')
+        title = item.get("clean_title", "Untitled")
+        ai_summary = item.get("ai_summary", "Summary not available")
+        source_url = item.get("source_url", "")
+        source_metadata = item.get("source_metadata", {})
+        site_name = source_metadata.get("site_name", "Unknown Source")
 
         # Get additional content if available
-        original_content = item.get('content', '')
-        topics = item.get('topics', [])
-        sentiment = item.get('sentiment', 'neutral')
+        original_content = item.get("content", "")
+        topics = item.get("topics", [])
+        sentiment = item.get("sentiment", "neutral")
 
         content = f"""# {title}
 
@@ -167,11 +167,12 @@ This content was curated from [{site_name}]({source_url}).
 
         return content
 
-    def generate_index_markdown(self, items: List[Dict[str, Any]],
-                                title: str = "AI Curated Tech News") -> str:
+    def generate_index_markdown(
+        self, items: List[Dict[str, Any]], title: str = "AI Curated Tech News"
+    ) -> str:
         """Generate an index/summary markdown file."""
 
-        timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
         content = f"""---
 title: "{title}"
@@ -190,12 +191,12 @@ total_items: {len(items)}
 """
 
         for i, item in enumerate(items, 1):
-            title = item.get('clean_title', 'Untitled')
+            title = item.get("clean_title", "Untitled")
             slug = self._create_slug(title)
-            ai_summary = item.get('ai_summary', 'No summary available')
-            source_metadata = item.get('source_metadata', {})
-            site_name = source_metadata.get('site_name', 'Unknown')
-            score = item.get('final_score', 0)
+            ai_summary = item.get("ai_summary", "No summary available")
+            source_metadata = item.get("source_metadata", {})
+            site_name = source_metadata.get("site_name", "Unknown")
+            score = item.get("final_score", 0)
 
             content += f"""### {i}. [{title}](./{slug}.md)
 
@@ -221,29 +222,31 @@ This index contains {len(items)} articles automatically curated and ranked by ou
 
         return content
 
-    def process_pipeline_output(self, pipeline_file: str, output_prefix: str = None) -> Dict[str, str]:
+    def process_pipeline_output(
+        self, pipeline_file: str, output_prefix: str = None
+    ) -> Dict[str, str]:
         """Process a complete pipeline output file and generate markdown files."""
 
         # Load pipeline output
-        with open(pipeline_file, 'r') as f:
+        with open(pipeline_file, "r") as f:
             data = json.load(f)
 
-        ranked_items = data.get('ranked_items', [])
-        metadata = data.get('metadata', {})
+        ranked_items = data.get("ranked_items", [])
+        metadata = data.get("metadata", {})
 
         if not ranked_items:
             raise ValueError("No ranked items found in pipeline output")
 
         # Generate timestamp for filenames if no prefix provided
         if output_prefix is None:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             output_prefix = f"curated_{timestamp}"
 
         generated_files = {}
 
         # Generate individual post markdown files
         for i, item in enumerate(ranked_items, 1):
-            title = item.get('clean_title', f'Article {i}')
+            title = item.get("clean_title", f"Article {i}")
             slug = self._create_slug(title)
 
             markdown_content = self.generate_post_markdown(item, rank=i)
@@ -252,7 +255,7 @@ This index contains {len(items)} articles automatically curated and ranked by ou
             post_filename = f"{output_prefix}_{slug}.md"
             post_path = os.path.join(self.output_dir, post_filename)
 
-            with open(post_path, 'w', encoding='utf-8') as f:
+            with open(post_path, "w", encoding="utf-8") as f:
                 f.write(markdown_content)
 
             generated_files[f"post_{i}"] = post_path
@@ -260,16 +263,16 @@ This index contains {len(items)} articles automatically curated and ranked by ou
         # Generate index file
         index_content = self.generate_index_markdown(
             ranked_items,
-            title=f"AI Curated Tech News - {datetime.now().strftime('%B %d, %Y')}"
+            title=f"AI Curated Tech News - {datetime.now().strftime('%B %d, %Y')}",
         )
 
         index_filename = f"{output_prefix}_index.md"
         index_path = os.path.join(self.output_dir, index_filename)
 
-        with open(index_path, 'w', encoding='utf-8') as f:
+        with open(index_path, "w", encoding="utf-8") as f:
             f.write(index_content)
 
-        generated_files['index'] = index_path
+        generated_files["index"] = index_path
 
         return generated_files
 
@@ -279,8 +282,11 @@ def main():
 
     # Find the latest web pipeline test file
     output_dir = "/workspaces/ai-content-farm/output"
-    files = [f for f in os.listdir(output_dir) if f.startswith(
-        'web_pipeline_test_') and f.endswith('.json')]
+    files = [
+        f
+        for f in os.listdir(output_dir)
+        if f.startswith("web_pipeline_test_") and f.endswith(".json")
+    ]
 
     if not files:
         print("❌ No pipeline output files found")
@@ -300,16 +306,15 @@ def main():
 
         print(f"\n✅ Generated {len(generated_files)} markdown files:")
         for file_type, file_path in generated_files.items():
-            rel_path = os.path.relpath(
-                file_path, "/workspaces/ai-content-farm")
+            rel_path = os.path.relpath(file_path, "/workspaces/ai-content-farm")
             print(f"   📝 {file_type}: {rel_path}")
 
         print(f"\n🚀 Ready for headless CMS publishing!")
         print(f"📁 Markdown files location: output/markdown/")
 
         # Show sample of index file
-        if 'index' in generated_files:
-            with open(generated_files['index'], 'r') as f:
+        if "index" in generated_files:
+            with open(generated_files["index"], "r") as f:
                 preview = f.read()[:500]
             print(f"\n📖 Index file preview:")
             print("---")

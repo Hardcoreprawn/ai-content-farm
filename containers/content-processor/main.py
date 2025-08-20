@@ -6,28 +6,31 @@ Minimal implementation to make tests pass.
 This is the API layer - business logic is in processor.py
 """
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timezone
-import uvicorn
-import logging
 import json
-
-
+import logging
+import os
 
 # Ensure shared libs and project root are available in sys.path
 import sys
-import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../libs')))
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+import uvicorn
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../libs"))
+)
+
+from config import get_config, health_check
 
 # Import our business logic
-from processor import transform_reddit_post, process_reddit_batch
-from config import get_config, health_check
+from processor import process_reddit_batch, transform_reddit_post
 from service_logic import ContentProcessorService
 
 # Configure logging
@@ -38,7 +41,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Content Processor",
     description="Transforms raw Reddit data into structured content",
-    version="1.0.0"
+    version="1.0.0",
 )
 
 # Initialize processor service
@@ -64,35 +67,32 @@ class ProcessRequest(BaseModel):
 
     Supports both:
     - Legacy format: {source: "reddit", data: [...]}
-    - New format: {items: [...], source: "reddit"} 
+    - New format: {items: [...], source: "reddit"}
     """
+
     # Primary fields (new format)
     items: Optional[List[Dict[str, Any]]] = Field(
-        default=None,
-        description="List of content items to process (new format)"
+        default=None, description="List of content items to process (new format)"
     )
 
     # Legacy fields (backward compatibility)
     source: Optional[str] = Field(
-        default=None,
-        description="Data source (e.g., 'reddit') - legacy format"
+        default=None, description="Data source (e.g., 'reddit') - legacy format"
     )
     data: Optional[List[Dict[str, Any]]] = Field(
-        default=None,
-        description="List of posts to process - legacy format"
+        default=None, description="List of posts to process - legacy format"
     )
 
     # Options (flexible)
     options: Optional[Dict[str, Any]] = Field(
-        default_factory=dict,
-        description="Processing options"
+        default_factory=dict, description="Processing options"
     )
 
     class Config:
         # Allow extra fields and ignore them for forward compatibility
         extra = "ignore"
 
-    @field_validator('items', 'data', mode='before')
+    @field_validator("items", "data", mode="before")
     @classmethod
     def validate_items_or_data(cls, v):
         """Ensure we have valid item data."""
@@ -100,7 +100,7 @@ class ProcessRequest(BaseModel):
             raise ValueError("Items/data must be a list")
         return v
 
-    @model_validator(mode='after')
+    @model_validator(mode="after")
     def validate_has_items_or_data(self):
         """Ensure we have either items or data field provided."""
         if self.items is None and self.data is None:
@@ -125,8 +125,8 @@ class ProcessRequest(BaseModel):
         if items and len(items) > 0:
             first_item = items[0]
             if isinstance(first_item, dict):
-                return first_item.get('source', 'unknown')
-        return 'unknown'
+                return first_item.get("source", "unknown")
+        return "unknown"
 
 
 class ProcessedItem(BaseModel):
@@ -151,6 +151,7 @@ class HealthResponse(BaseModel):
     service: str
     azure_connectivity: Optional[bool] = None
 
+
 # Global exception handlers
 
 
@@ -159,8 +160,7 @@ async def value_error_handler(request: Request, exc: ValueError):
     """Handle JSON parsing errors"""
     logger.error(f"Value error (likely JSON parsing): {exc}")
     return JSONResponse(
-        status_code=400,
-        content={"detail": "Invalid JSON format", "error": str(exc)}
+        status_code=400, content={"detail": "Invalid JSON format", "error": str(exc)}
     )
 
 
@@ -169,8 +169,7 @@ async def json_error_handler(request: Request, exc: json.JSONDecodeError):
     """Handle JSON decode errors"""
     logger.error(f"JSON decode error: {exc}")
     return JSONResponse(
-        status_code=400,
-        content={"detail": "Malformed JSON", "error": str(exc)}
+        status_code=400, content={"detail": "Malformed JSON", "error": str(exc)}
     )
 
 
@@ -207,8 +206,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     safe_errors = [_safe_serialize(e) for e in errors]
 
     return JSONResponse(
-        status_code=422,
-        content={"detail": "Validation error", "errors": safe_errors}
+        status_code=422, content={"detail": "Validation error", "errors": safe_errors}
     )
 
 
@@ -216,9 +214,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global exception: {exc}")
     return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error", "error": str(exc)}
+        status_code=500, content={"detail": "Internal server error", "error": str(exc)}
     )
+
 
 # Health check endpoint
 
@@ -231,8 +229,9 @@ async def health():
         # function has been patched (mock objects are instances of unittest.mock.Mock)
         import unittest.mock as _mock
 
-        is_patched = isinstance(health_check.__globals__.get(
-            'check_azure_connectivity', None), _mock.Mock)
+        is_patched = isinstance(
+            health_check.__globals__.get("check_azure_connectivity", None), _mock.Mock
+        )
 
         status = health_check()
 
@@ -250,10 +249,9 @@ async def health():
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return HealthResponse(
-            status="unhealthy",
-            service="content-processor",
-            azure_connectivity=False
+            status="unhealthy", service="content-processor", azure_connectivity=False
         )
+
 
 # Main processing endpoint
 
@@ -274,10 +272,7 @@ async def process_content(request: ProcessRequest):
 
         # Validate data
         if not items:
-            raise HTTPException(
-                status_code=422,
-                detail="No items provided"
-            )
+            raise HTTPException(status_code=422, detail="No items provided")
 
         # Process the data (items are already dicts)
         if source == "reddit":
@@ -285,7 +280,8 @@ async def process_content(request: ProcessRequest):
         else:
             # Generic processing for unknown sources
             processed_items_raw = process_reddit_batch(
-                items)  # Use Reddit processor as fallback
+                items
+            )  # Use Reddit processor as fallback
 
         # Convert to Pydantic models for response validation
         processed_items = []
@@ -304,22 +300,17 @@ async def process_content(request: ProcessRequest):
             "items_received": len(items),
             "items_skipped": len(items) - len(processed_items),
             "options": request.options or {},
-            "processing_version": "1.0.0"
+            "processing_version": "1.0.0",
         }
 
-        return ProcessResponse(
-            processed_items=processed_items,
-            metadata=metadata
-        )
+        return ProcessResponse(processed_items=processed_items, metadata=metadata)
 
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Processing failed: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Processing failed: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
 
 # Root endpoint
 
@@ -331,19 +322,25 @@ async def root():
         "service": "content-processor",
         "version": "1.0.0",
         "status": "running",
-        "endpoints": ["/health", "/process", "/process/collection", "/process/batch", "/status"]
+        "endpoints": [
+            "/health",
+            "/process",
+            "/process/collection",
+            "/process/batch",
+            "/status",
+        ],
     }
 
 
 # Pipeline integration endpoints
+
 
 @app.post("/process/collection")
 async def process_collection(collection_data: Dict[str, Any]):
     """Process a specific collection from the collector."""
     try:
         result = await processor_service.process_collected_content(
-            collection_data=collection_data,
-            save_to_storage=True
+            collection_data=collection_data, save_to_storage=True
         )
         return result
     except Exception as e:
@@ -361,7 +358,7 @@ async def process_batch():
             return {
                 "message": "No unprocessed collections found",
                 "processed_count": 0,
-                "results": []
+                "results": [],
             }
 
         results = []
@@ -369,25 +366,29 @@ async def process_batch():
             try:
                 result = await processor_service.process_collected_content(
                     collection_data=collection_info["collection_data"],
-                    save_to_storage=True
+                    save_to_storage=True,
                 )
-                results.append({
-                    "collection_id": collection_info["collection_id"],
-                    "status": "success",
-                    "process_id": result["process_id"],
-                    "processed_items": len(result["processed_items"])
-                })
+                results.append(
+                    {
+                        "collection_id": collection_info["collection_id"],
+                        "status": "success",
+                        "process_id": result["process_id"],
+                        "processed_items": len(result["processed_items"]),
+                    }
+                )
             except Exception as e:
-                results.append({
-                    "collection_id": collection_info["collection_id"],
-                    "status": "error",
-                    "error": str(e)
-                })
+                results.append(
+                    {
+                        "collection_id": collection_info["collection_id"],
+                        "status": "error",
+                        "error": str(e),
+                    }
+                )
 
         return {
             "message": f"Processed {len(results)} collections",
             "processed_count": len(results),
-            "results": results
+            "results": results,
         }
     except Exception as e:
         logger.error(f"Error processing batch: {e}")
@@ -398,24 +399,19 @@ async def process_batch():
 async def get_status():
     """Get service status and statistics."""
     stats = processor_service.get_service_stats()
-    unprocessed_count = len(await processor_service.find_unprocessed_collections(limit=100))
+    unprocessed_count = len(
+        await processor_service.find_unprocessed_collections(limit=100)
+    )
 
     return {
         "service": "content-processor",
         "status": "running",
         "stats": stats,
-        "pipeline": {
-            "unprocessed_collections": unprocessed_count
-        },
-        "timestamp": datetime.now(timezone.utc).isoformat()
+        "pipeline": {"unprocessed_collections": unprocessed_count},
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
 
 # Development server
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
-    )
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True, log_level="info")

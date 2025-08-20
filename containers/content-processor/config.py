@@ -27,8 +27,7 @@ class AzureConfig:
         """Validate configuration after initialization"""
         if self.environment != "local":
             if not self.key_vault_url:
-                logger.warning(
-                    "Key Vault URL not configured for non-local environment")
+                logger.warning("Key Vault URL not configured for non-local environment")
             if not self.storage_account_name:
                 logger.warning(
                     "Storage account not configured for non-local environment"
@@ -74,8 +73,17 @@ def check_azure_connectivity() -> bool:
     if config.environment == "local" or config.environment == "development":
         try:
             # Test azurite blob service
-            response = requests.get(
-                "http://azurite:10000/devstoreaccount1", timeout=3)
+            # Use environment variable for protocol (default to https for security)
+            azurite_protocol = os.getenv("AZURITE_PROTOCOL", "https")
+            # For local development with azurite, allow http if explicitly set
+            if os.getenv("LOCAL_DEV") == "true" and azurite_protocol == "http":
+                response = requests.get(
+                    f"{azurite_protocol}://azurite:10000/devstoreaccount1", timeout=3
+                )
+            else:
+                response = requests.get(
+                    f"https://azurite:10000/devstoreaccount1", timeout=3
+                )
             # 400 is expected when listing containers without auth
             return response.status_code in [200, 400]
         except Exception as e:

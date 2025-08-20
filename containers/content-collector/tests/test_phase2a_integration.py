@@ -11,12 +11,14 @@ Phase 2A Integration Tests: Content Collector Standardizati        # List blobs 
 - Integrates with pipeline workflow
 """
 
-import pytest
-from datetime import datetime, timezone
-from fastapi.testclient import TestClient
-from libs.blob_storage import BlobStorageClient, BlobContainers
-from main import app
 import json
+from datetime import datetime, timezone
+
+import pytest
+from fastapi.testclient import TestClient
+from main import app
+
+from libs.blob_storage import BlobContainers, BlobStorageClient
 
 
 class TestPhase2AIntegration:
@@ -33,7 +35,9 @@ class TestPhase2AIntegration:
         return BlobStorageClient()
 
     @pytest.mark.asyncio
-    async def test_content_collector_blob_storage_integration(self, client, blob_client):
+    async def test_content_collector_blob_storage_integration(
+        self, client, blob_client
+    ):
         """Test that content collector properly saves to blob storage."""
         # Collect some content
         test_request = {
@@ -42,14 +46,11 @@ class TestPhase2AIntegration:
                     "type": "reddit",
                     "subreddits": ["test"],
                     "limit": 2,
-                    "criteria": {
-                        "min_score": 1,
-                        "min_comments": 0
-                    }
+                    "criteria": {"min_score": 1, "min_comments": 0},
                 }
             ],
             "deduplicate": True,
-            "similarity_threshold": 0.8
+            "similarity_threshold": 0.8,
         }
 
         response = client.post("/collect", json=test_request)
@@ -66,11 +67,10 @@ class TestPhase2AIntegration:
 
         # List blobs to verify our collection was saved
         blobs = blob_client.list_blobs(container_name)
-        collection_blob_found = any(
-            collection_id in blob["name"]
-            for blob in blobs
-        )
-        assert collection_blob_found, f"Collection {collection_id} not found in {container_name}"
+        collection_blob_found = any(collection_id in blob["name"] for blob in blobs)
+        assert (
+            collection_blob_found
+        ), f"Collection {collection_id} not found in {container_name}"
 
     @pytest.mark.asyncio
     async def test_standardized_api_endpoints(self, client):
@@ -116,10 +116,7 @@ class TestPhase2AIntegration:
                     "type": "reddit",
                     "subreddits": ["technology"],
                     "limit": 1,
-                    "criteria": {
-                        "min_score": 1,
-                        "min_comments": 0
-                    }
+                    "criteria": {"min_score": 1, "min_comments": 0},
                 }
             ]
         }
@@ -133,7 +130,9 @@ class TestPhase2AIntegration:
         print(f"DEBUG: storage_location = {storage_location}")
 
         # Verify it uses the standard container name
-        assert storage_location is not None, f"storage_location should not be None: {result}"
+        assert (
+            storage_location is not None
+        ), f"storage_location should not be None: {result}"
         assert BlobContainers.COLLECTED_CONTENT in storage_location
         # Old container name should not be used
         assert "raw-content" not in storage_location
@@ -142,13 +141,7 @@ class TestPhase2AIntegration:
     async def test_content_format_standardization(self, client, blob_client):
         """Test that collected content follows standardized format."""
         test_request = {
-            "sources": [
-                {
-                    "type": "reddit",
-                    "subreddits": ["test"],
-                    "limit": 1
-                }
-            ]
+            "sources": [{"type": "reddit", "subreddits": ["test"], "limit": 1}]
         }
 
         response = client.post("/collect", json=test_request)
@@ -167,11 +160,12 @@ class TestPhase2AIntegration:
                 target_blob = blob
                 break
 
-        assert target_blob is not None, f"Could not find blob for collection {collection_id}"
+        assert (
+            target_blob is not None
+        ), f"Could not find blob for collection {collection_id}"
 
         # Download and verify content format
-        blob_content = blob_client.download_text(
-            container_name, target_blob["name"])
+        blob_content = blob_client.download_text(container_name, target_blob["name"])
         content_data = json.loads(blob_content)
 
         # Verify standard format
@@ -196,13 +190,10 @@ class TestPhase2AIntegration:
                     "type": "reddit",
                     "subreddits": ["technology"],
                     "limit": 5,
-                    "criteria": {
-                        "min_score": 10,
-                        "min_comments": 2
-                    }
+                    "criteria": {"min_score": 10, "min_comments": 2},
                 }
             ],
-            "deduplicate": True
+            "deduplicate": True,
         }
 
         response = client.post("/collect", json=test_request)

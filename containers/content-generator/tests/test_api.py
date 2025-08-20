@@ -3,8 +3,9 @@
 Test the Content Generator HTTP API
 """
 
-import requests
 import json
+
+import requests
 
 
 def test_api():
@@ -30,8 +31,7 @@ def test_api():
         # 503 is expected without AI keys
         if response.status_code in [200, 503]:
             data = response.json()
-            print(
-                f"✅ Health endpoint working (status: {response.status_code})")
+            print(f"✅ Health endpoint working (status: {response.status_code})")
             print(f"   Health Status: {data.get('status')}")
             print(f"   Service: {data.get('service')}")
         else:
@@ -44,8 +44,7 @@ def test_api():
             data = response.json()
             print("✅ Status endpoint working")
             print(f"   Uptime: {data.get('uptime_seconds', 0):.1f}s")
-            print(
-                f"   Active generations: {data.get('active_generations', 0)}")
+            print(f"   Active generations: {data.get('active_generations', 0)}")
         else:
             print(f"❌ Status endpoint failed: {response.status_code}")
 

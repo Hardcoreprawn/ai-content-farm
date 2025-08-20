@@ -5,8 +5,8 @@ Simple orchestrator that calls individual enrichment modules.
 Keeps the main logic clean and focused.
 """
 
-from typing import Dict, Any, List
 from datetime import datetime
+from typing import Any, Dict, List
 
 
 # Minimal implementations of the enrichment helper functions so unit tests can run.
@@ -28,14 +28,26 @@ def analyze_sentiment(content: Dict[str, Any]) -> Dict[str, Any]:
     text = (content.get("content") or "") + (content.get("title") or "")
     text = text.lower()
     if any(w in text for w in ("amazing", "fantastic", "incredible", "great")):
-        return {"sentiment": "positive", "confidence": 0.9, "scores": {"positive": 0.9, "neutral": 0.1, "negative": 0.0}}
+        return {
+            "sentiment": "positive",
+            "confidence": 0.9,
+            "scores": {"positive": 0.9, "neutral": 0.1, "negative": 0.0},
+        }
     if any(w in text for w in ("terrible", "awful", "disaster", "worse")):
-        return {"sentiment": "negative", "confidence": 0.9, "scores": {"positive": 0.0, "neutral": 0.1, "negative": 0.9}}
-    return {"sentiment": "neutral", "confidence": 0.6, "scores": {"positive": 0.3, "neutral": 0.5, "negative": 0.2}}
+        return {
+            "sentiment": "negative",
+            "confidence": 0.9,
+            "scores": {"positive": 0.0, "neutral": 0.1, "negative": 0.9},
+        }
+    return {
+        "sentiment": "neutral",
+        "confidence": 0.6,
+        "scores": {"positive": 0.3, "neutral": 0.5, "negative": 0.2},
+    }
 
 
 def generate_summary(content: Dict[str, Any], max_length: int = 200) -> Dict[str, Any]:
-    text = (content.get("content") or "")
+    text = content.get("content") or ""
     if not text:
         return {"summary": "", "word_count": 0}
     words = text.split()
@@ -51,7 +63,7 @@ def calculate_trend_score(content: Dict[str, Any]) -> Dict[str, Any]:
     engagement = float(content.get("engagement_score", 0.0))
 
     # Base trend from scores
-    base = (normalized * 0.6 + engagement * 0.4)
+    base = normalized * 0.6 + engagement * 0.4
 
     # Apply time decay based on published_at (ISO format expected). Older items decay towards 0.5.
     published = content.get("published_at")
@@ -71,7 +83,10 @@ def calculate_trend_score(content: Dict[str, Any]) -> Dict[str, Any]:
 
     trend = base * decay + (1.0 - decay) * 0.5
     trend = max(0.0, min(1.0, trend))
-    return {"trend_score": trend, "factors": {"normalized": normalized, "engagement": engagement, "decay": decay}}
+    return {
+        "trend_score": trend,
+        "factors": {"normalized": normalized, "engagement": engagement, "decay": decay},
+    }
 
 
 def enrich_content_item(content_item: Dict[str, Any]) -> Dict[str, Any]:
@@ -120,7 +135,7 @@ def enrich_content_batch(content_items: List[Dict[str, Any]]) -> Dict[str, Any]:
             "successful_enrichments": 0,
             "failed_enrichments": 0,
             "processing_time_ms": 0,
-            "error": "Input must be a list of content items"
+            "error": "Input must be a list of content items",
         }
 
     start_time = datetime.utcnow()
@@ -147,6 +162,6 @@ def enrich_content_batch(content_items: List[Dict[str, Any]]) -> Dict[str, Any]:
             "successful_enrichments": successful_count,
             "failed_enrichments": failed_count,
             "processing_time_ms": round(processing_time, 2),
-            "batch_timestamp": start_time.isoformat()
-        }
+            "batch_timestamp": start_time.isoformat(),
+        },
     }

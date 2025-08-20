@@ -2,14 +2,15 @@
 Real-time event processing for blob storage events using Azure Service Bus
 """
 
-import json
 import asyncio
+import json
 import logging
-from typing import Dict, Any, Optional
-from azure.servicebus.aio import ServiceBusClient
-from azure.servicebus import ServiceBusMessage
-from azure.identity import DefaultAzureCredential
 import os
+from typing import Any, Dict, Optional
+
+from azure.identity import DefaultAzureCredential
+from azure.servicebus import ServiceBusMessage
+from azure.servicebus.aio import ServiceBusClient
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +31,8 @@ class BlobEventProcessor:
         """Start processing blob events from Service Bus"""
         if not self.namespace:
             logger.warning(
-                "No Service Bus namespace configured, falling back to polling")
+                "No Service Bus namespace configured, falling back to polling"
+            )
             return False
 
         try:
@@ -38,18 +40,18 @@ class BlobEventProcessor:
             fully_qualified_namespace = f"{self.namespace}.servicebus.windows.net"
             self.client = ServiceBusClient(
                 fully_qualified_namespace=fully_qualified_namespace,
-                credential=self.credential
+                credential=self.credential,
             )
 
             # Create receiver for the queue
             self.receiver = self.client.get_queue_receiver(
-                queue_name=self.queue_name,
-                max_wait_time=30
+                queue_name=self.queue_name, max_wait_time=30
             )
 
             self.is_running = True
             logger.info(
-                f"Started Service Bus event processor for queue: {self.queue_name}")
+                f"Started Service Bus event processor for queue: {self.queue_name}"
+            )
 
             # Start processing messages
             await self._process_messages()
@@ -74,8 +76,7 @@ class BlobEventProcessor:
             try:
                 # Receive messages with timeout
                 received_msgs = await self.receiver.receive_messages(
-                    max_message_count=10,
-                    max_wait_time=30
+                    max_message_count=10, max_wait_time=30
                 )
 
                 for message in received_msgs:
@@ -90,9 +91,7 @@ class BlobEventProcessor:
                         logger.error(f"Failed to process message: {e}")
                         # Dead letter the message if processing fails
                         await self.receiver.dead_letter_message(
-                            message,
-                            reason="ProcessingError",
-                            error_description=str(e)
+                            message, reason="ProcessingError", error_description=str(e)
                         )
 
             except asyncio.CancelledError:
@@ -139,7 +138,8 @@ class BlobEventProcessor:
 
             if not blob_name or container_name != "ranked-content":
                 logger.debug(
-                    f"Ignoring blob: {blob_name} in container: {container_name}")
+                    f"Ignoring blob: {blob_name} in container: {container_name}"
+                )
                 return
 
             if not blob_name.endswith(".json"):

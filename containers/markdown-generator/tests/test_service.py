@@ -1,10 +1,10 @@
 """Tests for markdown generator service logic."""
 
-import pytest
-from unittest.mock import Mock, AsyncMock
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, Mock
 
-from service_logic import MarkdownGenerator, ContentWatcher
+import pytest
+from service_logic import ContentWatcher, MarkdownGenerator
 
 
 class TestMarkdownGenerator:
@@ -28,11 +28,13 @@ class TestMarkdownGenerator:
                 "clean_title": "Test Article",
                 "content": "Test content",
                 "ai_summary": "Test summary",
-                "final_score": 95.5
+                "final_score": 95.5,
             }
         ]
 
-        result = await self.generator.generate_markdown_from_ranked_content(content_items)
+        result = await self.generator.generate_markdown_from_ranked_content(
+            content_items
+        )
 
         assert result is not None
         assert result["status"] == "success"
@@ -68,11 +70,12 @@ class TestMarkdownGenerator:
             "final_score": 85.0,
             "topics": ["AI", "Technology"],
             "sentiment": "positive",
-            "source_url": "https://example.com/article"
+            "source_url": "https://example.com/article",
         }
 
         markdown = self.generator._generate_post_markdown(
-            item, rank=1, template_style="standard")
+            item, rank=1, template_style="standard"
+        )
 
         assert "---" in markdown  # YAML front matter
         assert 'title: "Test Article"' in markdown
@@ -89,8 +92,7 @@ class TestContentWatcher:
         """Set up test fixtures."""
         self.mock_blob_client = Mock()
         self.mock_generator = Mock()
-        self.watcher = ContentWatcher(
-            self.mock_blob_client, self.mock_generator)
+        self.watcher = ContentWatcher(self.mock_blob_client, self.mock_generator)
 
     @pytest.mark.asyncio
     async def test_check_for_new_ranked_content_success(self):
@@ -99,7 +101,7 @@ class TestContentWatcher:
         mock_blobs = [
             {
                 "name": "ranked-content/test-content-20240819_120000.json",
-                "last_modified": "2024-08-19T12:00:00Z"
+                "last_modified": "2024-08-19T12:00:00Z",
             }
         ]
 
@@ -109,7 +111,7 @@ class TestContentWatcher:
                     "title": "Test Article",
                     "clean_title": "Test Article",
                     "content": "Test content",
-                    "final_score": 95.0
+                    "final_score": 95.0,
                 }
             ]
         }
@@ -121,10 +123,11 @@ class TestContentWatcher:
         generation_result = {
             "status": "success",
             "files_generated": 2,
-            "timestamp": "20240819_120000"
+            "timestamp": "20240819_120000",
         }
         self.mock_generator.generate_markdown_from_ranked_content = AsyncMock(
-            return_value=generation_result)
+            return_value=generation_result
+        )
 
         result = await self.watcher.check_for_new_ranked_content()
 
@@ -176,13 +179,14 @@ class TestMarkdownTemplateGeneration:
                 "slug": "test-article-1",
                 "title": "Test Article 1",
                 "score": 95.0,
-                "rank": 1
+                "rank": 1,
             }
         ]
 
         index_content = self.generator._generate_index_markdown(
-            markdown_files, "20240819_120000", "standard")
+            markdown_files, "20240819_120000", "standard"
+        )
 
         assert "---" in index_content  # YAML front matter
-        assert "type: \"index\"" in index_content
+        assert 'type: "index"' in index_content
         assert "Test Article 1" in index_content

@@ -4,11 +4,12 @@ Tests for Content Enricher FastAPI application.
 Following TDD: API tests first, then implementation.
 """
 
+import json
+from typing import Any, Dict, List
+from unittest.mock import Mock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from typing import Dict, Any, List
-import json
-from unittest.mock import patch, Mock
 
 # Import the FastAPI app we're going to test
 from main import app
@@ -65,13 +66,10 @@ class TestEnrichEndpoint:
                         "original_score": 1000,
                         "original_comments": 150,
                         "selftext": "Researchers have developed a new model...",
-                    }
+                    },
                 }
             ],
-            "options": {
-                "include_summary": True,
-                "max_summary_length": 100
-            }
+            "options": {"include_summary": True, "max_summary_length": 100},
         }
 
         response = client.post("/enrich", json=test_data)
@@ -107,7 +105,7 @@ class TestEnrichEndpoint:
                     "source_url": "https://example.com/1",
                     "published_at": "2023-08-14T08:00:00+00:00",
                     "content_type": "text",
-                    "source_metadata": {"selftext": "Technology content..."}
+                    "source_metadata": {"selftext": "Technology content..."},
                 },
                 {
                     "id": "item2",
@@ -118,8 +116,8 @@ class TestEnrichEndpoint:
                     "source_url": "https://example.com/2",
                     "published_at": "2023-08-14T08:15:00+00:00",
                     "content_type": "text",
-                    "source_metadata": {"selftext": "Science content..."}
-                }
+                    "source_metadata": {"selftext": "Science content..."},
+                },
             ]
         }
 
@@ -183,15 +181,15 @@ class TestEnrichEndpoint:
                     "source_url": "https://example.com",
                     "published_at": "2023-08-14T08:00:00+00:00",
                     "content_type": "text",
-                    "source_metadata": {"selftext": "Test content"}
+                    "source_metadata": {"selftext": "Test content"},
                 }
             ],
             "options": {
                 "include_summary": False,  # Skip summary
                 "classify_topics": True,
                 "analyze_sentiment": True,
-                "calculate_trends": True
-            }
+                "calculate_trends": True,
+            },
         }
 
         response = client.post("/enrich", json=test_data)
@@ -224,7 +222,7 @@ class TestErrorHandling:
         assert response.status_code == 405
 
     @pytest.mark.unit
-    @patch('main.enrich_content_batch')
+    @patch("main.enrich_content_batch")
     def test_internal_server_error_handling(self, mock_enrich: Mock) -> None:
         """Test handling of internal server errors."""
         # Mock an exception in the enrichment process
@@ -289,7 +287,7 @@ class TestInputValidation:
                 "title": "Test",
                 "clean_title": "Test",
                 "engagement_score": -0.1,  # Should be 0-1
-            }
+            },
         ]
 
         for invalid_item in invalid_items:
@@ -313,7 +311,7 @@ class TestInputValidation:
             "options": {
                 "include_summary": "invalid_boolean",  # Should be boolean
                 "max_summary_length": "not_a_number",  # Should be int
-            }
+            },
         }
 
         response = client.post("/enrich", json=test_data)
@@ -330,21 +328,24 @@ class TestPerformance:
         # Create a batch of 10 items
         items = []
         for i in range(10):
-            items.append({
-                "id": f"item{i}",
-                "title": f"Test item {i}",
-                "clean_title": f"Test item {i}",
-                "normalized_score": 0.5,
-                "engagement_score": 0.5,
-                "source_url": f"https://example.com/{i}",
-                "published_at": "2023-08-14T08:00:00+00:00",
-                "content_type": "text",
-                "source_metadata": {"selftext": f"Content {i}"}
-            })
+            items.append(
+                {
+                    "id": f"item{i}",
+                    "title": f"Test item {i}",
+                    "clean_title": f"Test item {i}",
+                    "normalized_score": 0.5,
+                    "engagement_score": 0.5,
+                    "source_url": f"https://example.com/{i}",
+                    "published_at": "2023-08-14T08:00:00+00:00",
+                    "content_type": "text",
+                    "source_metadata": {"selftext": f"Content {i}"},
+                }
+            )
 
         test_data = {"items": items}
 
         import time
+
         start_time = time.time()
 
         response = client.post("/enrich", json=test_data)
@@ -365,17 +366,19 @@ class TestPerformance:
         # For now, just ensure large batches work
         items = []
         for i in range(50):
-            items.append({
-                "id": f"item{i}",
-                "title": f"Test item {i}",
-                "clean_title": f"Test item {i}",
-                "normalized_score": 0.5,
-                "engagement_score": 0.5,
-                "source_url": f"https://example.com/{i}",
-                "published_at": "2023-08-14T08:00:00+00:00",
-                "content_type": "text",
-                "source_metadata": {"selftext": f"Content {i}"}
-            })
+            items.append(
+                {
+                    "id": f"item{i}",
+                    "title": f"Test item {i}",
+                    "clean_title": f"Test item {i}",
+                    "normalized_score": 0.5,
+                    "engagement_score": 0.5,
+                    "source_url": f"https://example.com/{i}",
+                    "published_at": "2023-08-14T08:00:00+00:00",
+                    "content_type": "text",
+                    "source_metadata": {"selftext": f"Content {i}"},
+                }
+            )
 
         test_data = {"items": items}
 

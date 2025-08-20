@@ -6,33 +6,33 @@ Generates static websites from ranked content stored in Azure blob storage.
 Outputs complete HTML sites to blob storage for hosting.
 """
 
-import logging
-import uvicorn
 import json
-import tempfile
+import logging
 import shutil
+import tempfile
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, HTMLResponse
-from fastapi.templating import Jinja2Templates
-from pydantic import BaseModel, Field
+import uvicorn
 
 # Import local modules
 from config import get_config, validate_environment
+from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.templating import Jinja2Templates
 from health import HealthChecker
 from models import *
+from pydantic import BaseModel, Field
 from service_logic import SiteProcessor
-from libs.blob_storage import BlobStorageClient, BlobContainers
+
+from libs.blob_storage import BlobContainers, BlobStorageClient
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -40,6 +40,27 @@ logger = logging.getLogger(__name__)
 config = get_config()
 health_checker = HealthChecker()
 site_processor = SiteProcessor()
+
+
+def get_allowed_origins() -> List[str]:
+    """Get allowed CORS origins based on environment."""
+    if config.environment in ["local", "development"]:
+        return [
+            "http://localhost:3000",
+            "http://localhost:8000",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:8000",
+        ]
+    elif config.environment == "staging":
+        return [
+            "https://staging.yourdomain.com",
+            "https://staging-api.yourdomain.com",
+        ]
+    else:  # production
+        return [
+            "https://yourdomain.com",
+            "https://api.yourdomain.com",
+        ]
 
 
 @asynccontextmanager
@@ -70,21 +91,29 @@ async def lifespan(app: FastAPI):
     logger.info(f"Shutting down {config.service_name}")
     await site_processor.stop()
 
+
 # Create FastAPI app
 app = FastAPI(
     title=config.service_name,
     description=config.service_description,
     version=config.version,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
-# Add CORS middleware
+# Add CORS middleware with secure configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=get_allowed_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=[
+        "accept",
+        "accept-language",
+        "content-type",
+        "authorization",
+        "x-requested-with",
+        "x-csrf-token",
+    ],
 )
 
 # Exception handlers
@@ -94,17 +123,23 @@ app.add_middleware(
 async def global_exception_handler(request: Request, exc: Exception):
     """Global exception handler."""
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
+
+    # Create a StandardResponse for consistency
+    error_response = StandardResponse(
+        status="error",
+        message="Internal server error",
+        metadata={
+            "service": config.service_name,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        },
+        errors=[{"type": type(exc).__name__, "message": str(exc)}],
+    )
+
     return JSONResponse(
         status_code=500,
-        content={
-            "status": "error",
-            "message": "Internal server error",
-            "metadata": {
-                "service": config.service_name,
-                "timestamp": datetime.now(timezone.utc).isoformat()
-            }
-        }
+        content=error_response.dict(),
     )
+
 
 # Standard endpoints
 
@@ -122,8 +157,8 @@ async def root():
             "status": "/status",
             "generate": "/generate",
             "preview": "/preview/{site_id}",
-            "docs": "/docs"
-        }
+            "docs": "/docs",
+        },
     }
 
 
@@ -138,13 +173,13 @@ async def get_status():
     """Detailed status endpoint."""
     return await health_checker.get_detailed_status()
 
+
 # Site generation endpoints
 
 
 @app.post("/generate")
 async def generate_site(
-    request: GenerationRequest,
-    background_tasks: BackgroundTasks
+    request: GenerationRequest, background_tasks: BackgroundTasks
 ) -> StandardResponse:
     """Generate static site from ranked content."""
     try:
@@ -153,9 +188,7 @@ async def generate_site(
 
         # Start generation in background
         background_tasks.add_task(
-            site_processor.generate_site,
-            site_id=site_id,
-            request=request
+            site_processor.generate_site, site_id=site_id, request=request
         )
 
         return StandardResponse(
@@ -164,20 +197,25 @@ async def generate_site(
             data={
                 "site_id": site_id,
                 "preview_url": f"/preview/{site_id}",
-                "estimated_completion": "2-5 minutes"
+                "estimated_completion": "2-5 minutes",
             },
             metadata={
                 "service": config.service_name,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "request_id": site_id
-            }
+                "request_id": site_id,
+            },
         )
 
     except Exception as e:
         logger.error(f"Site generation request failed: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to start site generation: {str(e)}"
+        return StandardResponse(
+            status="error",
+            message="Failed to start site generation",
+            metadata={
+                "service": config.service_name,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+            errors=[{"type": type(e).__name__, "message": str(e)}],
         )
 
 
@@ -190,19 +228,25 @@ async def get_generation_status(site_id: str) -> StandardResponse:
         return StandardResponse(
             status="success",
             message="Generation status retrieved",
-            data=status,
+            data=status.dict(),
             metadata={
                 "service": config.service_name,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "site_id": site_id
-            }
+                "site_id": site_id,
+            },
         )
 
     except Exception as e:
         logger.error(f"Failed to get generation status: {e}")
-        raise HTTPException(
-            status_code=404,
-            detail=f"Site generation status not found: {str(e)}"
+        return StandardResponse(
+            status="error",
+            message="Site generation status not found",
+            metadata={
+                "service": config.service_name,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "site_id": site_id,
+            },
+            errors=[{"type": type(e).__name__, "message": str(e)}],
         )
 
 
@@ -214,8 +258,7 @@ async def preview_site(site_id: str) -> HTMLResponse:
 
         # Get site HTML from blob storage
         site_html = blob_client.download_text(
-            "published-sites",
-            f"{site_id}/index.html"
+            "published-sites", f"{site_id}/index.html"
         )
 
         return HTMLResponse(content=site_html)
@@ -223,8 +266,7 @@ async def preview_site(site_id: str) -> HTMLResponse:
     except Exception as e:
         logger.error(f"Failed to preview site {site_id}: {e}")
         raise HTTPException(
-            status_code=404,
-            detail=f"Site preview not available: {str(e)}"
+            status_code=404, detail=f"Site preview not available: {str(e)}"
         )
 
 
@@ -242,22 +284,22 @@ async def list_sites() -> StandardResponse:
             metadata={
                 "service": config.service_name,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "count": len(sites)
-            }
+                "count": len(sites),
+            },
         )
 
     except Exception as e:
         logger.error(f"Failed to list sites: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to retrieve sites: {str(e)}"
+        return StandardResponse(
+            status="error",
+            message="Failed to retrieve sites",
+            metadata={
+                "service": config.service_name,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            },
+            errors=[{"type": type(e).__name__, "message": str(e)}],
         )
 
+
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=8000,
-        log_level="info",
-        reload=False
-    )
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, log_level="info", reload=False)

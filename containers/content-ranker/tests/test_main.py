@@ -5,11 +5,12 @@ Tests the API interface of the content ranker service including
 health checks, status endpoints, and ranking operations.
 """
 
-import pytest
-from fastapi.testclient import TestClient
-from unittest.mock import Mock, patch, AsyncMock
 import json
 from datetime import datetime
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+from fastapi.testclient import TestClient
 
 # Import the FastAPI app
 from main import app
@@ -38,16 +39,18 @@ class TestContentRankerAPI:
         assert "service" in data
         assert data["service"] == "content-ranker"
 
-    @patch('main.ranker_service')
+    @patch("main.ranker_service")
     def test_status_endpoint(self, mock_service):
         """Test the status endpoint with service information."""
         # Mock service status as async
-        mock_service.get_ranking_status = AsyncMock(return_value={
-            "service": "content-ranker",
-            "status": "healthy",
-            "version": "1.0.0",
-            "containers": ["enriched-content", "ranked-content"]
-        })
+        mock_service.get_ranking_status = AsyncMock(
+            return_value={
+                "service": "content-ranker",
+                "status": "healthy",
+                "version": "1.0.0",
+                "containers": ["enriched-content", "ranked-content"],
+            }
+        )
 
         response = client.get("/status")
         assert response.status_code == 200
@@ -55,26 +58,32 @@ class TestContentRankerAPI:
         assert data["service"] == "content-ranker"
         assert data["status"] == "healthy"
 
-    @patch('main.ranker_service')
+    @patch("main.ranker_service")
     def test_rank_enriched_endpoint_success(self, mock_service):
         """Test successful enriched content ranking."""
         # Mock successful ranking
-        mock_service.rank_content_batch = AsyncMock(return_value={
-            "ranked_items": [
-                {"id": "test_001", "rank_score": 0.95, "rank_position": 1},
-                {"id": "test_002", "rank_score": 0.87, "rank_position": 2}
-            ],
-            "total_processed": 2,
-            "ranking_metadata": {
-                "timestamp": datetime.utcnow().isoformat(),
-                "weights": {"engagement": 0.5, "recency": 0.3, "topic_relevance": 0.2}
+        mock_service.rank_content_batch = AsyncMock(
+            return_value={
+                "ranked_items": [
+                    {"id": "test_001", "rank_score": 0.95, "rank_position": 1},
+                    {"id": "test_002", "rank_score": 0.87, "rank_position": 2},
+                ],
+                "total_processed": 2,
+                "ranking_metadata": {
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "weights": {
+                        "engagement": 0.5,
+                        "recency": 0.3,
+                        "topic_relevance": 0.2,
+                    },
+                },
             }
-        })
+        )
 
         request_data = {
             "weights": {"engagement": 0.5, "recency": 0.3, "topic_relevance": 0.2},
             "target_topics": ["artificial_intelligence"],
-            "limit": 10
+            "limit": 10,
         }
 
         response = client.post("/rank/enriched", json=request_data)
@@ -84,23 +93,21 @@ class TestContentRankerAPI:
         assert "total_processed" in data
         assert len(data["ranked_items"]) == 2
 
-    @patch('main.ranker_service')
+    @patch("main.ranker_service")
     def test_rank_batch_endpoint_success(self, mock_service):
         """Test successful batch ranking."""
         # Mock successful batch ranking
-        mock_service.rank_content_batch = AsyncMock(return_value={
-            "ranked_items": [
-                {"id": "test_001", "rank_score": 0.95, "rank_position": 1}
-            ],
-            "total_processed": 1,
-            "ranking_metadata": {
-                "timestamp": datetime.utcnow().isoformat()
+        mock_service.rank_content_batch = AsyncMock(
+            return_value={
+                "ranked_items": [
+                    {"id": "test_001", "rank_score": 0.95, "rank_position": 1}
+                ],
+                "total_processed": 1,
+                "ranking_metadata": {"timestamp": datetime.utcnow().isoformat()},
             }
-        })
+        )
 
-        request_data = {
-            "weights": {"engagement": 0.6, "recency": 0.4}
-        }
+        request_data = {"weights": {"engagement": 0.6, "recency": 0.4}}
 
         response = client.post("/rank/batch", json=request_data)
         assert response.status_code == 200
@@ -119,14 +126,14 @@ class TestContentRankerAPI:
                 "enrichment": {
                     "sentiment": {"compound": 0.8},
                     "topics": ["artificial_intelligence", "technology"],
-                    "summary": "AI trends discussion"
-                }
+                    "summary": "AI trends discussion",
+                },
             }
         ]
 
         request_data = {
             "content_items": test_content,
-            "weights": {"engagement": 0.5, "recency": 0.5}
+            "weights": {"engagement": 0.5, "recency": 0.5},
         }
 
         response = client.post("/rank", json=request_data)
@@ -135,16 +142,15 @@ class TestContentRankerAPI:
         assert "ranked_items" in data
         assert len(data["ranked_items"]) > 0
 
-    @patch('main.ranker_service')
+    @patch("main.ranker_service")
     def test_rank_enriched_endpoint_error(self, mock_service):
         """Test error handling in enriched content ranking."""
         # Mock service error
         mock_service.rank_content_batch = AsyncMock(
-            side_effect=Exception("Service error"))
+            side_effect=Exception("Service error")
+        )
 
-        request_data = {
-            "weights": {"engagement": 0.5, "recency": 0.5}
-        }
+        request_data = {"weights": {"engagement": 0.5, "recency": 0.5}}
 
         response = client.post("/rank/enriched", json=request_data)
         assert response.status_code == 500
@@ -154,7 +160,7 @@ class TestContentRankerAPI:
         # Invalid request data (missing required fields)
         request_data = {
             "content_items": [{"invalid": "data"}],
-            "weights": {"engagement": 0.5}
+            "weights": {"engagement": 0.5},
         }
 
         response = client.post("/rank", json=request_data)
@@ -167,7 +173,7 @@ class TestContentRankerAPI:
         """Test ranking with empty content list."""
         request_data = {
             "content_items": [],
-            "weights": {"engagement": 0.5, "recency": 0.5}
+            "weights": {"engagement": 0.5, "recency": 0.5},
         }
 
         response = client.post("/rank", json=request_data)
@@ -175,7 +181,7 @@ class TestContentRankerAPI:
         data = response.json()
         assert data["ranked_items"] == []
 
-    @patch('main.ranker_service')
+    @patch("main.ranker_service")
     def test_status_endpoint_error(self, mock_service):
         """Test status endpoint when service has issues."""
         # Mock service error

@@ -4,18 +4,30 @@ Site Generator business logic implementation
 """
 
 import asyncio
-import logging
 import json
-import tempfile
-import shutil
+import logging
 import os
+import shutil
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, Any, List, Optional
-from libs.blob_storage import BlobStorageClient, BlobContainers, get_timestamped_blob_name
-from models import GenerationRequest, GenerationStatus, GenerationStatusResponse, ContentItem, SiteMetadata
+from typing import Any, Dict, List, Optional
+
 from config import get_config
+from models import (
+    ContentItem,
+    GenerationRequest,
+    GenerationStatus,
+    GenerationStatusResponse,
+    SiteMetadata,
+)
 from template_manager import create_template_manager
+
+from libs.blob_storage import (
+    BlobContainers,
+    BlobStorageClient,
+    get_timestamped_blob_name,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -33,13 +45,14 @@ class SiteProcessor:
         # Initialize template manager (use local templates in development)
         use_local = self.config.environment == "development"
         self.template_manager = create_template_manager(
-            self.blob_client, use_local=use_local)
+            self.blob_client, use_local=use_local
+        )
 
         # Upload local templates to blob storage if using local (for development)
         if use_local:
             self.template_manager.upload_templates_to_blob()
 
-    # Template methods removed - now using template_manager for blob-based templates
+        # Template methods removed - now using template_manager for blob-based templates
         """Create default HTML templates."""
         # Base template
         base_template = """<!DOCTYPE html>
@@ -262,8 +275,7 @@ class SiteProcessor:
         """Start background processing."""
         if not self.is_running:
             self.is_running = True
-            self.watch_task = asyncio.create_task(
-                self._watch_for_new_content())
+            self.watch_task = asyncio.create_task(self._watch_for_new_content())
             logger.info("Site processor started")
 
     async def stop(self):
@@ -289,11 +301,9 @@ class SiteProcessor:
                     site_id = f"auto_{blob_info['name'].replace('.json', '')}_{datetime.now(timezone.utc).strftime('%H%M%S')}"
                     await self.generate_site(
                         site_id=site_id,
-                        request=GenerationRequest(
-                            content_source=blob_info['name'])
+                        request=GenerationRequest(content_source=blob_info["name"]),
                     )
-                    logger.info(
-                        f"Auto-generated site {site_id} for new content")
+                    logger.info(f"Auto-generated site {site_id} for new content")
 
                 await asyncio.sleep(30)  # Check every 30 seconds
 
@@ -314,13 +324,12 @@ class SiteProcessor:
             new_blobs = []
 
             for blob in blobs:
-                blob_time = blob.get('last_modified', datetime.min)
-                if hasattr(blob_time, 'timestamp'):
+                blob_time = blob.get("last_modified", datetime.min)
+                if hasattr(blob_time, "timestamp"):
                     if blob_time.timestamp() > recent_threshold:
-                        new_blobs.append({
-                            'name': blob['name'],
-                            'last_modified': blob_time
-                        })
+                        new_blobs.append(
+                            {"name": blob["name"], "last_modified": blob_time}
+                        )
 
             return new_blobs[:5]  # Limit to 5 most recent
 
@@ -336,7 +345,7 @@ class SiteProcessor:
                 "status": GenerationStatus.PROCESSING,
                 "progress": 0,
                 "current_step": "Initializing",
-                "start_time": datetime.now(timezone.utc)
+                "start_time": datetime.now(timezone.utc),
             }
 
             # Step 1: Load content
@@ -345,8 +354,7 @@ class SiteProcessor:
 
             # Step 2: Process and filter articles
             self._update_status(site_id, 30, "Processing articles")
-            processed_articles = self._process_articles(
-                articles, request.max_articles)
+            processed_articles = self._process_articles(articles, request.max_articles)
 
             # Step 3: Generate HTML
             self._update_status(site_id, 60, "Generating HTML")
@@ -357,8 +365,7 @@ class SiteProcessor:
             await self._upload_site(site_id, site_html)
 
             # Step 5: Complete
-            self._update_status(site_id, 100, "Completed",
-                                GenerationStatus.COMPLETED)
+            self._update_status(site_id, 100, "Completed", GenerationStatus.COMPLETED)
 
             logger.info(f"Site generation completed for {site_id}")
 
@@ -367,20 +374,25 @@ class SiteProcessor:
             self.generation_status[site_id] = {
                 "status": GenerationStatus.FAILED,
                 "error_message": str(e),
-                "completion_time": datetime.now(timezone.utc)
+                "completion_time": datetime.now(timezone.utc),
             }
 
-    def _update_status(self, site_id: str, progress: int, step: str, status: GenerationStatus = GenerationStatus.PROCESSING):
+    def _update_status(
+        self,
+        site_id: str,
+        progress: int,
+        step: str,
+        status: GenerationStatus = GenerationStatus.PROCESSING,
+    ):
         """Update generation status."""
-        self.generation_status[site_id].update({
-            "status": status,
-            "progress": progress,
-            "current_step": step
-        })
+        self.generation_status[site_id].update(
+            {"status": status, "progress": progress, "current_step": step}
+        )
 
         if status == GenerationStatus.COMPLETED:
             self.generation_status[site_id]["completion_time"] = datetime.now(
-                timezone.utc)
+                timezone.utc
+            )
 
     async def _load_content(self, content_source: str) -> List[Dict[str, Any]]:
         """Load content from blob storage."""
@@ -392,18 +404,18 @@ class SiteProcessor:
                     raise ValueError("No ranked content available")
 
                 # Get most recent blob (blobs are dictionaries with name and metadata)
-                latest_blob = max(blobs, key=lambda x: x.get(
-                    'last_modified', datetime.min))
-                blob_name = latest_blob['name']
+                latest_blob = max(
+                    blobs, key=lambda x: x.get("last_modified", datetime.min)
+                )
+                blob_name = latest_blob["name"]
             else:
                 blob_name = content_source
 
             # Download content
-            content_data = self.blob_client.download_json(
-                "ranked-content", blob_name)
+            content_data = self.blob_client.download_json("ranked-content", blob_name)
 
-            if isinstance(content_data, dict) and 'items' in content_data:
-                return content_data['items']
+            if isinstance(content_data, dict) and "items" in content_data:
+                return content_data["items"]
             elif isinstance(content_data, list):
                 return content_data
             else:
@@ -414,7 +426,9 @@ class SiteProcessor:
             # Return empty list as fallback
             return []
 
-    def _process_articles(self, articles: List[Dict[str, Any]], max_articles: int) -> List[ContentItem]:
+    def _process_articles(
+        self, articles: List[Dict[str, Any]], max_articles: int
+    ) -> List[ContentItem]:
         """Process and convert articles to ContentItem objects."""
         processed = []
 
@@ -422,17 +436,18 @@ class SiteProcessor:
             try:
                 # Create ContentItem from article data
                 article = ContentItem(
-                    title=article_data.get('title', 'Untitled'),
-                    url=article_data.get('url', '#'),
-                    summary=article_data.get('summary', article_data.get(
-                        'description', 'No summary available')),
-                    content=article_data.get('content'),
-                    author=article_data.get('author'),
-                    published_date=self._parse_date(
-                        article_data.get('published_date')),
-                    tags=article_data.get('tags', []),
-                    score=article_data.get('score'),
-                    source=article_data.get('source', 'unknown')
+                    title=article_data.get("title", "Untitled"),
+                    url=article_data.get("url", "#"),
+                    summary=article_data.get(
+                        "summary",
+                        article_data.get("description", "No summary available"),
+                    ),
+                    content=article_data.get("content"),
+                    author=article_data.get("author"),
+                    published_date=self._parse_date(article_data.get("published_date")),
+                    tags=article_data.get("tags", []),
+                    score=article_data.get("score"),
+                    source=article_data.get("source", "unknown"),
                 )
                 processed.append(article)
 
@@ -452,11 +467,13 @@ class SiteProcessor:
 
         try:
             # Try ISO format first
-            return datetime.fromisoformat(str(date_str).replace('Z', '+00:00'))
+            return datetime.fromisoformat(str(date_str).replace("Z", "+00:00"))
         except:
             return None
 
-    async def _generate_html(self, articles: List[ContentItem], request: GenerationRequest, site_id: str) -> str:
+    async def _generate_html(
+        self, articles: List[ContentItem], request: GenerationRequest, site_id: str
+    ) -> str:
         """Generate HTML for the site."""
         try:
             # Create site metadata
@@ -466,17 +483,16 @@ class SiteProcessor:
                 generation_date=datetime.now(timezone.utc),
                 theme=request.theme.value,
                 total_articles=len(articles),
-                content_sources=list(
-                    set(article.source for article in articles)),
-                version=self.config.version
+                content_sources=list(set(article.source for article in articles)),
+                version=self.config.version,
             )
 
             # Render HTML using template manager
             html_content = self.template_manager.render_template(
-                'index.html',
+                "index.html",
                 articles=articles,
                 site_metadata=site_metadata,
-                site_id=site_id
+                site_id=site_id,
             )
 
             return html_content
@@ -493,19 +509,20 @@ class SiteProcessor:
                 "published-sites",
                 f"{site_id}/index.html",
                 html_content,
-                content_type="text/html"
+                content_type="text/html",
             )
 
             # Upload CSS and other static assets
             static_assets = self.template_manager.get_static_assets()
             for asset_path, asset_content in static_assets.items():
-                content_type = "text/css" if asset_path.endswith(
-                    '.css') else "text/plain"
+                content_type = (
+                    "text/css" if asset_path.endswith(".css") else "text/plain"
+                )
                 self.blob_client.upload_text(
                     "published-sites",
                     f"{site_id}/{asset_path}",
                     asset_content,
-                    content_type=content_type
+                    content_type=content_type,
                 )
 
             # Create a simple manifest
@@ -513,17 +530,16 @@ class SiteProcessor:
                 "site_id": site_id,
                 "generation_date": datetime.now(timezone.utc).isoformat(),
                 "files": ["index.html"] + list(static_assets.keys()),
-                "theme": "modern"
+                "theme": "modern",
             }
 
             self.blob_client.upload_json(
-                "published-sites",
-                f"{site_id}/manifest.json",
-                manifest
+                "published-sites", f"{site_id}/manifest.json", manifest
             )
 
             logger.info(
-                f"Site {site_id} uploaded successfully with {len(static_assets)} assets")
+                f"Site {site_id} uploaded successfully with {len(static_assets)} assets"
+            )
 
         except Exception as e:
             logger.error(f"Failed to upload site {site_id}: {e}")
@@ -542,7 +558,7 @@ class SiteProcessor:
             progress_percentage=status_data.get("progress", 0),
             current_step=status_data.get("current_step", "Unknown"),
             error_message=status_data.get("error_message"),
-            completion_time=status_data.get("completion_time")
+            completion_time=status_data.get("completion_time"),
         )
 
     async def list_available_sites(self) -> List[Dict[str, Any]]:
@@ -554,9 +570,9 @@ class SiteProcessor:
             # Group blobs by site_id (directory)
             site_dirs = set()
             for blob in blobs:
-                blob_name = blob.get('name', '')
-                if '/' in blob_name:
-                    site_id = blob_name.split('/')[0]
+                blob_name = blob.get("name", "")
+                if "/" in blob_name:
+                    site_id = blob_name.split("/")[0]
                     site_dirs.add(site_id)
 
             # Get info for each site
@@ -564,28 +580,32 @@ class SiteProcessor:
                 try:
                     # Try to get manifest
                     manifest = self.blob_client.download_json(
-                        "published-sites",
-                        f"{site_id}/manifest.json"
+                        "published-sites", f"{site_id}/manifest.json"
                     )
 
-                    sites.append({
-                        "site_id": site_id,
-                        "generation_date": manifest.get("generation_date"),
-                        "preview_url": f"/preview/{site_id}",
-                        "theme": manifest.get("theme", "unknown")
-                    })
+                    sites.append(
+                        {
+                            "site_id": site_id,
+                            "generation_date": manifest.get("generation_date"),
+                            "preview_url": f"/preview/{site_id}",
+                            "theme": manifest.get("theme", "unknown"),
+                        }
+                    )
 
                 except Exception as e:
-                    logger.warning(
-                        f"Could not get manifest for site {site_id}: {e}")
+                    logger.warning(f"Could not get manifest for site {site_id}: {e}")
                     # Add basic info without manifest
-                    sites.append({
-                        "site_id": site_id,
-                        "preview_url": f"/preview/{site_id}",
-                        "status": "manifest_missing"
-                    })
+                    sites.append(
+                        {
+                            "site_id": site_id,
+                            "preview_url": f"/preview/{site_id}",
+                            "status": "manifest_missing",
+                        }
+                    )
 
-            return sorted(sites, key=lambda x: x.get("generation_date", ""), reverse=True)
+            return sorted(
+                sites, key=lambda x: x.get("generation_date", ""), reverse=True
+            )
 
         except Exception as e:
             logger.error(f"Failed to list sites: {e}")
@@ -594,13 +614,15 @@ class SiteProcessor:
     def _generate_rss_feed(self, articles: List[ContentItem]) -> str:
         """Generate RSS feed for articles."""
         # Sort articles by score
-        sorted_articles = sorted(
-            articles, key=lambda x: x.score or 0, reverse=True)
+        sorted_articles = sorted(articles, key=lambda x: x.score or 0, reverse=True)
 
         items = ""
         for article in sorted_articles[:50]:  # Top 50 for RSS
-            pub_date = article.published_date.strftime(
-                '%a, %d %b %Y %H:%M:%S GMT') if article.published_date else datetime.now().strftime('%a, %d %b %Y %H:%M:%S GMT')
+            pub_date = (
+                article.published_date.strftime("%a, %d %b %Y %H:%M:%S GMT")
+                if article.published_date
+                else datetime.now().strftime("%a, %d %b %Y %H:%M:%S GMT")
+            )
 
             items += f"""
             <item>
@@ -627,6 +649,7 @@ class SiteProcessor:
     def _create_slug(self, title: str) -> str:
         """Create URL-friendly slug from title."""
         import re
-        slug = re.sub(r'[^\w\s-]', '', title.lower())
-        slug = re.sub(r'[-\s]+', '-', slug)
-        return slug.strip('-')[:50]  # Limit length
+
+        slug = re.sub(r"[^\w\s-]", "", title.lower())
+        slug = re.sub(r"[-\s]+", "-", slug)
+        return slug.strip("-")[:50]  # Limit length

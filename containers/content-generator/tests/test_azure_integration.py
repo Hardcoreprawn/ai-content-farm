@@ -3,10 +3,11 @@
 Test Azure OpenAI integration and demonstrate content generation capabilities
 """
 
-from models import RankedTopic, SourceData
-from config import config
 import os
 import sys
+
+from config import config
+from models import RankedTopic, SourceData
 
 # Add the parent directory to the path to allow imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -23,33 +24,36 @@ def test_azure_openai_config():
     print("Configuration Status:")
     print(f"✅ Valid: {config_status['valid']}")
 
-    if config_status['issues']:
+    if config_status["issues"]:
         print("\n❌ Issues found:")
-        for issue in config_status['issues']:
+        for issue in config_status["issues"]:
             print(f"  - {issue}")
 
     print(f"\n🔧 Configuration Details:")
     print(f"  - Service: {config_status['config']['service_name']}")
     print(f"  - Version: {config_status['config']['version']}")
     print(
-        f"  - Azure OpenAI: {'✅ Configured' if config_status['config']['has_azure_openai'] else '❌ Not configured'}")
+        f"  - Azure OpenAI: {'✅ Configured' if config_status['config']['has_azure_openai'] else '❌ Not configured'}"
+    )
     print(
-        f"  - OpenAI Direct: {'✅ Configured' if config_status['config']['has_openai'] else '❌ Not configured'}")
+        f"  - OpenAI Direct: {'✅ Configured' if config_status['config']['has_openai'] else '❌ Not configured'}"
+    )
     print(
-        f"  - Claude: {'✅ Configured' if config_status['config']['has_claude'] else '❌ Not configured'}")
+        f"  - Claude: {'✅ Configured' if config_status['config']['has_claude'] else '❌ Not configured'}"
+    )
     print(f"  - Blob Storage: {config_status['config']['blob_storage']}")
 
     print(f"\n📊 Environment Variables:")
     print(
-        f"  - AZURE_OPENAI_ENDPOINT: {'✅ Set' if config.AZURE_OPENAI_ENDPOINT else '❌ Not set'}")
+        f"  - AZURE_OPENAI_ENDPOINT: {'✅ Set' if config.AZURE_OPENAI_ENDPOINT else '❌ Not set'}"
+    )
     print(
-        f"  - AZURE_OPENAI_API_KEY: {'✅ Set' if config.AZURE_OPENAI_API_KEY else '❌ Not set'}")
-    print(
-        f"  - AZURE_OPENAI_DEPLOYMENT_NAME: {config.AZURE_OPENAI_DEPLOYMENT_NAME}")
-    print(
-        f"  - OPENAI_API_KEY: {'✅ Set' if config.OPENAI_API_KEY else '❌ Not set'}")
+        f"  - AZURE_OPENAI_API_KEY: {'✅ Set' if config.AZURE_OPENAI_API_KEY else '❌ Not set'}"
+    )
+    print(f"  - AZURE_OPENAI_DEPLOYMENT_NAME: {config.AZURE_OPENAI_DEPLOYMENT_NAME}")
+    print(f"  - OPENAI_API_KEY: {'✅ Set' if config.OPENAI_API_KEY else '❌ Not set'}")
 
-    return config_status['valid']
+    return config_status["valid"]
 
 
 def demo_content_generation_flow():
@@ -65,19 +69,19 @@ def demo_content_generation_flow():
                 name="Microsoft Azure Blog",
                 url="https://azure.microsoft.com/en-us/blog/azure-openai-service-now-generally-available/",
                 title="Azure OpenAI Service Now Generally Available",
-                summary="Microsoft announces general availability of Azure OpenAI Service with enterprise-grade security and compliance"
+                summary="Microsoft announces general availability of Azure OpenAI Service with enterprise-grade security and compliance",
             ),
             SourceData(
                 name="TechCrunch",
                 url="https://techcrunch.com/2023/01/16/microsoft-azure-openai-service/",
                 title="Microsoft's Azure OpenAI Service Goes Live",
-                summary="Azure OpenAI provides access to GPT models with enterprise features and data privacy"
-            )
+                summary="Azure OpenAI provides access to GPT models with enterprise features and data privacy",
+            ),
         ],
         rank=1,
         ai_score=0.92,
         sentiment="positive",
-        tags=["Azure", "OpenAI", "AI Services", "Enterprise"]
+        tags=["Azure", "OpenAI", "AI Services", "Enterprise"],
     )
 
     print(f"📝 Sample Topic: {topic.topic}")
@@ -104,11 +108,14 @@ def demo_content_generation_flow():
 
     print("\n✅ Content Requirements Met:")
     print(
-        f"  - TL;DR: {'✅ Sufficient sources' if len(topic.sources) >= 1 else '❌ Need more sources'}")
+        f"  - TL;DR: {'✅ Sufficient sources' if len(topic.sources) >= 1 else '❌ Need more sources'}"
+    )
     print(
-        f"  - Blog: {'✅ Sufficient sources' if len(topic.sources) >= 2 else '❌ Need more sources'}")
+        f"  - Blog: {'✅ Sufficient sources' if len(topic.sources) >= 2 else '❌ Need more sources'}"
+    )
     print(
-        f"  - Deep Dive: {'✅ Sufficient sources' if len(topic.sources) >= 3 else '❌ Need more sources'}")
+        f"  - Deep Dive: {'✅ Sufficient sources' if len(topic.sources) >= 3 else '❌ Need more sources'}"
+    )
 
 
 def show_api_usage_example():

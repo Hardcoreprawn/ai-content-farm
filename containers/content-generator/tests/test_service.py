@@ -1,8 +1,8 @@
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 from datetime import datetime
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from models import RankedTopic, SourceData, GeneratedContent
+import pytest
+from models import GeneratedContent, RankedTopic, SourceData
 from service_logic import ContentGeneratorService
 
 
@@ -19,27 +19,27 @@ class TestContentGeneratorService:
                     name="TechCrunch",
                     url="https://techcrunch.com/ai-investment",
                     title="UK Announces Major AI Investment",
-                    summary="Government invests £2bn in AI infrastructure"
+                    summary="Government invests £2bn in AI infrastructure",
                 ),
                 SourceData(
                     name="The Register",
                     url="https://theregister.com/ai-data-centers",
                     title="New Data Centers for AI Workloads",
-                    summary="Infrastructure to support AI development"
-                )
+                    summary="Infrastructure to support AI development",
+                ),
             ],
             rank=1,
             ai_score=0.85,
             sentiment="positive",
-            tags=["AI", "Investment", "Infrastructure"]
+            tags=["AI", "Investment", "Infrastructure"],
         )
 
     @pytest.fixture
     def service(self):
         """Create content generator service with mocked dependencies"""
-        with patch('service_logic.BlobServiceClient'), \
-                patch('service_logic.openai.AsyncOpenAI'), \
-                patch('service_logic.anthropic.AsyncAnthropic'):
+        with patch("service_logic.BlobServiceClient"), patch(
+            "service_logic.openai.AsyncOpenAI"
+        ), patch("service_logic.anthropic.AsyncAnthropic"):
             service = ContentGeneratorService()
             service.openai_client = AsyncMock()
             service.claude_client = AsyncMock()
@@ -51,7 +51,9 @@ class TestContentGeneratorService:
         """Test shortform content generation"""
         # Mock OpenAI response
         mock_response = MagicMock()
-        mock_response.choices[0].message.content = """TITLE: UK's £2bn AI Investment: A Game Changer for Tech Innovation
+        mock_response.choices[
+            0
+        ].message.content = """TITLE: UK's £2bn AI Investment: A Game Changer for Tech Innovation
 
 CONTENT:
 The UK government has announced a groundbreaking £2 billion investment in AI infrastructure, marking one of the most significant commitments to artificial intelligence development in European history. This massive funding initiative will establish state-of-the-art data centers in Manchester, Edinburgh, and Cardiff, positioning Britain as a global leader in AI innovation.
@@ -79,7 +81,9 @@ For businesses and investors, this represents a clear signal that the UK is seri
         """Test briefing content generation"""
         # Mock OpenAI response
         mock_response = MagicMock()
-        mock_response.choices[0].message.content = """TITLE: UK AI Infrastructure Investment: Comprehensive Analysis of the £2bn Initiative
+        mock_response.choices[
+            0
+        ].message.content = """TITLE: UK AI Infrastructure Investment: Comprehensive Analysis of the £2bn Initiative
 
 CONTENT:
 # Executive Summary
@@ -130,7 +134,9 @@ The £2 billion AI infrastructure investment represents a pivotal moment for UK 
         """Test deep dive content generation"""
         # Mock Claude response
         mock_response = MagicMock()
-        mock_response.content[0].text = """TITLE: The UK's £2bn AI Infrastructure Investment: A Strategic Analysis of Britain's Bid for AI Supremacy
+        mock_response.content[
+            0
+        ].text = """TITLE: The UK's £2bn AI Infrastructure Investment: A Strategic Analysis of Britain's Bid for AI Supremacy
 
 CONTENT:
 # Abstract

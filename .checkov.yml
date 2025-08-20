@@ -9,7 +9,7 @@ skip-check:
   - CKV_AZURE_112  # HSM-backed keys require Premium Key Vault (cost)
   - CKV_AZURE_247  # OpenAI DLP configuration - requires enterprise setup
   - CKV2_AZURE_22  # Customer-managed encryption for OpenAI - complex setup
-  
+
   # Service Bus encryption - disabled for development simplicity
   - CKV_AZURE_199  # Service Bus double encryption - disabled for dev
   - CKV_AZURE_201  # Service Bus customer-managed encryption - disabled for dev

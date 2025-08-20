@@ -5,8 +5,9 @@ Environment-based configuration for the content collector.
 """
 
 import os
-from typing import List, Dict, Any, Optional
-from keyvault_client import health_check_keyvault, get_reddit_credentials_with_fallback
+from typing import Any, Dict, List, Optional
+
+from keyvault_client import get_reddit_credentials_with_fallback, health_check_keyvault
 
 
 class Config:
@@ -22,11 +23,11 @@ class Config:
     REDDIT_CLIENT_ID: Optional[str] = os.getenv("REDDIT_CLIENT_ID")
     REDDIT_CLIENT_SECRET: Optional[str] = os.getenv("REDDIT_CLIENT_SECRET")
     REDDIT_USER_AGENT: str = os.getenv(
-        "REDDIT_USER_AGENT", "ai-content-farm-collector/1.0")
+        "REDDIT_USER_AGENT", "ai-content-farm-collector/1.0"
+    )
 
     # Rate limiting
-    MAX_REQUESTS_PER_MINUTE: int = int(
-        os.getenv("MAX_REQUESTS_PER_MINUTE", "60"))
+    MAX_REQUESTS_PER_MINUTE: int = int(os.getenv("MAX_REQUESTS_PER_MINUTE", "60"))
     REQUEST_TIMEOUT: int = int(os.getenv("REQUEST_TIMEOUT", "10"))
 
     # Content collection settings
@@ -36,11 +37,12 @@ class Config:
         "MachineLearning",
         "datascience",
         "artificial",
-        "Futurology"
+        "Futurology",
     ]
 
     DEFAULT_POSTS_PER_SUBREDDIT: int = int(
-        os.getenv("DEFAULT_POSTS_PER_SUBREDDIT", "10"))
+        os.getenv("DEFAULT_POSTS_PER_SUBREDDIT", "10")
+    )
     MAX_POSTS_PER_REQUEST: int = int(os.getenv("MAX_POSTS_PER_REQUEST", "100"))
 
     # Quality filters
@@ -48,8 +50,7 @@ class Config:
     MIN_COMMENTS_THRESHOLD: int = int(os.getenv("MIN_COMMENTS_THRESHOLD", "2"))
 
     # Deduplication
-    SIMILARITY_THRESHOLD: float = float(
-        os.getenv("SIMILARITY_THRESHOLD", "0.8"))
+    SIMILARITY_THRESHOLD: float = float(os.getenv("SIMILARITY_THRESHOLD", "0.8"))
 
     # Validation settings
     MAX_TITLE_LENGTH: int = int(os.getenv("MAX_TITLE_LENGTH", "300"))
@@ -86,11 +87,13 @@ class Config:
 
             if not credentials.get("client_id"):
                 issues.append(
-                    "Reddit client_id not found in Key Vault or environment variables")
+                    "Reddit client_id not found in Key Vault or environment variables"
+                )
 
             if not credentials.get("client_secret"):
                 issues.append(
-                    "Reddit client_secret not found in Key Vault or environment variables")
+                    "Reddit client_secret not found in Key Vault or environment variables"
+                )
 
         except Exception as e:
             issues.append(f"Error checking Reddit credentials: {e}")
@@ -113,7 +116,7 @@ class Config:
             "config_valid": len(cls.validate_config()) == 0,
             "validation_issues": cls.validate_config(),
             "environment": cls.ENVIRONMENT,
-            "debug": cls.DEBUG
+            "debug": cls.DEBUG,
         }
 
         # Add Key Vault health check
@@ -123,7 +126,7 @@ class Config:
         except Exception as e:
             health_status["key_vault"] = {
                 "status": "error",
-                "message": f"Key Vault health check failed: {e}"
+                "message": f"Key Vault health check failed: {e}",
             }
 
         return health_status

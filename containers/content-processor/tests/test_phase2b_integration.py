@@ -8,13 +8,15 @@ Tests that validate the end-to-end pipeline from content collection to processin
 - Pipeline integration works seamlessly
 """
 
-import pytest
 import json
 import uuid
 from datetime import datetime, timezone
+
+import pytest
 from fastapi.testclient import TestClient
-from libs.blob_storage import BlobStorageClient, BlobContainers
 from main import app
+
+from libs.blob_storage import BlobContainers, BlobStorageClient
 
 
 class TestPhase2BPipeline:
@@ -40,7 +42,7 @@ class TestPhase2BPipeline:
                 "sources_processed": 1,
                 "collected_at": "2025-08-19T12:00:00.000000+00:00",
                 "collection_version": "1.0.0",
-                "source_type": "reddit"
+                "source_type": "reddit",
             },
             "items": [
                 {
@@ -53,7 +55,7 @@ class TestPhase2BPipeline:
                     "author": "testuser",
                     "source": "reddit",
                     "collected_at": "2025-08-19T12:00:00.000000+00:00",
-                    "content_type": "link"
+                    "content_type": "link",
                 },
                 {
                     "id": "test456",
@@ -65,10 +67,10 @@ class TestPhase2BPipeline:
                     "author": "researcher",
                     "source": "reddit",
                     "collected_at": "2025-08-19T12:00:00.000000+00:00",
-                    "content_type": "link"
-                }
+                    "content_type": "link",
+                },
             ],
-            "format_version": "1.0"
+            "format_version": "1.0",
         }
 
     @pytest.fixture
@@ -80,15 +82,14 @@ class TestPhase2BPipeline:
             container_name=BlobContainers.COLLECTED_CONTENT,
             blob_name=blob_name,
             content=json.dumps(sample_collection_data, indent=2),
-            content_type="application/json"
+            content_type="application/json",
         )
         return blob_name
 
     @pytest.mark.asyncio
     async def test_process_collection_endpoint(self, client, sample_collection_data):
         """Test that processor can process a collection via API."""
-        response = client.post("/process/collection",
-                               json=sample_collection_data)
+        response = client.post("/process/collection", json=sample_collection_data)
 
         assert response.status_code == 200
         result = response.json()
@@ -123,11 +124,12 @@ class TestPhase2BPipeline:
             assert "source_metadata" in item
 
     @pytest.mark.asyncio
-    async def test_blob_storage_integration(self, client, blob_client, sample_collection_data, setup_collection_in_blob):
+    async def test_blob_storage_integration(
+        self, client, blob_client, sample_collection_data, setup_collection_in_blob
+    ):
         """Test that processed content is properly saved to blob storage."""
         # Process the collection
-        response = client.post("/process/collection",
-                               json=sample_collection_data)
+        response = client.post("/process/collection", json=sample_collection_data)
         assert response.status_code == 200
 
         result = response.json()
@@ -139,17 +141,17 @@ class TestPhase2BPipeline:
         process_id = result["process_id"]
         blobs = blob_client.list_blobs(BlobContainers.PROCESSED_CONTENT)
 
-        processed_blob_found = any(
-            process_id in blob["name"]
-            for blob in blobs
-        )
-        assert processed_blob_found, f"Processed content {process_id} not found in {BlobContainers.PROCESSED_CONTENT}"
+        processed_blob_found = any(process_id in blob["name"] for blob in blobs)
+        assert (
+            processed_blob_found
+        ), f"Processed content {process_id} not found in {BlobContainers.PROCESSED_CONTENT}"
 
         # Download and verify the saved content
         for blob in blobs:
             if process_id in blob["name"]:
                 saved_content = blob_client.download_text(
-                    BlobContainers.PROCESSED_CONTENT, blob["name"])
+                    BlobContainers.PROCESSED_CONTENT, blob["name"]
+                )
                 saved_data = json.loads(saved_content)
 
                 # Verify saved data structure
@@ -161,12 +163,17 @@ class TestPhase2BPipeline:
 
                 # Verify source collection reference
                 source_collection = saved_data["source_collection"]
-                assert source_collection["collection_id"] == "test_collection_20250819_120000"
+                assert (
+                    source_collection["collection_id"]
+                    == "test_collection_20250819_120000"
+                )
                 assert source_collection["total_source_items"] == 2
                 break
 
     @pytest.mark.asyncio
-    async def test_find_unprocessed_collections(self, client, blob_client, sample_collection_data, setup_collection_in_blob):
+    async def test_find_unprocessed_collections(
+        self, client, blob_client, sample_collection_data, setup_collection_in_blob
+    ):
         """Test that processor can find unprocessed collections."""
         # Get status to check unprocessed count
         response = client.get("/status")
@@ -179,7 +186,9 @@ class TestPhase2BPipeline:
         assert initial_unprocessed >= 1
 
     @pytest.mark.asyncio
-    async def test_process_batch_endpoint(self, client, blob_client, sample_collection_data, setup_collection_in_blob):
+    async def test_process_batch_endpoint(
+        self, client, blob_client, sample_collection_data, setup_collection_in_blob
+    ):
         """Test batch processing of unprocessed collections."""
         # Process batch
         response = client.post("/process/batch")
@@ -195,8 +204,8 @@ class TestPhase2BPipeline:
 
             # Check if our sample collection was processed
             our_collection_processed = any(
-                r.get("collection_id") == "test_collection_20250819_120000" and r.get(
-                    "status") == "success"
+                r.get("collection_id") == "test_collection_20250819_120000"
+                and r.get("status") == "success"
                 for r in result["results"]
             )
 
@@ -213,6 +222,7 @@ class TestPhase2BPipeline:
         # Step 1: Simulate content collection (like content-collector would do)
         # Use a unique timestamp to avoid conflicts
         import uuid
+
         unique_id = str(uuid.uuid4())[:8]
         collection_id = f"pipeline_test_{unique_id}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
 
@@ -222,7 +232,7 @@ class TestPhase2BPipeline:
                 "total_collected": 1,
                 "sources_processed": 1,
                 "collected_at": datetime.now(timezone.utc).isoformat(),
-                "collection_version": "1.0.0"
+                "collection_version": "1.0.0",
             },
             "items": [
                 {
@@ -234,10 +244,10 @@ class TestPhase2BPipeline:
                     "url": "https://example.com/pipeline",
                     "author": "pipeline_tester",
                     "source": "reddit",
-                    "collected_at": datetime.now(timezone.utc).isoformat()
+                    "collected_at": datetime.now(timezone.utc).isoformat(),
                 }
             ],
-            "format_version": "1.0"
+            "format_version": "1.0",
         }
 
         # Save to collected content (simulating collector)
@@ -247,14 +257,15 @@ class TestPhase2BPipeline:
             container_name=BlobContainers.COLLECTED_CONTENT,
             blob_name=blob_name,
             content=json.dumps(collection_data, indent=2),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Step 2: First check that it's found as unprocessed
         status_response = client.get("/status")
         assert status_response.status_code == 200
-        initial_unprocessed = status_response.json(
-        )["pipeline"]["unprocessed_collections"]
+        initial_unprocessed = status_response.json()["pipeline"][
+            "unprocessed_collections"
+        ]
 
         # Step 3: Process the collection directly using the API (simulating automated processing)
         response = client.post("/process/collection", json=collection_data)
@@ -272,15 +283,15 @@ class TestPhase2BPipeline:
         assert direct_result["metadata"]["processed_items"] == 1
 
         # Step 4: Verify processed content is in blob storage
-        processed_blobs = blob_client.list_blobs(
-            BlobContainers.PROCESSED_CONTENT)
+        processed_blobs = blob_client.list_blobs(BlobContainers.PROCESSED_CONTENT)
         process_id = direct_result["process_id"]
 
         processed_blob_found = any(
-            process_id in blob["name"]
-            for blob in processed_blobs
+            process_id in blob["name"] for blob in processed_blobs
         )
-        assert processed_blob_found, f"End-to-end pipeline result {process_id} not found in processed content"
+        assert (
+            processed_blob_found
+        ), f"End-to-end pipeline result {process_id} not found in processed content"
 
     @pytest.mark.asyncio
     async def test_pipeline_statistics_tracking(self, client, sample_collection_data):
@@ -293,8 +304,7 @@ class TestPhase2BPipeline:
         initial_processed = initial_stats["total_processed"]
 
         # Process collection
-        response = client.post("/process/collection",
-                               json=sample_collection_data)
+        response = client.post("/process/collection", json=sample_collection_data)
         assert response.status_code == 200
 
         # Get updated stats

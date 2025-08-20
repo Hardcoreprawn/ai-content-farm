@@ -5,8 +5,9 @@ Provides shared test fixtures and configuration for pytest.
 Includes Azurite integration for blob storage testing.
 """
 
-import pytest
 import os
+
+import pytest
 
 
 @pytest.fixture(scope="session", autouse=True)

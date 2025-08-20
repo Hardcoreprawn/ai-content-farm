@@ -8,13 +8,15 @@ Tests that validate the end-to-end pipeline from content processing to enrichmen
 - Pipeline integration works seamlessly
 """
 
-import pytest
 import json
 import uuid
 from datetime import datetime, timezone
+
+import pytest
 from fastapi.testclient import TestClient
-from libs.blob_storage import BlobStorageClient, BlobContainers
 from main import app
+
+from libs.blob_storage import BlobContainers, BlobStorageClient
 
 
 class TestPhase2CPipeline:
@@ -49,8 +51,8 @@ class TestPhase2CPipeline:
                         "original_score": 150,
                         "original_comments": 25,
                         "subreddit": "MachineLearning",
-                        "reddit_id": "test123"
-                    }
+                        "reddit_id": "test123",
+                    },
                 },
                 {
                     "id": "test456",
@@ -65,9 +67,9 @@ class TestPhase2CPipeline:
                         "original_score": 89,
                         "original_comments": 12,
                         "subreddit": "technology",
-                        "reddit_id": "test456"
-                    }
-                }
+                        "reddit_id": "test456",
+                    },
+                },
             ],
             "metadata": {
                 "total_items": 2,
@@ -75,10 +77,10 @@ class TestPhase2CPipeline:
                 "source_collection": "collection_20250819_140000",
                 "processing_errors": 0,
                 "processing_time_seconds": 0.123,
-                "processor_version": "1.0.0"
+                "processor_version": "1.0.0",
             },
             "timestamp": "2025-08-19T14:00:00.000000+00:00",
-            "storage_location": "processed-content/processed/2025/08/19/process_20250819_140000.json"
+            "storage_location": "processed-content/processed/2025/08/19/process_20250819_140000.json",
         }
 
     @pytest.fixture
@@ -90,12 +92,14 @@ class TestPhase2CPipeline:
             container_name=BlobContainers.PROCESSED_CONTENT,
             blob_name=blob_name,
             content=json.dumps(sample_processed_data, indent=2),
-            content_type="application/json"
+            content_type="application/json",
         )
         return blob_name
 
     @pytest.mark.asyncio
-    async def test_enrich_processed_content_endpoint(self, client, sample_processed_data):
+    async def test_enrich_processed_content_endpoint(
+        self, client, sample_processed_data
+    ):
         """Test that enricher can process content via API."""
         response = client.post("/enrich/processed", json=sample_processed_data)
 
@@ -147,13 +151,15 @@ class TestPhase2CPipeline:
 
         # Check sentiment analysis on positive content
         positive_item = next(
-            item for item in enriched_items if "Amazing" in item["title"])
+            item for item in enriched_items if "Amazing" in item["title"]
+        )
         assert positive_item["enrichment"]["sentiment"]["sentiment"] == "positive"
         assert positive_item["enrichment"]["sentiment"]["confidence"] > 0.5
 
         # Check sentiment analysis on negative content
         negative_item = next(
-            item for item in enriched_items if "terrible" in item["title"])
+            item for item in enriched_items if "terrible" in item["title"]
+        )
         assert negative_item["enrichment"]["sentiment"]["sentiment"] == "negative"
         assert negative_item["enrichment"]["sentiment"]["confidence"] > 0.5
 
@@ -174,7 +180,9 @@ class TestPhase2CPipeline:
             assert isinstance(topics["topics"], list)
 
     @pytest.mark.asyncio
-    async def test_blob_storage_integration(self, client, blob_client, sample_processed_data):
+    async def test_blob_storage_integration(
+        self, client, blob_client, sample_processed_data
+    ):
         """Test that enriched content is properly saved to blob storage."""
         # Enrich the processed content
         response = client.post("/enrich/processed", json=sample_processed_data)
@@ -189,17 +197,17 @@ class TestPhase2CPipeline:
         enrichment_id = result["enrichment_id"]
         blobs = blob_client.list_blobs(BlobContainers.ENRICHED_CONTENT)
 
-        enriched_blob_found = any(
-            enrichment_id in blob["name"]
-            for blob in blobs
-        )
-        assert enriched_blob_found, f"Enriched content {enrichment_id} not found in {BlobContainers.ENRICHED_CONTENT}"
+        enriched_blob_found = any(enrichment_id in blob["name"] for blob in blobs)
+        assert (
+            enriched_blob_found
+        ), f"Enriched content {enrichment_id} not found in {BlobContainers.ENRICHED_CONTENT}"
 
         # Download and verify the saved content
         for blob in blobs:
             if enrichment_id in blob["name"]:
                 saved_content = blob_client.download_text(
-                    BlobContainers.ENRICHED_CONTENT, blob["name"])
+                    BlobContainers.ENRICHED_CONTENT, blob["name"]
+                )
                 saved_data = json.loads(saved_content)
 
                 # Verify saved data structure
@@ -215,7 +223,9 @@ class TestPhase2CPipeline:
                 break
 
     @pytest.mark.asyncio
-    async def test_find_unenriched_content(self, client, blob_client, sample_processed_data, setup_processed_in_blob):
+    async def test_find_unenriched_content(
+        self, client, blob_client, sample_processed_data, setup_processed_in_blob
+    ):
         """Test that enricher can find unenriched processed content."""
         # Get status to check unenriched count
         response = client.get("/status")
@@ -228,7 +238,9 @@ class TestPhase2CPipeline:
         assert initial_unenriched >= 1
 
     @pytest.mark.asyncio
-    async def test_enrich_batch_endpoint(self, client, blob_client, sample_processed_data, setup_processed_in_blob):
+    async def test_enrich_batch_endpoint(
+        self, client, blob_client, sample_processed_data, setup_processed_in_blob
+    ):
         """Test batch enrichment of unenriched processed content."""
         # Enrich batch
         response = client.post("/enrich/batch")
@@ -244,8 +256,8 @@ class TestPhase2CPipeline:
 
             # Check if our sample processed content was enriched
             our_content_enriched = any(
-                r.get("process_id") == "process_20250819_140000" and r.get(
-                    "status") == "success"
+                r.get("process_id") == "process_20250819_140000"
+                and r.get("status") == "success"
                 for r in result["results"]
             )
 
@@ -279,8 +291,8 @@ class TestPhase2CPipeline:
                         "original_score": 100,
                         "original_comments": 10,
                         "subreddit": "test",
-                        "reddit_id": f"pipeline_test_{unique_id}"
-                    }
+                        "reddit_id": f"pipeline_test_{unique_id}",
+                    },
                 }
             ],
             "metadata": {
@@ -288,9 +300,9 @@ class TestPhase2CPipeline:
                 "processed_items": 1,
                 "source_collection": f"collection_{unique_id}",
                 "processing_errors": 0,
-                "processor_version": "1.0.0"
+                "processor_version": "1.0.0",
             },
-            "timestamp": datetime.now(timezone.utc).isoformat()
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
         # Save to processed content (simulating processor)
@@ -300,7 +312,7 @@ class TestPhase2CPipeline:
             container_name=BlobContainers.PROCESSED_CONTENT,
             blob_name=blob_name,
             content=json.dumps(processed_data, indent=2),
-            content_type="application/json"
+            content_type="application/json",
         )
 
         # Step 2: Enrich using batch endpoint (simulating automated enrichment)
@@ -336,7 +348,7 @@ class TestPhase2CPipeline:
                 "process_id": process_id,
                 "status": "success",
                 "enrichment_id": direct_result["enrichment_id"],
-                "enriched_items": 1
+                "enriched_items": 1,
             }
 
         assert pipeline_result is not None
@@ -345,15 +357,15 @@ class TestPhase2CPipeline:
         assert pipeline_result["enriched_items"] == 1
 
         # Step 4: Verify enriched content is in blob storage
-        enriched_blobs = blob_client.list_blobs(
-            BlobContainers.ENRICHED_CONTENT)
+        enriched_blobs = blob_client.list_blobs(BlobContainers.ENRICHED_CONTENT)
         enrichment_id = pipeline_result["enrichment_id"]
 
         enriched_blob_found = any(
-            enrichment_id in blob["name"]
-            for blob in enriched_blobs
+            enrichment_id in blob["name"] for blob in enriched_blobs
         )
-        assert enriched_blob_found, f"End-to-end pipeline result {enrichment_id} not found in enriched content"
+        assert (
+            enriched_blob_found
+        ), f"End-to-end pipeline result {enrichment_id} not found in enriched content"
 
     @pytest.mark.asyncio
     async def test_pipeline_statistics_tracking(self, client, sample_processed_data):

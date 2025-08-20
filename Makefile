@@ -213,8 +213,12 @@ scan-summary:
 	fi
 	@echo "" >> security-summary.txt
 	@echo "Semgrep Issues:" >> security-summary.txt
-	@if [ -f python-semgrep-results.json ]; then \
+	@if [ -f security-results/semgrep-results.json ]; then \
+		jq -r '.results | length' security-results/semgrep-results.json >> security-summary.txt 2>/dev/null || echo "No issues found" >> security-summary.txt; \
+	elif [ -f python-semgrep-results.json ]; then \
 		jq -r '.results | length' python-semgrep-results.json >> security-summary.txt 2>/dev/null || echo "No issues found" >> security-summary.txt; \
+	else \
+		echo "No semgrep results found" >> security-summary.txt; \
 	fi
 	@echo "" >> security-summary.txt
 	@echo "Cost Analysis:" >> security-summary.txt
@@ -272,10 +276,7 @@ scan-python:
 		fi; \
 		docker run --rm -v $(PWD):/workspace pyupio/safety:latest check --json --file /workspace/requirements.txt > python-safety-results.json 2>/dev/null || echo "No requirements.txt or vulnerabilities found"; \
 		echo "Running Semgrep for code security analysis..."; \
-		if ! docker images semgrep/semgrep:latest -q | grep -q .; then \
-			docker pull semgrep/semgrep:latest; \
-		fi; \
-		docker run --rm -v $(PWD):/src semgrep/semgrep:latest semgrep --config=auto --json --output=/src/python-semgrep-results.json /src || true; \
+		./scripts/run-semgrep.sh $(PWD) security-results semgrep/semgrep:latest; \
 		echo "🔐 Running Trivy filesystem scan for Python dependencies..."; \
 		docker run --rm -v $(PWD):/workspace -v trivy-cache:/root/.cache/trivy aquasec/trivy:latest filesystem /workspace --skip-dirs .venv,node_modules,containers --scanners vuln --severity HIGH,CRITICAL --format json --output /workspace/python-trivy-results.json || true; \
 		echo "Python security scans completed"; \

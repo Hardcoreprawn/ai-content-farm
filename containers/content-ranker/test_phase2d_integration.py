@@ -5,16 +5,18 @@ Phase 2D Integration Tests - Content Ranker Integration
 Tests the complete enriched → ranked content pipeline integration.
 """
 
-import pytest
-import pytest_asyncio
-import json
 import asyncio
+import json
 import os
 from datetime import datetime, timedelta
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
+import pytest
+import pytest_asyncio
+from ranker import calculate_composite_score, rank_content_items
 from service_logic import ContentRankerService
-from libs.blob_storage import BlobStorageClient, BlobContainers
-from ranker import rank_content_items, calculate_composite_score
+
+from libs.blob_storage import BlobContainers, BlobStorageClient
 
 
 @pytest.mark.asyncio
@@ -38,19 +40,21 @@ class TestPhase2DIntegration:
         try:
             # List and delete enriched test content
             enriched_blobs = self.blob_client.list_blobs(
-                BlobContainers.ENRICHED_CONTENT)
+                BlobContainers.ENRICHED_CONTENT
+            )
             for blob_info in enriched_blobs:
                 if blob_info["name"].startswith("enriched_test_"):
                     self.blob_client.delete_blob(
-                        BlobContainers.ENRICHED_CONTENT, blob_info["name"])
+                        BlobContainers.ENRICHED_CONTENT, blob_info["name"]
+                    )
 
             # List and delete ranked test content
-            ranked_blobs = self.blob_client.list_blobs(
-                BlobContainers.RANKED_CONTENT)
+            ranked_blobs = self.blob_client.list_blobs(BlobContainers.RANKED_CONTENT)
             for blob_info in ranked_blobs:
                 if blob_info["name"].startswith("ranked_test_"):
                     self.blob_client.delete_blob(
-                        BlobContainers.RANKED_CONTENT, blob_info["name"])
+                        BlobContainers.RANKED_CONTENT, blob_info["name"]
+                    )
 
         except Exception as e:
             print(f"Cleanup warning: {e}")
@@ -73,27 +77,27 @@ class TestPhase2DIntegration:
                     "primary_topic": "artificial_intelligence",
                     "confidence": 0.92,
                     "topics": ["technology", "machine_learning", "innovation"],
-                    "categories": ["tech", "science"]
+                    "categories": ["tech", "science"],
                 },
                 "sentiment_analysis": {
                     "sentiment": "positive",
                     "confidence": 0.88,
                     "compound_score": 0.7,
-                    "scores": {"positive": 0.7, "neutral": 0.2, "negative": 0.1}
+                    "scores": {"positive": 0.7, "neutral": 0.2, "negative": 0.1},
                 },
                 "trend_analysis": {
                     "trending": True,
                     "trend_score": 0.9,
                     "velocity": "increasing",
-                    "momentum": "high"
+                    "momentum": "high",
                 },
                 "content_summary": "Revolutionary AI breakthrough announced with significant implications for the tech industry.",
                 "source_metadata": {
                     "platform": "reddit",
                     "subreddit": "MachineLearning",
                     "upvotes": 245,
-                    "comments": 67
-                }
+                    "comments": 67,
+                },
             },
             {
                 "id": "test_002",
@@ -108,27 +112,27 @@ class TestPhase2DIntegration:
                     "primary_topic": "climate_change",
                     "confidence": 0.89,
                     "topics": ["environment", "science", "research"],
-                    "categories": ["science", "environment"]
+                    "categories": ["science", "environment"],
                 },
                 "sentiment_analysis": {
                     "sentiment": "negative",
                     "confidence": 0.75,
                     "compound_score": -0.3,
-                    "scores": {"positive": 0.2, "neutral": 0.3, "negative": 0.5}
+                    "scores": {"positive": 0.2, "neutral": 0.3, "negative": 0.5},
                 },
                 "trend_analysis": {
                     "trending": False,
                     "trend_score": 0.4,
                     "velocity": "stable",
-                    "momentum": "low"
+                    "momentum": "low",
                 },
                 "content_summary": "New climate study reveals concerning environmental trends requiring immediate attention.",
                 "source_metadata": {
                     "platform": "twitter",
                     "user": "climateresearcher",
                     "retweets": 123,
-                    "likes": 456
-                }
+                    "likes": 456,
+                },
             },
             {
                 "id": "test_003",
@@ -143,28 +147,28 @@ class TestPhase2DIntegration:
                     "primary_topic": "finance",
                     "confidence": 0.78,
                     "topics": ["stocks", "technology", "market_analysis"],
-                    "categories": ["finance", "business"]
+                    "categories": ["finance", "business"],
                 },
                 "sentiment_analysis": {
                     "sentiment": "neutral",
                     "confidence": 0.82,
                     "compound_score": 0.1,
-                    "scores": {"positive": 0.4, "neutral": 0.5, "negative": 0.1}
+                    "scores": {"positive": 0.4, "neutral": 0.5, "negative": 0.1},
                 },
                 "trend_analysis": {
                     "trending": False,
                     "trend_score": 0.3,
                     "velocity": "decreasing",
-                    "momentum": "low"
+                    "momentum": "low",
                 },
                 "content_summary": "Analysis of current technology stock market trends and performance indicators.",
                 "source_metadata": {
                     "platform": "news_feed",
                     "source": "FinancialNews",
                     "views": 1250,
-                    "shares": 23
-                }
-            }
+                    "shares": 23,
+                },
+            },
         ]
 
     async def test_enriched_content_retrieval(self):
@@ -175,15 +179,14 @@ class TestPhase2DIntegration:
         for item in test_content:
             blob_name = f"enriched_{item['id']}.json"
             self.blob_client.upload_json(
-                BlobContainers.ENRICHED_CONTENT,
-                blob_name,
-                item
-            )        # Test retrieving all content
+                BlobContainers.ENRICHED_CONTENT, blob_name, item
+            )  # Test retrieving all content
         retrieved_content = await self.ranker_service.get_enriched_content()
 
         # Should find our test content
         test_items = [
-            item for item in retrieved_content if item["id"].startswith("test_")]
+            item for item in retrieved_content if item["id"].startswith("test_")
+        ]
         assert len(test_items) == 3
 
         # Test retrieving specific content
@@ -205,14 +208,14 @@ class TestPhase2DIntegration:
 
         # Items should be sorted by rank score (highest first)
         for i in range(len(ranked_items) - 1):
-            assert ranked_items[i]["final_rank_score"] >= ranked_items[i +
-                                                                       1]["final_rank_score"]
+            assert (
+                ranked_items[i]["final_rank_score"]
+                >= ranked_items[i + 1]["final_rank_score"]
+            )
 
         # Test with custom weights
-        custom_weights = {"engagement": 0.6,
-                          "recency": 0.3, "topic_relevance": 0.1}
-        ranked_custom = rank_content_items(
-            test_content, weights=custom_weights)
+        custom_weights = {"engagement": 0.6, "recency": 0.3, "topic_relevance": 0.1}
+        ranked_custom = rank_content_items(test_content, weights=custom_weights)
 
         assert len(ranked_custom) == 3
 
@@ -224,13 +227,11 @@ class TestPhase2DIntegration:
 
         # Test with target topics
         target_topics = ["artificial_intelligence", "technology"]
-        ranked_topics = rank_content_items(
-            test_content, target_topics=target_topics)
+        ranked_topics = rank_content_items(test_content, target_topics=target_topics)
 
         assert len(ranked_topics) == 3
         # AI content should rank higher with AI target topics
-        ai_item = next(
-            item for item in ranked_topics if item["id"] == "test_001")
+        ai_item = next(item for item in ranked_topics if item["id"] == "test_001")
         assert ai_item["rank_position"] == 1
 
     async def test_batch_ranking_pipeline(self):
@@ -241,17 +242,14 @@ class TestPhase2DIntegration:
         for item in test_content:
             blob_name = f"enriched_{item['id']}.json"
             self.blob_client.upload_json(
-                BlobContainers.ENRICHED_CONTENT,
-                blob_name,
-                item
+                BlobContainers.ENRICHED_CONTENT, blob_name, item
             )
 
         # Run batch ranking
         result = await self.ranker_service.rank_content_batch(
-            weights={"engagement": 0.5, "recency": 0.3,
-                     "topic_relevance": 0.2},
+            weights={"engagement": 0.5, "recency": 0.3, "topic_relevance": 0.2},
             target_topics=["artificial_intelligence"],
-            limit=10
+            limit=10,
         )
 
         # Verify results
@@ -264,16 +262,13 @@ class TestPhase2DIntegration:
         assert len(ranked_items) >= 3
 
         # Verify AI content is ranked highly
-        test_items = [
-            item for item in ranked_items if item["id"].startswith("test_")]
+        test_items = [item for item in ranked_items if item["id"].startswith("test_")]
         ai_item = next(item for item in test_items if item["id"] == "test_001")
         assert ai_item["rank_position"] <= 3  # Should be in top 3
 
         # Verify ranked content was stored
-        ranked_blobs = self.blob_client.list_blobs(
-            BlobContainers.RANKED_CONTENT)
-        test_ranked = [
-            b for b in ranked_blobs if b["name"].startswith("ranked_test_")]
+        ranked_blobs = self.blob_client.list_blobs(BlobContainers.RANKED_CONTENT)
+        test_ranked = [b for b in ranked_blobs if b["name"].startswith("ranked_test_")]
         assert len(test_ranked) >= 3
 
     async def test_specific_content_ranking(self):
@@ -283,11 +278,13 @@ class TestPhase2DIntegration:
         # Test ranking specific items
         ranked_items = await self.ranker_service.rank_specific_content(
             content_items=test_content[:2],  # Only first 2 items
-            weights={"engagement": 0.7, "recency": 0.2, "topic_relevance": 0.1}
+            weights={"engagement": 0.7, "recency": 0.2, "topic_relevance": 0.1},
         )
 
         assert len(ranked_items) == 2
-        assert ranked_items[0]["final_rank_score"] >= ranked_items[1]["final_rank_score"]
+        assert (
+            ranked_items[0]["final_rank_score"] >= ranked_items[1]["final_rank_score"]
+        )
 
         # Test with empty list
         empty_result = await self.ranker_service.rank_specific_content([])
@@ -307,18 +304,25 @@ class TestPhase2DIntegration:
         assert "weights_used" in scores
 
         # Scores should be normalized (0-1)
-        for score_key in ["engagement_score", "recency_score", "topic_relevance_score", "composite_score"]:
+        for score_key in [
+            "engagement_score",
+            "recency_score",
+            "topic_relevance_score",
+            "composite_score",
+        ]:
             score = scores[score_key]
             assert 0.0 <= score <= 1.0
 
         # Test with target topics
         scores_with_topics = calculate_composite_score(
-            test_item,
-            target_topics=["artificial_intelligence", "technology"]
+            test_item, target_topics=["artificial_intelligence", "technology"]
         )
 
         # Topic relevance should be higher with matching topics
-        assert scores_with_topics["topic_relevance_score"] > scores["topic_relevance_score"]
+        assert (
+            scores_with_topics["topic_relevance_score"]
+            > scores["topic_relevance_score"]
+        )
 
     async def test_service_status(self):
         """Test service status endpoint."""
@@ -328,9 +332,7 @@ class TestPhase2DIntegration:
         for item in test_content:
             blob_name = f"enriched_{item['id']}.json"
             self.blob_client.upload_json(
-                BlobContainers.ENRICHED_CONTENT,
-                blob_name,
-                item
+                BlobContainers.ENRICHED_CONTENT, blob_name, item
             )
 
         # Get status
@@ -371,11 +373,17 @@ class TestPhase2DIntegration:
 
         for ranked_item in ranked_items:
             original_item = next(
-                item for item in test_content if item["id"] == ranked_item["id"])
+                item for item in test_content if item["id"] == ranked_item["id"]
+            )
 
             # Check that enrichment data is preserved
-            assert ranked_item["topic_classification"] == original_item["topic_classification"]
-            assert ranked_item["sentiment_analysis"] == original_item["sentiment_analysis"]
+            assert (
+                ranked_item["topic_classification"]
+                == original_item["topic_classification"]
+            )
+            assert (
+                ranked_item["sentiment_analysis"] == original_item["sentiment_analysis"]
+            )
             assert ranked_item["trend_analysis"] == original_item["trend_analysis"]
             assert ranked_item["content_summary"] == original_item["content_summary"]
 
@@ -392,16 +400,13 @@ class TestPhase2DIntegration:
         for item in test_content:
             blob_name = f"enriched_{item['id']}.json"
             self.blob_client.upload_json(
-                BlobContainers.ENRICHED_CONTENT,
-                blob_name,
-                item
+                BlobContainers.ENRICHED_CONTENT, blob_name, item
             )
 
         # 2. Run complete ranking pipeline
         pipeline_result = await self.ranker_service.rank_content_batch(
-            weights={"engagement": 0.4, "recency": 0.35,
-                     "topic_relevance": 0.25},
-            limit=5
+            weights={"engagement": 0.4, "recency": 0.35, "topic_relevance": 0.25},
+            limit=5,
         )
 
         # 3. Verify pipeline results
@@ -409,8 +414,7 @@ class TestPhase2DIntegration:
         assert len(pipeline_result["ranked_items"]) >= 3
 
         # 4. Verify content is stored in ranked container
-        ranked_blobs = self.blob_client.list_blobs(
-            BlobContainers.RANKED_CONTENT)
+        ranked_blobs = self.blob_client.list_blobs(BlobContainers.RANKED_CONTENT)
         ranked_test_blobs = [b for b in ranked_blobs if "test_" in b["name"]]
         assert len(ranked_test_blobs) >= 3
 
@@ -418,17 +422,14 @@ class TestPhase2DIntegration:
         for blob_info in ranked_test_blobs:
             if blob_info["name"].startswith("test_ranked_"):
                 ranked_data = self.blob_client.download_json(
-                    BlobContainers.RANKED_CONTENT,
-                    blob_info["name"]
+                    BlobContainers.RANKED_CONTENT, blob_info["name"]
                 )
                 assert "ranking_scores" in ranked_data
                 assert "final_rank_score" in ranked_data
 
         print(f"✅ Phase 2D Integration: Complete enriched → ranked pipeline working")
-        print(
-            f"   - Processed {pipeline_result['total_processed']} enriched items")
-        print(
-            f"   - Returned {len(pipeline_result['ranked_items'])} ranked items")
+        print(f"   - Processed {pipeline_result['total_processed']} enriched items")
+        print(f"   - Returned {len(pipeline_result['ranked_items'])} ranked items")
         print(f"   - Stored {len(ranked_test_blobs)} ranked content files")
 
 

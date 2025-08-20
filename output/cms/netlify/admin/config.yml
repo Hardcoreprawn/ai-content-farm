@@ -1,30 +1,34 @@
 backend:
   branch: main
   name: git-gateway
+
 collections:
-- create: true
-  fields:
-  - label: Title
-    name: title
-    widget: string
-  - label: Date
-    name: date
-    widget: datetime
-  - label: Summary
-    name: summary
-    widget: text
-  - label: Tags
-    name: tags
-    widget: list
-  - label: Featured
-    name: featured
-    widget: boolean
-  - label: Body
-    name: body
-    widget: markdown
-  folder: content/posts
-  label: AI Curated Posts
-  name: posts
-  slug: '{{year}}-{{month}}-{{day}}-{{slug}}'
+  - create: true
+    fields:
+      - label: Title
+        name: title
+      - label: Title
+        name: title
+        widget: string
+      - label: Date
+        name: date
+        widget: datetime
+      - label: Summary
+        name: summary
+        widget: text
+      - label: Tags
+        name: tags
+        widget: list
+      - label: Featured
+        name: featured
+        widget: boolean
+      - label: Body
+        name: body
+        widget: markdown
+    folder: content/posts
+    label: AI Curated Posts
+    name: posts
+    slug: '{{year}}-{{month}}-{{day}}-{{slug}}'
+
 media_folder: static/images
 public_folder: /images

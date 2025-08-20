@@ -3,15 +3,15 @@
 Test script for content generator integration
 """
 
-import os
 import asyncio
-import sys
 import json
+import os
+import sys
 from datetime import datetime
 
 # Add the containers directory to the path
-sys.path.append('/workspaces/ai-content-farm/containers/content-generator')
-sys.path.append('/workspaces/ai-content-farm')
+sys.path.append("/workspaces/ai-content-farm/containers/content-generator")
+sys.path.append("/workspaces/ai-content-farm")
 
 
 async def test_content_generator():
@@ -26,7 +26,7 @@ async def test_content_generator():
 
     try:
         # Import content generator modules
-        from models import RankedTopic, GenerationRequest
+        from models import GenerationRequest, RankedTopic
         from service_logic import ContentGeneratorService
 
         print("✅ Successfully imported content generator modules")
@@ -36,11 +36,10 @@ async def test_content_generator():
         print("✅ Successfully created content generator service")
 
         # Test blob client health
-        if hasattr(service, 'blob_client'):
+        if hasattr(service, "blob_client"):
             health = service.blob_client.health_check()
             print(f"📊 Blob Storage Health: {health['status']}")
-            print(
-                f"   Connection Type: {health.get('connection_type', 'unknown')}")
+            print(f"   Connection Type: {health.get('connection_type', 'unknown')}")
 
         # Create a sample ranked topic
         sample_topic = RankedTopic(
@@ -52,7 +51,7 @@ async def test_content_generator():
                     "title": "AI Transforming Healthcare",
                     "summary": "AI is revolutionizing medical diagnosis and treatment",
                     "content": "Artificial intelligence applications in healthcare are showing promising results...",
-                    "metadata": {"source_type": "research_article"}
+                    "metadata": {"source_type": "research_article"},
                 }
             ],
             rank=1,
@@ -62,8 +61,8 @@ async def test_content_generator():
             metadata={
                 "category": "technology",
                 "keywords": ["AI", "healthcare", "machine learning"],
-                "timestamp": datetime.utcnow().isoformat()
-            }
+                "timestamp": datetime.utcnow().isoformat(),
+            },
         )
 
         print("📋 Created sample ranked topic:")
@@ -75,31 +74,34 @@ async def test_content_generator():
 
         # Check if we have Azure OpenAI configured
         azure_openai_configured = bool(
-            os.getenv("AZURE_OPENAI_ENDPOINT") and os.getenv("AZURE_OPENAI_API_KEY"))
+            os.getenv("AZURE_OPENAI_ENDPOINT") and os.getenv("AZURE_OPENAI_API_KEY")
+        )
         openai_configured = bool(os.getenv("OPENAI_API_KEY"))
 
         if not azure_openai_configured and not openai_configured:
             print(
-                "⚠️  No AI service API keys configured - skipping content generation test")
+                "⚠️  No AI service API keys configured - skipping content generation test"
+            )
             print(
-                "   Set AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY or OPENAI_API_KEY to test generation")
+                "   Set AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY or OPENAI_API_KEY to test generation"
+            )
         else:
             print(
-                f"🔑 AI Service configured: {'Azure OpenAI' if azure_openai_configured else 'OpenAI'}")
+                f"🔑 AI Service configured: {'Azure OpenAI' if azure_openai_configured else 'OpenAI'}"
+            )
 
             try:
                 # Generate a TL;DR
                 generated_content = await service.generate_content(
                     topic=sample_topic,
                     content_type="tldr",
-                    writer_personality="professional"
+                    writer_personality="professional",
                 )
 
                 print("✅ Successfully generated content!")
                 print(f"   Title: {generated_content.title}")
                 print(f"   Content Type: {generated_content.content_type}")
-                print(
-                    f"   Word Count: {len(generated_content.content.split())}")
+                print(f"   Word Count: {len(generated_content.content.split())}")
 
             except Exception as e:
                 print(f"⚠️  Content generation failed: {e}")
@@ -111,8 +113,10 @@ async def test_content_generator():
     except Exception as e:
         print(f"❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     result = asyncio.run(test_content_generator())

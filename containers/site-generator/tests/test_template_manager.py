@@ -5,14 +5,15 @@ Tests for Template Manager
 Tests the new blob-based template loading system.
 """
 
-from template_manager import TemplateManager, BlobTemplateLoader, LocalTemplateLoader
-import pytest
+import sys
 import tempfile
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-import sys
-sys.path.append('/workspaces/ai-content-farm')
+import pytest
+from template_manager import BlobTemplateLoader, LocalTemplateLoader, TemplateManager
+
+sys.path.append("/workspaces/ai-content-farm")
 
 
 class TestBlobTemplateLoader:
@@ -59,8 +60,7 @@ class TestBlobTemplateLoader:
 
     def test_blob_loader_template_not_found(self, mock_blob_client):
         """Test handling of missing templates"""
-        mock_blob_client.download_text.side_effect = Exception(
-            "Blob not found")
+        mock_blob_client.download_text.side_effect = Exception("Blob not found")
 
         loader = BlobTemplateLoader(mock_blob_client)
 
@@ -113,21 +113,22 @@ class TestTemplateManager:
         assert manager.use_local is False
         assert manager.jinja_env is not None
 
-    @patch('template_manager.LocalTemplateLoader')
-    def test_render_template_local(self, mock_local_loader, mock_blob_client, temp_templates_dir):
+    @patch("template_manager.LocalTemplateLoader")
+    def test_render_template_local(
+        self, mock_local_loader, mock_blob_client, temp_templates_dir
+    ):
         """Test template rendering in local mode"""
         # Setup mock to return a real template loader
-        mock_local_loader.return_value = LocalTemplateLoader(
-            temp_templates_dir)
+        mock_local_loader.return_value = LocalTemplateLoader(temp_templates_dir)
 
         manager = TemplateManager(mock_blob_client, use_local=True)
 
         # Test rendering with context
-        result = manager.render_template("index.html",
-                                         site_metadata={"title": "Test Site"},
-                                         articles=[
-                                             {"title": "Test Article", "ranking_score": 0.9}]
-                                         )
+        result = manager.render_template(
+            "index.html",
+            site_metadata={"title": "Test Site"},
+            articles=[{"title": "Test Article", "ranking_score": 0.9}],
+        )
 
         assert "Test Site" in result
         assert "Test Article" in result
@@ -156,7 +157,8 @@ class TestTemplateManager:
 
         assert assets["assets/style.css"] == "body { color: red; }"
         mock_blob_client.download_text.assert_called_with(
-            "site-templates", "templates/style.css")
+            "site-templates", "templates/style.css"
+        )
 
     def test_upload_templates_to_blob(self, mock_blob_client, temp_templates_dir):
         """Test uploading local templates to blob storage"""
@@ -164,20 +166,23 @@ class TestTemplateManager:
         manager = TemplateManager(mock_blob_client, use_local=True)
 
         # Mock the template directory to point to our test templates
-        with patch('template_manager.Path') as mock_path:
+        with patch("template_manager.Path") as mock_path:
             mock_path.return_value.exists.return_value = True
             mock_path.return_value.glob.return_value = [
                 Path(temp_templates_dir) / "base.html",
-                Path(temp_templates_dir) / "index.html"
+                Path(temp_templates_dir) / "index.html",
             ]
-            mock_path.return_value.__truediv__ = lambda self, other: Path(
-                temp_templates_dir) / other
+            mock_path.return_value.__truediv__ = (
+                lambda self, other: Path(temp_templates_dir) / other
+            )
 
             # Mock file reading
             def mock_read_text(*args, **kwargs):
                 return "<html>Mock template content</html>"
 
-            with patch.object(Path, 'read_text', return_value="<html>Mock template content</html>"):
+            with patch.object(
+                Path, "read_text", return_value="<html>Mock template content</html>"
+            ):
                 result = manager.upload_templates_to_blob()
 
                 assert result is True
@@ -188,30 +193,40 @@ class TestTemplateManager:
 class TestTemplateManagerIntegration:
     """Integration tests for template manager with real templates"""
 
-    def test_full_site_generation_flow(self, mock_blob_client, temp_templates_dir, sample_ranked_content, test_site_metadata):
+    def test_full_site_generation_flow(
+        self,
+        mock_blob_client,
+        temp_templates_dir,
+        sample_ranked_content,
+        test_site_metadata,
+    ):
         """Test the complete flow from ranked content to rendered HTML"""
         manager = TemplateManager(mock_blob_client, use_local=True)
 
         # Mock the local template directory
-        with patch.object(manager.jinja_env.loader, 'template_dir', Path(temp_templates_dir)):
+        with patch.object(
+            manager.jinja_env.loader, "template_dir", Path(temp_templates_dir)
+        ):
             # Render index page
             index_html = manager.render_template(
                 "index.html",
                 site_metadata=test_site_metadata,
-                articles=sample_ranked_content["ranked_topics"]
+                articles=sample_ranked_content["ranked_topics"],
             )
 
             # Verify content is rendered correctly
             assert test_site_metadata["title"] in index_html
             assert sample_ranked_content["ranked_topics"][0]["title"] in index_html
-            assert str(
-                sample_ranked_content["ranked_topics"][0]["ranking_score"]) in index_html
+            assert (
+                str(sample_ranked_content["ranked_topics"][0]["ranking_score"])
+                in index_html
+            )
 
             # Render individual article
             article_html = manager.render_template(
                 "article.html",
                 title=sample_ranked_content["ranked_topics"][0]["title"],
-                article=sample_ranked_content["ranked_topics"][0]
+                article=sample_ranked_content["ranked_topics"][0],
             )
 
             # Verify article content
@@ -223,8 +238,7 @@ class TestTemplateManagerIntegration:
         manager = TemplateManager(mock_blob_client, use_local=False)
 
         # Mock blob client to fail
-        mock_blob_client.download_text.side_effect = Exception(
-            "Template not found")
+        mock_blob_client.download_text.side_effect = Exception("Template not found")
 
         with pytest.raises(Exception):
             manager.render_template("missing-template.html", data="test")

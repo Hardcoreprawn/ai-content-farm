@@ -5,15 +5,16 @@ Unit tests for content-ranker service logic.
 Tests the ranking algorithms and service layer functionality.
 """
 
-import json
-import pytest
 import datetime
-from typing import List, Dict, Any
-from unittest.mock import Mock, patch, AsyncMock
+import json
+from typing import Any, Dict, List
+from unittest.mock import AsyncMock, Mock, patch
+
+import pytest
+from ranker import rank_content_items
 
 # Import service logic to test
 from service_logic import ContentRankerService
-from ranker import rank_content_items
 
 
 def create_test_content() -> List[Dict[str, Any]]:
@@ -33,24 +34,24 @@ def create_test_content() -> List[Dict[str, Any]]:
             "topic_classification": {
                 "primary_topic": "artificial_intelligence",
                 "confidence": 0.92,
-                "categories": ["technology", "machine_learning", "innovation"]
+                "categories": ["technology", "machine_learning", "innovation"],
             },
             "sentiment_analysis": {
                 "sentiment": "positive",
                 "confidence": 0.88,
-                "compound_score": 0.7
+                "compound_score": 0.7,
             },
             "trend_analysis": {
                 "trending": True,
                 "trend_score": 0.9,
-                "velocity": "increasing"
+                "velocity": "increasing",
             },
             "source_metadata": {
                 "platform": "reddit",
                 "subreddit": "MachineLearning",
                 "upvotes": 245,
-                "comments": 67
-            }
+                "comments": 67,
+            },
         },
         {
             "id": "test_002",
@@ -63,24 +64,24 @@ def create_test_content() -> List[Dict[str, Any]]:
             "topic_classification": {
                 "primary_topic": "quantum_computing",
                 "confidence": 0.89,
-                "categories": ["technology", "quantum", "computing"]
+                "categories": ["technology", "quantum", "computing"],
             },
             "sentiment_analysis": {
                 "sentiment": "neutral",
                 "confidence": 0.75,
-                "compound_score": 0.1
+                "compound_score": 0.1,
             },
             "trend_analysis": {
                 "trending": False,
                 "trend_score": 0.3,
-                "velocity": "stable"
+                "velocity": "stable",
             },
             "source_metadata": {
                 "platform": "reddit",
                 "subreddit": "quantum",
                 "upvotes": 156,
-                "comments": 34
-            }
+                "comments": 34,
+            },
         },
         {
             "id": "test_003",
@@ -93,25 +94,25 @@ def create_test_content() -> List[Dict[str, Any]]:
             "topic_classification": {
                 "primary_topic": "cybersecurity",
                 "confidence": 0.85,
-                "categories": ["security", "technology", "threats"]
+                "categories": ["security", "technology", "threats"],
             },
             "sentiment_analysis": {
                 "sentiment": "negative",
                 "confidence": 0.80,
-                "compound_score": -0.3
+                "compound_score": -0.3,
             },
             "trend_analysis": {
                 "trending": True,
                 "trend_score": 0.7,
-                "velocity": "increasing"
+                "velocity": "increasing",
             },
             "source_metadata": {
                 "platform": "reddit",
                 "subreddit": "cybersecurity",
                 "upvotes": 98,
-                "comments": 23
-            }
-        }
+                "comments": 23,
+            },
+        },
     ]
 
     return test_items
@@ -123,7 +124,7 @@ class TestRankingService:
     @pytest.fixture
     def mock_blob_client(self):
         """Mock blob storage client."""
-        with patch('service_logic.BlobStorageClient') as mock:
+        with patch("service_logic.BlobStorageClient") as mock:
             yield mock.return_value
 
     @pytest.fixture
@@ -148,8 +149,10 @@ class TestRankingService:
 
         # Verify ranking order (higher scores should be ranked first)
         for i in range(len(ranked_items) - 1):
-            assert ranked_items[i]["final_rank_score"] >= ranked_items[i +
-                                                                       1]["final_rank_score"]
+            assert (
+                ranked_items[i]["final_rank_score"]
+                >= ranked_items[i + 1]["final_rank_score"]
+            )
 
         print(f"Successfully ranked {len(ranked_items)} items")
 
@@ -160,16 +163,12 @@ class TestRankingService:
         test_content = create_test_content()
 
         # Test with custom weights
-        custom_weights = {
-            "engagement": 0.6,
-            "recency": 0.2,
-            "topic_relevance": 0.2
-        }
+        custom_weights = {"engagement": 0.6, "recency": 0.2, "topic_relevance": 0.2}
 
         ranked_items = rank_content_items(
             test_content,
             weights=custom_weights,
-            target_topics=["artificial_intelligence"]
+            target_topics=["artificial_intelligence"],
         )
 
         assert len(ranked_items) > 0
@@ -181,8 +180,7 @@ class TestRankingService:
             weights_used = first_item["ranking_scores"].get("weights_used", {})
             assert weights_used.get("engagement") == 0.6
 
-        print(
-            f"Successfully ranked {len(ranked_items)} items with custom weights")
+        print(f"Successfully ranked {len(ranked_items)} items with custom weights")
 
     def test_ranking_edge_cases(self):
         """Test ranking with edge cases."""
@@ -244,7 +242,7 @@ class TestRankingService:
         # Mock enriched content retrieval
         mock_blob_client.list_blobs.return_value = [
             {"name": "enriched_test_001.json"},
-            {"name": "enriched_test_002.json"}
+            {"name": "enriched_test_002.json"},
         ]
         mock_blob_client.download_json.side_effect = create_test_content()
 

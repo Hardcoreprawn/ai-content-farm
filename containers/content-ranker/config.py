@@ -5,9 +5,9 @@ Configuration module for Content Ranker service.
 Handles environment variables, Azure connectivity, and health checks.
 """
 
-import os
 import logging
-from typing import Dict, Any, Optional
+import os
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -24,34 +24,30 @@ def get_config() -> Dict[str, Any]:
         "log_level": os.getenv("LOG_LEVEL", "INFO"),
         "service_name": "content-ranker",
         "service_version": "1.0.0",
-
         # API Configuration
         "api_host": os.getenv("API_HOST", "0.0.0.0"),
         "api_port": int(os.getenv("API_PORT", "8000")),
-
         # Ranking Configuration
         "default_weights": {
             "engagement": float(os.getenv("WEIGHT_ENGAGEMENT", "0.4")),
             "recency": float(os.getenv("WEIGHT_RECENCY", "0.35")),
-            "topic_relevance": float(os.getenv("WEIGHT_TOPIC_RELEVANCE", "0.25"))
+            "topic_relevance": float(os.getenv("WEIGHT_TOPIC_RELEVANCE", "0.25")),
         },
         "recency_half_life_hours": float(os.getenv("RECENCY_HALF_LIFE_HOURS", "24")),
         "max_ranking_items": int(os.getenv("MAX_RANKING_ITEMS", "1000")),
-
         # Azure Configuration
         "azure_storage_account": os.getenv("AZURE_STORAGE_ACCOUNT"),
         "azure_key_vault_url": os.getenv("AZURE_KEY_VAULT_URL"),
         "azure_resource_group": os.getenv("AZURE_RESOURCE_GROUP"),
-
         # Performance Configuration
         "request_timeout": int(os.getenv("REQUEST_TIMEOUT", "30")),
         # 1MB
         "max_content_length": int(os.getenv("MAX_CONTENT_LENGTH", "1048576")),
-
         # Feature Flags
         "enable_caching": os.getenv("ENABLE_CACHING", "false").lower() == "true",
         "enable_metrics": os.getenv("ENABLE_METRICS", "true").lower() == "true",
-        "enable_azure_logging": os.getenv("ENABLE_AZURE_LOGGING", "false").lower() == "true",
+        "enable_azure_logging": os.getenv("ENABLE_AZURE_LOGGING", "false").lower()
+        == "true",
     }
 
     return config
@@ -68,11 +64,12 @@ def health_check() -> Dict[str, Any]:
         "status": "healthy",
         "service": "content-ranker",
         "timestamp": None,
-        "checks": {}
+        "checks": {},
     }
 
     try:
         import datetime
+
         health_status["timestamp"] = datetime.datetime.utcnow().isoformat()
 
         # Check basic service functionality
@@ -89,13 +86,15 @@ def health_check() -> Dict[str, Any]:
 
         # Determine overall status
         failed_checks = [
-            name for name, check in health_status["checks"].items()
+            name
+            for name, check in health_status["checks"].items()
             if check["status"] != "healthy"
         ]
 
         if failed_checks:
-            health_status["status"] = "degraded" if len(
-                failed_checks) == 1 else "unhealthy"
+            health_status["status"] = (
+                "degraded" if len(failed_checks) == 1 else "unhealthy"
+            )
             health_status["failed_checks"] = failed_checks
 
     except Exception as e:
@@ -122,31 +121,30 @@ def check_basic_functionality() -> Dict[str, Any]:
             "id": "test",
             "title": "Test",
             "engagement_score": 0.5,
-            "published_at": "2024-01-01T00:00:00Z"
+            "published_at": "2024-01-01T00:00:00Z",
         }
         test_score = calculate_engagement_score(test_item)
         test_recency = calculate_recency_score(test_item)
 
-        if isinstance(test_score, (int, float)) and isinstance(test_recency, (int, float)):
-            return {
-                "status": "healthy",
-                "message": "Basic functionality operational"
-            }
+        if isinstance(test_score, (int, float)) and isinstance(
+            test_recency, (int, float)
+        ):
+            return {"status": "healthy", "message": "Basic functionality operational"}
         else:
             return {
                 "status": "unhealthy",
-                "message": "Ranking algorithms returning invalid types"
+                "message": "Ranking algorithms returning invalid types",
             }
 
     except ImportError as e:
         return {
             "status": "unhealthy",
-            "message": f"Failed to import ranking modules: {e}"
+            "message": f"Failed to import ranking modules: {e}",
         }
     except Exception as e:
         return {
             "status": "unhealthy",
-            "message": f"Basic functionality test failed: {e}"
+            "message": f"Basic functionality test failed: {e}",
         }
 
 
@@ -160,11 +158,13 @@ def check_azure_connectivity() -> Optional[Dict[str, Any]]:
     config = get_config()
 
     # Skip if Azure not configured
-    if not any([
-        config.get("azure_storage_account"),
-        config.get("azure_key_vault_url"),
-        config.get("azure_resource_group")
-    ]):
+    if not any(
+        [
+            config.get("azure_storage_account"),
+            config.get("azure_key_vault_url"),
+            config.get("azure_resource_group"),
+        ]
+    ):
         return None
 
     try:
@@ -186,15 +186,12 @@ def check_azure_connectivity() -> Optional[Dict[str, Any]]:
         return {
             "status": "healthy",
             "message": "Azure configuration available",
-            "checks": checks
+            "checks": checks,
         }
 
     except Exception as e:
         logger.error(f"Azure connectivity check failed: {e}")
-        return {
-            "status": "unhealthy",
-            "message": f"Azure connectivity failed: {e}"
-        }
+        return {"status": "unhealthy", "message": f"Azure connectivity failed: {e}"}
 
 
 def check_configuration() -> Dict[str, Any]:
@@ -214,8 +211,7 @@ def check_configuration() -> Dict[str, Any]:
         weights = config["default_weights"]
         weights_sum = sum(weights.values())
         if not (0.8 <= weights_sum <= 1.2):
-            issues.append(
-                f"Weights sum ({weights_sum}) should be close to 1.0")
+            issues.append(f"Weights sum ({weights_sum}) should be close to 1.0")
 
         # Check positive values
         if config["recency_half_life_hours"] <= 0:
@@ -232,19 +228,13 @@ def check_configuration() -> Dict[str, Any]:
             return {
                 "status": "unhealthy",
                 "message": "Configuration validation failed",
-                "issues": issues
+                "issues": issues,
             }
         else:
-            return {
-                "status": "healthy",
-                "message": "Configuration valid"
-            }
+            return {"status": "healthy", "message": "Configuration valid"}
 
     except Exception as e:
-        return {
-            "status": "unhealthy",
-            "message": f"Configuration check failed: {e}"
-        }
+        return {"status": "unhealthy", "message": f"Configuration check failed: {e}"}
 
 
 def get_ranking_defaults() -> Dict[str, Any]:
@@ -259,5 +249,5 @@ def get_ranking_defaults() -> Dict[str, Any]:
     return {
         "weights": config["default_weights"],
         "recency_half_life_hours": config["recency_half_life_hours"],
-        "max_items": config["max_ranking_items"]
+        "max_items": config["max_ranking_items"],
     }

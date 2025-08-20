@@ -6,27 +6,33 @@ Ranks enriched content using multi-factor scoring algorithms.
 API endpoints for content ranking and health monitoring.
 """
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from pydantic import BaseModel, Field, ValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from typing import List, Dict, Any, Optional
-from contextlib import asynccontextmanager
-import uvicorn
-import logging
 import json
+import logging
 import os
+from contextlib import asynccontextmanager
+from typing import Any, Dict, List, Optional
+
+import uvicorn
+from config import get_config, health_check
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from models import (
+    BatchRankingRequest,
+    ContentItem,
+    HealthResponse,
+    RankedItem,
+    RankingOptions,
+    RankingRequest,
+    RankingResponse,
+    SpecificRankingRequest,
+)
+from pydantic import BaseModel, Field, ValidationError
 
 # Import our business logic
 from ranker import rank_content_items
-from config import get_config, health_check
 from service_logic import ContentRankerService
-from models import (
-    ContentItem, RankingOptions, RankingRequest, RankedItem,
-    RankingResponse, HealthResponse, BatchRankingRequest,
-    SpecificRankingRequest
-)
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -58,7 +64,7 @@ app = FastAPI(
     title="Content Ranker",
     description="Ranks enriched content using multi-factor scoring algorithms",
     version="1.0.0",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Global exception handlers
@@ -69,8 +75,7 @@ async def value_error_handler(request: Request, exc: ValueError):
     """Handle value errors"""
     logger.error(f"Value error: {exc}")
     return JSONResponse(
-        status_code=400,
-        content={"detail": "Invalid input data", "error": str(exc)}
+        status_code=400, content={"detail": "Invalid input data", "error": str(exc)}
     )
 
 
@@ -79,8 +84,7 @@ async def json_error_handler(request: Request, exc: json.JSONDecodeError):
     """Handle JSON decode errors"""
     logger.error(f"JSON decode error: {exc}")
     return JSONResponse(
-        status_code=400,
-        content={"detail": "Malformed JSON", "error": str(exc)}
+        status_code=400, content={"detail": "Malformed JSON", "error": str(exc)}
     )
 
 
@@ -90,14 +94,9 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     logger.error(f"Validation error: {exc}")
     errors = []
     for error in exc.errors():
-        errors.append({
-            "loc": error["loc"],
-            "msg": error["msg"],
-            "type": error["type"]
-        })
+        errors.append({"loc": error["loc"], "msg": error["msg"], "type": error["type"]})
     return JSONResponse(
-        status_code=422,
-        content={"detail": "Validation error", "errors": errors}
+        status_code=422, content={"detail": "Validation error", "errors": errors}
     )
 
 
@@ -105,23 +104,18 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
 async def http_error_handler(request: Request, exc: StarletteHTTPException):
     """Handle HTTP exceptions"""
     logger.error(f"HTTP error {exc.status_code}: {exc.detail}")
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={"detail": exc.detail}
-    )
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 @app.exception_handler(Exception)
 async def general_error_handler(request: Request, exc: Exception):
     """Handle unexpected errors"""
     logger.error(f"Unexpected error: {exc}", exc_info=True)
-    return JSONResponse(
-        status_code=500,
-        content={"detail": "Internal server error"}
-    )
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 # API Routes
+
 
 @app.get("/", response_model=Dict[str, str])
 async def root():
@@ -129,7 +123,7 @@ async def root():
     return {
         "service": "content-ranker",
         "version": "1.0.0",
-        "description": "Content ranking service with multi-factor scoring"
+        "description": "Content ranking service with multi-factor scoring",
     }
 
 
@@ -147,15 +141,12 @@ async def health():
         return HealthResponse(
             status=health_status["status"],
             service="content-ranker",
-            azure_connectivity=health_status.get("azure_connectivity")
+            azure_connectivity=health_status.get("azure_connectivity"),
         )
 
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        raise HTTPException(
-            status_code=503,
-            detail="Service unhealthy"
-        )
+        raise HTTPException(status_code=503, detail="Service unhealthy")
 
 
 @app.get("/status")
@@ -171,10 +162,7 @@ async def get_status():
         return status
     except Exception as e:
         logger.error(f"Status check failed: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to get service status"
-        )
+        raise HTTPException(status_code=500, detail="Failed to get service status")
 
 
 @app.post("/rank/enriched")
@@ -189,15 +177,12 @@ async def rank_enriched_content(request: BatchRankingRequest):
         result = await ranker_service.rank_content_batch(
             weights=request.weights,
             target_topics=request.target_topics,
-            limit=request.limit
+            limit=request.limit,
         )
         return result
     except Exception as e:
         logger.error(f"Enriched content ranking failed: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to rank enriched content"
-        )
+        raise HTTPException(status_code=500, detail="Failed to rank enriched content")
 
 
 @app.post("/rank/batch")
@@ -215,15 +200,12 @@ async def rank_content_batch_endpoint(request: BatchRankingRequest):
         result = await ranker_service.rank_content_batch(
             weights=request.weights,
             target_topics=request.target_topics,
-            limit=request.limit
+            limit=request.limit,
         )
         return result
     except Exception as e:
         logger.error(f"Batch ranking failed: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to process batch ranking"
-        )
+        raise HTTPException(status_code=500, detail="Failed to process batch ranking")
 
 
 @app.post("/rank", response_model=RankingResponse)
@@ -249,7 +231,7 @@ async def rank_content(request: SpecificRankingRequest):
             content_items=request.content_items,
             weights=request.weights,
             target_topics=request.target_topics,
-            limit=request.limit
+            limit=request.limit,
         )
 
         # Create response metadata
@@ -257,20 +239,14 @@ async def rank_content(request: SpecificRankingRequest):
             "total_items_processed": len(request.content_items),
             "items_returned": len(ranked_items),
             "ranking_algorithm": "multi_factor_composite",
-            "factors_used": ["engagement", "recency", "topic_relevance"]
+            "factors_used": ["engagement", "recency", "topic_relevance"],
         }
 
-        return RankingResponse(
-            ranked_items=ranked_items,
-            metadata=metadata
-        )
+        return RankingResponse(ranked_items=ranked_items, metadata=metadata)
 
     except Exception as e:
         logger.error(f"Content ranking failed: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to rank content items"
-        )
+        raise HTTPException(status_code=500, detail="Failed to rank content items")
 
 
 if __name__ == "__main__":
@@ -279,5 +255,5 @@ if __name__ == "__main__":
         "main:app",
         host="0.0.0.0",
         port=8000,
-        reload=config.get("environment") == "development"
+        reload=config.get("environment") == "development",
     )

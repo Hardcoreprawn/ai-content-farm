@@ -2,9 +2,10 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any
+from typing import Any, Dict
 
 from config import config
+
 from libs.blob_storage import BlobStorageClient
 
 logger = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ class HealthChecker:
                 "status": "healthy",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "version": config.VERSION,
-                "checks": {}
+                "checks": {},
             }
 
             # Check blob storage connectivity
@@ -47,8 +48,8 @@ class HealthChecker:
                 "status": "healthy" if blob_healthy else "unhealthy",
                 "containers": {
                     "ranked_content": config.RANKED_CONTENT_CONTAINER,
-                    "generated_content": config.GENERATED_CONTENT_CONTAINER
-                }
+                    "generated_content": config.GENERATED_CONTENT_CONTAINER,
+                },
             }
 
             # Check configuration
@@ -58,8 +59,8 @@ class HealthChecker:
                 "required_settings": [
                     "AZURE_STORAGE_CONNECTION_STRING",
                     "RANKED_CONTENT_CONTAINER",
-                    "GENERATED_CONTENT_CONTAINER"
-                ]
+                    "GENERATED_CONTENT_CONTAINER",
+                ],
             }
 
             # Overall status
@@ -74,7 +75,7 @@ class HealthChecker:
                 "service": config.SERVICE_NAME,
                 "status": "unhealthy",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "error": str(e)
+                "error": str(e),
             }
 
     def _check_configuration(self) -> bool:
@@ -102,7 +103,7 @@ class HealthChecker:
                 "service": config.SERVICE_NAME,
                 "version": config.VERSION,
                 "status": "running",
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
             # Content watcher status
@@ -111,7 +112,7 @@ class HealthChecker:
             else:
                 status["content_watcher"] = {
                     "watching": False,
-                    "status": "not_initialized"
+                    "status": "not_initialized",
                 }
 
             # Blob storage status
@@ -128,20 +129,22 @@ class HealthChecker:
                 "healthy": blob_healthy,
                 "containers": {
                     "ranked_content": config.RANKED_CONTENT_CONTAINER,
-                    "generated_content": config.GENERATED_CONTENT_CONTAINER
-                }
+                    "generated_content": config.GENERATED_CONTENT_CONTAINER,
+                },
             }
 
             # File statistics - get basic blob counts
             try:
                 ranked_blobs = self.blob_client.list_blobs(
-                    config.RANKED_CONTENT_CONTAINER, "ranked-content/")
+                    config.RANKED_CONTENT_CONTAINER, "ranked-content/"
+                )
                 generated_blobs = self.blob_client.list_blobs(
-                    config.GENERATED_CONTENT_CONTAINER, "markdown/")
+                    config.GENERATED_CONTENT_CONTAINER, "markdown/"
+                )
                 stats = {
                     "ranked_content_files": len(ranked_blobs),
                     "generated_markdown_files": len(generated_blobs),
-                    "last_updated": datetime.now(timezone.utc).isoformat()
+                    "last_updated": datetime.now(timezone.utc).isoformat(),
                 }
             except Exception as e:
                 logger.error(f"Failed to get file statistics: {e}")
@@ -149,7 +152,7 @@ class HealthChecker:
                     "ranked_content_files": 0,
                     "generated_markdown_files": 0,
                     "last_updated": datetime.now(timezone.utc).isoformat(),
-                    "error": str(e)
+                    "error": str(e),
                 }
             status["file_statistics"] = stats
 
@@ -158,7 +161,7 @@ class HealthChecker:
                 "watch_interval": config.WATCH_INTERVAL,
                 "max_content_items": config.MAX_CONTENT_ITEMS,
                 "template_style": config.MARKDOWN_TEMPLATE_STYLE,
-                "auto_notification": config.ENABLE_AUTO_NOTIFICATION
+                "auto_notification": config.ENABLE_AUTO_NOTIFICATION,
             }
 
             return status
@@ -169,5 +172,5 @@ class HealthChecker:
                 "service": config.SERVICE_NAME,
                 "status": "error",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "error": str(e)
+                "error": str(e),
             }

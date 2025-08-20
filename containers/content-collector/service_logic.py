@@ -6,11 +6,13 @@ Core business logic for content collection with blob storage integration.
 
 import json
 import time
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
-from libs.blob_storage import BlobStorageClient, BlobContainers
+from typing import Any, Dict, List, Optional
+
 from collector import collect_content_batch, deduplicate_content
 from config import Config
+
+from libs.blob_storage import BlobContainers, BlobStorageClient
 
 
 class ContentCollectorService:
@@ -23,7 +25,7 @@ class ContentCollectorService:
             "total_collections": 0,
             "successful_collections": 0,
             "failed_collections": 0,
-            "last_collection": None
+            "last_collection": None,
         }
 
     async def collect_and_store_content(
@@ -31,7 +33,7 @@ class ContentCollectorService:
         sources_data: List[Dict[str, Any]],
         deduplicate: bool = True,
         similarity_threshold: float = 0.8,
-        save_to_storage: bool = True
+        save_to_storage: bool = True,
     ) -> Dict[str, Any]:
         """
         Collect content from sources and optionally save to blob storage.
@@ -46,7 +48,9 @@ class ContentCollectorService:
             Collection result with metadata
         """
         start_time = time.time()
-        collection_id = f"collection_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        collection_id = (
+            f"collection_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        )
 
         try:
             # Apply default criteria to Reddit sources
@@ -63,25 +67,28 @@ class ContentCollectorService:
             if deduplicate and collected_items:
                 original_count = len(collected_items)
                 collected_items = deduplicate_content(
-                    collected_items, similarity_threshold)
+                    collected_items, similarity_threshold
+                )
                 metadata["deduplication"] = {
                     "enabled": True,
                     "original_count": original_count,
                     "deduplicated_count": len(collected_items),
                     "removed_count": original_count - len(collected_items),
-                    "similarity_threshold": similarity_threshold
+                    "similarity_threshold": similarity_threshold,
                 }
             else:
                 metadata["deduplication"] = {"enabled": False}
 
             # Add processing time and collection info
             processing_time = time.time() - start_time
-            metadata.update({
-                "processing_time_seconds": round(processing_time, 3),
-                "collection_id": collection_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "total_items": len(collected_items)
-            })
+            metadata.update(
+                {
+                    "processing_time_seconds": round(processing_time, 3),
+                    "collection_id": collection_id,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "total_items": len(collected_items),
+                }
+            )
 
             # Save to blob storage if requested
             storage_location = None
@@ -100,7 +107,7 @@ class ContentCollectorService:
                 "collected_items": collected_items,
                 "metadata": metadata,
                 "timestamp": metadata["timestamp"],
-                "storage_location": storage_location
+                "storage_location": storage_location,
             }
 
         except Exception as e:
@@ -112,7 +119,7 @@ class ContentCollectorService:
         self,
         collection_id: str,
         collected_items: List[Dict[str, Any]],
-        metadata: Dict[str, Any]
+        metadata: Dict[str, Any],
     ) -> str:
         """
         Save collected content to blob storage.
@@ -130,7 +137,7 @@ class ContentCollectorService:
             "collection_id": collection_id,
             "metadata": metadata,
             "items": collected_items,
-            "format_version": "1.0"
+            "format_version": "1.0",
         }
 
         # Generate storage path
@@ -144,7 +151,7 @@ class ContentCollectorService:
             container_name=container_name,
             blob_name=blob_name,
             content=content_json,
-            content_type="application/json"
+            content_type="application/json",
         )
 
         return f"{container_name}/{blob_name}"
@@ -167,28 +174,31 @@ class ContentCollectorService:
             # List recent collection files
             container_name = BlobContainers.COLLECTED_CONTENT
             blobs = self.storage.list_blobs(
-                container_name=container_name,
-                prefix="collections/"
+                container_name=container_name, prefix="collections/"
             )
 
             # Sort by name (which includes timestamp) and take most recent
-            sorted_blobs = sorted([blob["name"]
-                                  for blob in blobs], reverse=True)[:limit]
+            sorted_blobs = sorted([blob["name"] for blob in blobs], reverse=True)[
+                :limit
+            ]
 
             collections = []
             for blob_name in sorted_blobs:
                 try:
                     # Extract collection info from blob name
-                    collection_id = blob_name.split(
-                        '/')[-1].replace('.json', '')
-                    path_parts = blob_name.split('/')
-                    if len(path_parts) >= 4:  # collections/YYYY/MM/DD/collection_id.json
+                    collection_id = blob_name.split("/")[-1].replace(".json", "")
+                    path_parts = blob_name.split("/")
+                    if (
+                        len(path_parts) >= 4
+                    ):  # collections/YYYY/MM/DD/collection_id.json
                         date_str = f"{path_parts[1]}-{path_parts[2]}-{path_parts[3]}"
-                        collections.append({
-                            "collection_id": collection_id,
-                            "date": date_str,
-                            "storage_path": f"{container_name}/{blob_name}"
-                        })
+                        collections.append(
+                            {
+                                "collection_id": collection_id,
+                                "date": date_str,
+                                "storage_path": f"{container_name}/{blob_name}",
+                            }
+                        )
                 except Exception:
                     continue  # Skip malformed blob names
 
@@ -212,15 +222,14 @@ class ContentCollectorService:
             # Search for the collection file
             container_name = "raw-content"
             blobs = self.storage.list_blobs(
-                container_name=container_name,
-                prefix="collections/"
+                container_name=container_name, prefix="collections/"
             )
 
             # Find the blob with matching collection ID
             target_blob = None
             for blob in blobs:
                 blob_name = blob["name"]
-                if collection_id in blob_name and blob_name.endswith('.json'):
+                if collection_id in blob_name and blob_name.endswith(".json"):
                     target_blob = blob_name
                     break
 
@@ -229,8 +238,7 @@ class ContentCollectorService:
 
             # Load the collection data
             content = self.storage.download_text(
-                container_name=container_name,
-                blob_name=target_blob
+                container_name=container_name, blob_name=target_blob
             )
 
             return json.loads(content)

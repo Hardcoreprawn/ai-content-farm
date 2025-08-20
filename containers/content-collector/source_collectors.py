@@ -4,16 +4,17 @@ Source Collectors - Modular content source handlers
 Base interfaces and implementations for different content sources.
 """
 
-from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional, Tuple
-import requests
 import asyncio
-import httpx
 import logging
-import feedparser
 import re
+from abc import ABC, abstractmethod
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urljoin, urlparse
+
+import feedparser
+import httpx
+import requests
 from keyvault_client import get_reddit_credentials_with_fallback
 
 logger = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ class SourceCollector(ABC):
         Check if authentication is properly configured.
 
         Returns:
-            Tuple of (is_authenticated, status_message)  
+            Tuple of (is_authenticated, status_message)
         """
         pass
 
@@ -67,7 +68,9 @@ class SourceCollector(ABC):
 class InternetConnectivityMixin:
     """Mixin for basic internet connectivity checks."""
 
-    def check_internet_connectivity(self, test_urls: Optional[List[str]] = None) -> Tuple[bool, str]:
+    def check_internet_connectivity(
+        self, test_urls: Optional[List[str]] = None
+    ) -> Tuple[bool, str]:
         """
         Check basic internet connectivity.
 
@@ -81,7 +84,7 @@ class InternetConnectivityMixin:
             test_urls = [
                 "https://httpbin.org/status/200",
                 "https://www.google.com",
-                "https://www.reddit.com"
+                "https://www.reddit.com",
             ]
 
         for url in test_urls:
@@ -110,7 +113,7 @@ class RedditPublicCollector(SourceCollector, InternetConnectivityMixin):
                 response = await client.get(
                     "https://www.reddit.com/r/technology/hot.json?limit=1",
                     headers={"User-Agent": "ai-content-farm-collector/1.0"},
-                    timeout=5
+                    timeout=5,
                 )
                 if response.status_code == 200:
                     return True, "Reddit public API accessible"
@@ -139,7 +142,9 @@ class RedditPublicCollector(SourceCollector, InternetConnectivityMixin):
 
         return all_posts
 
-    async def _fetch_from_subreddit(self, subreddit: str, limit: int = 10) -> List[Dict[str, Any]]:
+    async def _fetch_from_subreddit(
+        self, subreddit: str, limit: int = 10
+    ) -> List[Dict[str, Any]]:
         """Fetch posts from a specific subreddit using public API."""
         if not subreddit or subreddit is None:
             return []
@@ -150,10 +155,7 @@ class RedditPublicCollector(SourceCollector, InternetConnectivityMixin):
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    url,
-                    headers=headers,
-                    params={"limit": limit},
-                    timeout=10
+                    url, headers=headers, params={"limit": limit}, timeout=10
                 )
                 response.raise_for_status()
 
@@ -167,7 +169,8 @@ class RedditPublicCollector(SourceCollector, InternetConnectivityMixin):
                         post_data["source"] = "reddit"
                         post_data["source_type"] = "subreddit"
                         post_data["collected_at"] = datetime.now(
-                            timezone.utc).isoformat()
+                            timezone.utc
+                        ).isoformat()
                         posts.append(post_data)
 
                 return posts
@@ -186,15 +189,19 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
         # Get credentials from Key Vault with environment variable fallback
         credentials = get_reddit_credentials_with_fallback()
 
-        self.client_id = self.config.get(
-            "client_id") or credentials.get("client_id")
-        self.client_secret = self.config.get(
-            "client_secret") or credentials.get("client_secret")
-        self.user_agent = self.config.get("user_agent") or credentials.get(
-            "user_agent") or "ai-content-farm-collector/1.0"
+        self.client_id = self.config.get("client_id") or credentials.get("client_id")
+        self.client_secret = self.config.get("client_secret") or credentials.get(
+            "client_secret"
+        )
+        self.user_agent = (
+            self.config.get("user_agent")
+            or credentials.get("user_agent")
+            or "ai-content-farm-collector/1.0"
+        )
 
         logger.info(
-            f"RedditPRAWCollector initialized with credentials: client_id={'***' if self.client_id else None}, client_secret={'***' if self.client_secret else None}, user_agent={self.user_agent}")
+            f"RedditPRAWCollector initialized with credentials: client_id={'***' if self.client_id else None}, client_secret={'***' if self.client_secret else None}, user_agent={self.user_agent}"
+        )
 
     def get_source_name(self) -> str:
         return "reddit_praw"
@@ -203,7 +210,8 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
         """Check Reddit API accessibility."""
         # First check basic internet connectivity
         has_internet, internet_msg = self.check_internet_connectivity(
-            ["https://www.reddit.com"])
+            ["https://www.reddit.com"]
+        )
         if not has_internet:
             return False, f"No internet connectivity: {internet_msg}"
 
@@ -211,14 +219,16 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    "https://www.reddit.com/api/v1/access_token",
-                    timeout=5
+                    "https://www.reddit.com/api/v1/access_token", timeout=5
                 )
                 # 401 is expected without auth
                 if response.status_code in [200, 401]:
                     return True, "Reddit API endpoint accessible"
                 else:
-                    return False, f"Reddit API returned unexpected status {response.status_code}"
+                    return (
+                        False,
+                        f"Reddit API returned unexpected status {response.status_code}",
+                    )
         except Exception as e:
             return False, f"Reddit API not accessible: {str(e)}"
 
@@ -231,15 +241,19 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
             if not self.client_secret:
                 missing_creds.append("client_secret")
 
-            return False, f"Reddit API credentials not configured: missing {', '.join(missing_creds)} (check Key Vault and environment variables)"
+            return (
+                False,
+                f"Reddit API credentials not configured: missing {', '.join(missing_creds)} (check Key Vault and environment variables)",
+            )
 
         try:
             # Test authentication with Reddit API using asyncpraw
             import asyncpraw
+
             reddit = asyncpraw.Reddit(
                 client_id=self.client_id,
                 client_secret=self.client_secret,
-                user_agent=self.user_agent
+                user_agent=self.user_agent,
             )
 
             # Try to access a subreddit to verify credentials
@@ -249,12 +263,18 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
                 break
 
             await reddit.close()
-            return True, "Reddit API credentials valid (retrieved from Key Vault or environment)"
+            return (
+                True,
+                "Reddit API credentials valid (retrieved from Key Vault or environment)",
+            )
 
         except ImportError:
             return False, "AsyncPRAW library not installed"
         except Exception as e:
-            return False, f"Reddit API authentication failed: {str(e)} (check Key Vault secrets: reddit-client-id, reddit-client-secret)"
+            return (
+                False,
+                f"Reddit API authentication failed: {str(e)} (check Key Vault secrets: reddit-client-id, reddit-client-secret)",
+            )
 
     async def collect_content(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Collect content using AsyncPRAW."""
@@ -264,7 +284,7 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
             reddit = asyncpraw.Reddit(
                 client_id=self.client_id,
                 client_secret=self.client_secret,
-                user_agent=self.user_agent
+                user_agent=self.user_agent,
             )
 
             items = []
@@ -300,7 +320,9 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
                         "score": post.score,
                         "num_comments": post.num_comments,
                         "content_type": "self" if post.is_self else "link",
-                        "created_at": datetime.fromtimestamp(post.created_utc, tz=timezone.utc).isoformat(),
+                        "created_at": datetime.fromtimestamp(
+                            post.created_utc, tz=timezone.utc
+                        ).isoformat(),
                         "collected_at": datetime.now(timezone.utc).isoformat(),
                         "raw_data": {
                             "id": post.id,
@@ -308,7 +330,7 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
                             "ups": post.ups,
                             "downs": 0,  # Reddit doesn't provide downvotes
                             "upvote_ratio": post.upvote_ratio,
-                            "gilded": getattr(post, 'gilded', 0),
+                            "gilded": getattr(post, "gilded", 0),
                             "over_18": post.over_18,
                             "spoiler": post.spoiler,
                             "locked": post.locked,
@@ -316,8 +338,8 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
                             "domain": post.domain,
                             "source": "reddit",
                             "source_type": "subreddit",
-                            "collected_at": datetime.now(timezone.utc).isoformat()
-                        }
+                            "collected_at": datetime.now(timezone.utc).isoformat(),
+                        },
                     }
                     items.append(item)
 
@@ -325,14 +347,12 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
             return items
 
         except ImportError:
-            logger.warning(
-                "AsyncPRAW not available, falling back to public API")
+            logger.warning("AsyncPRAW not available, falling back to public API")
             # Fallback to public API
             fallback_collector = RedditPublicCollector(self.config)
             return await fallback_collector.collect_content(params)
         except Exception as e:
-            logger.error(
-                f"Error collecting Reddit content with AsyncPRAW: {str(e)}")
+            logger.error(f"Error collecting Reddit content with AsyncPRAW: {str(e)}")
             # Fallback to public API
             fallback_collector = RedditPublicCollector(self.config)
             return await fallback_collector.collect_content(params)
@@ -344,30 +364,30 @@ class WebContentCollector(SourceCollector, InternetConnectivityMixin):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
         self.site_configs = {
-            'arstechnica': {
-                'name': 'Ars Technica',
-                'rss_url': 'http://feeds.arstechnica.com/arstechnica/index',
-                'base_url': 'https://arstechnica.com',
-                'selector': 'div.post-content p'
+            "arstechnica": {
+                "name": "Ars Technica",
+                "rss_url": "http://feeds.arstechnica.com/arstechnica/index",
+                "base_url": "https://arstechnica.com",
+                "selector": "div.post-content p",
             },
-            'slashdot': {
-                'name': 'Slashdot',
-                'rss_url': 'http://rss.slashdot.org/Slashdot/slashdot',
-                'base_url': 'https://slashdot.org',
-                'selector': 'div.body p'
+            "slashdot": {
+                "name": "Slashdot",
+                "rss_url": "http://rss.slashdot.org/Slashdot/slashdot",
+                "base_url": "https://slashdot.org",
+                "selector": "div.body p",
             },
-            'theregister': {
-                'name': 'The Register',
-                'rss_url': 'https://www.theregister.com/headlines.atom',
-                'base_url': 'https://www.theregister.com',
-                'selector': 'div#body p'
+            "theregister": {
+                "name": "The Register",
+                "rss_url": "https://www.theregister.com/headlines.atom",
+                "base_url": "https://www.theregister.com",
+                "selector": "div#body p",
             },
-            'thenewstack': {
-                'name': 'The New Stack',
-                'rss_url': 'https://thenewstack.io/feed/',
-                'base_url': 'https://thenewstack.io',
-                'selector': 'div.post-content p'
-            }
+            "thenewstack": {
+                "name": "The New Stack",
+                "rss_url": "https://thenewstack.io/feed/",
+                "base_url": "https://thenewstack.io",
+                "selector": "div.post-content p",
+            },
         }
 
     def get_source_name(self) -> str:
@@ -378,8 +398,7 @@ class WebContentCollector(SourceCollector, InternetConnectivityMixin):
         try:
             async with httpx.AsyncClient(timeout=10) as client:
                 # Test a few key sites
-                test_sites = ['https://arstechnica.com',
-                              'https://slashdot.org']
+                test_sites = ["https://arstechnica.com", "https://slashdot.org"]
                 for site in test_sites:
                     try:
                         response = await client.get(site)
@@ -402,8 +421,8 @@ class WebContentCollector(SourceCollector, InternetConnectivityMixin):
         Args:
             params: Should contain 'sites' list and optional 'limit'
         """
-        sites = params.get('sites', ['arstechnica', 'theregister'])
-        limit = params.get('limit', 10)
+        sites = params.get("sites", ["arstechnica", "theregister"])
+        limit = params.get("limit", 10)
 
         all_items = []
 
@@ -421,16 +440,18 @@ class WebContentCollector(SourceCollector, InternetConnectivityMixin):
                 continue
 
         # Sort by date and limit total results
-        all_items.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        all_items.sort(key=lambda x: x.get("created_at", ""), reverse=True)
         return all_items[:limit]
 
-    async def _collect_from_site(self, site_key: str, site_config: Dict[str, Any], limit: int) -> List[Dict[str, Any]]:
+    async def _collect_from_site(
+        self, site_key: str, site_config: Dict[str, Any], limit: int
+    ) -> List[Dict[str, Any]]:
         """Collect content from a specific site."""
         items = []
 
         try:
             # First try RSS feed
-            rss_url = site_config['rss_url']
+            rss_url = site_config["rss_url"]
             logger.info(f"Fetching RSS from {site_config['name']}: {rss_url}")
 
             async with httpx.AsyncClient(timeout=15) as client:
@@ -443,58 +464,61 @@ class WebContentCollector(SourceCollector, InternetConnectivityMixin):
                 for entry in feed.entries[:limit]:
                     try:
                         # Extract basic info from RSS
-                        title = entry.get('title', 'No title')
-                        link = entry.get('link', '')
-                        summary = entry.get(
-                            'summary', entry.get('description', ''))
+                        title = entry.get("title", "No title")
+                        link = entry.get("link", "")
+                        summary = entry.get("summary", entry.get("description", ""))
 
                         # Clean up summary HTML
-                        summary = re.sub(r'<[^>]+>', '', summary)
-                        summary = re.sub(r'\s+', ' ', summary).strip()
+                        summary = re.sub(r"<[^>]+>", "", summary)
+                        summary = re.sub(r"\s+", " ", summary).strip()
 
                         # Parse date
-                        published = entry.get(
-                            'published_parsed') or entry.get('updated_parsed')
+                        published = entry.get("published_parsed") or entry.get(
+                            "updated_parsed"
+                        )
                         if published:
                             created_at = datetime(
-                                *published[:6], tzinfo=timezone.utc).isoformat()
+                                *published[:6], tzinfo=timezone.utc
+                            ).isoformat()
                         else:
                             created_at = datetime.now(timezone.utc).isoformat()
 
                         # Create standardized item
                         item = {
-                            'id': f"{site_key}_{hash(link) % 100000}",
-                            'source': 'web',
-                            'site': site_key,
-                            'site_name': site_config['name'],
-                            'title': title,
-                            'content': summary[:500],  # Limit content length
-                            'url': link,
-                            'author': entry.get('author', site_config['name']),
-                            'score': 0,  # No score for web content
-                            'num_comments': 0,  # No comments for web content
-                            'content_type': 'article',
-                            'created_at': created_at,
-                            'collected_at': datetime.now(timezone.utc).isoformat(),
-                            'raw_data': {
-                                'rss_entry': {
-                                    'title': entry.get('title'),
-                                    'link': entry.get('link'),
-                                    'published': entry.get('published'),
-                                    'summary': entry.get('summary'),
-                                    'tags': [tag.get('term', '') for tag in entry.get('tags', [])]
+                            "id": f"{site_key}_{hash(link) % 100000}",
+                            "source": "web",
+                            "site": site_key,
+                            "site_name": site_config["name"],
+                            "title": title,
+                            "content": summary[:500],  # Limit content length
+                            "url": link,
+                            "author": entry.get("author", site_config["name"]),
+                            "score": 0,  # No score for web content
+                            "num_comments": 0,  # No comments for web content
+                            "content_type": "article",
+                            "created_at": created_at,
+                            "collected_at": datetime.now(timezone.utc).isoformat(),
+                            "raw_data": {
+                                "rss_entry": {
+                                    "title": entry.get("title"),
+                                    "link": entry.get("link"),
+                                    "published": entry.get("published"),
+                                    "summary": entry.get("summary"),
+                                    "tags": [
+                                        tag.get("term", "")
+                                        for tag in entry.get("tags", [])
+                                    ],
                                 },
-                                'source': 'web',
-                                'source_type': 'rss_feed',
-                                'site': site_key,
-                                'collected_at': datetime.now(timezone.utc).isoformat()
-                            }
+                                "source": "web",
+                                "source_type": "rss_feed",
+                                "site": site_key,
+                                "collected_at": datetime.now(timezone.utc).isoformat(),
+                            },
                         }
                         items.append(item)
 
                     except Exception as e:
-                        logger.error(
-                            f"Error processing RSS entry from {site_key}: {e}")
+                        logger.error(f"Error processing RSS entry from {site_key}: {e}")
                         continue
 
         except Exception as e:
@@ -507,7 +531,9 @@ class SourceCollectorFactory:
     """Factory for creating appropriate source collectors."""
 
     @staticmethod
-    def create_collector(source_type: str, config: Optional[Dict[str, Any]] = None) -> SourceCollector:
+    def create_collector(
+        source_type: str, config: Optional[Dict[str, Any]] = None
+    ) -> SourceCollector:
         """Create a collector for the specified source type."""
 
         if source_type == "reddit":

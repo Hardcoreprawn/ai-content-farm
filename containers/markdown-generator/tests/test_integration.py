@@ -1,9 +1,10 @@
 """Integration tests for blob storage operations."""
 
-import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
 import json
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 # Create a mock AzureError that inherits from Exception for testing
 
@@ -13,9 +14,9 @@ class MockAzureError(Exception):
 
 
 # Mock Azure dependencies with proper exception types
-with patch('azure.storage.blob.BlobServiceClient'), \
-        patch('azure.core.exceptions.ResourceNotFoundError'), \
-        patch('azure.core.exceptions.AzureError', MockAzureError):
+with patch("azure.storage.blob.BlobServiceClient"), patch(
+    "azure.core.exceptions.ResourceNotFoundError"
+), patch("azure.core.exceptions.AzureError", MockAzureError):
     from libs.blob_storage import BlobStorageClient
 
 
@@ -24,13 +25,13 @@ class TestBlobStorageIntegration:
 
     def setup_method(self):
         """Set up test fixtures."""
-        with patch('config.config.AZURE_STORAGE_CONNECTION_STRING', 'test_connection'):
+        with patch("config.config.AZURE_STORAGE_CONNECTION_STRING", "test_connection"):
             self.blob_client = BlobStorageClient()
 
-    @patch('blob_storage.BlobStorageClient._ensure_containers_exist')
+    @patch("blob_storage.BlobStorageClient._ensure_containers_exist")
     def test_blob_client_initialization(self, mock_ensure):
         """Test blob storage client initialization."""
-        with patch('config.config.AZURE_STORAGE_CONNECTION_STRING', 'test_connection'):
+        with patch("config.config.AZURE_STORAGE_CONNECTION_STRING", "test_connection"):
             client = BlobStorageClient()
             assert client is not None
             mock_ensure.assert_called_once()
@@ -45,7 +46,7 @@ class TestBlobStorageIntegration:
                 {
                     "title": "Test Article",
                     "final_score": 0.8,
-                    "ai_summary": "Test summary"
+                    "ai_summary": "Test summary",
                 }
             ]
         }
@@ -60,10 +61,13 @@ class TestBlobStorageIntegration:
 
         mock_blob_client = MagicMock()
         mock_blob_client.download_blob.return_value.readall.return_value = json.dumps(
-            mock_content).encode()
+            mock_content
+        ).encode()
         mock_container_client.get_blob_client.return_value = mock_blob_client
 
-        self.blob_client.client.get_container_client.return_value = mock_container_client
+        self.blob_client.client.get_container_client.return_value = (
+            mock_container_client
+        )
 
         # Test the method
         result = await self.blob_client.get_latest_ranked_content()
@@ -80,7 +84,9 @@ class TestBlobStorageIntegration:
         """Test retrieval when no blobs exist."""
         mock_container_client = MagicMock()
         mock_container_client.list_blobs.return_value = []
-        self.blob_client.client.get_container_client.return_value = mock_container_client
+        self.blob_client.client.get_container_client.return_value = (
+            mock_container_client
+        )
 
         result = await self.blob_client.get_latest_ranked_content()
         assert result is None
@@ -94,14 +100,14 @@ class TestBlobStorageIntegration:
                 "slug": "test-article",
                 "title": "Test Article",
                 "score": 0.8,
-                "content": "# Test Article\n\nContent here"
+                "content": "# Test Article\n\nContent here",
             }
         ]
 
         manifest = {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "total_posts": 1,
-            "index_content": "# Index\n\nIndex content"
+            "index_content": "# Index\n\nIndex content",
         }
 
         timestamp = "20240101_120000"
@@ -110,7 +116,9 @@ class TestBlobStorageIntegration:
         mock_container_client = MagicMock()
         mock_blob_client = MagicMock()
         mock_container_client.get_blob_client.return_value = mock_blob_client
-        self.blob_client.client.get_container_client.return_value = mock_container_client
+        self.blob_client.client.get_container_client.return_value = (
+            mock_container_client
+        )
 
         # Test the method
         result = await self.blob_client.save_generated_markdown(
@@ -121,7 +129,9 @@ class TestBlobStorageIntegration:
         assert result == f"manifests/{timestamp}_manifest.json"
 
         # Verify blob uploads were called
-        assert mock_blob_client.upload_blob.call_count >= 3  # markdown + index + manifest
+        assert (
+            mock_blob_client.upload_blob.call_count >= 3
+        )  # markdown + index + manifest
 
     @pytest.mark.asyncio
     async def test_check_blob_health_success(self):
@@ -133,7 +143,9 @@ class TestBlobStorageIntegration:
         mock_container2.name = "generated-content"
 
         self.blob_client.client.list_containers.return_value = [
-            mock_container1, mock_container2]
+            mock_container1,
+            mock_container2,
+        ]
 
         result = await self.blob_client.check_blob_health()
         assert result is True
@@ -167,7 +179,9 @@ class TestBlobStorageIntegration:
 
         mock_container_client = MagicMock()
         mock_container_client.list_blobs.return_value = mock_blobs
-        self.blob_client.client.get_container_client.return_value = mock_container_client
+        self.blob_client.client.get_container_client.return_value = (
+            mock_container_client
+        )
 
         result = await self.blob_client.get_generation_statistics()
 
@@ -181,7 +195,7 @@ class TestBlobStorageErrorHandling:
 
     def setup_method(self):
         """Set up test fixtures."""
-        with patch('config.config.AZURE_STORAGE_CONNECTION_STRING', 'test_connection'):
+        with patch("config.config.AZURE_STORAGE_CONNECTION_STRING", "test_connection"):
             self.blob_client = BlobStorageClient()
 
     @pytest.mark.asyncio
@@ -196,10 +210,14 @@ class TestBlobStorageErrorHandling:
         mock_container_client.list_blobs.return_value = [mock_blob]
 
         mock_blob_client = MagicMock()
-        mock_blob_client.download_blob.return_value.readall.return_value = b"invalid json"
+        mock_blob_client.download_blob.return_value.readall.return_value = (
+            b"invalid json"
+        )
         mock_container_client.get_blob_client.return_value = mock_blob_client
 
-        self.blob_client.client.get_container_client.return_value = mock_container_client
+        self.blob_client.client.get_container_client.return_value = (
+            mock_container_client
+        )
 
         result = await self.blob_client.get_latest_ranked_content()
         assert result is None
@@ -209,24 +227,29 @@ class TestBlobStorageErrorHandling:
         """Test error handling during markdown save."""
         # Mock container client that raises exception
         mock_container_client = MagicMock()
-        mock_container_client.get_blob_client.side_effect = Exception(
-            "Storage error")
-        self.blob_client.client.get_container_client.return_value = mock_container_client
+        mock_container_client.get_blob_client.side_effect = Exception("Storage error")
+        self.blob_client.client.get_container_client.return_value = (
+            mock_container_client
+        )
 
         markdown_files = [
-            {"slug": "test", "title": "Test", "score": 0.8, "content": "test"}]
+            {"slug": "test", "title": "Test", "score": 0.8, "content": "test"}
+        ]
         manifest = {"total_posts": 1}
         timestamp = "20240101_120000"
 
         # Should raise generic exception instead of AzureError in tests
         with pytest.raises(Exception):
-            await self.blob_client.save_generated_markdown(markdown_files, manifest, timestamp)
+            await self.blob_client.save_generated_markdown(
+                markdown_files, manifest, timestamp
+            )
 
     @pytest.mark.asyncio
     async def test_check_blob_health_exception(self):
         """Test blob health check when exception occurs."""
         self.blob_client.client.list_containers.side_effect = Exception(
-            "Connection error")
+            "Connection error"
+        )
 
         result = await self.blob_client.check_blob_health()
         assert result is False
@@ -237,14 +260,16 @@ class TestBlobStorageConfiguration:
 
     def test_initialization_without_connection_string(self):
         """Test initialization without connection string raises error."""
-        with patch('config.config.AZURE_STORAGE_CONNECTION_STRING', None):
-            with pytest.raises(ValueError, match="Azure storage connection string is required"):
+        with patch("config.config.AZURE_STORAGE_CONNECTION_STRING", None):
+            with pytest.raises(
+                ValueError, match="Azure storage connection string is required"
+            ):
                 BlobStorageClient()
 
-    @patch('blob_storage.BlobStorageClient._ensure_containers_exist')
+    @patch("blob_storage.BlobStorageClient._ensure_containers_exist")
     def test_initialization_with_connection_string(self, mock_ensure):
         """Test successful initialization with connection string."""
-        with patch('config.config.AZURE_STORAGE_CONNECTION_STRING', 'test_connection'):
+        with patch("config.config.AZURE_STORAGE_CONNECTION_STRING", "test_connection"):
             client = BlobStorageClient()
             assert client is not None
             mock_ensure.assert_called_once()

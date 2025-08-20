@@ -1,10 +1,12 @@
-from pydantic import BaseModel, Field
-from typing import List, Optional, Dict, Any, Literal
 from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional
+
+from pydantic import BaseModel, Field
 
 
 class SourceData(BaseModel):
     """Source information for content generation"""
+
     name: str
     url: str
     title: str
@@ -15,6 +17,7 @@ class SourceData(BaseModel):
 
 class RankedTopic(BaseModel):
     """Ranked topic from content ranker"""
+
     topic: str
     sources: List[SourceData]
     rank: int
@@ -26,6 +29,7 @@ class RankedTopic(BaseModel):
 
 class GenerationRequest(BaseModel):
     """Request for content generation"""
+
     topics: List[RankedTopic]
     content_type: Literal["tldr", "blog", "deepdive"] = "tldr"
     # analytical, casual, expert, skeptical, enthusiast
@@ -37,6 +41,7 @@ class GenerationRequest(BaseModel):
 
 class GeneratedContent(BaseModel):
     """Generated content output"""
+
     topic: str
     content_type: str
     title: str
@@ -55,6 +60,7 @@ class GeneratedContent(BaseModel):
 
 class BatchGenerationRequest(BaseModel):
     """Batch generation request"""
+
     batch_id: str
     ranked_topics: List[RankedTopic]
     generation_config: Dict[str, Any] = Field(default_factory=dict)
@@ -62,6 +68,7 @@ class BatchGenerationRequest(BaseModel):
 
 class BatchGenerationResponse(BaseModel):
     """Batch generation response"""
+
     batch_id: str
     generated_content: List[GeneratedContent]
     total_articles: int
@@ -71,6 +78,7 @@ class BatchGenerationResponse(BaseModel):
 
 class GenerationStatus(BaseModel):
     """Generation status tracking"""
+
     batch_id: str
     status: Literal["pending", "processing", "completed", "failed"]
     progress: float = 0.0
@@ -83,6 +91,7 @@ class GenerationStatus(BaseModel):
 
 class HealthResponse(BaseModel):
     """Health check response"""
+
     status: str = "healthy"
     service: str = "content-generator"
     version: str = "1.0.0"
@@ -91,6 +100,7 @@ class HealthResponse(BaseModel):
 
 class StatusResponse(BaseModel):
     """Service status response"""
+
     service: str = "content-generator"
     status: str = "operational"
     active_generations: int = 0

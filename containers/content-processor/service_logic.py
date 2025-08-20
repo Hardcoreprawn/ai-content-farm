@@ -6,10 +6,16 @@ Handles blob storage integration and pipeline workflow for content processing.
 
 import json
 import time
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
-from libs.blob_storage import BlobStorageClient, BlobContainers, get_timestamped_blob_name
+from typing import Any, Dict, List, Optional
+
 from processor import process_reddit_batch
+
+from libs.blob_storage import (
+    BlobContainers,
+    BlobStorageClient,
+    get_timestamped_blob_name,
+)
 
 
 class ContentProcessorService:
@@ -22,13 +28,11 @@ class ContentProcessorService:
             "total_processed": 0,
             "successful_processing": 0,
             "failed_processing": 0,
-            "last_processed": None
+            "last_processed": None,
         }
 
     async def process_collected_content(
-        self,
-        collection_data: Dict[str, Any],
-        save_to_storage: bool = True
+        self, collection_data: Dict[str, Any], save_to_storage: bool = True
     ) -> Dict[str, Any]:
         """
         Process collected content and optionally save to blob storage.
@@ -54,14 +58,17 @@ class ContentProcessorService:
                 processing_metadata = {
                     "total_items": 0,
                     "processed_items": 0,
-                    "source_collection": collection_data.get("collection_id", "unknown"),
-                    "processing_errors": 0
+                    "source_collection": collection_data.get(
+                        "collection_id", "unknown"
+                    ),
+                    "processing_errors": 0,
                 }
             else:
                 # Process the content using existing business logic
                 # Determine source type from items or metadata
                 source = collection_metadata.get(
-                    "source", "reddit")  # Default to reddit
+                    "source", "reddit"
+                )  # Default to reddit
 
                 if source == "reddit" or any("subreddit" in item for item in items):
                     # Use Reddit batch processing
@@ -82,27 +89,31 @@ class ContentProcessorService:
                             "content_type": item.get("content_type", "unknown"),
                             "metadata": {
                                 "original_score": item.get("score", 0),
-                                "engagement_metrics": {}
-                            }
+                                "engagement_metrics": {},
+                            },
                         }
                         processed_items.append(processed_item)
 
                 processing_metadata = {
                     "total_items": len(items),
                     "processed_items": len(processed_items),
-                    "source_collection": collection_data.get("collection_id", "unknown"),
+                    "source_collection": collection_data.get(
+                        "collection_id", "unknown"
+                    ),
                     "processing_errors": 0,
-                    "source_type": source
+                    "source_type": source,
                 }
 
             # Add processing timing
             processing_time = time.time() - start_time
-            processing_metadata.update({
-                "processing_time_seconds": round(processing_time, 3),
-                "process_id": process_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "processor_version": "1.0.0"
-            })
+            processing_metadata.update(
+                {
+                    "processing_time_seconds": round(processing_time, 3),
+                    "process_id": process_id,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "processor_version": "1.0.0",
+                }
+            )
 
             # Prepare result
             result = {
@@ -110,7 +121,7 @@ class ContentProcessorService:
                 "processed_items": processed_items,
                 "metadata": processing_metadata,
                 "timestamp": processing_metadata["timestamp"],
-                "storage_location": None
+                "storage_location": None,
             }
 
             # Save to blob storage if requested
@@ -137,7 +148,7 @@ class ContentProcessorService:
         process_id: str,
         processed_items: List[Dict[str, Any]],
         metadata: Dict[str, Any],
-        original_collection: Dict[str, Any]
+        original_collection: Dict[str, Any],
     ) -> str:
         """
         Save processed content to blob storage.
@@ -158,10 +169,12 @@ class ContentProcessorService:
             "processed_items": processed_items,
             "source_collection": {
                 "collection_id": original_collection.get("collection_id"),
-                "collected_at": original_collection.get("metadata", {}).get("collected_at"),
-                "total_source_items": len(original_collection.get("items", []))
+                "collected_at": original_collection.get("metadata", {}).get(
+                    "collected_at"
+                ),
+                "total_source_items": len(original_collection.get("items", [])),
             },
-            "format_version": "1.0"
+            "format_version": "1.0",
         }
 
         # Generate storage path
@@ -175,12 +188,14 @@ class ContentProcessorService:
             container_name=container_name,
             blob_name=blob_name,
             content=content_json,
-            content_type="application/json"
+            content_type="application/json",
         )
 
         return f"{container_name}/{blob_name}"
 
-    async def find_unprocessed_collections(self, limit: int = 10) -> List[Dict[str, Any]]:
+    async def find_unprocessed_collections(
+        self, limit: int = 10
+    ) -> List[Dict[str, Any]]:
         """
         Find collected content that hasn't been processed yet.
 
@@ -193,14 +208,12 @@ class ContentProcessorService:
         try:
             # List collected content
             collected_blobs = self.storage.list_blobs(
-                container_name=BlobContainers.COLLECTED_CONTENT,
-                prefix="collections/"
+                container_name=BlobContainers.COLLECTED_CONTENT, prefix="collections/"
             )
 
             # List processed content
             processed_blobs = self.storage.list_blobs(
-                container_name=BlobContainers.PROCESSED_CONTENT,
-                prefix="processed/"
+                container_name=BlobContainers.PROCESSED_CONTENT, prefix="processed/"
             )
 
             # Extract processed collection IDs
@@ -212,8 +225,9 @@ class ContentProcessorService:
                         BlobContainers.PROCESSED_CONTENT, blob["name"]
                     )
                     processed_data = json.loads(content)
-                    source_id = processed_data.get(
-                        "source_collection", {}).get("collection_id")
+                    source_id = processed_data.get("source_collection", {}).get(
+                        "collection_id"
+                    )
                     if source_id:
                         processed_collection_ids.add(source_id)
                 except Exception:
@@ -231,13 +245,17 @@ class ContentProcessorService:
                     collection_id = collection_data.get("collection_id")
 
                     if collection_id and collection_id not in processed_collection_ids:
-                        unprocessed.append({
-                            "collection_id": collection_id,
-                            "blob_name": blob["name"],
-                            "collection_data": collection_data,
-                            "collected_at": collection_data.get("metadata", {}).get("collected_at"),
-                            "total_items": len(collection_data.get("items", []))
-                        })
+                        unprocessed.append(
+                            {
+                                "collection_id": collection_id,
+                                "blob_name": blob["name"],
+                                "collection_data": collection_data,
+                                "collected_at": collection_data.get("metadata", {}).get(
+                                    "collected_at"
+                                ),
+                                "total_items": len(collection_data.get("items", [])),
+                            }
+                        )
 
                         if len(unprocessed) >= limit:
                             break

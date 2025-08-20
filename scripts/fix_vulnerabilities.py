@@ -13,13 +13,12 @@ from pathlib import Path
 VULNERABILITY_FIXES = {
     # HIGH severity vulnerabilities
     "python-multipart": "0.0.18",  # Fixes DoS vulnerabilities
-
     # MEDIUM severity vulnerabilities
     "requests": "2.32.4",  # Fixes CVE-2024-47081 credential leak
-    "Jinja2": "3.1.4",    # Fixes sandbox breakout vulnerabilities
-    "jinja2": "3.1.4",    # Fixes sandbox breakout vulnerabilities
+    "Jinja2": "3.1.4",  # Fixes sandbox breakout vulnerabilities
+    "jinja2": "3.1.4",  # Fixes sandbox breakout vulnerabilities
     "azure-identity": "1.19.0",  # Fixes elevation of privilege
-    "black": "24.0.0",    # Fixes ReDoS vulnerability
+    "black": "24.0.0",  # Fixes ReDoS vulnerability
 }
 
 
@@ -40,7 +39,7 @@ def update_requirements_file(file_path: Path):
         pattern = rf"^{re.escape(package)}[>=<~!]*[\d\.]+"
 
         # Find and replace vulnerable versions
-        lines = content.split('\n')
+        lines = content.split("\n")
         for i, line in enumerate(lines):
             if re.match(pattern, line.strip(), re.IGNORECASE):
                 old_line = line.strip()
@@ -50,7 +49,7 @@ def update_requirements_file(file_path: Path):
                 updated = True
 
     if updated:
-        file_path.write_text('\n'.join(lines))
+        file_path.write_text("\n".join(lines))
         print(f"  💾 Updated {file_path}")
     else:
         print(f"  ℹ️  No vulnerable packages found in {file_path}")

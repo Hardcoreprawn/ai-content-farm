@@ -1,12 +1,13 @@
 """Integration tests for markdown generator service with standard blob storage."""
 
-import pytest
-import json
 import asyncio
-from unittest.mock import Mock, patch, AsyncMock
+import json
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock, Mock, patch
 
-from service_logic import MarkdownGenerator, ContentWatcher
+import pytest
+from service_logic import ContentWatcher, MarkdownGenerator
+
 from libs.blob_storage import BlobStorageClient
 
 
@@ -22,8 +23,12 @@ class TestMarkdownGeneratorIntegration:
     async def test_full_markdown_generation_workflow(self):
         """Test complete workflow from ranked content to markdown files."""
         # Mock blob storage operations
-        self.mock_blob_client.upload_text.return_value = "https://test.blob.url/markdown.md"
-        self.mock_blob_client.upload_json.return_value = "https://test.blob.url/manifest.json"
+        self.mock_blob_client.upload_text.return_value = (
+            "https://test.blob.url/markdown.md"
+        )
+        self.mock_blob_client.upload_json.return_value = (
+            "https://test.blob.url/manifest.json"
+        )
 
         # Test data
         ranked_content = [
@@ -38,10 +43,10 @@ class TestMarkdownGeneratorIntegration:
                 "content_type": "article",
                 "source_metadata": {
                     "site_name": "Tech News",
-                    "author": "Dr. Sarah Johnson"
+                    "author": "Dr. Sarah Johnson",
                 },
                 "published_at": "2025-08-19T10:00:00Z",
-                "engagement_score": 88.2
+                "engagement_score": 88.2,
             },
             {
                 "title": "Quantum Computing Milestone Reached",
@@ -54,15 +59,17 @@ class TestMarkdownGeneratorIntegration:
                 "content_type": "research",
                 "source_metadata": {
                     "site_name": "Science Journal",
-                    "author": "Prof. Mike Chen"
+                    "author": "Prof. Mike Chen",
                 },
                 "published_at": "2025-08-19T09:30:00Z",
-                "engagement_score": 85.7
-            }
+                "engagement_score": 85.7,
+            },
         ]
 
         # Execute generation
-        result = await self.generator.generate_markdown_from_ranked_content(ranked_content)
+        result = await self.generator.generate_markdown_from_ranked_content(
+            ranked_content
+        )
 
         # Verify result structure
         assert result is not None
@@ -96,7 +103,7 @@ class TestMarkdownGeneratorIntegration:
         mock_blobs = [
             {
                 "name": "ranked-content/test-content-20250819_120000.json",
-                "last_modified": "2025-08-19T12:00:00Z"
+                "last_modified": "2025-08-19T12:00:00Z",
             }
         ]
 
@@ -108,7 +115,7 @@ class TestMarkdownGeneratorIntegration:
                     "ai_summary": "Test summary",
                     "final_score": 90.0,
                     "topics": ["Technology"],
-                    "sentiment": "positive"
+                    "sentiment": "positive",
                 }
             ]
         }
@@ -120,10 +127,11 @@ class TestMarkdownGeneratorIntegration:
         generation_result = {
             "status": "success",
             "files_generated": 2,
-            "timestamp": "20250819_120000"
+            "timestamp": "20250819_120000",
         }
         mock_generator.generate_markdown_from_ranked_content = AsyncMock(
-            return_value=generation_result)
+            return_value=generation_result
+        )
 
         # Execute watcher check
         result = await watcher.check_for_new_ranked_content()
@@ -147,15 +155,19 @@ class TestMarkdownGeneratorIntegration:
             ("Multiple   Spaces", "multiple-spaces"),
             ("CamelCase Title", "camelcase-title"),
             ("Title-with-hyphens", "title-with-hyphens"),
-            ("Very Long Title That Should Be Truncated Because It Exceeds Reasonable Length Limits",
-             "very-long-title-that-should-be-truncated-because-i"),
+            (
+                "Very Long Title That Should Be Truncated Because It Exceeds Reasonable Length Limits",
+                "very-long-title-that-should-be-truncated-because-i",
+            ),
             ("", ""),
-            ("   ", "")
+            ("   ", ""),
         ]
 
         for title, expected_slug in test_cases:
             actual_slug = self.generator._create_slug(title)
-            assert actual_slug == expected_slug, f"Failed for '{title}': expected '{expected_slug}', got '{actual_slug}'"
+            assert (
+                actual_slug == expected_slug
+            ), f"Failed for '{title}': expected '{expected_slug}', got '{actual_slug}'"
 
     def test_markdown_template_structure(self):
         """Test that generated markdown has proper structure."""
@@ -168,22 +180,20 @@ class TestMarkdownGeneratorIntegration:
             "sentiment": "positive",
             "source_url": "https://example.com/test",
             "content_type": "article",
-            "source_metadata": {
-                "site_name": "Test Site"
-            },
+            "source_metadata": {"site_name": "Test Site"},
             "published_at": "2025-08-19T12:00:00Z",
-            "engagement_score": 82.3
+            "engagement_score": 82.3,
         }
 
         markdown = self.generator._generate_post_markdown(test_item, rank=1)
 
         # Verify structure
         assert markdown.startswith("---")  # YAML frontmatter
-        assert "title: \"Test Article\"" in markdown
-        assert "slug: \"test-article\"" in markdown
+        assert 'title: "Test Article"' in markdown
+        assert 'slug: "test-article"' in markdown
         assert "ai_score: 87.500" in markdown
-        assert "topics: [\"AI\", \"Testing\", \"Technology\"]" in markdown
-        assert "sentiment: \"positive\"" in markdown
+        assert 'topics: ["AI", "Testing", "Technology"]' in markdown
+        assert 'sentiment: "positive"' in markdown
         assert "rank: 1" in markdown
 
         # Verify content sections
@@ -204,7 +214,9 @@ class TestMarkdownGeneratorIntegration:
 
         # Test with malformed content
         malformed_content = [{"title": "No required fields"}]
-        result = await self.generator.generate_markdown_from_ranked_content(malformed_content)
+        result = await self.generator.generate_markdown_from_ranked_content(
+            malformed_content
+        )
         assert result is not None  # Should handle gracefully with defaults
 
     def test_index_generation(self):
@@ -214,25 +226,26 @@ class TestMarkdownGeneratorIntegration:
                 "title": "First Article",
                 "clean_title": "First Article",
                 "final_score": 95.0,
-                "ai_summary": "Summary of first article"
+                "ai_summary": "Summary of first article",
             },
             {
                 "title": "Second Article",
                 "clean_title": "Second Article",
                 "final_score": 88.5,
-                "ai_summary": "Summary of second article"
-            }
+                "ai_summary": "Summary of second article",
+            },
         ]
 
         index_content = self.generator._generate_index_markdown(
-            content_items, "20250819_120000")
+            content_items, "20250819_120000"
+        )
 
         # Verify index structure
         assert index_content.startswith("---")
-        assert "title: \"AI Curated Content Index\"" in index_content
-        assert "type: \"index\"" in index_content
+        assert 'title: "AI Curated Content Index"' in index_content
+        assert 'type: "index"' in index_content
         assert "total_articles: 2" in index_content
-        assert "timestamp: \"20250819_120000\"" in index_content
+        assert 'timestamp: "20250819_120000"' in index_content
 
         # Verify content listings
         assert "# AI Curated Content Index" in index_content
@@ -246,7 +259,7 @@ class TestBlobStorageIntegration:
 
     def setup_method(self):
         """Set up test fixtures."""
-        with patch('config.config.AZURE_STORAGE_CONNECTION_STRING', 'test_connection'):
+        with patch("config.config.AZURE_STORAGE_CONNECTION_STRING", "test_connection"):
             self.blob_client = Mock(spec=BlobStorageClient)
 
     def test_blob_client_operations(self):
@@ -258,17 +271,21 @@ class TestBlobStorageIntegration:
         self.blob_client.upload_json.return_value = "https://test.url/manifest.json"
 
         # Test data
-        content_items = [{
-            "title": "Test",
-            "clean_title": "Test",
-            "ai_summary": "Summary",
-            "final_score": 85.0
-        }]
+        content_items = [
+            {
+                "title": "Test",
+                "clean_title": "Test",
+                "ai_summary": "Summary",
+                "final_score": 85.0,
+            }
+        ]
 
         # Execute (sync version for testing)
         import asyncio
+
         result = asyncio.run(
-            generator.generate_markdown_from_ranked_content(content_items))
+            generator.generate_markdown_from_ranked_content(content_items)
+        )
 
         # Verify blob operations were called
         assert self.blob_client.upload_text.called

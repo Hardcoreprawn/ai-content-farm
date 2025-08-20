@@ -7,7 +7,7 @@ Multi-factor scoring: engagement + recency + topic relevance.
 
 import math
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 def calculate_engagement_score(content_item: Dict[str, Any]) -> float:
@@ -36,9 +36,9 @@ def calculate_engagement_score(content_item: Dict[str, Any]) -> float:
     trend_weight = 0.2
 
     total_engagement = (
-        base_engagement * engagement_weight +
-        normalized_score * score_weight +
-        trend_score * trend_weight
+        base_engagement * engagement_weight
+        + normalized_score * score_weight
+        + trend_score * trend_weight
     )
 
     # Ensure result is in [0, 1] range
@@ -62,8 +62,7 @@ def calculate_recency_score(content_item: Dict[str, Any]) -> float:
     try:
         # Parse timestamp (expecting ISO format)
         if isinstance(published_at, str):
-            published_time = datetime.fromisoformat(
-                published_at.replace('Z', '+00:00'))
+            published_time = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
         else:
             return 0.5
 
@@ -81,7 +80,9 @@ def calculate_recency_score(content_item: Dict[str, Any]) -> float:
         return 0.5  # Default for invalid timestamp
 
 
-def calculate_topic_relevance(content_item: Dict[str, Any], target_topics: Optional[List[str]] = None) -> float:
+def calculate_topic_relevance(
+    content_item: Dict[str, Any], target_topics: Optional[List[str]] = None
+) -> float:
     """
     Calculate topic relevance score.
 
@@ -109,8 +110,9 @@ def calculate_topic_relevance(content_item: Dict[str, Any], target_topics: Optio
     primary_topic = topic_classification.get("primary_topic", "")
 
     # Calculate topic overlap
-    content_topic_set = set([t.lower()
-                            for t in content_topics] + [primary_topic.lower()])
+    content_topic_set = set(
+        [t.lower() for t in content_topics] + [primary_topic.lower()]
+    )
     target_topic_set = set([t.lower() for t in target_topics])
 
     overlap = len(content_topic_set.intersection(target_topic_set))
@@ -130,7 +132,7 @@ def calculate_topic_relevance(content_item: Dict[str, Any], target_topics: Optio
 def calculate_composite_score(
     content_item: Dict[str, Any],
     weights: Optional[Dict[str, float]] = None,
-    target_topics: Optional[List[str]] = None
+    target_topics: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Calculate composite ranking score from all factors.
@@ -144,11 +146,7 @@ def calculate_composite_score(
         Dictionary with individual scores and composite score
     """
     # Default weights
-    default_weights = {
-        "engagement": 0.4,
-        "recency": 0.35,
-        "topic_relevance": 0.25
-    }
+    default_weights = {"engagement": 0.4, "recency": 0.35, "topic_relevance": 0.25}
 
     # Use provided weights or defaults
     final_weights = weights or default_weights
@@ -156,7 +154,7 @@ def calculate_composite_score(
     # Ensure weights sum to 1.0
     weight_sum = sum(final_weights.values())
     if weight_sum > 0:
-        final_weights = {k: v/weight_sum for k, v in final_weights.items()}
+        final_weights = {k: v / weight_sum for k, v in final_weights.items()}
 
     # Calculate individual scores
     engagement_score = calculate_engagement_score(content_item)
@@ -165,9 +163,9 @@ def calculate_composite_score(
 
     # Calculate weighted composite score
     composite_score = (
-        engagement_score * final_weights.get("engagement", 0.4) +
-        recency_score * final_weights.get("recency", 0.35) +
-        relevance_score * final_weights.get("topic_relevance", 0.25)
+        engagement_score * final_weights.get("engagement", 0.4)
+        + recency_score * final_weights.get("recency", 0.35)
+        + relevance_score * final_weights.get("topic_relevance", 0.25)
     )
 
     return {
@@ -175,7 +173,7 @@ def calculate_composite_score(
         "recency_score": recency_score,
         "topic_relevance_score": relevance_score,
         "composite_score": max(0.0, min(1.0, composite_score)),
-        "weights_used": final_weights
+        "weights_used": final_weights,
     }
 
 
@@ -183,7 +181,7 @@ def rank_content_items(
     content_items: List[Dict[str, Any]],
     weights: Optional[Dict[str, float]] = None,
     target_topics: Optional[List[str]] = None,
-    limit: Optional[int] = None
+    limit: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """
     Rank a list of content items by composite score.
@@ -191,7 +189,7 @@ def rank_content_items(
     Args:
         content_items: List of enriched content dictionaries
         weights: Custom weights for scoring factors
-        target_topics: Target topics for relevance scoring  
+        target_topics: Target topics for relevance scoring
         limit: Maximum number of items to return (optional)
 
     Returns:

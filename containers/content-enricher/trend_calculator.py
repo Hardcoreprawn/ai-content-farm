@@ -5,9 +5,9 @@ Simple heuristics to calculate how "trending" content might be.
 Based on engagement patterns and time factors.
 """
 
-from typing import Dict, Any
-from datetime import datetime, timezone
 import math
+from datetime import datetime, timezone
+from typing import Any, Dict
 
 
 def calculate_trend_score(content: Dict[str, Any]) -> Dict[str, Any]:
@@ -44,12 +44,12 @@ def calculate_trend_score(content: Dict[str, Any]) -> Dict[str, Any]:
     if created_utc:
         try:
             if isinstance(created_utc, (int, float)):
-                created_time = datetime.fromtimestamp(
-                    created_utc, tz=timezone.utc)
+                created_time = datetime.fromtimestamp(created_utc, tz=timezone.utc)
             else:
                 # Assume it's already a datetime or string
                 created_time = datetime.fromisoformat(
-                    str(created_utc).replace('Z', '+00:00'))
+                    str(created_utc).replace("Z", "+00:00")
+                )
 
             now = datetime.now(timezone.utc)
             hours_old = (now - created_time).total_seconds() / 3600
@@ -61,8 +61,9 @@ def calculate_trend_score(content: Dict[str, Any]) -> Dict[str, Any]:
                 # Drop to 0.5 over 24 hours
                 recency_score = 1.0 - (hours_old - 1) / 23 * 0.5
             elif hours_old <= 168:  # 1 week
-                recency_score = 0.5 - (hours_old - 24) / \
-                    144 * 0.4  # Drop to 0.1 over week
+                recency_score = (
+                    0.5 - (hours_old - 24) / 144 * 0.4
+                )  # Drop to 0.1 over week
             else:
                 recency_score = 0.1  # Minimum score for old content
 
@@ -75,11 +76,11 @@ def calculate_trend_score(content: Dict[str, Any]) -> Dict[str, Any]:
     if created_utc and upvotes > 0:
         try:
             if isinstance(created_utc, (int, float)):
-                created_time = datetime.fromtimestamp(
-                    created_utc, tz=timezone.utc)
+                created_time = datetime.fromtimestamp(created_utc, tz=timezone.utc)
             else:
                 created_time = datetime.fromisoformat(
-                    str(created_utc).replace('Z', '+00:00'))
+                    str(created_utc).replace("Z", "+00:00")
+                )
 
             now = datetime.now(timezone.utc)
             # Avoid division by zero
@@ -99,32 +100,25 @@ def calculate_trend_score(content: Dict[str, Any]) -> Dict[str, Any]:
     if created_utc:
         try:
             if isinstance(created_utc, (int, float)):
-                created_time = datetime.fromtimestamp(
-                    created_utc, tz=timezone.utc)
+                created_time = datetime.fromtimestamp(created_utc, tz=timezone.utc)
             else:
                 created_time = datetime.fromisoformat(
-                    str(created_utc).replace('Z', '+00:00'))
+                    str(created_utc).replace("Z", "+00:00")
+                )
 
-            age_hours = round((datetime.now(timezone.utc) -
-                              created_time).total_seconds() / 3600, 1)
+            age_hours = round(
+                (datetime.now(timezone.utc) - created_time).total_seconds() / 3600, 1
+            )
         except (ValueError, TypeError):
             age_hours = None
 
     # Combine scores with weights
-    trend_score = (
-        engagement_score * 0.4 +
-        recency_score * 0.3 +
-        velocity_score * 0.3
-    )
+    trend_score = engagement_score * 0.4 + recency_score * 0.3 + velocity_score * 0.3
 
     return {
         "trend_score": round(trend_score, 3),
         "engagement_score": round(engagement_score, 3),
         "recency_score": round(recency_score, 3),
         "velocity_score": round(velocity_score, 3),
-        "factors": {
-            "upvotes": upvotes,
-            "comments": comments,
-            "age_hours": age_hours
-        }
+        "factors": {"upvotes": upvotes, "comments": comments, "age_hours": age_hours},
     }

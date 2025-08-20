@@ -8,6 +8,10 @@ This directory contains utility scripts for the AI Content Farm project.
 - **`setup-local-dev.sh`** - Initialize local development environment with Docker and dependencies
 - **`setup-keyvault.sh`** - Configure Azure Key Vault integration for secure credential management
 
+### Security & Quality Assurance
+- **`run-semgrep.sh`** - Standardized security scanning with Semgrep (ensures consistency between local dev and CI/CD)
+- **`validate-security-consistency.sh`** - Validates that local and CI/CD security scans produce identical results
+
 ### Pipeline Operations
 - **`run_pipeline.sh`** - Execute the complete content processing pipeline manually
 - **`start-event-driven-pipeline.sh`** - Start the event-driven pipeline with automatic triggers
@@ -59,7 +63,35 @@ python scripts/cost-calculator.py --subscription-id YOUR_SUB_ID
 - **Dependencies**: Some scripts require specific Python packages or Azure CLI tools
 - **Permissions**: Azure scripts require appropriate Azure subscriptions and permissions
 
-## 🔄 Maintenance
+## �️ Security Scanning Consistency
+
+The project ensures consistent security scanning results between local development and CI/CD:
+
+### Local Development
+```bash
+# Run standardized security scan
+./scripts/run-semgrep.sh
+
+# Or use Makefile target
+make scan-python
+
+# Validate consistency
+./scripts/validate-security-consistency.sh
+```
+
+### CI/CD Pipeline
+The GitHub Actions pipeline uses the same standardized `run-semgrep.sh` script, ensuring identical:
+- Semgrep rules and configuration (`--config=auto`)
+- Output formats (JSON for counting, SARIF for GitHub integration)
+- Container images (`semgrep/semgrep:latest`)
+- Scanning parameters and exclusions
+
+### Output Files
+Both local and CI/CD generate consistent results in:
+- `security-results/semgrep-results.json` - Detailed JSON format for local analysis
+- `security-results/semgrep.sarif` - SARIF format for GitHub Security tab integration
+
+## �🔄 Maintenance
 
 When adding new scripts:
 1. Follow existing naming conventions

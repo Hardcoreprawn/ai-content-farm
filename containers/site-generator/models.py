@@ -4,13 +4,15 @@ Pydantic models for Site Generator API
 """
 
 from datetime import datetime, timezone
-from typing import List, Dict, Any, Optional, Union
-from pydantic import BaseModel, Field, field_validator
 from enum import Enum
+from typing import Any, Dict, List, Optional, Union
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class GenerationStatus(str, Enum):
     """Site generation status enumeration."""
+
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -19,6 +21,7 @@ class GenerationStatus(str, Enum):
 
 class SiteTheme(str, Enum):
     """Available site themes."""
+
     MODERN = "modern"
     CLASSIC = "classic"
     MINIMAL = "minimal"
@@ -27,39 +30,47 @@ class SiteTheme(str, Enum):
 
 class StandardResponse(BaseModel):
     """Standard API response format."""
+
     status: str = Field(..., description="Response status")
     message: str = Field(..., description="Human readable message")
-    data: Optional[Dict[str, Any]] = Field(None, description="Response data")
+    data: Optional[Dict[str, Any]] = Field(
+        default=None, description="Response data")
     metadata: Dict[str, Any] = Field(
-        default_factory=dict, description="Response metadata")
+        default_factory=dict, description="Response metadata"
+    )
     errors: Optional[List[Dict[str, Any]]] = Field(
-        None, description="Error details")
+        default=None, description="Error details")
 
 
 class GenerationRequest(BaseModel):
     """Request to generate a static site."""
+
     content_source: str = Field(
-        default="ranked", description="Source of content: ranked, enriched, or specific blob name")
+        default="ranked",
+        description="Source of content: ranked, enriched, or specific blob name",
+    )
     theme: SiteTheme = Field(default=SiteTheme.MODERN,
                              description="Site theme to use")
     include_analytics: bool = Field(
-        default=True, description="Include analytics tracking")
+        default=True, description="Include analytics tracking"
+    )
     max_articles: int = Field(
         default=20, description="Maximum articles to include")
     site_title: Optional[str] = Field(None, description="Custom site title")
     site_description: Optional[str] = Field(
         None, description="Custom site description")
 
-    @field_validator('max_articles')
+    @field_validator("max_articles")
     @classmethod
     def validate_max_articles(cls, v):
         if v < 1 or v > 100:
-            raise ValueError('max_articles must be between 1 and 100')
+            raise ValueError("max_articles must be between 1 and 100")
         return v
 
 
 class SiteInfo(BaseModel):
     """Information about a generated site."""
+
     site_id: str = Field(..., description="Unique site identifier")
     creation_date: datetime = Field(...,
                                     description="When the site was created")
@@ -74,6 +85,7 @@ class SiteInfo(BaseModel):
 
 class GenerationStatusResponse(BaseModel):
     """Response for generation status requests."""
+
     site_id: str = Field(..., description="Site identifier")
     status: GenerationStatus = Field(..., description="Current status")
     progress_percentage: int = Field(..., description="Completion percentage")
@@ -81,11 +93,13 @@ class GenerationStatusResponse(BaseModel):
     error_message: Optional[str] = Field(
         None, description="Error message if failed")
     completion_time: Optional[datetime] = Field(
-        None, description="When generation completed")
+        None, description="When generation completed"
+    )
 
 
 class ContentItem(BaseModel):
     """Individual content item for site generation."""
+
     title: str = Field(..., description="Article title")
     url: str = Field(..., description="Original URL")
     summary: str = Field(..., description="Article summary")
@@ -101,6 +115,7 @@ class ContentItem(BaseModel):
 
 class SiteMetadata(BaseModel):
     """Metadata for generated site."""
+
     title: str = Field(..., description="Site title")
     description: str = Field(..., description="Site description")
     generation_date: datetime = Field(...,

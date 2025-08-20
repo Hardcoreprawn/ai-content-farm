@@ -4,11 +4,12 @@ Tests for Content Collector FastAPI application.
 Following TDD: API tests first, then implementation.
 """
 
+import json
+from typing import Any, Dict, List
+from unittest.mock import Mock, patch
+
 import pytest
 from fastapi.testclient import TestClient
-from typing import Dict, Any, List
-import json
-from unittest.mock import patch, Mock
 
 # Import the FastAPI app we're going to test
 from main import app
@@ -57,16 +58,10 @@ class TestCollectEndpoint:
                     "type": "reddit",
                     "subreddits": ["MachineLearning", "programming"],
                     "limit": 5,
-                    "criteria": {
-                        "min_score": 100,
-                        "min_comments": 10
-                    }
+                    "criteria": {"min_score": 100, "min_comments": 10},
                 }
             ],
-            "options": {
-                "deduplicate": True,
-                "max_total_items": 50
-            }
+            "options": {"deduplicate": True, "max_total_items": 50},
         }
 
         response = client.post("/collect", json=test_data)
@@ -84,16 +79,8 @@ class TestCollectEndpoint:
         """Test collecting from multiple sources."""
         test_data = {
             "sources": [
-                {
-                    "type": "reddit",
-                    "subreddits": ["technology"],
-                    "limit": 3
-                },
-                {
-                    "type": "reddit",
-                    "subreddits": ["science"],
-                    "limit": 3
-                }
+                {"type": "reddit", "subreddits": ["technology"], "limit": 3},
+                {"type": "reddit", "subreddits": ["science"], "limit": 3},
             ]
         }
 
@@ -118,13 +105,11 @@ class TestCollectEndpoint:
                         "min_score": 500,
                         "min_comments": 50,
                         "include_keywords": ["AI", "neural", "machine learning"],
-                        "exclude_keywords": ["meme", "joke"]
-                    }
+                        "exclude_keywords": ["meme", "joke"],
+                    },
                 }
             ],
-            "options": {
-                "deduplicate": True
-            }
+            "options": {"deduplicate": True},
         }
 
         response = client.post("/collect", json=test_data)
@@ -154,12 +139,7 @@ class TestCollectEndpoint:
     def test_collect_invalid_source_type(self) -> None:
         """Test handling of invalid source types."""
         test_data = {
-            "sources": [
-                {
-                    "type": "invalid_source",
-                    "config": {"some": "value"}
-                }
-            ]
+            "sources": [{"type": "invalid_source", "config": {"some": "value"}}]
         }
 
         response = client.post("/collect", json=test_data)
@@ -221,8 +201,7 @@ class TestStatusEndpoint:
         data = response.json()
 
         assert "available_sources" in data
-        assert "reddit" in [source["type"]
-                            for source in data["available_sources"]]
+        assert "reddit" in [source["type"] for source in data["available_sources"]]
 
 
 class TestErrorHandling:
@@ -250,13 +229,7 @@ class TestErrorHandling:
         mock_collect.side_effect = RuntimeError("Collection error")
 
         test_data = {
-            "sources": [
-                {
-                    "type": "reddit",
-                    "subreddits": ["test"],
-                    "limit": 5
-                }
-            ]
+            "sources": [{"type": "reddit", "subreddits": ["test"], "limit": 5}]
         }
 
         response = client.post("/collect", json=test_data)
@@ -274,7 +247,7 @@ class TestErrorHandling:
                 {
                     "type": "reddit",
                     "subreddits": ["test"],
-                    "limit": 1000  # Large request
+                    "limit": 1000,  # Large request
                 }
             ]
         }
@@ -293,23 +266,16 @@ class TestInputValidation:
         """Test validation of Reddit source structure."""
         invalid_sources = [
             # Missing subreddits
-            {
-                "type": "reddit",
-                "limit": 10
-            },
+            {"type": "reddit", "limit": 10},
             # Invalid limit
-            {
-                "type": "reddit",
-                "subreddits": ["test"],
-                "limit": -1
-            },
+            {"type": "reddit", "subreddits": ["test"], "limit": -1},
             # Invalid criteria type
             {
                 "type": "reddit",
                 "subreddits": ["test"],
                 "limit": 10,
-                "criteria": "invalid_criteria"
-            }
+                "criteria": "invalid_criteria",
+            },
         ]
 
         for invalid_source in invalid_sources:
@@ -323,15 +289,9 @@ class TestInputValidation:
     def test_validate_options_structure(self) -> None:
         """Test validation of data types."""
         test_data = {
-            "sources": [
-                {
-                    "type": "reddit",
-                    "subreddits": ["test"],
-                    "limit": 5
-                }
-            ],
+            "sources": [{"type": "reddit", "subreddits": ["test"], "limit": 5}],
             "deduplicate": "invalid_boolean",  # Should be boolean
-            "similarity_threshold": "not_a_number"  # Should be float
+            "similarity_threshold": "not_a_number",  # Should be float
         }
 
         response = client.post("/collect", json=test_data)
@@ -347,7 +307,7 @@ class TestInputValidation:
                     "type": "reddit",
                     # Mixed valid/invalid
                     "subreddits": ["", "valid_subreddit", None],
-                    "limit": 5
+                    "limit": 5,
                 }
             ]
         }
@@ -369,12 +329,13 @@ class TestPerformance:
                 {
                     "type": "reddit",
                     "subreddits": ["technology", "programming", "science"],
-                    "limit": 5  # Small limit for performance test
+                    "limit": 5,  # Small limit for performance test
                 }
             ]
         }
 
         import time
+
         start_time = time.time()
 
         response = client.post("/collect", json=test_data)
@@ -395,12 +356,10 @@ class TestPerformance:
                 {
                     "type": "reddit",
                     "subreddits": ["technology"],
-                    "limit": 25  # Larger batch
+                    "limit": 25,  # Larger batch
                 }
             ],
-            "options": {
-                "max_total_items": 100
-            }
+            "options": {"max_total_items": 100},
         }
 
         response = client.post("/collect", json=test_data)
@@ -423,7 +382,7 @@ class TestIntegration:
                 {
                     "type": "reddit",
                     "subreddits": ["test"],  # Use small test subreddit
-                    "limit": 1  # Minimal request
+                    "limit": 1,  # Minimal request
                 }
             ]
         }
@@ -443,12 +402,10 @@ class TestIntegration:
                     "type": "reddit",
                     "subreddits": ["technology"],
                     "limit": 2,
-                    "criteria": {"min_score": 10}
+                    "criteria": {"min_score": 10},
                 }
             ],
-            "options": {
-                "deduplicate": True
-            }
+            "options": {"deduplicate": True},
         }
 
         response = client.post("/collect", json=collect_data)
@@ -459,7 +416,6 @@ class TestIntegration:
         # Verify collected data structure matches what processors expect
         if data["collected_items"]:
             item = data["collected_items"][0]
-            required_fields = ["id", "title",
-                               "score", "num_comments", "source"]
+            required_fields = ["id", "title", "score", "num_comments", "source"]
             for field in required_fields:
                 assert field in item

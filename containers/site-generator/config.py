@@ -5,10 +5,10 @@ Configuration module for Site Generator
 Handles environment variables, Azure configuration, and validation.
 """
 
-import os
 import logging
+import os
 from dataclasses import dataclass, field
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -24,23 +24,29 @@ class ServiceConfig:
 
     # Environment
     environment: str = field(
-        default_factory=lambda: os.getenv("ENVIRONMENT", "development"))
+        default_factory=lambda: os.getenv("ENVIRONMENT", "development")
+    )
 
     # Azure Storage
     storage_connection_string: str = field(
-        default_factory=lambda: os.getenv(
-            "AZURE_STORAGE_CONNECTION_STRING", "")
+        default_factory=lambda: os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
     )
 
     # Site generation settings
     default_theme: str = field(
-        default_factory=lambda: os.getenv("DEFAULT_THEME", "modern"))
-    max_articles_per_page: int = field(default_factory=lambda: int(
-        os.getenv("MAX_ARTICLES_PER_PAGE", "20")))
-    site_title: str = field(default_factory=lambda: os.getenv(
-        "SITE_TITLE", "AI Content Farm"))
-    site_description: str = field(default_factory=lambda: os.getenv(
-        "SITE_DESCRIPTION", "Curated Technology News & Insights"))
+        default_factory=lambda: os.getenv("DEFAULT_THEME", "modern")
+    )
+    max_articles_per_page: int = field(
+        default_factory=lambda: int(os.getenv("MAX_ARTICLES_PER_PAGE", "20"))
+    )
+    site_title: str = field(
+        default_factory=lambda: os.getenv("SITE_TITLE", "AI Content Farm")
+    )
+    site_description: str = field(
+        default_factory=lambda: os.getenv(
+            "SITE_DESCRIPTION", "Curated Technology News & Insights"
+        )
+    )
 
     def __post_init__(self):
         """Validate configuration after initialization."""

@@ -1,19 +1,24 @@
-import json
 import asyncio
+import json
 import logging
-import httpx
 from datetime import datetime
-from typing import List, Dict, Any, Optional
-import openai
-import anthropic
+from typing import Any, Dict, List, Optional
 
+import anthropic
+import httpx
+import openai
+from blob_events import BlobEventProcessor
 from config import config
 from models import (
-    RankedTopic, GeneratedContent, GenerationRequest,
-    BatchGenerationRequest, BatchGenerationResponse, GenerationStatus
+    BatchGenerationRequest,
+    BatchGenerationResponse,
+    GeneratedContent,
+    GenerationRequest,
+    GenerationStatus,
+    RankedTopic,
 )
+
 from libs.blob_storage import get_blob_client
-from blob_events import BlobEventProcessor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -34,39 +39,53 @@ class ContentGeneratorService:
             self.azure_openai_client = openai.AsyncAzureOpenAI(
                 azure_endpoint=config.AZURE_OPENAI_ENDPOINT,
                 api_key=config.AZURE_OPENAI_API_KEY,
-                api_version=config.AZURE_OPENAI_API_VERSION
+                api_version=config.AZURE_OPENAI_API_VERSION,
             )
             logger.info("Initialized Azure OpenAI client")
         else:
             self.azure_openai_client = None
 
         # Fallback to OpenAI direct API
-        self.openai_client = openai.AsyncOpenAI(
-            api_key=config.OPENAI_API_KEY) if config.OPENAI_API_KEY else None
+        self.openai_client = (
+            openai.AsyncOpenAI(api_key=config.OPENAI_API_KEY)
+            if config.OPENAI_API_KEY
+            else None
+        )
 
-        self.claude_client = anthropic.AsyncAnthropic(
-            api_key=config.CLAUDE_API_KEY) if config.CLAUDE_API_KEY else None
+        self.claude_client = (
+            anthropic.AsyncAnthropic(api_key=config.CLAUDE_API_KEY)
+            if config.CLAUDE_API_KEY
+            else None
+        )
         self.active_generations: Dict[str, GenerationStatus] = {}
-        self.http_client = httpx.AsyncClient(
-            timeout=config.VERIFICATION_TIMEOUT)
+        self.http_client = httpx.AsyncClient(timeout=config.VERIFICATION_TIMEOUT)
 
-    async def generate_content(self, topic: RankedTopic, content_type: str = "tldr", writer_personality: str = "professional") -> GeneratedContent:
+    async def generate_content(
+        self,
+        topic: RankedTopic,
+        content_type: str = "tldr",
+        writer_personality: str = "professional",
+    ) -> GeneratedContent:
         """Generate content for a single topic with specified personality"""
         try:
             logger.info(
-                f"Generating {content_type} content for topic: {topic.topic} with {writer_personality} voice")
+                f"Generating {content_type} content for topic: {topic.topic} with {writer_personality} voice"
+            )
 
             # Only generate if we have enough source material
             if not self._has_sufficient_content(topic, content_type):
                 raise ValueError(
-                    f"Insufficient source material for {content_type} article on {topic.topic}")
+                    f"Insufficient source material for {content_type} article on {topic.topic}"
+                )
 
             # Verify sources if enabled
             verification_status = "pending"
             fact_check_notes = []
 
             if config.ENABLE_SOURCE_VERIFICATION:
-                verification_status, fact_check_notes = await self._verify_sources(topic.sources)
+                verification_status, fact_check_notes = await self._verify_sources(
+                    topic.sources
+                )
 
             # Generate the content
             if content_type == "tldr":
@@ -86,15 +105,15 @@ class ContentGeneratorService:
             return content
 
         except Exception as e:
-            logger.error(
-                f"Error generating content for {topic.topic}: {str(e)}")
+            logger.error(f"Error generating content for {topic.topic}: {str(e)}")
             raise
 
     def _has_sufficient_content(self, topic: RankedTopic, content_type: str) -> bool:
         """Check if we have enough source material for the requested content type"""
         source_count = len(topic.sources)
         total_content_length = sum(
-            len(source.summary or "") + len(source.title) for source in topic.sources)
+            len(source.summary or "") + len(source.title) for source in topic.sources
+        )
 
         # Minimum requirements for each content type
         if content_type == "tldr":
@@ -113,17 +132,20 @@ class ContentGeneratorService:
 
         for source in sources[:3]:  # Limit verification to top 3 sources
             try:
-                response = await self.http_client.head(source.url, follow_redirects=True)
+                response = await self.http_client.head(
+                    source.url, follow_redirects=True
+                )
                 if response.status_code == 200:
                     verified_count += 1
-                    verification_notes.append(
-                        f"✅ {source.name}: Source accessible")
+                    verification_notes.append(f"✅ {source.name}: Source accessible")
                 else:
                     verification_notes.append(
-                        f"⚠️ {source.name}: HTTP {response.status_code}")
+                        f"⚠️ {source.name}: HTTP {response.status_code}"
+                    )
             except Exception as e:
                 verification_notes.append(
-                    f"❌ {source.name}: Verification failed - {str(e)[:50]}")
+                    f"❌ {source.name}: Verification failed - {str(e)[:50]}"
+                )
 
         # Determine overall verification status
         if verified_count == len(sources[:3]):
@@ -135,12 +157,16 @@ class ContentGeneratorService:
 
         return status, verification_notes
 
-    async def _generate_tldr(self, topic: RankedTopic, writer_personality: str) -> GeneratedContent:
+    async def _generate_tldr(
+        self, topic: RankedTopic, writer_personality: str
+    ) -> GeneratedContent:
         """Generate focused tl;dr article (200-400 words)"""
         prompt = self._build_tldr_prompt(topic, writer_personality)
 
         # Use GPT-3.5 for cost efficiency on short content
-        response = await self._call_openai(prompt, model="gpt-3.5-turbo", max_tokens=600)
+        response = await self._call_openai(
+            prompt, model="gpt-3.5-turbo", max_tokens=600
+        )
 
         # Parse response and extract title/content
         title, content = self._parse_ai_response(response)
@@ -160,15 +186,16 @@ class ContentGeneratorService:
                 "original_rank": topic.rank,
                 "ai_score": topic.ai_score,
                 "sentiment": topic.sentiment,
-                "personality_used": writer_personality
-            }
+                "personality_used": writer_personality,
+            },
         )
 
-    async def _generate_blog(self, topic: RankedTopic, writer_personality: str) -> GeneratedContent:
+    async def _generate_blog(
+        self, topic: RankedTopic, writer_personality: str
+    ) -> GeneratedContent:
         """Generate blog article (600-1000 words) - only if sufficient content"""
         if not self._has_sufficient_content(topic, "blog"):
-            raise ValueError(
-                f"Insufficient content for blog article on {topic.topic}")
+            raise ValueError(f"Insufficient content for blog article on {topic.topic}")
 
         prompt = self._build_blog_prompt(topic, writer_personality)
 
@@ -192,15 +219,16 @@ class ContentGeneratorService:
                 "original_rank": topic.rank,
                 "ai_score": topic.ai_score,
                 "sentiment": topic.sentiment,
-                "personality_used": writer_personality
-            }
+                "personality_used": writer_personality,
+            },
         )
 
-    async def _generate_deepdive(self, topic: RankedTopic, writer_personality: str) -> GeneratedContent:
+    async def _generate_deepdive(
+        self, topic: RankedTopic, writer_personality: str
+    ) -> GeneratedContent:
         """Generate deep dive (1500-2500 words) - only if substantial content available"""
         if not self._has_sufficient_content(topic, "deepdive"):
-            raise ValueError(
-                f"Insufficient content for deep dive on {topic.topic}")
+            raise ValueError(f"Insufficient content for deep dive on {topic.topic}")
 
         prompt = self._build_deepdive_prompt(topic, writer_personality)
 
@@ -224,19 +252,22 @@ class ContentGeneratorService:
                 "original_rank": topic.rank,
                 "ai_score": topic.ai_score,
                 "sentiment": topic.sentiment,
-                "personality_used": writer_personality
-            }
+                "personality_used": writer_personality,
+            },
         )
 
     def _build_tldr_prompt(self, topic: RankedTopic, writer_personality: str) -> str:
         """Build prompt for tl;dr article generation with personality"""
-        sources_text = "\n".join([
-            f"- {source.name}: {source.title}\n  URL: {source.url}\n  Summary: {source.summary or 'No summary available'}"
-            for source in topic.sources[:2]  # Focus on top 2 sources for tl;dr
-        ])
+        sources_text = "\n".join(
+            [
+                f"- {source.name}: {source.title}\n  URL: {source.url}\n  Summary: {source.summary or 'No summary available'}"
+                for source in topic.sources[:2]  # Focus on top 2 sources for tl;dr
+            ]
+        )
 
         personality_prompt = config.WRITER_PERSONALITIES.get(
-            writer_personality, config.WRITER_PERSONALITIES["professional"])
+            writer_personality, config.WRITER_PERSONALITIES["professional"]
+        )
 
         return f"""Write a focused tl;dr article about: {topic.topic}
 
@@ -270,13 +301,16 @@ CONTENT:
 
     def _build_blog_prompt(self, topic: RankedTopic, writer_personality: str) -> str:
         """Build prompt for blog article generation with personality"""
-        sources_text = "\n".join([
-            f"- {source.name}: {source.title}\n  URL: {source.url}\n  Summary: {source.summary or 'No summary available'}"
-            for source in topic.sources[:4]  # More sources for blog content
-        ])
+        sources_text = "\n".join(
+            [
+                f"- {source.name}: {source.title}\n  URL: {source.url}\n  Summary: {source.summary or 'No summary available'}"
+                for source in topic.sources[:4]  # More sources for blog content
+            ]
+        )
 
         personality_prompt = config.WRITER_PERSONALITIES.get(
-            writer_personality, config.WRITER_PERSONALITIES["professional"])
+            writer_personality, config.WRITER_PERSONALITIES["professional"]
+        )
 
         return f"""Write a comprehensive blog article about: {topic.topic}
 
@@ -303,15 +337,20 @@ TITLE: [Comprehensive {writer_personality}-voice title]
 CONTENT:
 [Your detailed blog article in {writer_personality} voice with clear sections]"""
 
-    def _build_deepdive_prompt(self, topic: RankedTopic, writer_personality: str) -> str:
+    def _build_deepdive_prompt(
+        self, topic: RankedTopic, writer_personality: str
+    ) -> str:
         """Build prompt for deep dive article generation with personality"""
-        sources_text = "\n".join([
-            f"- {source.name}: {source.title}\n  URL: {source.url}\n  Summary: {source.summary or 'No summary available'}"
-            for source in topic.sources  # All sources for deep dive
-        ])
+        sources_text = "\n".join(
+            [
+                f"- {source.name}: {source.title}\n  URL: {source.url}\n  Summary: {source.summary or 'No summary available'}"
+                for source in topic.sources  # All sources for deep dive
+            ]
+        )
 
         personality_prompt = config.WRITER_PERSONALITIES.get(
-            writer_personality, config.WRITER_PERSONALITIES["professional"])
+            writer_personality, config.WRITER_PERSONALITIES["professional"]
+        )
 
         return f"""Write an analytical deep dive about: {topic.topic}
 
@@ -339,7 +378,9 @@ TITLE: [Analytical {writer_personality}-voice title]
 CONTENT:
 [Your comprehensive deep dive in {writer_personality} voice with clear structure]"""
 
-    async def _call_openai(self, prompt: str, model: str = "gpt-3.5-turbo", max_tokens: int = 1500) -> str:
+    async def _call_openai(
+        self, prompt: str, model: str = "gpt-3.5-turbo", max_tokens: int = 1500
+    ) -> str:
         """Call OpenAI API - preferably Azure OpenAI Service"""
         # Try Azure OpenAI first (preferred for Azure hosting)
         if self.azure_openai_client:
@@ -347,16 +388,20 @@ CONTENT:
                 response = await self.azure_openai_client.chat.completions.create(
                     model=config.AZURE_OPENAI_DEPLOYMENT_NAME,  # Use deployment name for Azure
                     messages=[
-                        {"role": "system", "content": "You are an expert content writer specializing in technology and business analysis."},
-                        {"role": "user", "content": prompt}
+                        {
+                            "role": "system",
+                            "content": "You are an expert content writer specializing in technology and business analysis.",
+                        },
+                        {"role": "user", "content": prompt},
                     ],
                     max_tokens=max_tokens,
-                    temperature=0.7
+                    temperature=0.7,
                 )
                 return response.choices[0].message.content
             except Exception as e:
                 logger.warning(
-                    f"Azure OpenAI API error, falling back to OpenAI direct: {str(e)}")
+                    f"Azure OpenAI API error, falling back to OpenAI direct: {str(e)}"
+                )
 
         # Fallback to OpenAI direct API
         if not self.openai_client:
@@ -366,11 +411,14 @@ CONTENT:
             response = await self.openai_client.chat.completions.create(
                 model=model,
                 messages=[
-                    {"role": "system", "content": "You are an expert content writer specializing in technology and business analysis."},
-                    {"role": "user", "content": prompt}
+                    {
+                        "role": "system",
+                        "content": "You are an expert content writer specializing in technology and business analysis.",
+                    },
+                    {"role": "user", "content": prompt},
                 ],
                 max_tokens=max_tokens,
-                temperature=0.7
+                temperature=0.7,
             )
             return response.choices[0].message.content
         except Exception as e:
@@ -386,9 +434,7 @@ CONTENT:
             response = await self.claude_client.messages.create(
                 model="claude-3-sonnet-20240229",
                 max_tokens=max_tokens,
-                messages=[
-                    {"role": "user", "content": prompt}
-                ]
+                messages=[{"role": "user", "content": prompt}],
             )
             return response.content[0].text
         except Exception as e:
@@ -409,7 +455,9 @@ CONTENT:
             content = "\n".join(lines[1:]).strip()
             return title, content
 
-    async def process_batch(self, batch_request: BatchGenerationRequest) -> BatchGenerationResponse:
+    async def process_batch(
+        self, batch_request: BatchGenerationRequest
+    ) -> BatchGenerationResponse:
         """Process batch generation request"""
         batch_id = batch_request.batch_id
         topics = batch_request.ranked_topics
@@ -419,7 +467,7 @@ CONTENT:
             batch_id=batch_id,
             status="processing",
             total_topics=len(topics),
-            started_at=datetime.utcnow()
+            started_at=datetime.utcnow(),
         )
 
         generated_content = []
@@ -440,14 +488,14 @@ CONTENT:
             for i, result in enumerate(results):
                 if isinstance(result, Exception):
                     logger.error(
-                        f"Failed to generate content for topic {i}: {str(result)}")
+                        f"Failed to generate content for topic {i}: {str(result)}"
+                    )
                 else:
                     generated_content.append(result)
 
                 # Update progress
                 self.active_generations[batch_id].completed_topics = i + 1
-                self.active_generations[batch_id].progress = (
-                    i + 1) / len(topics)
+                self.active_generations[batch_id].progress = (i + 1) / len(topics)
 
             # Mark as completed
             self.active_generations[batch_id].status = "completed"
@@ -462,8 +510,11 @@ CONTENT:
                     "requested_topics": len(topics),
                     "generated_articles": len(generated_content),
                     "success_rate": len(generated_content) / len(topics),
-                    "avg_word_count": sum(c.word_count for c in generated_content) / len(generated_content) if generated_content else 0
-                }
+                    "avg_word_count": sum(c.word_count for c in generated_content)
+                    / len(generated_content)
+                    if generated_content
+                    else 0,
+                },
             )
 
             # Save to blob storage
@@ -485,7 +536,7 @@ CONTENT:
             blob_name = f"generator_{timestamp}_{response.batch_id}.json"
 
             # Convert to JSON data
-            content_data = response.model_dump(mode='json')
+            content_data = response.model_dump(mode="json")
 
             # Upload to blob storage using shared library
             self.blob_client.upload_json(
@@ -495,8 +546,8 @@ CONTENT:
                 metadata={
                     "batch_id": response.batch_id,
                     "generation_type": "content_generator",
-                    "article_count": str(len(response.generated_content))
-                }
+                    "article_count": str(len(response.generated_content)),
+                },
             )
 
             logger.info(f"Generated content saved to blob: {blob_name}")
@@ -518,12 +569,12 @@ CONTENT:
             service_bus_started = await self.event_processor.start()
 
             if service_bus_started:
-                logger.info(
-                    "Started real-time blob event processing via Service Bus")
+                logger.info("Started real-time blob event processing via Service Bus")
             else:
                 # Fallback to polling if Service Bus is not available
                 self.watch_task = asyncio.create_task(
-                    self._watch_for_new_ranked_content())
+                    self._watch_for_new_ranked_content()
+                )
                 logger.info("Started polling-based blob watching (fallback)")
 
     async def stop_watching(self):
@@ -544,36 +595,35 @@ CONTENT:
 
     async def _watch_for_new_ranked_content(self):
         """Watch for new ranked content blobs and automatically generate content"""
-        last_processed_time = datetime.utcnow().timestamp() - \
-            3600  # Start from 1 hour ago
+        last_processed_time = (
+            datetime.utcnow().timestamp() - 3600
+        )  # Start from 1 hour ago
 
         while self.is_running:
             try:
                 logger.debug("Checking for new ranked content...")
 
                 # List blobs in ranked-content container
-                blobs = self.blob_client.list_blobs(
-                    config.RANKED_CONTENT_CONTAINER)
+                blobs = self.blob_client.list_blobs(config.RANKED_CONTENT_CONTAINER)
 
                 new_blobs = []
                 for blob in blobs:
                     # Check if blob is newer than last processed time
-                    blob_time = blob.get('last_modified')
-                    if blob_time and hasattr(blob_time, 'timestamp'):
+                    blob_time = blob.get("last_modified")
+                    if blob_time and hasattr(blob_time, "timestamp"):
                         if blob_time.timestamp() > last_processed_time:
                             new_blobs.append(blob)
 
                 # Process new blobs
                 for blob in new_blobs:
                     try:
-                        await self._process_ranked_content_blob(blob['name'])
+                        await self._process_ranked_content_blob(blob["name"])
                         last_processed_time = max(
-                            last_processed_time, blob['last_modified'].timestamp())
-                        logger.info(
-                            f"Processed ranked content blob: {blob['name']}")
+                            last_processed_time, blob["last_modified"].timestamp()
+                        )
+                        logger.info(f"Processed ranked content blob: {blob['name']}")
                     except Exception as e:
-                        logger.error(
-                            f"Failed to process blob {blob['name']}: {e}")
+                        logger.error(f"Failed to process blob {blob['name']}: {e}")
 
                 # Wait before next check
                 await asyncio.sleep(30)  # Check every 30 seconds
@@ -589,21 +639,21 @@ CONTENT:
         try:
             # Download and parse the ranked content
             ranked_data = self.blob_client.download_json(
-                config.RANKED_CONTENT_CONTAINER, blob_name)
+                config.RANKED_CONTENT_CONTAINER, blob_name
+            )
 
-            if not ranked_data or 'topics' not in ranked_data:
+            if not ranked_data or "topics" not in ranked_data:
                 logger.warning(f"No topics found in blob {blob_name}")
                 return
 
             # Convert to RankedTopic objects
             topics = []
-            for topic_data in ranked_data['topics']:
+            for topic_data in ranked_data["topics"]:
                 try:
                     topic = RankedTopic(**topic_data)
                     topics.append(topic)
                 except Exception as e:
-                    logger.warning(
-                        f"Failed to parse topic from {blob_name}: {e}")
+                    logger.warning(f"Failed to parse topic from {blob_name}: {e}")
                     continue
 
             if not topics:
@@ -622,13 +672,14 @@ CONTENT:
                     content = await self.generate_content(
                         topic=topic,
                         content_type=content_type,
-                        writer_personality="professional"
+                        writer_personality="professional",
                     )
                     generated_content.append(content)
 
                 except Exception as e:
                     logger.error(
-                        f"Failed to generate content for topic '{topic.topic}': {e}")
+                        f"Failed to generate content for topic '{topic.topic}': {e}"
+                    )
                     continue
 
             if generated_content:
@@ -643,18 +694,18 @@ CONTENT:
                         "source_blob": blob_name,
                         "trigger": "blob_event",
                         "processed_topics": len(topics),
-                        "generated_articles": len(generated_content)
-                    }
+                        "generated_articles": len(generated_content),
+                    },
                 )
 
                 # Save to blob storage
                 await self._save_generated_content(response)
                 logger.info(
-                    f"Generated {len(generated_content)} articles from {blob_name}")
+                    f"Generated {len(generated_content)} articles from {blob_name}"
+                )
 
         except Exception as e:
-            logger.error(
-                f"Failed to process ranked content blob {blob_name}: {e}")
+            logger.error(f"Failed to process ranked content blob {blob_name}: {e}")
             raise
 
     def _determine_content_type(self, topic: RankedTopic) -> str:
@@ -665,9 +716,9 @@ CONTENT:
         if source_count >= 3:
             return "deepdive"  # Rich sources = detailed article
         elif source_count >= 2:
-            return "blog"      # Medium sources = blog post
+            return "blog"  # Medium sources = blog post
         else:
-            return "tldr"      # Limited sources = short summary
+            return "tldr"  # Limited sources = short summary
 
 
 # Global service instance

@@ -4,19 +4,20 @@ Tests for Content Enricher core functionality.
 Following TDD: Write tests first, then implement the minimal code to pass.
 """
 
-import pytest
-from typing import Dict, Any, List
-from unittest.mock import Mock, patch
 from datetime import datetime, timezone
+from typing import Any, Dict, List
+from unittest.mock import Mock, patch
+
+import pytest
 
 # Import the functions we're going to test
 from enricher import (
-    classify_topic,
     analyze_sentiment,
-    generate_summary,
     calculate_trend_score,
-    enrich_content_item,
+    classify_topic,
     enrich_content_batch,
+    enrich_content_item,
+    generate_summary,
 )
 
 
@@ -183,7 +184,7 @@ class TestTrendScoring:
             "source_metadata": {
                 "original_score": 1000,
                 "original_comments": 200,
-            }
+            },
         }
 
         result = calculate_trend_score(content)
@@ -204,7 +205,7 @@ class TestTrendScoring:
             "source_metadata": {
                 "original_score": 5,
                 "original_comments": 1,
-            }
+            },
         }
 
         result = calculate_trend_score(content)
@@ -218,7 +219,7 @@ class TestTrendScoring:
             "normalized_score": 0.8,
             "engagement_score": 0.8,
             "published_at": "2023-01-01T00:00:00+00:00",  # Old content
-            "source_metadata": {"original_score": 500, "original_comments": 50}
+            "source_metadata": {"original_score": 500, "original_comments": 50},
         }
 
         recent_content = {
@@ -226,7 +227,7 @@ class TestTrendScoring:
             "engagement_score": 0.8,
             # Recent content
             "published_at": datetime.now(timezone.utc).isoformat(),
-            "source_metadata": {"original_score": 500, "original_comments": 50}
+            "source_metadata": {"original_score": 500, "original_comments": 50},
         }
 
         old_score = calculate_trend_score(old_content)["trend_score"]
@@ -254,7 +255,7 @@ class TestContentEnrichment:
                 "original_score": 1000,
                 "original_comments": 150,
                 "selftext": "Researchers have developed a new model...",
-            }
+            },
         }
 
         result = enrich_content_item(content_item)
@@ -283,7 +284,7 @@ class TestContentEnrichment:
                 "source_url": "https://example.com/1",
                 "published_at": datetime.now(timezone.utc).isoformat(),
                 "content_type": "text",
-                "source_metadata": {"selftext": "Content 1"}
+                "source_metadata": {"selftext": "Content 1"},
             },
             {
                 "id": "item2",
@@ -294,8 +295,8 @@ class TestContentEnrichment:
                 "source_url": "https://example.com/2",
                 "published_at": datetime.now(timezone.utc).isoformat(),
                 "content_type": "text",
-                "source_metadata": {"selftext": "Content 2"}
-            }
+                "source_metadata": {"selftext": "Content 2"},
+            },
         ]
 
         result = enrich_content_batch(content_items)

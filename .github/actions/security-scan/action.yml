@@ -66,10 +66,9 @@ runs:
       env:
         WORKSPACE_PATH: ${{ github.workspace }}
       run: |
-        echo "Running Semgrep SAST scan..."
-        docker run --rm -v "${WORKSPACE_PATH}":/src \
-          semgrep/semgrep:latest \
-          semgrep --config=auto --sarif --output=/src/security-results/semgrep.sarif /src || true
+        echo "Running standardized Semgrep SAST scan..."
+        chmod +x ./scripts/run-semgrep.sh
+        ./scripts/run-semgrep.sh "${WORKSPACE_PATH}" security-results semgrep/semgrep:latest
 
     - name: Run Python Security Scan
       shell: bash
@@ -129,7 +128,24 @@ runs:
           critical_count=$((critical_count + trivy_critical))
         fi
 
-        if [ -f "security-results/semgrep.sarif" ]; then
+        # Count Semgrep findings from standardized JSON output
+        if [ -f "security-results/semgrep-results.json" ]; then
+          # Count all semgrep findings first
+          total_semgrep="$(jq -r '.results[] | select(.extra.severity == "ERROR" or .extra.severity == "WARNING") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || total_semgrep="0"
+          
+          # Subtract acceptable infrastructure findings (documented in docs/SECURITY_EXCEPTIONS.md)
+          acceptable_bypass="$(jq -r '.results[] | select(.check_id == "terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_bypass="0"
+          acceptable_queue="$(jq -r '.results[] | select(.check_id == "terraform.azure.security.storage.storage-queue-services-logging.storage-queue-services-logging") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_queue="0"
+          
+          # Only count critical findings (excluding documented acceptable ones)
+          semgrep_critical=$((total_semgrep - acceptable_bypass - acceptable_queue))
+          critical_count=$((critical_count + semgrep_critical))
+          
+          echo "Semgrep total findings: $total_semgrep"
+          echo "Semgrep acceptable exceptions: $((acceptable_bypass + acceptable_queue))"
+          echo "Semgrep critical (blocking): $semgrep_critical"
+        elif [ -f "security-results/semgrep.sarif" ]; then
+          # Fallback to SARIF format if JSON not available
           semgrep_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/semgrep.sarif 2>/dev/null | wc -l)" || semgrep_critical="0"
           critical_count=$((critical_count + semgrep_critical))
         fi

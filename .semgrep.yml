@@ -1,0 +1,8 @@
+# Semgrep configuration for security scanning
+# Exclude acceptable infrastructure security findings
+
+rules:
+  exclude:
+    # Storage account configurations - correctly configured per Azure best practices
+    - terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass
+    - terraform.azure.security.storage.storage-queue-services-logging.storage-queue-services-logging

@@ -6,11 +6,12 @@ Uses Azurite for local blob storage testing.
 """
 
 import os
-import pytest
 import tempfile
 from pathlib import Path
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 from unittest.mock import Mock, patch
+
+import pytest
 
 # Set test environment
 os.environ["ENVIRONMENT"] = "testing"
@@ -41,7 +42,7 @@ def sample_ranked_content() -> Dict[str, Any]:
                 "subreddit": "MachineLearning",
                 "upvotes": 245,
                 "comments": 67,
-                "created_utc": 1692000000
+                "created_utc": 1692000000,
             },
             {
                 "id": "test_002",
@@ -57,14 +58,14 @@ def sample_ranked_content() -> Dict[str, Any]:
                 "subreddit": "programming",
                 "upvotes": 156,
                 "comments": 34,
-                "created_utc": 1691990000
-            }
+                "created_utc": 1691990000,
+            },
         ],
         "metadata": {
             "generated_at": "2025-08-19T10:30:00Z",
             "total_items": 2,
-            "source": "content-ranker"
-        }
+            "source": "content-ranker",
+        },
     }
 
 
@@ -86,15 +87,18 @@ def temp_templates_dir():
         templates_dir.mkdir()
 
         # Create basic test templates
-        (templates_dir / "base.html").write_text("""
+        (templates_dir / "base.html").write_text(
+            """
 <!DOCTYPE html>
 <html>
 <head><title>{{ title }}</title></head>
 <body>{% block content %}{% endblock %}</body>
 </html>
-        """)
+        """
+        )
 
-        (templates_dir / "index.html").write_text("""
+        (templates_dir / "index.html").write_text(
+            """
 {% extends "base.html" %}
 {% block content %}
 <h1>{{ site_metadata.title }}</h1>
@@ -105,9 +109,11 @@ def temp_templates_dir():
 </div>
 {% endfor %}
 {% endblock %}
-        """)
+        """
+        )
 
-        (templates_dir / "article.html").write_text("""
+        (templates_dir / "article.html").write_text(
+            """
 {% extends "base.html" %}
 {% block content %}
 <article>
@@ -116,12 +122,15 @@ def temp_templates_dir():
     <div class="content">{{ article.content }}</div>
 </article>
 {% endblock %}
-        """)
+        """
+        )
 
-        (templates_dir / "style.css").write_text("""
+        (templates_dir / "style.css").write_text(
+            """
 body { font-family: sans-serif; margin: 20px; }
 .article-card { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
-        """)
+        """
+        )
 
         yield str(templates_dir)
 
@@ -136,5 +145,5 @@ def test_site_metadata() -> Dict[str, Any]:
         "theme": "modern",
         "total_articles": 2,
         "content_sources": ["reddit"],
-        "version": "1.0.0"
+        "version": "1.0.0",
     }

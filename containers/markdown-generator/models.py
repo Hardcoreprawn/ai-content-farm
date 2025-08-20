@@ -1,32 +1,31 @@
 """Pydantic models for markdown generator API."""
 
 from datetime import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
 class MarkdownRequest(BaseModel):
     """Request model for manual markdown generation."""
+
     content_items: List[Dict[str, Any]] = Field(
-        ...,
-        description="List of ranked content items to convert to markdown"
+        ..., description="List of ranked content items to convert to markdown"
     )
     output_dir: Optional[str] = Field(
-        None,
-        description="Custom output directory (optional)"
+        None, description="Custom output directory (optional)"
     )
     auto_notify: bool = Field(
-        True,
-        description="Whether to automatically notify downstream services"
+        True, description="Whether to automatically notify downstream services"
     )
     template_style: Optional[str] = Field(
-        None,
-        description="Markdown template style (jekyll, hugo, etc.)"
+        None, description="Markdown template style (jekyll, hugo, etc.)"
     )
 
 
 class ContentItem(BaseModel):
     """Model for a single content item."""
+
     title: str
     clean_title: Optional[str] = None
     source_url: str
@@ -42,6 +41,7 @@ class ContentItem(BaseModel):
 
 class MarkdownFile(BaseModel):
     """Model for generated markdown file information."""
+
     file: str
     slug: str
     title: str
@@ -51,6 +51,7 @@ class MarkdownFile(BaseModel):
 
 class GenerationResult(BaseModel):
     """Model for markdown generation result."""
+
     status: str
     files_generated: int
     manifest_file: Optional[str] = None
@@ -62,6 +63,7 @@ class GenerationResult(BaseModel):
 
 class ServiceStatus(BaseModel):
     """Model for service status response."""
+
     service: str
     status: str
     version: Optional[str] = None
@@ -74,6 +76,7 @@ class ServiceStatus(BaseModel):
 
 class HealthCheckResponse(BaseModel):
     """Model for health check response."""
+
     status: str
     timestamp: str
     service: str
@@ -82,6 +85,7 @@ class HealthCheckResponse(BaseModel):
 
 class WatcherNotification(BaseModel):
     """Model for content watcher notifications."""
+
     event: str
     timestamp: str
     result: Dict[str, Any]

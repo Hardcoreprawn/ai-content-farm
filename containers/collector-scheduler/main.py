@@ -6,34 +6,35 @@ The functions are intentionally small so unit tests can monkeypatch side-effects
 import os
 import time
 import uuid
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 import httpx
-from datetime import datetime, timezone
 
-COLLECTOR_URL = os.environ.get(
-    'COLLECTOR_URL', 'http://content-collector:8000/collect')
+COLLECTOR_URL = os.environ.get("COLLECTOR_URL", "http://content-collector:8000/collect")
 
 
 def build_collect_payload() -> Dict[str, Any]:
     return {
-        'sources': [
+        "sources": [
             {
-                'type': 'reddit',
-                'subreddits': os.environ.get('SCHED_SUBREDDITS', 'technology,programming').split(','),
-                'limit': int(os.environ.get('SCHED_LIMIT', '5')),
+                "type": "reddit",
+                "subreddits": os.environ.get(
+                    "SCHED_SUBREDDITS", "technology,programming"
+                ).split(","),
+                "limit": int(os.environ.get("SCHED_LIMIT", "5")),
             }
         ],
-        'options': {
-            'deduplicate': True,
-            'max_total_items': int(os.environ.get('SCHED_MAX_ITEMS', '100')),
+        "options": {
+            "deduplicate": True,
+            "max_total_items": int(os.environ.get("SCHED_MAX_ITEMS", "100")),
         },
-        'run_id': str(uuid.uuid4())
+        "run_id": str(uuid.uuid4()),
     }
 
 
 def post_collect(payload: Dict[str, Any]) -> httpx.Response:
-    headers = {'Content-Type': 'application/json'}
+    headers = {"Content-Type": "application/json"}
     timeout = httpx.Timeout(30.0, connect=10.0)
     with httpx.Client(timeout=timeout) as client:
         resp = client.post(COLLECTOR_URL, json=payload, headers=headers)
@@ -52,11 +53,11 @@ def main_loop_once() -> int:
     status_code = resp.status_code if resp is not None else 0
 
     run_manifest = {
-        'run_id': payload['run_id'],
-        'started_at': datetime.now(timezone.utc).isoformat(),
-        'payload': payload,
-        'trigger': {'type': 'scheduler', 'service': 'collector-scheduler'},
-        'collector_response': {'status_code': status_code},
+        "run_id": payload["run_id"],
+        "started_at": datetime.now(timezone.utc).isoformat(),
+        "payload": payload,
+        "trigger": {"type": "scheduler", "service": "collector-scheduler"},
+        "collector_response": {"status_code": status_code},
     }
 
     try:

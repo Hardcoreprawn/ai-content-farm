@@ -4,10 +4,10 @@ Content Enricher Configuration
 Environment-based configuration management.
 """
 
-from typing import Dict, Any, Optional
-from dataclasses import dataclass
-import os
 import logging
+import os
+from dataclasses import dataclass
+from typing import Any, Dict, Optional
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -71,8 +71,7 @@ def get_config() -> EnricherConfig:
         debug=os.getenv("DEBUG", "false").lower() == "true",
         max_batch_size=int(os.getenv("MAX_BATCH_SIZE", "100")),
         max_summary_length=int(os.getenv("MAX_SUMMARY_LENGTH", "200")),
-        enable_ai_summaries=os.getenv(
-            "ENABLE_AI_SUMMARIES", "true").lower() == "true",
+        enable_ai_summaries=os.getenv("ENABLE_AI_SUMMARIES", "true").lower() == "true",
         azure=azure_config,
         environment=os.getenv("ENVIRONMENT", "local"),
     )
@@ -89,8 +88,9 @@ def health_check() -> Dict[str, Any]:
     Returns:
         Dictionary with health status of various components
     """
-    import requests
     import os
+
+    import requests
 
     config = get_config()
     is_local = config.environment in ["local", "development"]
@@ -108,10 +108,21 @@ def health_check() -> Dict[str, Any]:
     try:
         if is_local:
             # For local development, test azurite connectivity
-            response = requests.get(
-                "http://azurite:10000/devstoreaccount1", timeout=3)
+            # Use environment variable for protocol (default to https for security)
+            azurite_protocol = os.getenv("AZURITE_PROTOCOL", "https")
+            # For local development with azurite, allow http if explicitly set
+            if os.getenv("LOCAL_DEV") == "true" and azurite_protocol == "http":
+                response = requests.get(
+                    f"{azurite_protocol}://azurite:10000/devstoreaccount1", timeout=3
+                )
+            else:
+                response = requests.get(
+                    f"https://azurite:10000/devstoreaccount1", timeout=3
+                )
             health_status["azure_connectivity"] = response.status_code in [
-                200, 400]  # 400 is expected
+                200,
+                400,
+            ]  # 400 is expected
         else:
             # For production, check if we have required config
             if config.azure.subscription_id:

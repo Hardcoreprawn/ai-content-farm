@@ -6,9 +6,11 @@ Health check implementation for Site Generator
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any
-from libs.blob_storage import BlobStorageClient
+from typing import Any, Dict
+
 from config import get_config
+
+from libs.blob_storage import BlobStorageClient
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +35,7 @@ class HealthChecker:
 
             # Test template directory existence
             import os
+
             template_dir = "/app/templates"
             if not os.path.exists(template_dir):
                 os.makedirs(template_dir, exist_ok=True)
@@ -44,7 +47,7 @@ class HealthChecker:
                 "status": "healthy",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "service": self.config.service_name,
-                "version": self.config.version
+                "version": self.config.version,
             }
 
         except Exception as e:
@@ -54,7 +57,7 @@ class HealthChecker:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "service": self.config.service_name,
                 "version": self.config.version,
-                "error": str(e)
+                "error": str(e),
             }
 
     async def get_detailed_status(self) -> Dict[str, Any]:
@@ -64,11 +67,12 @@ class HealthChecker:
             dependencies = await self._check_dependencies()
 
             # Calculate uptime
-            uptime = (datetime.now(timezone.utc) -
-                      self.start_time).total_seconds()
+            uptime = (datetime.now(timezone.utc) - self.start_time).total_seconds()
 
             return {
-                "status": "healthy" if all(dep["status"] == "healthy" for dep in dependencies.values()) else "degraded",
+                "status": "healthy"
+                if all(dep["status"] == "healthy" for dep in dependencies.values())
+                else "degraded",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "service": self.config.service_name,
                 "version": self.config.version,
@@ -78,13 +82,13 @@ class HealthChecker:
                     "uptime_seconds": int(uptime),
                     "requests_processed": self.request_count,
                     "sites_generated": self.generation_count,
-                    "last_activity": self.last_activity.isoformat()
+                    "last_activity": self.last_activity.isoformat(),
                 },
                 "configuration": {
                     "default_theme": self.config.default_theme,
                     "max_articles_per_page": self.config.max_articles_per_page,
-                    "site_title": self.config.site_title
-                }
+                    "site_title": self.config.site_title,
+                },
             }
 
         except Exception as e:
@@ -93,7 +97,7 @@ class HealthChecker:
                 "status": "error",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "service": self.config.service_name,
-                "error": str(e)
+                "error": str(e),
             }
 
     async def _check_dependencies(self) -> Dict[str, Dict[str, Any]]:
@@ -107,13 +111,10 @@ class HealthChecker:
             blob_client.ensure_container(test_container)
             dependencies["azure_storage"] = {
                 "status": "healthy",
-                "response_time_ms": 0  # Could measure actual response time
+                "response_time_ms": 0,  # Could measure actual response time
             }
         except Exception as e:
-            dependencies["azure_storage"] = {
-                "status": "unhealthy",
-                "error": str(e)
-            }
+            dependencies["azure_storage"] = {"status": "unhealthy", "error": str(e)}
 
         # Check if we can access content containers
         try:
@@ -122,33 +123,31 @@ class HealthChecker:
             blob_client.ensure_container("published-sites")
             dependencies["content_containers"] = {
                 "status": "healthy",
-                "containers": ["ranked-content", "published-sites"]
+                "containers": ["ranked-content", "published-sites"],
             }
         except Exception as e:
             dependencies["content_containers"] = {
                 "status": "unhealthy",
-                "error": str(e)
+                "error": str(e),
             }
 
         # Check template system
         try:
             import os
+
             template_dir = "/app/templates"
             if os.path.exists(template_dir):
                 dependencies["template_system"] = {
                     "status": "healthy",
-                    "template_directory": template_dir
+                    "template_directory": template_dir,
                 }
             else:
                 dependencies["template_system"] = {
                     "status": "degraded",
-                    "message": "Template directory not found, will create on demand"
+                    "message": "Template directory not found, will create on demand",
                 }
         except Exception as e:
-            dependencies["template_system"] = {
-                "status": "unhealthy",
-                "error": str(e)
-            }
+            dependencies["template_system"] = {"status": "unhealthy", "error": str(e)}
 
         return dependencies
 

@@ -7,26 +7,28 @@ Pure functions for collecting content from various sources using modular collect
 
 import json
 import re
-import requests
-from typing import Dict, Any, List, Optional
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
+
+import requests
 from source_collectors import SourceCollectorFactory
+
 try:
     # When used as a package
     from .transforms import (
+        deduplicate_content,
+        filter_content_by_criteria,
         normalize_content_item,
         normalize_reddit_post,
-        filter_content_by_criteria,
-        deduplicate_content,
     )
 except Exception:
     # Allow top-level import for pytest/testclient (PYTHONPATH=.)
     from transforms import (
+        deduplicate_content,
+        filter_content_by_criteria,
         normalize_content_item,
         normalize_reddit_post,
-        filter_content_by_criteria,
-        deduplicate_content,
     )
 
 
@@ -46,17 +48,15 @@ def fetch_from_subreddit(subreddit: str, limit: int = 10) -> List[Dict[str, Any]
         return []
 
     url = f"https://www.reddit.com/r/{subreddit}/new.json?limit={limit}"
-    headers = {
-        'User-Agent': 'ContentCollector/1.0 (Personal Use)'
-    }
+    headers = {"User-Agent": "ContentCollector/1.0 (Personal Use)"}
 
     try:
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         data = response.json()
 
-        if 'data' in data and 'children' in data['data']:
-            return [child['data'] for child in data['data']['children']]
+        if "data" in data and "children" in data["data"]:
+            return [child["data"] for child in data["data"]["children"]]
         return []
     except Exception as e:
         print(f"Error fetching from r/{subreddit}: {e}")
@@ -87,8 +87,8 @@ def fetch_reddit_posts(subreddits: List[str], limit: int = 10) -> List[Dict[str,
 
         # Compare against the module attribute (in case multiple module objects exist)
         try:
-            _mod_obj = _sys.modules.get('collector')
-            _attr = getattr(_mod_obj, 'fetch_from_subreddit', None)
+            _mod_obj = _sys.modules.get("collector")
+            _attr = getattr(_mod_obj, "fetch_from_subreddit", None)
             if _attr is not None:
                 _sys.stderr.write(
                     f"[collector.debug] module.attr fetch_from_subreddit -> id={id(_attr)} name={getattr(_attr,'__name__',repr(_attr))} module={getattr(_attr,'__module__',None)}\n"
@@ -98,26 +98,31 @@ def fetch_reddit_posts(subreddits: List[str], limit: int = 10) -> List[Dict[str,
 
         # Also show what the function's globals reference for the symbol
         try:
-            _global_ref = fetch_reddit_posts.__globals__.get(
-                'fetch_from_subreddit')
+            _global_ref = fetch_reddit_posts.__globals__.get("fetch_from_subreddit")
             _sys.stderr.write(
                 f"[collector.debug] fetch_reddit_posts.__globals__['fetch_from_subreddit'] -> id={id(_global_ref)} name={getattr(_global_ref,'__name__',repr(_global_ref))} module={getattr(_global_ref,'__module__',None)}\n"
             )
         except Exception:
             pass
     except Exception:
-        _sys.stderr.write(
-            f"[collector.debug] fetch_from_subreddit -> (unavailable)\n")
+        _sys.stderr.write(f"[collector.debug] fetch_from_subreddit -> (unavailable)\n")
 
     import importlib
+
+    # Whitelist of allowed modules for security
+    ALLOWED_MODULES = ["collector"]
 
     for subreddit in subreddits:
         # Resolve the callable from the collector module at runtime so tests
         # that patch `collector.fetch_from_subreddit` will affect this call.
         try:
-            collector_mod = importlib.import_module('collector')
+            module_name = "collector"
+            if module_name not in ALLOWED_MODULES:
+                raise ValueError(f"Module {module_name} not in whitelist")
+            collector_mod = importlib.import_module(module_name)
             fetch_fn = getattr(
-                collector_mod, 'fetch_from_subreddit', fetch_from_subreddit)
+                collector_mod, "fetch_from_subreddit", fetch_from_subreddit
+            )
         except Exception:
             fetch_fn = fetch_from_subreddit
 
@@ -127,7 +132,9 @@ def fetch_reddit_posts(subreddits: List[str], limit: int = 10) -> List[Dict[str,
     return all_posts
 
 
-def normalize_content_item(raw_item: Dict[str, Any], source_type: str) -> Dict[str, Any]:
+def normalize_content_item(
+    raw_item: Dict[str, Any], source_type: str
+) -> Dict[str, Any]:
     """
     Normalize a raw content item to standard format based on source type.
 
@@ -138,26 +145,28 @@ def normalize_content_item(raw_item: Dict[str, Any], source_type: str) -> Dict[s
     Returns:
         Normalized item dictionary
     """
-    if source_type == 'reddit':
+    if source_type == "reddit":
         return normalize_reddit_post(raw_item)
-    elif source_type == 'web':
+    elif source_type == "web":
         # Web items are already normalized by the collector
         return raw_item
     else:
         # Generic fallback normalization
         return {
-            'id': raw_item.get('id', f"unknown_{hash(str(raw_item)) % 100000}"),
-            'source': raw_item.get('source', source_type),
-            'title': raw_item.get('title', 'No title'),
-            'content': raw_item.get('content', ''),
-            'url': raw_item.get('url', ''),
-            'author': raw_item.get('author', 'Unknown'),
-            'score': raw_item.get('score', 0),
-            'num_comments': raw_item.get('num_comments', 0),
-            'content_type': raw_item.get('content_type', 'unknown'),
-            'created_at': raw_item.get('created_at', datetime.now(timezone.utc).isoformat()),
-            'collected_at': datetime.now(timezone.utc).isoformat(),
-            'raw_data': raw_item
+            "id": raw_item.get("id", f"unknown_{hash(str(raw_item)) % 100000}"),
+            "source": raw_item.get("source", source_type),
+            "title": raw_item.get("title", "No title"),
+            "content": raw_item.get("content", ""),
+            "url": raw_item.get("url", ""),
+            "author": raw_item.get("author", "Unknown"),
+            "score": raw_item.get("score", 0),
+            "num_comments": raw_item.get("num_comments", 0),
+            "content_type": raw_item.get("content_type", "unknown"),
+            "created_at": raw_item.get(
+                "created_at", datetime.now(timezone.utc).isoformat()
+            ),
+            "collected_at": datetime.now(timezone.utc).isoformat(),
+            "raw_data": raw_item,
         }
 
 
@@ -172,57 +181,58 @@ def normalize_reddit_post(raw_post: Dict[str, Any]) -> Dict[str, Any]:
         Normalized post dictionary
     """
     # Validate required fields
-    if not raw_post.get('id') or not raw_post.get('title'):
-        raise ValueError('Post must have id and title')
+    if not raw_post.get("id") or not raw_post.get("title"):
+        raise ValueError("Post must have id and title")
 
     # Extract basic fields
-    post_id = raw_post.get('id', '')
-    title = raw_post.get('title', '')
-    content = raw_post.get('selftext', '')
-    url = raw_post.get('url', '')
-    score = raw_post.get('score', 0)
-    num_comments = raw_post.get('num_comments', 0)
-    author = raw_post.get('author', 'unknown')
-    created_utc = raw_post.get('created_utc', 0)
-    subreddit = raw_post.get('subreddit', '')
+    post_id = raw_post.get("id", "")
+    title = raw_post.get("title", "")
+    content = raw_post.get("selftext", "")
+    url = raw_post.get("url", "")
+    score = raw_post.get("score", 0)
+    num_comments = raw_post.get("num_comments", 0)
+    author = raw_post.get("author", "unknown")
+    created_utc = raw_post.get("created_utc", 0)
+    subreddit = raw_post.get("subreddit", "")
 
     # Convert timestamp
     try:
-        created_at = datetime.fromtimestamp(
-            created_utc, tz=timezone.utc).isoformat()
+        created_at = datetime.fromtimestamp(created_utc, tz=timezone.utc).isoformat()
     except (ValueError, TypeError):
         created_at = datetime.now(timezone.utc).isoformat()
 
     # Determine content type
-    content_type = 'text'
+    content_type = "text"
     if url and url != f"https://www.reddit.com/r/{subreddit}/comments/{post_id}/":
         # External link
-        content_type = 'link'
-        if any(url.endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp']):
-            content_type = 'image'
-        elif any(url.endswith(ext) for ext in ['.mp4', '.webm', '.mov']):
-            content_type = 'video'
+        content_type = "link"
+        if any(url.endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]):
+            content_type = "image"
+        elif any(url.endswith(ext) for ext in [".mp4", ".webm", ".mov"]):
+            content_type = "video"
 
     return {
-        'id': post_id,
-        'source': 'reddit',
-        'source_type': 'subreddit',
-        'subreddit': subreddit,
-        'title': title,
-        'content': content,
-        'selftext': content or "",
-        'url': url,
-        'author': author,
-        'score': score,
-        'num_comments': num_comments,
-        'content_type': content_type,
-        'created_at': created_at,
-        'collected_at': datetime.now(timezone.utc).isoformat(),
-        'raw_data': raw_post
+        "id": post_id,
+        "source": "reddit",
+        "source_type": "subreddit",
+        "subreddit": subreddit,
+        "title": title,
+        "content": content,
+        "selftext": content or "",
+        "url": url,
+        "author": author,
+        "score": score,
+        "num_comments": num_comments,
+        "content_type": content_type,
+        "created_at": created_at,
+        "collected_at": datetime.now(timezone.utc).isoformat(),
+        "raw_data": raw_post,
     }
 
 
-def filter_content_by_criteria(posts: List[Dict[str, Any]], criteria: Dict[str, Any]) -> List[Dict[str, Any]]:
+def filter_content_by_criteria(
+    posts: List[Dict[str, Any]], criteria: Dict[str, Any]
+) -> List[Dict[str, Any]]:
     """
     Filter posts based on specified criteria.
 
@@ -237,30 +247,35 @@ def filter_content_by_criteria(posts: List[Dict[str, Any]], criteria: Dict[str, 
 
     for post in posts:
         # Apply minimum score filter
-        min_score = criteria.get('min_score', 0)
-        if post.get('score', 0) < min_score:
+        min_score = criteria.get("min_score", 0)
+        if post.get("score", 0) < min_score:
             continue
 
         # Apply content type filter
-        allowed_types = criteria.get('content_types', [])
-        if allowed_types and post.get('content_type') not in allowed_types:
+        allowed_types = criteria.get("content_types", [])
+        if allowed_types and post.get("content_type") not in allowed_types:
             continue
 
         # Apply keyword filter (support include_keywords alias)
-        keywords = criteria.get('keywords', []) or criteria.get(
-            'include_keywords', [])
+        keywords = criteria.get("keywords", []) or criteria.get("include_keywords", [])
         if keywords:
-            title = post.get('title', '').lower()
-            content = post.get('content', '').lower()
-            if not any(keyword.lower() in title or keyword.lower() in content for keyword in keywords):
+            title = post.get("title", "").lower()
+            content = post.get("content", "").lower()
+            if not any(
+                keyword.lower() in title or keyword.lower() in content
+                for keyword in keywords
+            ):
                 continue
 
         # Apply exclude keywords filter
-        exclude_keywords = criteria.get('exclude_keywords', [])
+        exclude_keywords = criteria.get("exclude_keywords", [])
         if exclude_keywords:
-            title = post.get('title', '').lower()
-            content = post.get('content', '').lower()
-            if any(keyword.lower() in title or keyword.lower() in content for keyword in exclude_keywords):
+            title = post.get("title", "").lower()
+            content = post.get("content", "").lower()
+            if any(
+                keyword.lower() in title or keyword.lower() in content
+                for keyword in exclude_keywords
+            ):
                 continue
 
         filtered.append(post)
@@ -268,7 +283,9 @@ def filter_content_by_criteria(posts: List[Dict[str, Any]], criteria: Dict[str, 
     return filtered
 
 
-def deduplicate_content(posts: List[Dict[str, Any]], similarity_threshold: float = 0.9) -> List[Dict[str, Any]]:
+def deduplicate_content(
+    posts: List[Dict[str, Any]], similarity_threshold: float = 0.9
+) -> List[Dict[str, Any]]:
     """
     Remove duplicate posts based on title similarity and URL matching.
 
@@ -288,8 +305,8 @@ def deduplicate_content(posts: List[Dict[str, Any]], similarity_threshold: float
             return 0.0
 
         # Convert to lowercase and split into words
-        words1 = set(re.findall(r'\w+', text1.lower()))
-        words2 = set(re.findall(r'\w+', text2.lower()))
+        words1 = set(re.findall(r"\w+", text1.lower()))
+        words2 = set(re.findall(r"\w+", text2.lower()))
 
         if not words1 and not words2:
             return 1.0
@@ -307,19 +324,19 @@ def deduplicate_content(posts: List[Dict[str, Any]], similarity_threshold: float
 
     for post in posts:
         # Skip if we've seen this ID or URL before
-        post_id = post.get('id')
+        post_id = post.get("id")
         if post_id and post_id in seen_ids:
             continue
-        url = post.get('url', '')
+        url = post.get("url", "")
         if url and url in seen_urls:
             continue
 
         # Check for similar titles
-        title = post.get('title', '')
+        title = post.get("title", "")
         is_duplicate = False
 
         for existing_post in deduplicated:
-            existing_title = existing_post.get('title', '')
+            existing_title = existing_post.get("title", "")
             similarity = calculate_similarity(title, existing_title)
 
             if similarity >= similarity_threshold:
@@ -360,28 +377,16 @@ def collect_content_batch(sources: List[Dict[str, Any]]) -> Dict[str, Any]:
                 continue
 
             # Handle reddit synchronously using fetch_reddit_posts (tests patch this)
-            if source_type == 'reddit':
-                subreddits = source.get('subreddits', []) or []
-                limit = source.get('limit', 10)
+            if source_type == "reddit":
+                subreddits = source.get("subreddits", []) or []
+                limit = source.get("limit", 10)
                 try:
                     # Resolve the fetch_reddit_posts symbol at runtime from the
                     # collector module so tests that patch the function on the
                     # module object are effective even if multiple module
                     # instances exist during the full test run.
-                    import importlib as _importlib
-                    _mod = None
-                    try:
-                        _mod = _importlib.import_module('collector')
-                    except Exception:
-                        try:
-                            _mod = _importlib.import_module(__name__)
-                        except Exception:
-                            _mod = None
-
-                    if _mod is not None and hasattr(_mod, 'fetch_reddit_posts'):
-                        _fetch = getattr(_mod, 'fetch_reddit_posts')
-                    else:
-                        _fetch = fetch_reddit_posts
+                    # Use direct reference instead of dynamic import for security
+                    _fetch = fetch_reddit_posts
 
                     raw_posts = _fetch(subreddits, limit=limit)
                     sources_processed += 1
@@ -393,10 +398,9 @@ def collect_content_batch(sources: List[Dict[str, Any]]) -> Dict[str, Any]:
             else:
                 # Try to use the modular collector factory for other types; if not available, skip
                 try:
-                    collector = SourceCollectorFactory.create_collector(
-                        source_type)
+                    collector = SourceCollectorFactory.create_collector(source_type)
                     raw_posts = []
-                    if hasattr(collector, 'collect_content'):
+                    if hasattr(collector, "collect_content"):
                         try:
                             raw_posts = collector.collect_content(source)
                         except TypeError:
@@ -410,13 +414,14 @@ def collect_content_batch(sources: List[Dict[str, Any]]) -> Dict[str, Any]:
 
             # Ensure raw_posts is iterable; if not, make it empty to continue gracefully
             import asyncio
+
             if asyncio.iscoroutine(raw_posts):
                 try:
                     raw_posts = asyncio.run(raw_posts)
                 except Exception as e:
                     print(f"Error awaiting coroutine for raw_posts: {e}")
                     raw_posts = []
-            if not hasattr(raw_posts, '__iter__'):
+            if not hasattr(raw_posts, "__iter__"):
                 raw_posts = []
 
             # Normalize posts using pure transforms
@@ -432,8 +437,7 @@ def collect_content_batch(sources: List[Dict[str, Any]]) -> Dict[str, Any]:
             # Apply criteria filtering if specified
             criteria = source.get("criteria", {})
             if criteria:
-                filtered_posts = filter_content_by_criteria(
-                    normalized_posts, criteria)
+                filtered_posts = filter_content_by_criteria(normalized_posts, criteria)
                 criteria_applied = True
             else:
                 filtered_posts = normalized_posts
@@ -451,10 +455,7 @@ def collect_content_batch(sources: List[Dict[str, Any]]) -> Dict[str, Any]:
         "errors": errors,
         "collected_at": datetime.now(timezone.utc).isoformat(),
         "collection_version": "1.0.0",
-        "criteria_applied": criteria_applied
+        "criteria_applied": criteria_applied,
     }
 
-    return {
-        "collected_items": collected_items,
-        "metadata": metadata
-    }
+    return {"collected_items": collected_items, "metadata": metadata}

@@ -4,19 +4,20 @@ Tests for Content Collector core functionality.
 Following TDD: Write tests first, then implement the minimal code to pass.
 """
 
-import pytest
-from typing import Dict, Any, List
-from unittest.mock import Mock, patch
 from datetime import datetime, timezone
+from typing import Any, Dict, List
+from unittest.mock import Mock, patch
+
+import pytest
 
 # Import the functions we're going to test
 from collector import (
-    fetch_reddit_posts,
-    fetch_from_subreddit,
-    normalize_reddit_post,
     collect_content_batch,
-    filter_content_by_criteria,
     deduplicate_content,
+    fetch_from_subreddit,
+    fetch_reddit_posts,
+    filter_content_by_criteria,
+    normalize_reddit_post,
 )
 
 
@@ -318,10 +319,18 @@ class TestContentBatchCollection:
         """Test batch collection with filtering applied."""
         with patch("collector.fetch_reddit_posts") as mock_fetch:
             mock_fetch.return_value = [
-                {"id": "high1", "title": "High Quality Post",
-                    "score": 1000, "num_comments": 100},
-                {"id": "low1", "title": "Low Quality Post",
-                    "score": 10, "num_comments": 1},
+                {
+                    "id": "high1",
+                    "title": "High Quality Post",
+                    "score": 1000,
+                    "num_comments": 100,
+                },
+                {
+                    "id": "low1",
+                    "title": "Low Quality Post",
+                    "score": 10,
+                    "num_comments": 1,
+                },
             ]
 
             sources = [

@@ -11,10 +11,11 @@ Business logic layer for the content enricher service that handles:
 import json
 import time
 from datetime import datetime, timezone
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
 
-from libs.blob_storage import BlobStorageClient, BlobContainers
 from enricher import enrich_content_batch
+
+from libs.blob_storage import BlobContainers, BlobStorageClient
 
 
 class ContentEnricherService:
@@ -27,13 +28,11 @@ class ContentEnricherService:
             "total_enriched": 0,
             "successful_enrichment": 0,
             "failed_enrichment": 0,
-            "last_enriched": None
+            "last_enriched": None,
         }
 
     async def enrich_processed_content(
-        self,
-        processed_data: Dict[str, Any],
-        save_to_storage: bool = True
+        self, processed_data: Dict[str, Any], save_to_storage: bool = True
     ) -> Dict[str, Any]:
         """
         Enrich processed content with sentiment, topics, and summaries.
@@ -46,7 +45,9 @@ class ContentEnricherService:
             Enrichment result with metadata
         """
         start_time = time.time()
-        enrichment_id = f"enrichment_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        enrichment_id = (
+            f"enrichment_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+        )
 
         try:
             # Extract processed items from the data
@@ -60,7 +61,7 @@ class ContentEnricherService:
                     "total_items": 0,
                     "enriched_items": 0,
                     "source_process": processed_data.get("process_id", "unknown"),
-                    "enrichment_errors": 0
+                    "enrichment_errors": 0,
                 }
             else:
                 # Enrich the content using existing business logic
@@ -71,17 +72,19 @@ class ContentEnricherService:
                     "enriched_items": len(enriched_items),
                     "source_process": processed_data.get("process_id", "unknown"),
                     "enrichment_errors": len(processed_items) - len(enriched_items),
-                    "enrichment_types": ["sentiment", "topic", "summary", "trend"]
+                    "enrichment_types": ["sentiment", "topic", "summary", "trend"],
                 }
 
             # Add enrichment timing and metadata
             enrichment_time = time.time() - start_time
-            enrichment_metadata.update({
-                "enrichment_time_seconds": round(enrichment_time, 3),
-                "enrichment_id": enrichment_id,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "enricher_version": "1.0.0"
-            })
+            enrichment_metadata.update(
+                {
+                    "enrichment_time_seconds": round(enrichment_time, 3),
+                    "enrichment_id": enrichment_id,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "enricher_version": "1.0.0",
+                }
+            )
 
             # Prepare result
             result = {
@@ -93,8 +96,8 @@ class ContentEnricherService:
                 "source_data": {
                     "process_id": processed_data.get("process_id"),
                     "source_collection": source_metadata.get("source_collection"),
-                    "processed_at": processed_data.get("timestamp")
-                }
+                    "processed_at": processed_data.get("timestamp"),
+                },
             }
 
             # Save to blob storage if requested
@@ -121,7 +124,7 @@ class ContentEnricherService:
         enrichment_id: str,
         enriched_items: List[Dict[str, Any]],
         metadata: Dict[str, Any],
-        original_processed: Dict[str, Any]
+        original_processed: Dict[str, Any],
     ) -> str:
         """
         Save enriched content to blob storage.
@@ -145,11 +148,13 @@ class ContentEnricherService:
             "enriched_items": enriched_items,
             "source_data": {
                 "process_id": original_processed.get("process_id"),
-                "source_collection": original_processed.get("metadata", {}).get("source_collection"),
+                "source_collection": original_processed.get("metadata", {}).get(
+                    "source_collection"
+                ),
                 "processed_items": len(original_processed.get("processed_items", [])),
-                "processed_at": original_processed.get("timestamp")
+                "processed_at": original_processed.get("timestamp"),
             },
-            "format_version": "1.0"
+            "format_version": "1.0",
         }
 
         # Create blob path with date structure
@@ -162,12 +167,14 @@ class ContentEnricherService:
             container_name=container_name,
             blob_name=blob_name,
             content=content_json,
-            content_type="application/json"
+            content_type="application/json",
         )
 
         return f"{container_name}/{blob_name}"
 
-    async def find_unenriched_processed_content(self, limit: int = 10) -> List[Dict[str, Any]]:
+    async def find_unenriched_processed_content(
+        self, limit: int = 10
+    ) -> List[Dict[str, Any]]:
         """
         Find processed content that hasn't been enriched yet.
 
@@ -180,14 +187,12 @@ class ContentEnricherService:
         try:
             # List processed content
             processed_blobs = self.storage.list_blobs(
-                container_name=BlobContainers.PROCESSED_CONTENT,
-                prefix="processed/"
+                container_name=BlobContainers.PROCESSED_CONTENT, prefix="processed/"
             )
 
             # List enriched content
             enriched_blobs = self.storage.list_blobs(
-                container_name=BlobContainers.ENRICHED_CONTENT,
-                prefix="enriched/"
+                container_name=BlobContainers.ENRICHED_CONTENT, prefix="enriched/"
             )
 
             # Extract enriched process IDs
@@ -199,8 +204,7 @@ class ContentEnricherService:
                         BlobContainers.ENRICHED_CONTENT, blob["name"]
                     )
                     enriched_data = json.loads(content)
-                    source_id = enriched_data.get(
-                        "source_data", {}).get("process_id")
+                    source_id = enriched_data.get("source_data", {}).get("process_id")
                     if source_id:
                         enriched_process_ids.add(source_id)
                 except Exception:
@@ -218,13 +222,17 @@ class ContentEnricherService:
                     process_id = processed_data.get("process_id")
 
                     if process_id and process_id not in enriched_process_ids:
-                        unenriched.append({
-                            "process_id": process_id,
-                            "blob_name": blob["name"],
-                            "processed_data": processed_data,
-                            "processed_at": processed_data.get("timestamp"),
-                            "total_items": len(processed_data.get("processed_items", []))
-                        })
+                        unenriched.append(
+                            {
+                                "process_id": process_id,
+                                "blob_name": blob["name"],
+                                "processed_data": processed_data,
+                                "processed_at": processed_data.get("timestamp"),
+                                "total_items": len(
+                                    processed_data.get("processed_items", [])
+                                ),
+                            }
+                        )
 
                         if len(unenriched) >= limit:
                             break

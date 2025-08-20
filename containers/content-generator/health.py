@@ -2,13 +2,14 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
-from config import Config
-from libs.blob_storage import BlobStorageClient
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
+from config import Config
 from openai import AzureOpenAI
+
+from libs.blob_storage import BlobStorageClient
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class HealthChecker:
                 "status": "healthy",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "version": "1.0.0",
-                "checks": {}
+                "checks": {},
             }
 
             # Check blob storage connectivity if available
@@ -74,7 +75,7 @@ class HealthChecker:
                 "status": "unhealthy",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "version": "1.0.0",
-                "error": str(e)
+                "error": str(e),
             }
 
     async def check_blob_storage(self) -> bool:
@@ -96,14 +97,14 @@ class HealthChecker:
             # just return a placeholder status
             return {
                 "status": "not_implemented",
-                "message": "Key Vault integration not yet implemented in this config"
+                "message": "Key Vault integration not yet implemented in this config",
             }
 
         except Exception as e:
             logger.warning(f"Key Vault health check failed: {str(e)}")
             return {
                 "status": "unhealthy",
-                "message": f"Key Vault connection failed: {str(e)}"
+                "message": f"Key Vault connection failed: {str(e)}",
             }
 
     async def _check_azure_openai(self) -> Dict[str, Any]:
@@ -116,23 +117,22 @@ class HealthChecker:
             if not endpoint or not api_key:
                 return {
                     "status": "unhealthy",
-                    "message": "Azure OpenAI configuration not available in environment variables"
+                    "message": "Azure OpenAI configuration not available in environment variables",
                 }
 
             # Test connection with a simple completion
             client = AzureOpenAI(
                 azure_endpoint=endpoint,
                 api_key=api_key,
-                api_version=self.config.AZURE_OPENAI_API_VERSION
+                api_version=self.config.AZURE_OPENAI_API_VERSION,
             )
 
             # Test with minimal request
             response = client.chat.completions.create(
                 model=self.config.AZURE_OPENAI_DEPLOYMENT_NAME,
-                messages=[
-                    {"role": "user", "content": "Say 'OK' if you can respond."}],
+                messages=[{"role": "user", "content": "Say 'OK' if you can respond."}],
                 max_tokens=5,
-                temperature=0
+                temperature=0,
             )
 
             if response.choices and response.choices[0].message.content:
@@ -140,19 +140,19 @@ class HealthChecker:
                     "status": "healthy",
                     "message": "Azure OpenAI connection successful",
                     "model": self.config.AZURE_OPENAI_DEPLOYMENT_NAME,
-                    "endpoint": endpoint
+                    "endpoint": endpoint,
                 }
             else:
                 return {
                     "status": "unhealthy",
-                    "message": "Azure OpenAI returned empty response"
+                    "message": "Azure OpenAI returned empty response",
                 }
 
         except Exception as e:
             logger.warning(f"Azure OpenAI health check failed: {str(e)}")
             return {
                 "status": "unhealthy",
-                "message": f"Azure OpenAI connection failed: {str(e)}"
+                "message": f"Azure OpenAI connection failed: {str(e)}",
             }
 
     def _check_configuration(self) -> Dict[str, Any]:
@@ -163,31 +163,31 @@ class HealthChecker:
                 "azure_openai_api_key": bool(self.config.AZURE_OPENAI_API_KEY),
                 "blob_connection_string": bool(self.config.BLOB_CONNECTION_STRING),
                 "service_name": self.config.SERVICE_NAME,
-                "version": self.config.VERSION
+                "version": self.config.VERSION,
             }
 
-            missing_config = [key for key, value in config_status.items()
-                              if not value and key not in ["service_name", "version"]]
+            missing_config = [
+                key
+                for key, value in config_status.items()
+                if not value and key not in ["service_name", "version"]
+            ]
 
             if missing_config:
                 return {
                     "status": "unhealthy",
                     "message": f"Missing configuration: {', '.join(missing_config)}",
-                    "config_status": config_status
+                    "config_status": config_status,
                 }
 
             return {
                 "status": "healthy",
                 "message": "All required configuration present",
-                "config_status": config_status
+                "config_status": config_status,
             }
 
         except Exception as e:
             logger.error(f"Configuration check failed: {str(e)}")
-            return {
-                "status": "unhealthy",
-                "error": str(e)
-            }
+            return {"status": "unhealthy", "error": str(e)}
 
     async def get_readiness_status(self) -> Dict[str, Any]:
         """
@@ -204,13 +204,13 @@ class HealthChecker:
             if endpoint and api_key:
                 return {
                     "status": "ready",
-                    "timestamp": datetime.now(timezone.utc).isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
             else:
                 return {
                     "status": "not_ready",
                     "message": "Azure OpenAI configuration not available",
-                    "timestamp": datetime.now(timezone.utc).isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
                 }
 
         except Exception as e:
@@ -218,7 +218,7 @@ class HealthChecker:
             return {
                 "status": "not_ready",
                 "message": f"Readiness check failed: {str(e)}",
-                "timestamp": datetime.now(timezone.utc).isoformat()
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
     async def get_liveness_status(self) -> Dict[str, Any]:
@@ -231,5 +231,5 @@ class HealthChecker:
         return {
             "status": "alive",
             "timestamp": datetime.now(timezone.utc).isoformat(),
-            "service": "content-generator"
+            "service": "content-generator",
         }

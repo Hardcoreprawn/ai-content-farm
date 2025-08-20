@@ -1,15 +1,20 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
-from fastapi.responses import JSONResponse
-from datetime import datetime, timedelta
-import logging
 import asyncio
+import logging
 import os
+from datetime import datetime, timedelta
 
 from config import config
+from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from models import (
-    HealthResponse, StatusResponse, GenerationRequest, GeneratedContent,
-    BatchGenerationRequest, BatchGenerationResponse, GenerationStatus,
-    RankedTopic
+    BatchGenerationRequest,
+    BatchGenerationResponse,
+    GeneratedContent,
+    GenerationRequest,
+    GenerationStatus,
+    HealthResponse,
+    RankedTopic,
+    StatusResponse,
 )
 from service_logic import content_generator
 
@@ -21,7 +26,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="Content Generator Service",
     description="AI-powered content generation service for the AI Content Farm pipeline",
-    version=config.VERSION
+    version=config.VERSION,
 )
 
 # Global stats
@@ -42,9 +47,9 @@ async def root():
             "generate_tldr": "/generate/tldr",
             "generate_blog": "/generate/blog",
             "generate_deepdive": "/generate/deepdive",
-            "generate_batch": "/generate/batch"
+            "generate_batch": "/generate/batch",
         },
-        "documentation": "/docs"
+        "documentation": "/docs",
     }
 
 
@@ -63,14 +68,12 @@ async def health_check():
                     "service": config.SERVICE_NAME,
                     "version": config.VERSION,
                     "timestamp": datetime.utcnow().isoformat(),
-                    "issues": config_status["issues"]
-                }
+                    "issues": config_status["issues"],
+                },
             )
 
         return HealthResponse(
-            status="healthy",
-            service=config.SERVICE_NAME,
-            version=config.VERSION
+            status="healthy", service=config.SERVICE_NAME, version=config.VERSION
         )
 
     except Exception as e:
@@ -81,8 +84,8 @@ async def health_check():
                 "status": "unhealthy",
                 "service": config.SERVICE_NAME,
                 "error": str(e),
-                "timestamp": datetime.utcnow().isoformat()
-            }
+                "timestamp": datetime.utcnow().isoformat(),
+            },
         )
 
 
@@ -91,7 +94,7 @@ async def get_status():
     """Get detailed service status"""
     try:
         uptime = datetime.utcnow() - app.state.start_time
-        uptime_str = str(uptime).split('.')[0]  # Remove microseconds
+        uptime_str = str(uptime).split(".")[0]  # Remove microseconds
 
         # Check AI service status
         ai_services = {}
@@ -105,8 +108,9 @@ async def get_status():
         try:
             # Quick test of blob client using health check
             health_result = content_generator.blob_client.health_check()
-            blob_status = "connected" if health_result.get(
-                "status") == "healthy" else "error"
+            blob_status = (
+                "connected" if health_result.get("status") == "healthy" else "error"
+            )
         except Exception:
             blob_status = "error"
 
@@ -117,7 +121,7 @@ async def get_status():
             total_generated=app.state.total_generated,
             uptime=uptime_str,
             blob_storage=blob_status,
-            ai_services=ai_services
+            ai_services=ai_services,
         )
 
     except Exception as e:
@@ -129,7 +133,9 @@ async def get_status():
 async def generate_tldr(topic: RankedTopic, writer_personality: str = "professional"):
     """Generate a tl;dr article (200-400 words) with specified personality"""
     try:
-        content = await content_generator.generate_content(topic, "tldr", writer_personality)
+        content = await content_generator.generate_content(
+            topic, "tldr", writer_personality
+        )
         app.state.total_generated += 1
         return content
     except Exception as e:
@@ -141,7 +147,9 @@ async def generate_tldr(topic: RankedTopic, writer_personality: str = "professio
 async def generate_blog(topic: RankedTopic, writer_personality: str = "professional"):
     """Generate a blog article (600-1000 words) - only if sufficient content"""
     try:
-        content = await content_generator.generate_content(topic, "blog", writer_personality)
+        content = await content_generator.generate_content(
+            topic, "blog", writer_personality
+        )
         app.state.total_generated += 1
         return content
     except Exception as e:
@@ -150,10 +158,14 @@ async def generate_blog(topic: RankedTopic, writer_personality: str = "professio
 
 
 @app.post("/generate/deepdive", response_model=GeneratedContent)
-async def generate_deepdive(topic: RankedTopic, writer_personality: str = "professional"):
+async def generate_deepdive(
+    topic: RankedTopic, writer_personality: str = "professional"
+):
     """Generate a deep dive article (1500-2500 words) - only if substantial content"""
     try:
-        content = await content_generator.generate_content(topic, "deepdive", writer_personality)
+        content = await content_generator.generate_content(
+            topic, "deepdive", writer_personality
+        )
         app.state.total_generated += 1
         return content
     except Exception as e:
@@ -162,7 +174,9 @@ async def generate_deepdive(topic: RankedTopic, writer_personality: str = "profe
 
 
 @app.post("/generate/batch", response_model=BatchGenerationResponse)
-async def generate_batch(request: BatchGenerationRequest, background_tasks: BackgroundTasks):
+async def generate_batch(
+    request: BatchGenerationRequest, background_tasks: BackgroundTasks
+):
     """Generate content for multiple topics"""
     try:
         # Start batch processing in background
@@ -179,8 +193,7 @@ async def get_generation_status(batch_id: str):
     """Get status of a batch generation"""
     status = content_generator.get_generation_status(batch_id)
     if not status:
-        raise HTTPException(
-            status_code=404, detail=f"Batch {batch_id} not found")
+        raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
     return status
 
 
@@ -204,9 +217,11 @@ async def startup_event():
     logger.info(f"  - AI Model: {config.DEFAULT_AI_MODEL}")
     logger.info(f"  - Blob Storage: {config_status['config']['blob_storage']}")
     logger.info(
-        f"  - OpenAI: {'configured' if config_status['config']['has_openai'] else 'not configured'}")
+        f"  - OpenAI: {'configured' if config_status['config']['has_openai'] else 'not configured'}"
+    )
     logger.info(
-        f"  - Claude: {'configured' if config_status['config']['has_claude'] else 'not configured'}")
+        f"  - Claude: {'configured' if config_status['config']['has_claude'] else 'not configured'}"
+    )
 
     # Start watching for new ranked content
     await content_generator.start_watching()
@@ -220,11 +235,8 @@ async def shutdown_event():
     # Stop watching for new content
     await content_generator.stop_watching()
 
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        "main:app",
-        host="0.0.0.0",
-        port=config.PORT,
-        reload=True
-    )
+
+    uvicorn.run("main:app", host="0.0.0.0", port=config.PORT, reload=True)

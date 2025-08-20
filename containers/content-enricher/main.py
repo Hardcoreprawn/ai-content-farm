@@ -6,21 +6,22 @@ Minimal implementation to make tests pass.
 This is the API layer - business logic is in enricher.py
 """
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from pydantic import BaseModel, Field, ValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPException
-from typing import List, Dict, Any, Optional
-from datetime import datetime, timezone
-import uvicorn
-import logging
 import json
+import logging
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
+
+import uvicorn
+from config import get_config, health_check
 
 # Import our business logic
 from enricher import enrich_content_batch
-from config import get_config, health_check
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, ValidationError
 from service_logic import ContentEnricherService
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -41,55 +42,66 @@ app = FastAPI(
 class ContentItem(BaseModel):
     """Content item to be enriched."""
 
-    id: str = Field(...,
-                    description="Unique identifier for the content item", min_length=1)
-    title: str = Field(...,
-                       description="Original title of the content", min_length=1)
+    id: str = Field(
+        ..., description="Unique identifier for the content item", min_length=1
+    )
+    title: str = Field(..., description="Original title of the content", min_length=1)
     clean_title: str = Field(
-        ..., description="Cleaned title without special characters", min_length=1)
+        ..., description="Cleaned title without special characters", min_length=1
+    )
     normalized_score: Optional[float] = Field(
-        0.0, ge=0.0, le=1.0, description="Normalized score (0-1)")
+        0.0, ge=0.0, le=1.0, description="Normalized score (0-1)"
+    )
     engagement_score: Optional[float] = Field(
-        0.0, ge=0.0, le=1.0, description="Engagement score (0-1)")
-    source_url: Optional[str] = Field(
-        None, description="URL to the original content")
+        0.0, ge=0.0, le=1.0, description="Engagement score (0-1)"
+    )
+    source_url: Optional[str] = Field(None, description="URL to the original content")
     published_at: Optional[str] = Field(
-        None, description="Publication timestamp in ISO format")
+        None, description="Publication timestamp in ISO format"
+    )
     content_type: Optional[str] = Field(
-        "text", description="Type of content (text, link, image)")
+        "text", description="Type of content (text, link, image)"
+    )
     source_metadata: Optional[Dict[str, Any]] = Field(
-        default_factory=dict, description="Source-specific metadata")
+        default_factory=dict, description="Source-specific metadata"
+    )
 
 
 class EnrichmentOptions(BaseModel):
     """Options for content enrichment."""
 
     include_summary: bool = Field(
-        True, description="Whether to generate content summaries")
+        True, description="Whether to generate content summaries"
+    )
     max_summary_length: int = Field(
-        200, ge=50, le=1000, description="Maximum length of generated summaries")
+        200, ge=50, le=1000, description="Maximum length of generated summaries"
+    )
     classify_topics: bool = Field(
-        True, description="Whether to classify content topics")
+        True, description="Whether to classify content topics"
+    )
     analyze_sentiment: bool = Field(
-        True, description="Whether to analyze content sentiment")
+        True, description="Whether to analyze content sentiment"
+    )
     calculate_trends: bool = Field(
-        True, description="Whether to calculate trend scores")
+        True, description="Whether to calculate trend scores"
+    )
 
 
 class EnrichmentRequest(BaseModel):
     """Request to enrich content items."""
 
-    items: List[ContentItem] = Field(...,
-                                     description="List of content items to enrich")
+    items: List[ContentItem] = Field(..., description="List of content items to enrich")
     options: Optional[EnrichmentOptions] = Field(
-        default=None, description="Enrichment options")
+        default=None, description="Enrichment options"
+    )
 
 
 class EnrichmentResponse(BaseModel):
     """Response from content enrichment."""
 
-    enriched_items: List[Dict[str, Any]
-                         ] = Field(..., description="List of enriched content items")
+    enriched_items: List[Dict[str, Any]] = Field(
+        ..., description="List of enriched content items"
+    )
     metadata: Dict[str, Any] = Field(..., description="Processing metadata")
 
 
@@ -98,8 +110,7 @@ class HealthResponse(BaseModel):
 
     status: str = Field(..., description="Health status")
     service: str = Field(..., description="Service name")
-    azure_connectivity: bool = Field(...,
-                                     description="Azure connectivity status")
+    azure_connectivity: bool = Field(..., description="Azure connectivity status")
     openai_available: bool = Field(..., description="OpenAI API availability")
 
 
@@ -109,20 +120,22 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     """Handle HTTP exceptions."""
     return JSONResponse(
         status_code=exc.status_code,
-        content={"error": exc.detail, "status_code": exc.status_code}
+        content={"error": exc.detail, "status_code": exc.status_code},
     )
 
 
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
     """Handle validation errors."""
     return JSONResponse(
         status_code=422,
         content={
             "error": "Validation error",
             "details": exc.errors(),
-            "status_code": 422
-        }
+            "status_code": 422,
+        },
     )
 
 
@@ -135,8 +148,8 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
         content={
             "error": "Internal server error",
             "message": str(exc),
-            "status_code": 500
-        }
+            "status_code": 500,
+        },
     )
 
 
@@ -151,10 +164,7 @@ async def health_check_endpoint() -> Dict[str, Any]:
     """
     try:
         status = health_check()
-        return {
-            "status": "healthy",
-            **status
-        }
+        return {"status": "healthy", **status}
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         raise HTTPException(status_code=503, detail="Service unhealthy")
@@ -183,14 +193,15 @@ async def enrich_content(request: EnrichmentRequest) -> Dict[str, Any]:
         # effect regardless of how modules were imported during the full run.
         try:
             import importlib as _importlib
+
             _mod = None
             try:
-                _mod = _importlib.import_module('main')
+                _mod = _importlib.import_module("main")
             except Exception:
                 _mod = None
 
-            if _mod is not None and hasattr(_mod, 'enrich_content_batch'):
-                _enrich_fn = getattr(_mod, 'enrich_content_batch')
+            if _mod is not None and hasattr(_mod, "enrich_content_batch"):
+                _enrich_fn = getattr(_mod, "enrich_content_batch")
             else:
                 _enrich_fn = enrich_content_batch
 
@@ -212,22 +223,23 @@ async def enrich_content(request: EnrichmentRequest) -> Dict[str, Any]:
         logger.error(f"Error during content enrichment: {e}")
         logger.error(f"Exception type: {type(e)}")
         logger.error(
-            f"Request items: {len(request.items) if request.items else 'None'}")
+            f"Request items: {len(request.items) if request.items else 'None'}"
+        )
         import traceback
+
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(
-            status_code=500, detail="Enrichment processing failed")
+        raise HTTPException(status_code=500, detail="Enrichment processing failed")
 
 
 # Pipeline integration endpoints
+
 
 @app.post("/enrich/processed")
 async def enrich_processed_content(processed_data: Dict[str, Any]):
     """Enrich processed content from the content-processor."""
     try:
         result = await enricher_service.enrich_processed_content(
-            processed_data=processed_data,
-            save_to_storage=True
+            processed_data=processed_data, save_to_storage=True
         )
         return result
     except Exception as e:
@@ -245,7 +257,7 @@ async def enrich_batch():
             return {
                 "message": "No unenriched processed content found",
                 "enriched_count": 0,
-                "results": []
+                "results": [],
             }
 
         results = []
@@ -253,26 +265,30 @@ async def enrich_batch():
             try:
                 result = await enricher_service.enrich_processed_content(
                     processed_data=processed_info["processed_data"],
-                    save_to_storage=True
+                    save_to_storage=True,
                 )
-                results.append({
-                    "process_id": processed_info["process_id"],
-                    "status": "success",
-                    "enrichment_id": result["enrichment_id"],
-                    "enriched_items": len(result["enriched_items"])
-                })
+                results.append(
+                    {
+                        "process_id": processed_info["process_id"],
+                        "status": "success",
+                        "enrichment_id": result["enrichment_id"],
+                        "enriched_items": len(result["enriched_items"]),
+                    }
+                )
             except Exception as e:
-                results.append({
-                    "process_id": processed_info["process_id"],
-                    "status": "error",
-                    "error": str(e)
-                })
+                results.append(
+                    {
+                        "process_id": processed_info["process_id"],
+                        "status": "error",
+                        "error": str(e),
+                    }
+                )
 
         successful_count = sum(1 for r in results if r["status"] == "success")
         return {
             "message": f"Enriched {successful_count} processed content items",
             "enriched_count": successful_count,
-            "results": results
+            "results": results,
         }
     except Exception as e:
         logger.error(f"Error in batch enrichment: {e}")
@@ -299,8 +315,8 @@ async def get_status():
             "pipeline": {
                 "unenriched_processed_content": unenriched_count,
                 "last_batch_enriched": stats.get("last_enriched"),
-                "enrichment_capacity": "ready"
-            }
+                "enrichment_capacity": "ready",
+            },
         }
     except Exception as e:
         logger.error(f"Error getting status: {e}")
@@ -321,8 +337,8 @@ async def root() -> Dict[str, Any]:
             "enrich_processed": "/enrich/processed (POST)",
             "enrich_batch": "/enrich/batch (POST)",
             "status": "/status",
-            "docs": "/docs"
-        }
+            "docs": "/docs",
+        },
     }
 
 
@@ -334,5 +350,5 @@ if __name__ == "__main__":
         host="0.0.0.0",
         port=8001,  # Different port from content-processor
         reload=config.debug,
-        log_level="info" if not config.debug else "debug"
+        log_level="info" if not config.debug else "debug",
     )

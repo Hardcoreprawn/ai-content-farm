@@ -7,17 +7,20 @@ Tests the main FastAPI endpoints and their contracts.
 """
 
 import json
+from unittest.mock import Mock, patch
+
 import pytest
-from unittest.mock import patch, Mock
 from fastapi.testclient import TestClient
 
 # Import the main app
 try:
-    import sys
     import os
-    sys.path.append('/workspaces/ai-content-farm')
+    import sys
+
+    sys.path.append("/workspaces/ai-content-farm")
 
     from main import app
+
     client = TestClient(app)
 except ImportError as e:
     client = None
@@ -84,10 +87,7 @@ class TestGenerateEndpoint:
             pytest.skip(f"main.py import failed: {import_error}")
 
         # Test with minimal valid request
-        request_data = {
-            "content_source": "ranked",
-            "theme": "modern"
-        }
+        request_data = {"content_source": "ranked", "theme": "modern"}
 
         response = client.post("/generate", json=request_data)
         # Should return either 200 (sync) or 202 (async)
@@ -111,7 +111,7 @@ class TestGenerateEndpoint:
         request_data = {
             "content_source": "ranked",
             "theme": "modern",
-            "max_articles": 5
+            "max_articles": 5,
         }
 
         response = client.post("/generate", json=request_data)

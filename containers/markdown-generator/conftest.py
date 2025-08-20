@@ -1,27 +1,31 @@
 """Test configuration for markdown generator service."""
 
-import pytest
-import sys
 import os
+import sys
 from unittest.mock import patch
+
+import pytest
 
 # Add the parent directory to the Python path so we can import our modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Configure pytest for async tests
-pytest_plugins = ['pytest_asyncio']
+pytest_plugins = ["pytest_asyncio"]
 
 
 @pytest.fixture(scope="session", autouse=True)
 def mock_environment():
     """Mock environment variables for testing."""
-    with patch.dict(os.environ, {
-        'AZURE_STORAGE_CONNECTION_STRING': 'DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=testkey;EndpointSuffix=core.windows.net',
-        'RANKED_CONTENT_CONTAINER': 'ranked-content',
-        'GENERATED_CONTENT_CONTAINER': 'generated-content',
-        'WATCH_INTERVAL': '30',
-        'MAX_CONTENT_ITEMS': '50'
-    }):
+    with patch.dict(
+        os.environ,
+        {
+            "AZURE_STORAGE_CONNECTION_STRING": "DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=testkey;EndpointSuffix=core.windows.net",
+            "RANKED_CONTENT_CONTAINER": "ranked-content",
+            "GENERATED_CONTENT_CONTAINER": "generated-content",
+            "WATCH_INTERVAL": "30",
+            "MAX_CONTENT_ITEMS": "50",
+        },
+    ):
         yield
 
 
@@ -42,9 +46,9 @@ def sample_content_items():
             "source_metadata": {
                 "site_name": "Tech News Today",
                 "author": "John Doe",
-                "published_date": "2024-01-01"
+                "published_date": "2024-01-01",
             },
-            "published_at": "2024-01-01T12:00:00Z"
+            "published_at": "2024-01-01T12:00:00Z",
         },
         {
             "title": "Business Innovation Trends",
@@ -56,11 +60,8 @@ def sample_content_items():
             "sentiment": "neutral",
             "final_score": 0.72,
             "engagement_score": 0.65,
-            "source_metadata": {
-                "site_name": "Business Weekly",
-                "author": "Jane Smith"
-            },
-            "published_at": "2024-01-02T08:30:00Z"
+            "source_metadata": {"site_name": "Business Weekly", "author": "Jane Smith"},
+            "published_at": "2024-01-02T08:30:00Z",
         },
         {
             "title": "Climate Change Research Updates",
@@ -70,10 +71,8 @@ def sample_content_items():
             "sentiment": "concerned",
             "final_score": 0.68,
             "engagement_score": 0.71,
-            "source_metadata": {
-                "site_name": "Science Daily"
-            }
-        }
+            "source_metadata": {"site_name": "Science Daily"},
+        },
     ]
 
 
@@ -94,7 +93,7 @@ date: "2024-01-01"
 # Test Article 1
 
 This is the content of test article 1.""",
-            "rank": 1
+            "rank": 1,
         },
         {
             "slug": "business-innovation-trends",
@@ -109,8 +108,8 @@ date: "2024-01-01"
 # Business Innovation Trends
 
 Content about business innovation.""",
-            "rank": 2
-        }
+            "rank": 2,
+        },
     ]
 
 
@@ -125,10 +124,7 @@ def sample_generation_manifest():
         "version": "1.0.0",
         "template_style": "jekyll",
         "index_content": "# AI Curated Content Index\n\nGenerated content index.",
-        "generation_settings": {
-            "max_content_items": 50,
-            "template_style": "jekyll"
-        }
+        "generation_settings": {"max_content_items": 50, "template_style": "jekyll"},
     }
 
 
@@ -137,6 +133,7 @@ def sample_generation_manifest():
 def event_loop():
     """Create an instance of the default event loop for the test session."""
     import asyncio
+
     loop = asyncio.get_event_loop_policy().new_event_loop()
     yield loop
     loop.close()

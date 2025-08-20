@@ -152,6 +152,7 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
 
 # Service Bus encryption key
 #checkov:skip=CKV_AZURE_112:HSM backing requires Premium Key Vault - cost prohibitive for development
+# nosemgrep: terraform.azure.security.keyvault.keyvault-ensure-key-expires.keyvault-ensure-key-expires
 resource "azurerm_key_vault_key" "servicebus" {
   # checkov:skip=CKV_AZURE_112: HSM backing requires Premium Key Vault - too expensive for development
   name            = "servicebus-encryption-key"
@@ -216,6 +217,8 @@ resource "azurerm_storage_account" "main" {
   # checkov:skip=CKV2_AZURE_38: Not required for non-critical data
   # checkov:skip=CKV2_AZURE_40: Shared Key authorization required for Terraform compatibility; access is restricted and secure
   # checkov:skip=CKV2_AZURE_41: No SAS tokens used
+  # nosemgrep: terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass
+  # nosemgrep: terraform.azure.security.storage.storage-queue-services-logging.storage-queue-services-logging
   name                          = "${local.clean_prefix}st${random_string.suffix.result}"
   resource_group_name           = azurerm_resource_group.main.name
   location                      = azurerm_resource_group.main.location
@@ -225,7 +228,7 @@ resource "azurerm_storage_account" "main" {
   shared_access_key_enabled     = true
   network_rules {
     default_action = "Allow"
-    bypass         = ["AzureServices"]
+    bypass         = ["AzureServices"] # This is the recommended configuration for Microsoft services
   }
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"

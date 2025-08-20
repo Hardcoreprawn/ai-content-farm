@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 from pathlib import Path
 
 # Ensure this container directory is first on sys.path so tests importing

@@ -5,7 +5,7 @@ Simple keyword-based topic classification for content.
 Keeps it simple and predictable.
 """
 
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 
 def classify_topic(content: Dict[str, Any]) -> Dict[str, Any]:
@@ -32,41 +32,83 @@ def classify_topic(content: Dict[str, Any]) -> Dict[str, Any]:
     full_text = f"{title} {clean_title} {content_text}".strip()
 
     if not full_text:
-        return {
-            "primary_topic": "general",
-            "confidence": 0.0,
-            "topics": []
-        }
+        return {"primary_topic": "general", "confidence": 0.0, "topics": []}
 
     # Simple keyword-based classification
     topic_keywords = {
         "technology": [
-            "ai", "machine learning", "neural", "algorithm", "computer",
-            "software", "tech", "digital", "programming", "code", "data"
+            "ai",
+            "machine learning",
+            "neural",
+            "algorithm",
+            "computer",
+            "software",
+            "tech",
+            "digital",
+            "programming",
+            "code",
+            "data",
         ],
         "science": [
-            "research", "study", "experiment", "discovery", "climate",
-            "biology", "physics", "chemistry", "scientific"
+            "research",
+            "study",
+            "experiment",
+            "discovery",
+            "climate",
+            "biology",
+            "physics",
+            "chemistry",
+            "scientific",
         ],
         "business": [
-            "company", "market", "financial", "economy", "business",
-            "startup", "revenue", "investment"
+            "company",
+            "market",
+            "financial",
+            "economy",
+            "business",
+            "startup",
+            "revenue",
+            "investment",
         ],
         "health": [
-            "medical", "health", "disease", "treatment", "doctor",
-            "patient", "medicine", "clinical"
+            "medical",
+            "health",
+            "disease",
+            "treatment",
+            "doctor",
+            "patient",
+            "medicine",
+            "clinical",
         ],
         "politics": [
-            "government", "policy", "election", "political", "congress",
-            "senate", "president", "vote"
+            "government",
+            "policy",
+            "election",
+            "political",
+            "congress",
+            "senate",
+            "president",
+            "vote",
         ],
         "entertainment": [
-            "movie", "film", "music", "game", "gaming", "entertainment",
-            "celebrity", "show"
+            "movie",
+            "film",
+            "music",
+            "game",
+            "gaming",
+            "entertainment",
+            "celebrity",
+            "show",
         ],
         "sports": [
-            "sport", "game", "team", "player", "match", "championship",
-            "football", "basketball"
+            "sport",
+            "game",
+            "team",
+            "player",
+            "match",
+            "championship",
+            "football",
+            "basketball",
         ],
     }
 
@@ -97,8 +139,4 @@ def classify_topic(content: Dict[str, Any]) -> Dict[str, Any]:
         ]
         topics.sort(key=lambda x: x["score"], reverse=True)
 
-    return {
-        "primary_topic": primary_topic,
-        "confidence": confidence,
-        "topics": topics
-    }
+    return {"primary_topic": primary_topic, "confidence": confidence, "topics": topics}

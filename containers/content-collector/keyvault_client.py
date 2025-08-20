@@ -5,12 +5,13 @@ Azure Key Vault integration for Content Collector.
 Provides secure credential retrieval from Azure Key Vault.
 """
 
-import os
 import logging
-from typing import Optional, Dict, Any
-from azure.keyvault.secrets import SecretClient
-from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
+import os
+from typing import Any, Dict, Optional
+
 from azure.core.exceptions import AzureError
+from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
+from azure.keyvault.secrets import SecretClient
 
 logger = logging.getLogger(__name__)
 
@@ -31,17 +32,19 @@ class KeyVaultClient:
                 self._initialize_client()
             except Exception as e:
                 logger.error(f"Failed to initialize Key Vault client: {e}")
-                logger.info(
-                    "Will fall back to environment variables for credentials")
+                logger.info("Will fall back to environment variables for credentials")
                 self.client = None
         else:
             logger.info("AZURE_KEY_VAULT_URL not configured")
             logger.info(
-                "Local development mode: will use environment variables for credentials")
+                "Local development mode: will use environment variables for credentials"
+            )
             logger.info(
-                "To use Azure Key Vault, set AZURE_KEY_VAULT_URL and authentication credentials")
+                "To use Azure Key Vault, set AZURE_KEY_VAULT_URL and authentication credentials"
+            )
             logger.info(
-                "Run ./setup-local-dev.sh to configure Azure Key Vault integration")
+                "Run ./setup-local-dev.sh to configure Azure Key Vault integration"
+            )
 
     def _initialize_client(self):
         """Initialize the Azure Key Vault client with proper authentication."""
@@ -51,18 +54,18 @@ class KeyVaultClient:
         try:
             # Try managed identity first (for Azure environments)
             if os.getenv("AZURE_CLIENT_ID"):
-                logger.info(
-                    "Using managed identity for Key Vault authentication")
+                logger.info("Using managed identity for Key Vault authentication")
                 credential = ManagedIdentityCredential(
-                    client_id=os.getenv("AZURE_CLIENT_ID"))
+                    client_id=os.getenv("AZURE_CLIENT_ID")
+                )
             else:
                 # Fall back to default credential chain
                 logger.info(
-                    "Using default credential chain for Key Vault authentication")
+                    "Using default credential chain for Key Vault authentication"
+                )
                 credential = DefaultAzureCredential()
 
-            self.client = SecretClient(
-                vault_url=self.vault_url, credential=credential)
+            self.client = SecretClient(vault_url=self.vault_url, credential=credential)
 
             # Test the connection
             self._test_connection()
@@ -99,7 +102,8 @@ class KeyVaultClient:
         """
         if not self.client:
             logger.warning(
-                f"Key Vault client not available, cannot retrieve secret: {secret_name}")
+                f"Key Vault client not available, cannot retrieve secret: {secret_name}"
+            )
             return None
 
         # Check cache first
@@ -122,8 +126,7 @@ class KeyVaultClient:
             logger.error(f"Azure error retrieving secret {secret_name}: {e}")
             return None
         except Exception as e:
-            logger.error(
-                f"Unexpected error retrieving secret {secret_name}: {e}")
+            logger.error(f"Unexpected error retrieving secret {secret_name}: {e}")
             return None
 
     def get_reddit_credentials(self) -> Dict[str, Optional[str]]:
@@ -136,22 +139,18 @@ class KeyVaultClient:
         credentials = {
             "client_id": self.get_secret("reddit-client-id"),
             "client_secret": self.get_secret("reddit-client-secret"),
-            "user_agent": self.get_secret("reddit-user-agent")
+            "user_agent": self.get_secret("reddit-user-agent"),
         }
 
         # Log which credentials were found (without values)
-        found_creds = [key for key, value in credentials.items()
-                       if value is not None]
-        missing_creds = [key for key,
-                         value in credentials.items() if value is None]
+        found_creds = [key for key, value in credentials.items() if value is not None]
+        missing_creds = [key for key, value in credentials.items() if value is None]
 
         if found_creds:
-            logger.info(
-                f"Retrieved Reddit credentials from Key Vault: {found_creds}")
+            logger.info(f"Retrieved Reddit credentials from Key Vault: {found_creds}")
 
         if missing_creds:
-            logger.warning(
-                f"Missing Reddit credentials in Key Vault: {missing_creds}")
+            logger.warning(f"Missing Reddit credentials in Key Vault: {missing_creds}")
 
         return credentials
 
@@ -191,7 +190,7 @@ def get_reddit_credentials_with_fallback() -> Dict[str, Optional[str]]:
     credentials: Dict[str, Optional[str]] = {
         "client_id": None,
         "client_secret": None,
-        "user_agent": None
+        "user_agent": None,
     }
 
     # Try Key Vault first
@@ -209,7 +208,7 @@ def get_reddit_credentials_with_fallback() -> Dict[str, Optional[str]]:
     env_fallbacks = {
         "client_id": "REDDIT_CLIENT_ID",
         "client_secret": "REDDIT_CLIENT_SECRET",
-        "user_agent": "REDDIT_USER_AGENT"
+        "user_agent": "REDDIT_USER_AGENT",
     }
 
     for key, env_var in env_fallbacks.items():
@@ -217,14 +216,11 @@ def get_reddit_credentials_with_fallback() -> Dict[str, Optional[str]]:
             env_value = os.getenv(env_var)
             if env_value:
                 credentials[key] = env_value
-                logger.info(
-                    f"Using environment variable for Reddit {key}: {env_var}")
+                logger.info(f"Using environment variable for Reddit {key}: {env_var}")
 
     # Log final status
-    available_creds = [key for key,
-                       value in credentials.items() if value is not None]
-    missing_creds = [key for key, value in credentials.items()
-                     if value is None]
+    available_creds = [key for key, value in credentials.items() if value is not None]
+    missing_creds = [key for key, value in credentials.items() if value is None]
 
     if available_creds:
         logger.info(f"Reddit credentials available: {available_creds}")
@@ -232,7 +228,8 @@ def get_reddit_credentials_with_fallback() -> Dict[str, Optional[str]]:
     if missing_creds:
         logger.warning(f"Reddit credentials missing: {missing_creds}")
         logger.warning(
-            "Reddit API functionality may be limited without proper credentials")
+            "Reddit API functionality may be limited without proper credentials"
+        )
 
     return credentials
 
@@ -250,7 +247,7 @@ def health_check_keyvault() -> Dict[str, Any]:
         "key_vault_configured": kv_client.vault_url is not None,
         "key_vault_url": kv_client.vault_url,
         "client_available": kv_client.is_available(),
-        "status": "unknown"
+        "status": "unknown",
     }
 
     if not kv_client.vault_url:

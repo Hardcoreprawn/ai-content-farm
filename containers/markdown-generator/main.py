@@ -4,24 +4,19 @@ import asyncio
 import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
 
 from config import config
-from models import (
-    MarkdownRequest,
-    GenerationResult,
-    ServiceStatus,
-    HealthCheckResponse
-)
-from libs.blob_storage import BlobStorageClient
-from service_logic import MarkdownGenerator, ContentWatcher
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from health import HealthChecker
+from models import GenerationResult, HealthCheckResponse, MarkdownRequest, ServiceStatus
+from service_logic import ContentWatcher, MarkdownGenerator
+
+from libs.blob_storage import BlobStorageClient
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 
@@ -117,7 +112,7 @@ app = FastAPI(
     title="Markdown Generator Service",
     description="AI Content Farm markdown generation service",
     version=config.VERSION,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 
@@ -132,8 +127,8 @@ async def root():
         "endpoints": {
             "health": "/health",
             "status": "/status",
-            "generate": "/generate"
-        }
+            "generate": "/generate",
+        },
     }
 
 
@@ -145,15 +140,9 @@ async def health_check():
 
         # Return appropriate status code based on health
         if health_result["status"] == "healthy":
-            return JSONResponse(
-                status_code=200,
-                content=health_result
-            )
+            return JSONResponse(status_code=200, content=health_result)
         else:
-            return JSONResponse(
-                status_code=503,
-                content=health_result
-            )
+            return JSONResponse(status_code=503, content=health_result)
 
     except Exception as e:
         logger.error(f"Health check failed: {e}")
@@ -164,8 +153,8 @@ async def health_check():
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "service": config.SERVICE_NAME,
                 "error": str(e),
-                "blob_storage_healthy": False
-            }
+                "blob_storage_healthy": False,
+            },
         )
 
 
@@ -186,29 +175,23 @@ async def generate_markdown(request: MarkdownRequest):
     """Manually trigger markdown generation from provided content items."""
     try:
         if not request.content_items:
-            raise HTTPException(
-                status_code=400,
-                detail="No content items provided"
-            )
+            raise HTTPException(status_code=400, detail="No content items provided")
 
         # Check if service is initialized
         if markdown_generator is None:
-            raise HTTPException(
-                status_code=503,
-                detail="Service not initialized"
-            )
+            raise HTTPException(status_code=503, detail="Service not initialized")
 
         logger.info(
-            f"Manual markdown generation requested for {len(request.content_items)} items")
+            f"Manual markdown generation requested for {len(request.content_items)} items"
+        )
 
         # Generate markdown
         result = await markdown_generator.generate_markdown_from_ranked_content(
             request.content_items,
-            request.template_style or config.MARKDOWN_TEMPLATE_STYLE
+            request.template_style or config.MARKDOWN_TEMPLATE_STYLE,
         )
 
-        logger.info(
-            f"Manual generation completed: {result['files_generated']} files")
+        logger.info(f"Manual generation completed: {result['files_generated']} files")
 
         return GenerationResult(**result)
 
@@ -233,12 +216,12 @@ async def trigger_check():
             return {
                 "status": "success",
                 "message": "New content processed and markdown generated",
-                "result": result
+                "result": result,
             }
         else:
             return {
                 "status": "no_new_content",
-                "message": "No new ranked content found"
+                "message": "No new ranked content found",
             }
 
     except Exception as e:
@@ -258,9 +241,5 @@ async def get_watcher_status():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        app,
-        host="0.0.0.0",
-        port=config.PORT,
-        log_level="info"
-    )
+
+    uvicorn.run(app, host="0.0.0.0", port=config.PORT, log_level="info")

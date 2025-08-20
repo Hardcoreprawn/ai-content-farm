@@ -5,7 +5,7 @@ Simple rule-based sentiment analysis for content.
 No complex models, just reliable keyword matching.
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
 
 
 def analyze_sentiment(content: Dict[str, Any]) -> Dict[str, Any]:
@@ -30,20 +30,52 @@ def analyze_sentiment(content: Dict[str, Any]) -> Dict[str, Any]:
             "confidence": 0.0,
             "positive_score": 0.0,
             "negative_score": 0.0,
-            "neutral_score": 1.0
+            "neutral_score": 1.0,
         }
 
     # Simple word lists for sentiment
     positive_words = [
-        "good", "great", "excellent", "amazing", "wonderful", "fantastic",
-        "positive", "success", "win", "best", "love", "like", "happy",
-        "exciting", "breakthrough", "innovation", "improve", "benefit"
+        "good",
+        "great",
+        "excellent",
+        "amazing",
+        "wonderful",
+        "fantastic",
+        "positive",
+        "success",
+        "win",
+        "best",
+        "love",
+        "like",
+        "happy",
+        "exciting",
+        "breakthrough",
+        "innovation",
+        "improve",
+        "benefit",
     ]
 
     negative_words = [
-        "bad", "terrible", "awful", "horrible", "worst", "hate", "dislike",
-        "negative", "fail", "failure", "problem", "issue", "concern", "worry",
-        "dangerous", "risk", "threat", "crisis", "decline", "damage"
+        "bad",
+        "terrible",
+        "awful",
+        "horrible",
+        "worst",
+        "hate",
+        "dislike",
+        "negative",
+        "fail",
+        "failure",
+        "problem",
+        "issue",
+        "concern",
+        "worry",
+        "dangerous",
+        "risk",
+        "threat",
+        "crisis",
+        "decline",
+        "damage",
     ]
 
     # Count sentiment words
@@ -77,5 +109,5 @@ def analyze_sentiment(content: Dict[str, Any]) -> Dict[str, Any]:
         "confidence": confidence,
         "positive_score": positive_score,
         "negative_score": negative_score,
-        "neutral_score": neutral_score
+        "neutral_score": neutral_score,
     }

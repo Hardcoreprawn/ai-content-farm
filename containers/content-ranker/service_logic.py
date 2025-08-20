@@ -8,9 +8,11 @@ Handles blob storage integration and content ranking pipeline operations.
 import json
 import logging
 from datetime import datetime
-from typing import Dict, Any, List, Optional
-from libs.blob_storage import BlobStorageClient, BlobContainers
+from typing import Any, Dict, List, Optional
+
 from ranker import rank_content_items
+
+from libs.blob_storage import BlobContainers, BlobStorageClient
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -29,10 +31,7 @@ class ContentRankerService:
 
     async def ensure_containers(self) -> None:
         """Ensure required blob containers exist."""
-        containers = [
-            self.enriched_container,
-            self.ranked_container
-        ]
+        containers = [self.enriched_container, self.ranked_container]
 
         for container in containers:
             try:
@@ -40,9 +39,12 @@ class ContentRankerService:
                 logger.info(f"Container '{container}' ready")
             except Exception as e:
                 logger.warning(
-                    f"Container '{container}' creation failed (may already exist): {e}")
+                    f"Container '{container}' creation failed (may already exist): {e}"
+                )
 
-    async def get_enriched_content(self, content_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    async def get_enriched_content(
+        self, content_id: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
         """
         Retrieve enriched content from blob storage.
 
@@ -57,8 +59,7 @@ class ContentRankerService:
                 # Get specific content item
                 blob_name = f"enriched_{content_id}.json"
                 content_data = self.blob_client.download_json(
-                    self.enriched_container,
-                    blob_name
+                    self.enriched_container, blob_name
                 )
 
                 if content_data:
@@ -68,29 +69,26 @@ class ContentRankerService:
                     return []
             else:
                 # Get all enriched content
-                blob_list = self.blob_client.list_blobs(
-                    self.enriched_container
-                )
+                blob_list = self.blob_client.list_blobs(self.enriched_container)
 
                 content_items = []
                 for blob_info in blob_list:
                     blob_name = blob_info["name"]
-                    if blob_name.startswith("enriched_") and blob_name.endswith(".json"):
+                    if blob_name.startswith("enriched_") and blob_name.endswith(
+                        ".json"
+                    ):
                         try:
                             content_item = self.blob_client.download_json(
-                                self.enriched_container,
-                                blob_name
+                                self.enriched_container, blob_name
                             )
 
                             if content_item:
                                 content_items.append(content_item)
                         except Exception as e:
-                            logger.error(
-                                f"Failed to download {blob_name}: {e}")
+                            logger.error(f"Failed to download {blob_name}: {e}")
                             continue
 
-                logger.info(
-                    f"Retrieved {len(content_items)} enriched content items")
+                logger.info(f"Retrieved {len(content_items)} enriched content items")
                 return content_items
 
         except Exception as e:
@@ -101,7 +99,7 @@ class ContentRankerService:
         self,
         weights: Optional[Dict[str, float]] = None,
         target_topics: Optional[List[str]] = None,
-        limit: Optional[int] = None
+        limit: Optional[int] = None,
     ) -> Dict[str, Any]:
         """
         Rank a batch of enriched content.
@@ -127,8 +125,8 @@ class ContentRankerService:
                         "timestamp": datetime.utcnow().isoformat(),
                         "weights": weights,
                         "target_topics": target_topics,
-                        "limit": limit
-                    }
+                        "limit": limit,
+                    },
                 }
 
             # Perform ranking
@@ -136,14 +134,13 @@ class ContentRankerService:
                 content_items=enriched_items,
                 weights=weights,
                 target_topics=target_topics,
-                limit=limit
+                limit=limit,
             )
 
             # Store ranked content in blob storage
             await self._store_ranked_content(ranked_items)
 
-            logger.info(
-                f"Successfully ranked {len(ranked_items)} content items")
+            logger.info(f"Successfully ranked {len(ranked_items)} content items")
 
             return {
                 "ranked_items": ranked_items,
@@ -153,8 +150,8 @@ class ContentRankerService:
                     "weights": weights,
                     "target_topics": target_topics,
                     "limit": limit,
-                    "items_returned": len(ranked_items)
-                }
+                    "items_returned": len(ranked_items),
+                },
             }
 
         except Exception as e:
@@ -166,7 +163,7 @@ class ContentRankerService:
         content_items: List[Dict[str, Any]],
         weights: Optional[Dict[str, float]] = None,
         target_topics: Optional[List[str]] = None,
-        limit: Optional[int] = None
+        limit: Optional[int] = None,
     ) -> List[Dict[str, Any]]:
         """
         Rank specific content items.
@@ -190,11 +187,12 @@ class ContentRankerService:
                 content_items=content_items,
                 weights=weights,
                 target_topics=target_topics,
-                limit=limit
+                limit=limit,
             )
 
             logger.info(
-                f"Successfully ranked {len(ranked_items)} specific content items")
+                f"Successfully ranked {len(ranked_items)} specific content items"
+            )
             return ranked_items
 
         except Exception as e:
@@ -215,27 +213,26 @@ class ContentRankerService:
                 blob_name = f"ranked_{content_id}.json"
 
                 self.blob_client.upload_json(
-                    container_name=self.ranked_container,
-                    blob_name=blob_name,
-                    data=item
+                    container_name=self.ranked_container, blob_name=blob_name, data=item
                 )
 
             # Store batch results
-            batch_blob_name = f"ranked_batch_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+            batch_blob_name = (
+                f"ranked_batch_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+            )
             batch_data = {
                 "timestamp": datetime.utcnow().isoformat(),
                 "total_items": len(ranked_items),
-                "ranked_items": ranked_items
+                "ranked_items": ranked_items,
             }
 
             self.blob_client.upload_json(
                 container_name=self.ranked_container,
                 blob_name=batch_blob_name,
-                data=batch_data
+                data=batch_data,
             )
 
-            logger.info(
-                f"Stored {len(ranked_items)} ranked items in blob storage")
+            logger.info(f"Stored {len(ranked_items)} ranked items in blob storage")
 
         except Exception as e:
             logger.error(f"Failed to store ranked content: {e}")
@@ -250,18 +247,16 @@ class ContentRankerService:
         """
         try:
             # Count enriched content
-            enriched_blobs = self.blob_client.list_blobs(
-                self.enriched_container
-            )
+            enriched_blobs = self.blob_client.list_blobs(self.enriched_container)
             enriched_count = len(
-                [b for b in enriched_blobs if b["name"].startswith("enriched_")])
+                [b for b in enriched_blobs if b["name"].startswith("enriched_")]
+            )
 
             # Count ranked content
-            ranked_blobs = self.blob_client.list_blobs(
-                self.ranked_container
-            )
+            ranked_blobs = self.blob_client.list_blobs(self.ranked_container)
             ranked_count = len(
-                [b for b in ranked_blobs if b["name"].startswith("ranked_")])
+                [b for b in ranked_blobs if b["name"].startswith("ranked_")]
+            )
 
             return {
                 "service": "content-ranker",
@@ -269,12 +264,12 @@ class ContentRankerService:
                 "timestamp": datetime.utcnow().isoformat(),
                 "content_stats": {
                     "enriched_items_available": enriched_count,
-                    "ranked_items_stored": ranked_count
+                    "ranked_items_stored": ranked_count,
                 },
                 "containers": {
                     "enriched_content": self.enriched_container,
-                    "ranked_content": self.ranked_container
-                }
+                    "ranked_content": self.ranked_container,
+                },
             }
 
         except Exception as e:
@@ -283,5 +278,5 @@ class ContentRankerService:
                 "service": "content-ranker",
                 "status": "error",
                 "timestamp": datetime.utcnow().isoformat(),
-                "error": str(e)
+                "error": str(e),
             }
