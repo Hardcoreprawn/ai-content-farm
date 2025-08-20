@@ -10,6 +10,7 @@ permissions:
   issues: write
   actions: read
   checks: write
+  id-token: write # Required for OIDC authentication
 
 jobs:
   # Workflow Validation - Fast fail if workflows are invalid
@@ -116,14 +117,60 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Azure Login via OIDC
+        uses: azure/login@v1
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.14.0"
+
       - name: Deploy to Production
         id: deploy
         run: |
-          echo "Deploying to production..."
-          echo "This would deploy using Azure credentials"
-          echo "Deployment strategy: blue-green"
-          # Add actual production deployment logic here
-          echo "deployment-url=https://your-production-url.com" >> $GITHUB_OUTPUT
+          echo "Starting production deployment using Terraform and Azure Container Apps..."
+
+          # Deploy infrastructure and containers using existing deployment logic
+          echo "Deploying to production environment..."
+
+          # Switch to production workspace
+          cd infra
+          terraform workspace select production || terraform workspace new production
+
+          # Initialize if needed
+          if [ ! -d ".terraform" ]; then
+            terraform init
+          fi
+
+          # Plan and apply infrastructure changes
+          terraform plan -var="environment=production" -var="resource_prefix=ai-content-prod" -out=tfplan
+          terraform apply tfplan
+
+          # Deploy containers using the deployment script
+          echo "Deploying containers..."
+          cd ..
+          bash scripts/deploy-containers.sh
+
+          # Get the Container App URL
+          CONTAINER_APP_URL=$(az containerapp show \
+            --name "ai-content-farm-core-content-generator" \
+            --resource-group "ai-content-farm-core-rg" \
+            --query "properties.configuration.ingress.fqdn" \
+            -o tsv)
+
+          # Set the deployment URL output
+          if [ -n "$CONTAINER_APP_URL" ]; then
+            echo "deployment-url=https://$CONTAINER_APP_URL" >> $GITHUB_OUTPUT
+            echo "Production deployment completed successfully"
+            echo "Container App URL: https://$CONTAINER_APP_URL"
+          else
+            echo "Failed to get Container App URL"
+            exit 1
+          fi
 
   # Post-Deployment Tests
   post-deployment-tests:
