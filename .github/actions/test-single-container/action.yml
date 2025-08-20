@@ -1,0 +1,190 @@
+name: 'Test Single Container'
+description: 'Run tests for a specific container with optimized dependency installation'
+inputs:
+  container-name:
+    description: 'Name of the container to test (e.g., content-collector)'
+    required: true
+  test-type:
+    description: 'Type of tests to run: unit, integration, smoke'
+    required: true
+  fail-fast:
+    description: 'Stop on first test failure'
+    required: false
+    default: 'false'
+  upload-coverage:
+    description: 'Upload test coverage reports'
+    required: false
+    default: 'true'
+
+outputs:
+  tests-passed:
+    description: 'Whether tests passed for this container'
+    value: ${{ steps.test-results.outputs.passed }}
+  coverage-percentage:
+    description: 'Test coverage percentage for this container'
+    value: ${{ steps.coverage.outputs.percentage }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python environment
+      shell: bash
+      env:
+        CONTAINER_NAME: ${{ inputs.container-name }}
+      run: |
+        echo "🐍 Setting up Python test environment for ${CONTAINER_NAME}..."
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pytest-asyncio pytest-xdist
+
+    - name: Install container-specific dependencies
+      shell: bash
+      env:
+        CONTAINER_NAME: ${{ inputs.container-name }}
+      run: |
+        echo "📦 Installing dependencies for ${CONTAINER_NAME}..."
+        
+        # Install shared libs first
+        if [ -f "libs/requirements.txt" ]; then
+          echo "Installing shared libs..."
+          pip install -r libs/requirements.txt
+        fi
+        
+        # Install libs package in development mode
+        if [ -f "libs/pyproject.toml" ]; then
+          echo "Installing libs package..."
+          pip install -e libs/
+        fi
+        
+        # Install container-specific dependencies
+        if [ -f "containers/${CONTAINER_NAME}/requirements.txt" ]; then
+          echo "Installing ${CONTAINER_NAME} dependencies..."
+          pip install -r "containers/${CONTAINER_NAME}/requirements.txt"
+        else
+          echo "⚠️ No requirements.txt found for ${CONTAINER_NAME}"
+        fi
+
+    - name: Run Unit Tests
+      if: inputs.test-type == 'unit'
+      shell: bash
+      env:
+        CONTAINER_NAME: ${{ inputs.container-name }}
+        INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
+      run: |
+        echo "🧪 Running unit tests for ${CONTAINER_NAME}..."
+        
+        pytest_args=""
+        if [ "${INPUT_FAIL_FAST}" = "true" ]; then
+          pytest_args="$pytest_args -x"
+        fi
+        
+        # Run unit tests for specific container
+        python -m pytest \
+          $pytest_args \
+          -m "unit or not integration" \
+          --cov="containers/${CONTAINER_NAME}" \
+          --cov-report=xml:"coverage-${CONTAINER_NAME}-unit.xml" \
+          --cov-report=term-missing \
+          --junit-xml="test-results-${CONTAINER_NAME}-unit.xml" \
+          "containers/${CONTAINER_NAME}/" \
+          || echo "unit_test_failed=true" >> $GITHUB_ENV
+
+    - name: Run Integration Tests
+      if: inputs.test-type == 'integration'
+      shell: bash
+      env:
+        CONTAINER_NAME: ${{ inputs.container-name }}
+        INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
+      run: |
+        echo "🔗 Running integration tests for ${CONTAINER_NAME}..."
+        
+        pytest_args=""
+        if [ "${INPUT_FAIL_FAST}" = "true" ]; then
+          pytest_args="$pytest_args -x"
+        fi
+        
+        # Run integration tests for specific container
+        python -m pytest \
+          $pytest_args \
+          -m integration \
+          --cov="containers/${CONTAINER_NAME}" \
+          --cov-report=xml:"coverage-${CONTAINER_NAME}-integration.xml" \
+          --cov-report=term-missing \
+          --junit-xml="test-results-${CONTAINER_NAME}-integration.xml" \
+          "containers/${CONTAINER_NAME}/" \
+          || echo "integration_test_failed=true" >> $GITHUB_ENV
+
+    - name: Run Smoke Tests
+      if: inputs.test-type == 'smoke'
+      shell: bash
+      env:
+        CONTAINER_NAME: ${{ inputs.container-name }}
+      run: |
+        echo "💨 Running smoke tests for ${CONTAINER_NAME}..."
+        
+        # Run quick health check tests
+        python -m pytest \
+          -m "unit and not slow" \
+          --maxfail=1 \
+          --tb=short \
+          -q \
+          "containers/${CONTAINER_NAME}/" \
+          || echo "smoke_test_failed=true" >> $GITHUB_ENV
+
+    - name: Calculate Coverage
+      id: coverage
+      shell: bash
+      env:
+        CONTAINER_NAME: ${{ inputs.container-name }}
+        TEST_TYPE: ${{ inputs.test-type }}
+      run: |
+        echo "📊 Calculating coverage for ${CONTAINER_NAME} (${TEST_TYPE})..."
+        
+        coverage_file="coverage-${CONTAINER_NAME}-${TEST_TYPE}.xml"
+        
+        if [ -f "$coverage_file" ]; then
+          # Extract coverage percentage from XML
+          coverage_pct=$(python -c "
+        import xml.etree.ElementTree as ET
+        try:
+            tree = ET.parse('$coverage_file')
+            root = tree.getroot()
+            coverage = root.get('line-rate', '0')
+            print(f'{float(coverage) * 100:.1f}')
+        except:
+            print('0.0')
+        ")
+                  echo "percentage=$coverage_pct" >> $GITHUB_OUTPUT
+                  echo "Coverage for ${CONTAINER_NAME}: ${coverage_pct}%"
+                else
+                  echo "percentage=0.0" >> $GITHUB_OUTPUT
+                  echo "No coverage data found for ${CONTAINER_NAME}"
+                fi
+
+    - name: Evaluate Test Results
+      id: test-results
+      shell: bash
+      env:
+        CONTAINER_NAME: ${{ inputs.container-name }}
+        TEST_TYPE: ${{ inputs.test-type }}
+      run: |
+        echo "📋 Evaluating test results for ${CONTAINER_NAME} (${TEST_TYPE})..."
+        
+        # Check for test failures
+        if [ "$unit_test_failed" = "true" ] || [ "$integration_test_failed" = "true" ] || [ "$smoke_test_failed" = "true" ]; then
+          echo "passed=false" >> $GITHUB_OUTPUT
+          echo "❌ Tests failed for ${CONTAINER_NAME} (${TEST_TYPE})"
+          exit 1
+        else
+          echo "passed=true" >> $GITHUB_OUTPUT
+          echo "✅ Tests passed for ${CONTAINER_NAME} (${TEST_TYPE})"
+        fi
+
+    - name: Upload Test Results
+      if: inputs.upload-coverage == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results-${{ inputs.container-name }}-${{ inputs.test-type }}
+        path: |
+          test-results-${{ inputs.container-name }}-${{ inputs.test-type }}.xml
+          coverage-${{ inputs.container-name }}-${{ inputs.test-type }}.xml
+        retention-days: 30

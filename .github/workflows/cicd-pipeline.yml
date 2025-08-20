@@ -74,21 +74,123 @@ jobs:
             echo "Dependency analysis script not found - using basic analysis"
           fi
 
-  # Container Tests - Unit, Integration, and Smoke Tests
-  container-tests:
-    name: Container Tests
+  # Quick Smoke Tests - Fast Feedback Loop
+  container-smoke-tests:
+    name: Smoke Test ${{ matrix.container }}
     runs-on: ubuntu-latest
     needs: quality-gate
+    strategy:
+      matrix:
+        container:
+          - content-collector
+          - content-processor
+          - content-ranker
+          - content-enricher
+          - content-generator
+          - site-generator
+          - markdown-generator
+          - collector-scheduler
+      fail-fast: true  # Stop quickly if any smoke test fails
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run Container Tests
-        uses: ./.github/actions/container-tests
+      - name: Set up Python
+        uses: actions/setup-python@v4
         with:
-          test-type: 'all'
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Quick Smoke Test
+        uses: ./.github/actions/test-single-container
+        with:
+          container-name: ${{ matrix.container }}
+          test-type: 'smoke'
           fail-fast: 'true'
+          upload-coverage: 'false'
+
+  # Container Tests - Parallel Matrix Strategy
+  container-tests:
+    name: Test ${{ matrix.container }} (${{ matrix.test-type }})
+    runs-on: ubuntu-latest
+    needs: container-smoke-tests  # Run after smoke tests pass
+    strategy:
+      matrix:
+        container:
+          - content-collector
+          - content-processor
+          - content-ranker
+          - content-enricher
+          - content-generator
+          - site-generator
+          - markdown-generator
+          - collector-scheduler
+        test-type:
+          - unit
+          - integration
+      fail-fast: false  # Continue testing other containers even if one fails
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Test Container
+        uses: ./.github/actions/test-single-container
+        with:
+          container-name: ${{ matrix.container }}
+          test-type: ${{ matrix.test-type }}
+          fail-fast: 'false'
           upload-coverage: 'true'
+
+  # Container Test Results Aggregation
+  container-tests-summary:
+    name: Container Tests Summary
+    runs-on: ubuntu-latest
+    needs: container-tests
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download All Test Results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          path: test-results/
+
+      - name: Aggregate Test Results
+        run: |
+          echo "📊 Aggregating test results from all containers..."
+          
+          total_jobs=${{ strategy.job-total }}
+          failed_jobs=0
+          
+          # Count successful vs failed matrix jobs
+          if [ "${{ needs.container-tests.result }}" = "failure" ]; then
+            echo "❌ Some container tests failed"
+            failed_jobs=1
+          fi
+          
+          echo "## Container Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Total Matrix Jobs**: ${total_jobs}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Failed Jobs**: ${failed_jobs}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Success Rate**: $(( (total_jobs - failed_jobs) * 100 / total_jobs ))%" >> $GITHUB_STEP_SUMMARY
+          
+          # List all test result files
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Artifacts Generated:" >> $GITHUB_STEP_SUMMARY
+          find test-results/ -name "*.xml" | sort >> $GITHUB_STEP_SUMMARY
+          
+          # Exit with error if any tests failed
+          if [ $failed_jobs -gt 0 ]; then
+            echo "Container tests failed - see individual job logs for details"
+            exit 1
+          fi
 
   # AI Security Review
   ai-security-review:
@@ -109,7 +211,7 @@ jobs:
   production-deployment:
     name: Production Deployment
     runs-on: ubuntu-latest
-    needs: [quality-gate, cost-analysis, dependency-analysis, container-tests, ai-security-review]
+    needs: [quality-gate, cost-analysis, dependency-analysis, container-tests-summary, ai-security-review]
     environment: production
     outputs:
       deployment-url: ${{ steps.deploy.outputs.deployment-url }}
