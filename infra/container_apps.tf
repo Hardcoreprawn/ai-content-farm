@@ -25,24 +25,24 @@ resource "azurerm_container_registry" "main" {
   name                = "${replace(var.resource_prefix, "-", "")}acr"
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
-  sku                 = "Standard"  # Upgraded from Basic for security features
-  admin_enabled       = false       # Disable admin account for security
+  sku                 = "Standard" # Upgraded from Basic for security features
+  admin_enabled       = false      # Disable admin account for security
 
   # Enable public network access restrictions
   public_network_access_enabled = false
-  
+
   # Enable dedicated data endpoints
   data_endpoint_enabled = true
-  
+
   # Zone redundancy (requires Premium SKU in production)
-  zone_redundancy_enabled = false  # Would need Premium SKU
-  
+  zone_redundancy_enabled = false # Would need Premium SKU
+
   # Retention policy for untagged manifests
   retention_policy_in_days = 7
-  
+
   # Trust policy for content trust
   trust_policy_enabled = true
-  
+
   # Enable vulnerability scanning (requires Standard or Premium)
   quarantine_policy_enabled = true
 
@@ -115,18 +115,18 @@ resource "azurerm_servicebus_namespace" "main" {
   name                = "${var.resource_prefix}-sb"
   location            = var.location
   resource_group_name = azurerm_resource_group.main.name
-  sku                 = "Premium"  # Upgraded for security features
-  
+  sku                 = "Premium" # Upgraded for security features
+
   # Security configurations
   public_network_access_enabled = false
-  local_auth_enabled            = false  # Disable local authentication
-  minimum_tls_version          = "1.2"   # Use latest TLS
-  
+  local_auth_enabled            = false # Disable local authentication
+  minimum_tls_version           = "1.2" # Use latest TLS
+
   # Enable managed identity
   identity {
     type = "SystemAssigned"
   }
-  
+
   # Customer managed encryption requires additional setup
   # Note: This will be configured after the namespace is created
   depends_on = [

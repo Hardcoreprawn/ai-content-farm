@@ -223,21 +223,21 @@ resource "azurerm_storage_container" "topics" {
 # Azure OpenAI Cognitive Services Account
 resource "azurerm_cognitive_account" "openai" {
   name                = "${local.resource_prefix}-openai"
-  location            = "East US"  # OpenAI is only available in specific regions
+  location            = "East US" # OpenAI is only available in specific regions
   resource_group_name = azurerm_resource_group.main.name
   kind                = "OpenAI"
   sku_name            = "S0"
 
   # Security settings
   public_network_access_enabled = false
-  
+
   # Custom subdomain required for private endpoints
   custom_subdomain_name = "${replace(local.resource_prefix, "-", "")}openai"
 
   # Network access restrictions
   network_acls {
     default_action = "Deny"
-    
+
     # Allow access from Container Apps subnet when implemented
     # virtual_network_rules {
     #   subnet_id = azurerm_subnet.container_apps.id
