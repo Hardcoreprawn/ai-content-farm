@@ -70,7 +70,7 @@ runs:
       shell: bash
       run: |
         echo "🔍 Running Python security scans..."
-        
+
         # Use containerized Safety (consistent with Makefile)
         find . -name "requirements.txt" -type f | while read req_file; do
           container_name=$(basename $(dirname "$req_file"))
