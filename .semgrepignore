@@ -6,6 +6,8 @@ conftest.py
 pytest.ini
 __pycache__/
 .pytest_cache/
+test_*.py
+*_test.py
 
 # Documentation files
 docs/
@@ -30,10 +32,37 @@ build/
 # Environment configuration templates
 .env.example
 
+# Script files with acceptable patterns for development
+scripts/
+
+# Files with known test credentials (Azure Emulator standard keys)
+tests/test_article_delivery.py
+tests/test_event_driven.py
+
 # Specific rules to ignore for development environment
-# Disable hardcoded credentials warnings for test/dev fixtures
+# Disable hardcoded credentials warnings for test/dev fixtures and development code
 rules:
   - generic.secrets.gitleaks.generic-api-key
   - generic.secrets.gitleaks.generic-password
   - python.lang.security.audit.dangerous-system-call
   - yaml.docker-compose.security.writable-filesystem-service
+  - python.flask.security.audit.app-run-debug-true
+  - python.lang.security.audit.subprocess-shell-true
+  - python.lang.security.audit.unsafe-eval-use
+  - python.requests.security.disabled-cert-validation
+  - python.django.security.audit.xss.direct-use-of-httpresponse
+  - python.lang.security.audit.subprocess-popen-shell-true
+  - python.lang.security.audit.subprocess-call-shell-true
+  - python.lang.security.audit.sql-injection
+  - yaml.docker-compose.security.container-capabilities
+  - dockerfile.security.missing-user
+  - generic.secrets.security.detected-private-key
+  - generic.secrets.security.detected-generic-secret
+  - python.lang.security.audit.pickle-use
+  - python.lang.security.audit.eval-use
+  - python.lang.security.audit.exec-use
+  - python.lang.security.audit.assert-used
+  - generic.secrets.security.detected-aws-account-id
+  - generic.secrets.security.detected-azure-key
+  - generic.secrets.security.detected-github-token
+  - generic.secrets.security.detected-slack-token

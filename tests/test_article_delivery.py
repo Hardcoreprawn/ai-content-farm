@@ -27,8 +27,9 @@ async def test_article_delivery():
         # Initialize components
         print("📦 Initializing components...")
 
-        # Set up test environment
-        os.environ['AZURE_STORAGE_CONNECTION_STRING'] = 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;'
+        # Set up test environment with Azure Storage Emulator (devstoreaccount1 is standard test account)
+        test_connection_string = 'DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;'
+        os.environ['AZURE_STORAGE_CONNECTION_STRING'] = test_connection_string
         os.environ['RANKED_CONTENT_CONTAINER'] = 'processed-content'
         os.environ['GENERATED_CONTENT_CONTAINER'] = 'generated-content'
 
