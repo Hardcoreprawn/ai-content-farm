@@ -65,6 +65,27 @@ runs:
         fi
 
         # Create security context summary
+        review_timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+        
+        # Check data availability
+        if [ -d "security-results" ]; then
+          scan_results_status="Available"
+        else
+          scan_results_status="Not available"
+        fi
+        
+        if [ -f "ai-reviews/security/security-changes.diff" ]; then
+          code_changes_status="Available"
+        else
+          code_changes_status="Full codebase review"
+        fi
+        
+        if [ -f "output/sbom-combined.json" ]; then
+          sbom_status="Available"
+        else
+          sbom_status="Not available"
+        fi
+        
         cat > ai-reviews/security/context.md << EOF
         # Security Review Context
 
@@ -72,12 +93,12 @@ runs:
         **Repository**: ${{ github.repository }}
         **Branch**: ${{ github.ref }}
         **Commit**: ${{ github.sha }}
-        **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        **Date**: $review_timestamp
 
         ## Available Security Data
-        - Security scan results: $([ -d "security-results" ] && echo "Available" || echo "Not available")
-        - Code changes: $([ -f "ai-reviews/security/security-changes.diff" ] && echo "Available" || echo "Full codebase review")
-        - SBOM data: $([ -f "output/sbom-combined.json" ] && echo "Available" || echo "Not available")
+        - Security scan results: $scan_results_status
+        - Code changes: $code_changes_status
+        - SBOM data: $sbom_status
 
         ## Focus Areas for Review
         1. Authentication and authorization
@@ -306,14 +327,14 @@ runs:
 
         # Extract outputs
         if [ -f "review-output.txt" ]; then
-          security_score=$(grep "security-score=" review-output.txt | cut -d'=' -f2)
-          recommendations=$(grep "recommendations=" review-output.txt | cut -d'=' -f2-)
+          security_score="$(grep "security-score=" review-output.txt | cut -d'=' -f2)"
+          recommendations="$(grep "recommendations=" review-output.txt | cut -d'=' -f2-)"
 
-          echo "security-score=${security_score:-5}" >> $GITHUB_OUTPUT
-          echo "recommendations=${recommendations:-{}}" >> $GITHUB_OUTPUT
+          echo "security-score=${security_score:-5}" >> "$GITHUB_OUTPUT"
+          echo "recommendations=${recommendations:-{}}" >> "$GITHUB_OUTPUT"
         else
-          echo "security-score=5" >> $GITHUB_OUTPUT
-          echo "recommendations={}" >> $GITHUB_OUTPUT
+          echo "security-score=5" >> "$GITHUB_OUTPUT"
+          echo "recommendations={}" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Generate Security Report
@@ -324,24 +345,43 @@ runs:
         cd ai-reviews/security
 
         # Create markdown report
+        report_timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+        
+        # Extract security data
+        if [ -f "security-analysis.json" ]; then
+          security_score="$(jq -r '.security_score // "N/A"' security-analysis.json)"
+          risk_level="$(jq -r '.risk_level // "UNKNOWN"' security-analysis.json)"
+          critical_findings="$(jq -r '.critical_findings[]? | "- **\(.title)**: \(.description) (Location: \(.location))"' security-analysis.json)" || critical_findings="None identified"
+          medium_findings="$(jq -r '.medium_findings[]? | "- **\(.title)**: \(.description) (Location: \(.location))"' security-analysis.json)" || medium_findings="None identified"
+          best_practices="$(jq -r '.best_practices[]? | "- \(.)"' security-analysis.json)" || best_practices="Manual review recommended"
+          summary="$(jq -r '.summary // "Security analysis completed"' security-analysis.json)"
+        else
+          security_score="N/A"
+          risk_level="UNKNOWN"
+          critical_findings="None identified"
+          medium_findings="None identified"
+          best_practices="Manual review recommended"
+          summary="Security analysis completed"
+        fi
+        
         cat > security-review.md << EOF
         # AI Security Review Report
 
-        **Analysis Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-        **Security Score**: $([ -f "security-analysis.json" ] && jq -r '.security_score // "N/A"' security-analysis.json || echo "N/A")
-        **Risk Level**: $([ -f "security-analysis.json" ] && jq -r '.risk_level // "UNKNOWN"' security-analysis.json || echo "UNKNOWN")
+        **Analysis Date**: $report_timestamp
+        **Security Score**: $security_score
+        **Risk Level**: $risk_level
 
         ## Critical Findings
-        $([ -f "security-analysis.json" ] && jq -r '.critical_findings[]? | "- **\(.title)**: \(.description) (Location: \(.location))"' security-analysis.json || echo "None identified")
+        $critical_findings
 
         ## Medium Priority Findings
-        $([ -f "security-analysis.json" ] && jq -r '.medium_findings[]? | "- **\(.title)**: \(.description) (Location: \(.location))"' security-analysis.json || echo "None identified")
+        $medium_findings
 
         ## Security Recommendations
-        $([ -f "security-analysis.json" ] && jq -r '.best_practices[]? | "- \(.)"' security-analysis.json || echo "Manual review recommended")
+        $best_practices
 
         ## Summary
-        $([ -f "security-analysis.json" ] && jq -r '.summary // "Security analysis completed"' security-analysis.json || echo "Security analysis completed")
+        $summary
 
         ---
         *Generated by AI Security Review Assistant*

@@ -46,14 +46,15 @@ runs:
       run: |
         echo "Running Trivy container scan..."
         # Scan all Dockerfiles
-        find . -name "Dockerfile" -type f | while read dockerfile; do
-          container_name=$(basename $(dirname "$dockerfile"))
+        find . -name "Dockerfile" -type f | while read -r dockerfile; do
+          dockerfile_dir="$(dirname "$dockerfile")"
+          container_name="$(basename "$dockerfile_dir")"
           echo "Scanning $container_name..."
-          if [ -d "$(dirname "$dockerfile")" ]; then
-            docker run --rm -v ${{ github.workspace }}:/workspace \
-              aquasec/trivy:latest config /workspace/$(dirname "$dockerfile") \
+          if [ -d "$dockerfile_dir" ]; then
+            docker run --rm -v "${{ github.workspace }}":/workspace \
+              aquasec/trivy:latest config "/workspace/$dockerfile_dir" \
               --format json \
-              --output /workspace/security-results/trivy-${container_name}.json \
+              --output "/workspace/security-results/trivy-${container_name}.json" \
               --severity HIGH,CRITICAL || true
           fi
         done
@@ -72,12 +73,13 @@ runs:
         echo "Running Python security scans..."
 
         # Use containerized Safety (consistent with Makefile)
-        find . -name "requirements.txt" -type f | while read req_file; do
-          container_name=$(basename $(dirname "$req_file"))
+        find . -name "requirements.txt" -type f | while read -r req_file; do
+          req_file_dir="$(dirname "$req_file")"
+          container_name="$(basename "$req_file_dir")"
           echo "Safety scan for $container_name..."
-          docker run --rm -v ${{ github.workspace }}:/workspace \
-            pyupio/safety:latest check --json --file /workspace/"$req_file" \
-            > security-results/safety-${container_name}.json 2>/dev/null || true
+          docker run --rm -v "${{ github.workspace }}":/workspace \
+            pyupio/safety:latest check --json --file "/workspace/$req_file" \
+            > "security-results/safety-${container_name}.json" 2>/dev/null || true
         done
 
         # Use bandit directly (no official container, but lightweight install)
@@ -114,33 +116,41 @@ runs:
 
         # Count issues from various scan results
         if [ -f "security-results/trivy-infra.sarif" ]; then
-          trivy_critical=$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/trivy-infra.sarif 2>/dev/null | wc -l || echo "0")
+          trivy_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/trivy-infra.sarif 2>/dev/null | wc -l)" || trivy_critical="0"
           critical_count=$((critical_count + trivy_critical))
         fi
 
         if [ -f "security-results/semgrep.sarif" ]; then
-          semgrep_critical=$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/semgrep.sarif 2>/dev/null | wc -l || echo "0")
+          semgrep_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/semgrep.sarif 2>/dev/null | wc -l)" || semgrep_critical="0"
           critical_count=$((critical_count + semgrep_critical))
         fi
 
         echo "Critical vulnerabilities found: $critical_count"
-        echo "critical-count=$critical_count" >> $GITHUB_OUTPUT
+        echo "critical-count=$critical_count" >> "$GITHUB_OUTPUT"
 
         # Determine if scan passed
-        if [ "$critical_count" -eq 0 ] || [ "${{ inputs.fail-on-critical }}" != "true" ]; then
-          echo "passed=true" >> $GITHUB_OUTPUT
+        fail_on_critical="${{ inputs.fail-on-critical }}"
+        if [ "$critical_count" -eq 0 ] || [ "$fail_on_critical" != "true" ]; then
+          echo "passed=true" >> "$GITHUB_OUTPUT"
           echo "Security scan passed"
         else
-          echo "passed=false" >> $GITHUB_OUTPUT
+          echo "passed=false" >> "$GITHUB_OUTPUT"
           echo "Security scan failed - $critical_count critical issues found"
         fi
 
         # Generate summary report
+        report_timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+        if [ "$critical_count" -eq 0 ]; then
+          status_message="**PASSED** - No critical vulnerabilities found"
+        else
+          status_message="**FAILED** - Critical vulnerabilities require attention"
+        fi
+        
         cat > security-results/summary.md << EOF
         # Security Scan Summary
 
         **Environment**: ${{ inputs.environment }}
-        **Timestamp**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        **Timestamp**: $report_timestamp
 
         ## Results
         - **Critical**: $critical_count
@@ -148,7 +158,7 @@ runs:
         - **Medium**: $medium_count
 
         ## Status
-        $([ "$critical_count" -eq 0 ] && echo "**PASSED** - No critical vulnerabilities found" || echo "**FAILED** - Critical vulnerabilities require attention")
+        $status_message
 
         ## Scans Performed
         - Trivy (Infrastructure & Containers)

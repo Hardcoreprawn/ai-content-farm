@@ -39,7 +39,7 @@ runs:
 
         # Generate cost breakdown for current infrastructure
         docker run --rm \
-          -v ${{ github.workspace }}/infra:/workspace \
+          -v "${{ github.workspace }}/infra":/workspace \
           -e "INFRACOST_API_KEY=$INFRACOST_API_KEY" \
           infracost/infracost:latest \
           breakdown \
@@ -61,7 +61,7 @@ runs:
 
         # Generate baseline cost
         docker run --rm \
-          -v ${{ github.workspace }}/infra:/workspace \
+          -v "${{ github.workspace }}/infra":/workspace \
           -e "INFRACOST_API_KEY=$INFRACOST_API_KEY" \
           infracost/infracost:latest \
           breakdown \
@@ -81,7 +81,7 @@ runs:
         echo "Generating cost difference analysis..."
 
         docker run --rm \
-          -v ${{ github.workspace }}/cost-analysis:/workspace \
+          -v "${{ github.workspace }}/cost-analysis":/workspace \
           -e "INFRACOST_API_KEY=$INFRACOST_API_KEY" \
           infracost/infracost:latest \
           diff \
@@ -102,13 +102,13 @@ runs:
 
         # Extract current monthly cost
         if [ -f "cost-analysis/current.json" ]; then
-          current_monthly=$(jq -r '.totalMonthlyCost // "0"' cost-analysis/current.json)
+          current_monthly="$(jq -r '.totalMonthlyCost // "0"' cost-analysis/current.json)"
         fi
 
         # Extract baseline and diff if PR
         if [ -f "cost-analysis/baseline.json" ] && [ -f "cost-analysis/diff.json" ]; then
-          baseline_monthly=$(jq -r '.totalMonthlyCost // "0"' cost-analysis/baseline.json)
-          diff_monthly=$(jq -r '.diffTotalMonthlyCost // "0"' cost-analysis/diff.json)
+          baseline_monthly="$(jq -r '.totalMonthlyCost // "0"' cost-analysis/baseline.json)"
+          diff_monthly="$(jq -r '.diffTotalMonthlyCost // "0"' cost-analysis/diff.json)"
         fi
 
         echo "Current monthly cost: $current_monthly"
@@ -116,25 +116,46 @@ runs:
         echo "Monthly difference: $diff_monthly"
 
         # Create impact summary
+        percentage_change="$(echo "scale=2; ($diff_monthly / $baseline_monthly) * 100" | bc -l 2>/dev/null)" || percentage_change="0"
+        analysis_timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+        
         impact_json=$(cat << EOF
         {
           "current_monthly": "$current_monthly",
           "baseline_monthly": "$baseline_monthly",
           "monthly_difference": "$diff_monthly",
-          "percentage_change": "$(echo "scale=2; ($diff_monthly / $baseline_monthly) * 100" | bc -l 2>/dev/null || echo "0")",
-          "analysis_timestamp": "$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+          "percentage_change": "$percentage_change",
+          "analysis_timestamp": "$analysis_timestamp"
         }
         EOF
         )
 
-        echo "impact=$impact_json" >> $GITHUB_OUTPUT
-        echo "monthly-diff=$diff_monthly" >> $GITHUB_OUTPUT
+        echo "impact=$impact_json" >> "$GITHUB_OUTPUT"
+        echo "monthly-diff=$diff_monthly" >> "$GITHUB_OUTPUT"
 
         # Generate detailed report
+        report_timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+        
+        # Evaluate cost impact
+        diff_positive="$(echo "$diff_monthly > 0" | bc -l 2>/dev/null)" || diff_positive="0"
+        diff_significant="$(echo "$diff_monthly > 10" | bc -l 2>/dev/null)" || diff_significant="0"
+        
+        if [ "$diff_positive" -eq 1 ]; then
+          impact_assessment="**COST INCREASE** - Review resource changes"
+        else
+          impact_assessment="**COST NEUTRAL/DECREASE** - Changes look good"
+        fi
+        
+        if [ "$diff_significant" -eq 1 ]; then
+          recommendation="- Consider cost optimization before deployment"
+        else
+          recommendation="- Cost impact is within acceptable range"
+        fi
+        
         cat > cost-analysis/summary.md << EOF
         # Cost Analysis Report
 
-        **Analysis Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        **Analysis Date**: $report_timestamp
 
         ## Monthly Cost Summary
         - **Current Configuration**: \$${current_monthly}
@@ -142,10 +163,10 @@ runs:
         - **Monthly Difference**: \$${diff_monthly}
 
         ## Impact Assessment
-        $([ $(echo "$diff_monthly > 0" | bc -l 2>/dev/null || echo "0") -eq 1 ] && echo "**COST INCREASE** - Review resource changes" || echo "**COST NEUTRAL/DECREASE** - Changes look good")
+        $impact_assessment
 
         ## Recommendations
-        $([ $(echo "$diff_monthly > 10" | bc -l 2>/dev/null || echo "0") -eq 1 ] && echo "- Consider cost optimization before deployment" || echo "- Cost impact is within acceptable range")
+        $recommendation
         - Monitor actual usage after deployment
         - Review resource sizing for optimization opportunities
 
@@ -161,7 +182,7 @@ runs:
         if [ -f "cost-analysis/diff.json" ]; then
           # Generate diff HTML report
           docker run --rm \
-            -v ${{ github.workspace }}/cost-analysis:/workspace \
+            -v "${{ github.workspace }}/cost-analysis":/workspace \
             -e "INFRACOST_API_KEY=$INFRACOST_API_KEY" \
             infracost/infracost:latest \
             output \
@@ -171,7 +192,7 @@ runs:
         else
           # Generate current state HTML report
           docker run --rm \
-            -v ${{ github.workspace }}/cost-analysis:/workspace \
+            -v "${{ github.workspace }}/cost-analysis":/workspace \
             -e "INFRACOST_API_KEY=$INFRACOST_API_KEY" \
             infracost/infracost:latest \
             output \
