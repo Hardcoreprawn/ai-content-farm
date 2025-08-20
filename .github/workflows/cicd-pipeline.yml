@@ -28,10 +28,11 @@ jobs:
       - name: Validate Workflows
         uses: ./.github/actions/lint-workflows
 
-  # Security Gate - Combined security scanning
+  # Security Gate - Runs for PR validation only
   security-gate:
-    name: Security Gate
+    name: Security Gate (PR)
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     needs: workflow-validation
     outputs:
       security-passed: ${{ steps.security-check.outputs.passed }}
@@ -45,10 +46,11 @@ jobs:
         with:
           upload-sarif: 'true'
 
-  # Cost Analysis
+  # Cost Analysis - PR validation only
   cost-analysis:
-    name: Cost Analysis
+    name: Cost Analysis (PR)
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     needs: security-gate
     steps:
       - name: Checkout code
@@ -60,10 +62,11 @@ jobs:
           infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
           comment-on-pr: 'true'
 
-  # Dependency Analysis
+  # Dependency Analysis - PR validation only
   dependency-analysis:
-    name: Dependency Analysis
+    name: Dependency Analysis (PR)
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     needs: security-gate
     steps:
       - name: Checkout code
@@ -78,9 +81,9 @@ jobs:
             echo "Dependency analysis script not found - using basic analysis"
           fi
 
-  # Container Tests - Unit, Integration, and Smoke Tests
+  # Container Tests - Unit, Integration, and Smoke Tests (PR only)
   container-tests:
-    name: Container Tests
+    name: Container Tests (PR)
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
     needs: security-gate
@@ -95,12 +98,12 @@ jobs:
           fail-fast: 'false'
           upload-coverage: 'true'
 
-  # AI Multi-Perspective Review
+  # AI Multi-Perspective Review (PR only)
   ai-security-review:
-    name: AI Security Review
+    name: AI Security Review (PR)
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && always() && (needs.security-gate.result == 'success' || needs.security-gate.result == 'failure')
     needs: security-gate
-    if: always() && (needs.security-gate.result == 'success' || needs.security-gate.result == 'failure')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -155,17 +158,20 @@ jobs:
             echo "Environment URL not available"
           fi
 
-  # Production Quality Gates (main branch pushes)
+  # Production Quality Gates (main branch pushes only)
   production-security-scan:
     name: Production Security Scan
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     needs: workflow-validation
+    outputs:
+      security-passed: ${{ steps.security-check.outputs.passed }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Production Security Scan
+        id: security-check
         uses: ./.github/actions/security-scan
         with:
           upload-sarif: 'true'
@@ -174,7 +180,7 @@ jobs:
     name: Production Dependency Analysis
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: workflow-validation
+    needs: production-security-scan
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -192,7 +198,7 @@ jobs:
     name: Production Cost Analysis
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: workflow-validation
+    needs: production-security-scan
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -207,7 +213,7 @@ jobs:
     name: Production AI Security Review
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: workflow-validation
+    needs: production-security-scan
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -222,7 +228,7 @@ jobs:
     name: Production Container Tests
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: workflow-validation
+    needs: production-security-scan
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -239,7 +245,7 @@ jobs:
     name: Production Deployment
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    needs: [workflow-validation, production-security-scan, production-dependency-analysis, production-cost-analysis, production-ai-security-review, production-container-tests]
+    needs: [production-security-scan, production-dependency-analysis, production-cost-analysis, production-ai-security-review, production-container-tests]
     environment: production
     steps:
       - name: Checkout code

@@ -94,7 +94,7 @@ actionlint:
 	@if [ ! -f ./actionlint ]; then \
 		echo "Downloading actionlint..."; \
 		curl -L -o actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz; \
-		tar xf actionlint.tar.gz; \
+		tar --extract --file=actionlint.tar.gz actionlint; \
 		rm actionlint.tar.gz; \
 	fi
 	@./actionlint -color

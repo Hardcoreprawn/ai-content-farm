@@ -9,6 +9,10 @@ sbom-*.json
 trivy
 terrascan
 
+# Local development tools
+actionlint
+actionlint.tar.gz
+
 # Python
 __pycache__/
 *.py[cod]
