@@ -1,11 +1,6 @@
 # Makefile for AI Content Farm Project
 
-.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-con		else \
-			echo "💰 Generating cost breakdown with pricing..."; \
-			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format json --out-file /workspace/infracost-base.json; \
-			echo "📊 Displaying cost summary..."; \
-			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format table; \
-			echo "Generating HTML report..."; \ank-topics enrich-content publish-articles content-status cleanup-articles scan-containers
+.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles scan-containers yamllint actionlint lint-workflows lint-actions
 
 help:
 	@echo "Available targets:"
@@ -98,6 +93,13 @@ actionlint:
 	@./actionlint -color
 
 lint-workflows: yamllint actionlint
+
+lint-actions: actionlint
+	@echo "Running comprehensive GitHub Actions linting..."
+	@echo "✅ ActionLint completed"
+	@echo "Running shellcheck on embedded shell scripts..."
+	@# Note: actionlint already runs shellcheck on embedded scripts in YAML
+	@echo "✅ All GitHub Actions linting completed"
 
 checkov:
 	@echo "Running Checkov security scan..."

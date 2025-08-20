@@ -96,7 +96,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -134,7 +134,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -167,7 +167,7 @@ jobs:
         run: |
           echo "📊 Aggregating test results from all containers..."
 
-          total_jobs=${{ strategy.job-total }}
+          total_jobs="${{ strategy.job-total }}"
           failed_jobs=0
 
           # Count successful vs failed matrix jobs
@@ -176,18 +176,18 @@ jobs:
             failed_jobs=1
           fi
 
-          echo "## Container Test Summary" >> $GITHUB_STEP_SUMMARY
-          echo "- **Total Matrix Jobs**: ${total_jobs}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Failed Jobs**: ${failed_jobs}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Success Rate**: $(( (total_jobs - failed_jobs) * 100 / total_jobs ))%" >> $GITHUB_STEP_SUMMARY
-
-          # List all test result files
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Test Artifacts Generated:" >> $GITHUB_STEP_SUMMARY
-          find test-results/ -name "*.xml" | sort >> $GITHUB_STEP_SUMMARY
+          {
+            echo "## Container Test Summary"
+            echo "- **Total Matrix Jobs**: ${total_jobs}"
+            echo "- **Failed Jobs**: ${failed_jobs}"
+            echo "- **Success Rate**: $(( (total_jobs - failed_jobs) * 100 / total_jobs ))%"
+            echo ""
+            echo "### Test Artifacts Generated:"
+            find test-results/ -name "*.xml" | sort
+          } >> "$GITHUB_STEP_SUMMARY"
 
           # Exit with error if any tests failed
-          if [ $failed_jobs -gt 0 ]; then
+          if [ "$failed_jobs" -gt 0 ]; then
             echo "Container tests failed - see individual job logs for details"
             exit 1
           fi
