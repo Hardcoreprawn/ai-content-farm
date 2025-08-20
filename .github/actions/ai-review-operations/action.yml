@@ -1,0 +1,446 @@
+name: 'AI Operations Review'
+description: 'AI-powered operations review from DevOps and reliability perspective'
+inputs:
+  openai-api-key:
+    description: 'OpenAI API key for AI analysis (optional - leave empty to disable)'
+    required: false
+  github-token:
+    description: 'GitHub token for commenting on PRs'
+    required: true
+  model:
+    description: 'OpenAI model to use for analysis'
+    required: false
+    default: 'gpt-4'
+  comment-on-pr:
+    description: 'Comment review results on PR'
+    required: false
+    default: 'true'
+
+outputs:
+  ops-score:
+    description: 'Operations readiness score (1-10)'
+    value: ${{ steps.review.outputs.ops-score }}
+  reliability-score:
+    description: 'Reliability assessment score (1-10)'
+    value: ${{ steps.review.outputs.reliability-score }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Prepare Operations Review Context
+      shell: bash
+      run: |
+        echo "⚙️ Preparing operations review context..."
+        mkdir -p ai-reviews/operations
+
+        # Collect ops-relevant file changes
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "📋 Collecting operational changes for review..."
+
+          # Get ops-relevant files
+          git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            | grep -E '\.(tf|tfvars|yml|yaml|json|sh|py)$|docker|infra|deploy|config|Makefile' \
+            > ai-reviews/operations/changed-files.txt || true
+
+          # Extract operational changes
+          git diff origin/${{ github.base_ref }}...HEAD \
+            --unified=10 \
+            -- '*.tf' '*.tfvars' '*.yml' '*.yaml' 'docker-compose*' 'Dockerfile*' '*.sh' 'Makefile*' \
+            > ai-reviews/operations/operational-changes.diff
+        else
+          echo "📋 Collecting full operational configuration for review..."
+          find . -type f \( -name "*.tf" -o -name "*.tfvars" -o -name "*.yml" -o -name "*.yaml" -o -name "docker-compose*" -o -name "Dockerfile*" -o -name "*.sh" -o -name "Makefile*" \) \
+            -not -path "./.git/*" \
+            > ai-reviews/operations/all-ops-files.txt
+        fi
+
+    - name: Collect Operations Metrics
+      shell: bash
+      run: |
+        echo "📊 Collecting operational metrics and configurations..."
+
+        # Collect available operational data
+        if [ -d "security-results" ]; then
+          cp -r security-results/* ai-reviews/operations/ 2>/dev/null || true
+        fi
+
+        if [ -d "cost-analysis" ]; then
+          cp -r cost-analysis/* ai-reviews/operations/ 2>/dev/null || true
+        fi
+
+        # Analyze project structure for ops readiness
+        cat > ai-reviews/operations/project-analysis.txt << EOF
+        # Project Structure Analysis
+
+        ## Container Configuration
+        Docker Compose Files: $(find . -name "docker-compose*.yml" -o -name "docker-compose*.yaml" | wc -l)
+        Dockerfiles: $(find . -name "Dockerfile*" | wc -l)
+
+        ## Infrastructure as Code
+        Terraform Files: $(find . -name "*.tf" | wc -l)
+        Environment Configs: $(find . -name "*.tfvars" | wc -l)
+
+        ## CI/CD Configuration
+        GitHub Actions: $(find .github/workflows -name "*.yml" -o -name "*.yaml" 2>/dev/null | wc -l)
+        Scripts: $(find scripts -name "*.sh" 2>/dev/null | wc -l)
+
+        ## Documentation
+        README Files: $(find . -name "README*" | wc -l)
+        Docs Directory: $([ -d "docs" ] && echo "Present" || echo "Missing")
+
+        ## Monitoring/Observability
+        Logging Config: $(grep -r "logging\|log" . --include="*.yml" --include="*.yaml" --include="*.json" 2>/dev/null | wc -l)
+        Health Checks: $(grep -r "health\|readiness\|liveness" . --include="*.yml" --include="*.yaml" --include="*.json" 2>/dev/null | wc -l)
+
+        ## Testing
+        Test Files: $(find . -name "*test*" -type f | wc -l)
+        Test Configs: $(find . -name "pytest.ini" -o -name "conftest.py" -o -name "jest.config*" | wc -l)
+        EOF
+
+        # Create operations context summary
+        cat > ai-reviews/operations/context.md << EOF
+        # Operations Review Context
+
+        **Review Type**: ${{ github.event_name }}
+        **Repository**: ${{ github.repository }}
+        **Branch**: ${{ github.ref }}
+        **Commit**: ${{ github.sha }}
+        **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+        ## Available Operations Data
+        - Infrastructure changes: $([ -f "ai-reviews/operations/operational-changes.diff" ] && echo "Available" || echo "Full configuration review")
+        - Security scan results: $([ -d "security-results" ] && echo "Available" || echo "Not available")
+        - Cost analysis: $([ -d "cost-analysis" ] && echo "Available" || echo "Not available")
+        - Project structure: $([ -f "ai-reviews/operations/project-analysis.txt" ] && echo "Analyzed" || echo "Not analyzed")
+
+        ## Focus Areas for Operations Review
+        1. Deployment automation and reliability
+        2. Monitoring and observability
+        3. Backup and disaster recovery
+        4. Scaling and performance
+        5. Configuration management
+        6. Environment consistency
+        7. Incident response readiness
+        8. Documentation completeness
+        9. Testing coverage and quality
+        10. Maintenance and updates strategy
+        11. Resource utilization efficiency
+        12. Service dependencies management
+        EOF
+
+    - name: Run AI Operations Review
+      id: review
+      shell: bash
+      env:
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+      run: |
+        echo "🤖 Checking AI operations review configuration..."
+
+        # Check if OpenAI API key is provided
+        if [ -z "${{ inputs.openai-api-key }}" ]; then
+          echo "ℹ️ OpenAI API key not provided - AI review disabled"
+          echo "💡 Using Copilot PR reviews instead for AI-powered analysis"
+
+          # Create placeholder results
+          mkdir -p ai-reviews/operations
+          cat > ai-reviews/operations/operations-analysis.json << EOF
+        {
+          "ops_score": 5,
+          "reliability_score": 5,
+          "readiness_level": "BASIC",
+          "critical_issues": [],
+          "improvements": [],
+          "best_practices": ["Use GitHub Copilot PR reviews for AI-powered operations analysis"],
+          "monitoring_gaps": ["Use Copilot for analysis"],
+          "documentation_needs": ["Use Copilot for analysis"],
+          "summary": "AI operations review disabled - using Copilot PR reviews for AI analysis"
+        }
+        EOF
+
+          echo "ops-score=5" >> $GITHUB_OUTPUT
+          echo "reliability-score=5" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # Create Python script for AI operations analysis
+        cat > ai-reviews/operations/operations_review.py << 'EOF'
+        import os
+        import json
+        import requests
+        import sys
+        from datetime import datetime
+
+        def read_file_safe(filepath):
+            """Safely read file content with encoding handling"""
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    return f.read()
+            except Exception as e:
+                return f"Error reading {filepath}: {str(e)}"
+
+        def analyze_operations_readiness(changes_content, project_analysis, context):
+            """Perform AI operations readiness analysis"""
+
+            system_prompt = """You are a senior DevOps/SRE engineer conducting an operations readiness review.
+            Analyze the provided configuration changes, project structure, and context to assess operational readiness and reliability.
+
+            Focus on:
+            1. Deployment automation and reliability
+            2. Monitoring, logging, and observability
+            3. Backup and disaster recovery planning
+            4. Auto-scaling and performance optimization
+            5. Configuration management best practices
+            6. Environment consistency and reproducibility
+            7. Incident response and troubleshooting capabilities
+            8. Documentation quality and completeness
+            9. Testing strategy and coverage
+            10. Maintenance and update procedures
+            11. Resource utilization and efficiency
+            12. Service dependencies and failure modes
+
+            Provide:
+            1. An operations readiness score (1-10, where 10 is production-ready)
+            2. A reliability assessment score (1-10, where 10 is highly reliable)
+            3. Critical operational issues that must be addressed
+            4. Operational improvements for better reliability
+            5. Best practices recommendations
+            6. Specific areas requiring attention
+
+            Be specific, actionable, and focus on operational excellence."""
+
+            user_content = f"""
+            # Operations Readiness Review Request
+
+            ## Context
+            {context}
+
+            ## Configuration Changes
+            {changes_content[:8000]}
+
+            ## Project Analysis
+            {project_analysis[:4000]}
+
+            Please provide a comprehensive operations analysis in JSON format:
+            {{
+                "ops_score": <1-10>,
+                "reliability_score": <1-10>,
+                "readiness_level": "<NOT_READY|BASIC|GOOD|PRODUCTION_READY>",
+                "critical_issues": [
+                    {{
+                        "title": "Issue title",
+                        "description": "Detailed description",
+                        "impact": "Operational impact",
+                        "location": "Configuration/file reference",
+                        "recommendation": "Specific fix"
+                    }}
+                ],
+                "improvements": [
+                    {{
+                        "title": "Improvement title",
+                        "description": "Detailed description",
+                        "benefit": "Operational benefit",
+                        "implementation": "How to implement",
+                        "priority": "<LOW|MEDIUM|HIGH>"
+                    }}
+                ],
+                "best_practices": [
+                    "Best practice recommendation 1",
+                    "Best practice recommendation 2"
+                ],
+                "monitoring_gaps": [
+                    "Missing monitoring aspect 1",
+                    "Missing monitoring aspect 2"
+                ],
+                "documentation_needs": [
+                    "Documentation gap 1",
+                    "Documentation gap 2"
+                ],
+                "summary": "Overall operations readiness assessment"
+            }}
+            """
+
+            try:
+                response = requests.post(
+                    'https://api.openai.com/v1/chat/completions',
+                    headers={
+                        'Authorization': f'Bearer {os.environ["OPENAI_API_KEY"]}',
+                        'Content-Type': 'application/json'
+                    },
+                    json={
+                        'model': 'gpt-4',
+                        'messages': [
+                            {'role': 'system', 'content': system_prompt},
+                            {'role': 'user', 'content': user_content}
+                        ],
+                        'temperature': 0.3,
+                        'max_tokens': 2000
+                    }
+                )
+
+                if response.status_code == 200:
+                    result = response.json()
+                    content = result['choices'][0]['message']['content']
+
+                    # Try to extract JSON from response
+                    try:
+                        start = content.find('{')
+                        end = content.rfind('}') + 1
+                        if start >= 0 and end > start:
+                            return json.loads(content[start:end])
+                    except json.JSONDecodeError:
+                        pass
+
+                    # Fallback if JSON parsing fails
+                    return {
+                        "ops_score": 5,
+                        "reliability_score": 5,
+                        "readiness_level": "BASIC",
+                        "critical_issues": [],
+                        "improvements": [],
+                        "best_practices": ["Manual operations review recommended"],
+                        "monitoring_gaps": ["Analysis needed"],
+                        "documentation_needs": ["Review needed"],
+                        "summary": f"AI analysis completed but JSON parsing failed. Raw content: {content[:500]}..."
+                    }
+                else:
+                    return {
+                        "ops_score": 5,
+                        "reliability_score": 5,
+                        "readiness_level": "BASIC",
+                        "critical_issues": [],
+                        "improvements": [],
+                        "best_practices": ["Manual operations review recommended"],
+                        "monitoring_gaps": ["Analysis failed"],
+                        "documentation_needs": ["Review needed"],
+                        "summary": f"AI analysis failed with status {response.status_code}"
+                    }
+
+            except Exception as e:
+                return {
+                    "ops_score": 5,
+                    "reliability_score": 5,
+                    "readiness_level": "BASIC",
+                    "critical_issues": [],
+                    "improvements": [],
+                    "best_practices": ["Manual operations review recommended"],
+                    "monitoring_gaps": ["Error occurred"],
+                    "documentation_needs": ["Review needed"],
+                    "summary": f"AI analysis error: {str(e)}"
+                }
+
+        # Main execution
+        if __name__ == "__main__":
+            # Read inputs
+            context = read_file_safe('context.md')
+            project_analysis = read_file_safe('project-analysis.txt')
+
+            changes_content = ""
+            if os.path.exists('operational-changes.diff'):
+                changes_content = read_file_safe('operational-changes.diff')
+            elif os.path.exists('all-ops-files.txt'):
+                # For full ops review, read key files
+                with open('all-ops-files.txt', 'r') as f:
+                    files = f.read().strip().split('\n')
+                for file in files[:15]:  # Limit files to avoid token limits
+                    if os.path.exists(file) and file.strip():
+                        changes_content += f"\n\n=== {file} ===\n"
+                        changes_content += read_file_safe(file)[:2000]
+
+            # Perform analysis
+            analysis = analyze_operations_readiness(changes_content, project_analysis, context)
+
+            # Save results
+            with open('operations-analysis.json', 'w') as f:
+                json.dump(analysis, f, indent=2)
+
+            # Output for GitHub Actions
+            print(f"ops-score={analysis.get('ops_score', 5)}")
+            print(f"reliability-score={analysis.get('reliability_score', 5)}")
+        EOF
+
+        # Run the operations analysis
+        cd ai-reviews/operations
+        python operations_review.py > review-output.txt 2>&1
+
+        # Extract outputs
+        if [ -f "review-output.txt" ]; then
+          ops_score=$(grep "ops-score=" review-output.txt | cut -d'=' -f2)
+          reliability_score=$(grep "reliability-score=" review-output.txt | cut -d'=' -f2)
+
+          echo "ops-score=${ops_score:-5}" >> $GITHUB_OUTPUT
+          echo "reliability-score=${reliability_score:-5}" >> $GITHUB_OUTPUT
+        else
+          echo "ops-score=5" >> $GITHUB_OUTPUT
+          echo "reliability-score=5" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Generate Operations Report
+      shell: bash
+      run: |
+        echo "📄 Generating operations readiness report..."
+
+        cd ai-reviews/operations
+
+        # Create markdown report
+        cat > operations-review.md << EOF
+        # ⚙️ AI Operations Review Report
+
+        **Analysis Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        **Operations Score**: $([ -f "operations-analysis.json" ] && jq -r '.ops_score // "N/A"' operations-analysis.json || echo "N/A")/10
+        **Reliability Score**: $([ -f "operations-analysis.json" ] && jq -r '.reliability_score // "N/A"' operations-analysis.json || echo "N/A")/10
+        **Readiness Level**: $([ -f "operations-analysis.json" ] && jq -r '.readiness_level // "UNKNOWN"' operations-analysis.json || echo "UNKNOWN")
+
+        ## Critical Operational Issues
+        $([ -f "operations-analysis.json" ] && jq -r '.critical_issues[]? | "### \(.title)\n**Description**: \(.description)\n**Impact**: \(.impact)\n**Location**: \(.location)\n**Recommendation**: \(.recommendation)\n"' operations-analysis.json || echo "None identified")
+
+        ## Operational Improvements
+        $([ -f "operations-analysis.json" ] && jq -r '.improvements[]? | "### \(.title) (Priority: \(.priority))\n**Description**: \(.description)\n**Benefit**: \(.benefit)\n**Implementation**: \(.implementation)\n"' operations-analysis.json || echo "None identified")
+
+        ## Monitoring Gaps
+        $([ -f "operations-analysis.json" ] && jq -r '.monitoring_gaps[]? | "- \(.)"' operations-analysis.json || echo "Analysis needed")
+
+        ## Documentation Needs
+        $([ -f "operations-analysis.json" ] && jq -r '.documentation_needs[]? | "- \(.)"' operations-analysis.json || echo "Review needed")
+
+        ## Best Practices Recommendations
+        $([ -f "operations-analysis.json" ] && jq -r '.best_practices[]? | "- \(.)"' operations-analysis.json || echo "Manual review recommended")
+
+        ## Summary
+        $([ -f "operations-analysis.json" ] && jq -r '.summary // "Operations readiness analysis completed"' operations-analysis.json || echo "Operations readiness analysis completed")
+
+        ---
+        *Generated by AI Operations Assistant*
+        EOF
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request' && inputs.comment-on-pr == 'true'
+      uses: actions/github-script@v7
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      with:
+        script: |
+          const fs = require('fs');
+
+          let report = "Operations readiness review completed.";
+          try {
+            report = fs.readFileSync('ai-reviews/operations/operations-review.md', 'utf8');
+          } catch (error) {
+            console.log('Could not read operations report:', error.message);
+          }
+
+          const comment = `${report}`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+    - name: Upload Operations Review Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ai-operations-review
+        path: |
+          ai-reviews/operations/
+        retention-days: 30

@@ -17,6 +17,14 @@ import uvicorn
 import logging
 import json
 
+
+
+# Ensure shared libs and project root are available in sys.path
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../../libs')))
+
 # Import our business logic
 from processor import transform_reddit_post, process_reddit_batch
 from config import get_config, health_check

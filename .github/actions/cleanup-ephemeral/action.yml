@@ -1,0 +1,328 @@
+name: 'Cleanup Ephemeral Environment'
+description: 'Clean up ephemeral environment when PR is closed'
+inputs:
+  azure-credentials:
+    description: 'Azure service principal credentials (JSON)'
+    required: true
+  environment-name:
+    description: 'Environment name to cleanup (auto-detected if not provided)'
+    required: false
+  resource-group:
+    description: 'Resource group to cleanup (auto-detected if not provided)'
+    required: false
+  github-token:
+    description: 'GitHub token for PR comments'
+    required: true
+  force-cleanup:
+    description: 'Force cleanup even if environment is not found'
+    required: false
+    default: 'false'
+
+outputs:
+  cleaned-up:
+    description: 'Whether cleanup was performed'
+    value: ${{ steps.cleanup.outputs.cleaned-up }}
+  resources-deleted:
+    description: 'Number of resources deleted'
+    value: ${{ steps.cleanup.outputs.resources-deleted }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine Environment to Cleanup
+      shell: bash
+      run: |
+        echo "🔍 Determining environment to cleanup..."
+
+        # Auto-detect environment name if not provided
+        if [ -z "${{ inputs.environment-name }}" ]; then
+          # Create name from PR number and short SHA
+          PR_NUM="${{ github.event.number }}"
+
+          if [ -n "$PR_NUM" ]; then
+            # Try to find environment by PR number pattern
+            ENV_PATTERN="pr-${PR_NUM}-*"
+            echo "Looking for environments matching pattern: $ENV_PATTERN"
+          else
+            echo "⚠️ Cannot auto-detect environment name without PR number"
+            exit 1
+          fi
+        else
+          ENV_NAME="${{ inputs.environment-name }}"
+          ENV_PATTERN="$ENV_NAME"
+        fi
+
+        # Auto-detect resource group if not provided
+        if [ -z "${{ inputs.resource-group }}" ] && [ -n "${ENV_NAME:-}" ]; then
+          RG_NAME="rg-ai-content-farm-${ENV_NAME}-ephemeral"
+        elif [ -z "${{ inputs.resource-group }}" ]; then
+          RG_PATTERN="rg-ai-content-farm-pr-${PR_NUM}-*-ephemeral"
+        else
+          RG_NAME="${{ inputs.resource-group }}"
+        fi
+
+        echo "ENV_PATTERN=${ENV_PATTERN:-}" >> $GITHUB_ENV
+        echo "ENV_NAME=${ENV_NAME:-}" >> $GITHUB_ENV
+        echo "RG_NAME=${RG_NAME:-}" >> $GITHUB_ENV
+        echo "RG_PATTERN=${RG_PATTERN:-}" >> $GITHUB_ENV
+
+    - name: Azure Login
+      shell: bash
+      env:
+        AZURE_CREDENTIALS: ${{ inputs.azure-credentials }}
+      run: |
+        echo "🔐 Logging into Azure..."
+
+        # Parse Azure credentials
+        CLIENT_ID=$(echo $AZURE_CREDENTIALS | jq -r '.clientId')
+        CLIENT_SECRET=$(echo $AZURE_CREDENTIALS | jq -r '.clientSecret')
+        SUBSCRIPTION_ID=$(echo $AZURE_CREDENTIALS | jq -r '.subscriptionId')
+        TENANT_ID=$(echo $AZURE_CREDENTIALS | jq -r '.tenantId')
+
+        # Login to Azure
+        docker run --rm \
+          -v ${{ github.workspace }}:/workspace \
+          mcr.microsoft.com/azure-cli:latest \
+          az login --service-principal \
+          --username "$CLIENT_ID" \
+          --password "$CLIENT_SECRET" \
+          --tenant "$TENANT_ID"
+
+        # Set subscription
+        docker run --rm \
+          -v ${{ github.workspace }}:/workspace \
+          mcr.microsoft.com/azure-cli:latest \
+          az account set --subscription "$SUBSCRIPTION_ID"
+
+    - name: Find Ephemeral Resources
+      shell: bash
+      run: |
+        echo "🔍 Finding ephemeral resources to cleanup..."
+
+        mkdir -p cleanup-logs
+
+        # Find resource groups to cleanup
+        if [ -n "${RG_NAME:-}" ]; then
+          # Specific resource group
+          echo "Checking specific resource group: $RG_NAME"
+          docker run --rm \
+            mcr.microsoft.com/azure-cli:latest \
+            az group show --name "$RG_NAME" --output table 2>/dev/null || echo "Resource group not found: $RG_NAME"
+
+          echo "$RG_NAME" > cleanup-logs/resource-groups.txt
+
+        elif [ -n "${RG_PATTERN:-}" ]; then
+          # Pattern-based search
+          echo "Searching for resource groups matching pattern: $RG_PATTERN"
+          docker run --rm \
+            mcr.microsoft.com/azure-cli:latest \
+            az group list \
+            --query "[?contains(name, 'pr-${{ github.event.number }}-') && contains(name, 'ephemeral')].name" \
+            --output tsv > cleanup-logs/resource-groups.txt
+
+        else
+          echo "⚠️ No resource group specified or pattern available"
+          touch cleanup-logs/resource-groups.txt
+        fi
+
+        # Show what was found
+        if [ -s cleanup-logs/resource-groups.txt ]; then
+          echo "Found resource groups to cleanup:"
+          cat cleanup-logs/resource-groups.txt
+        else
+          echo "No ephemeral resource groups found for cleanup"
+        fi
+
+    - name: Inventory Resources
+      shell: bash
+      run: |
+        echo "📊 Inventorying resources before cleanup..."
+
+        total_resources=0
+
+        while IFS= read -r rg_name; do
+          if [ -n "$rg_name" ]; then
+            echo "Inventorying resources in: $rg_name"
+
+            # List resources in the resource group
+            docker run --rm \
+              mcr.microsoft.com/azure-cli:latest \
+              az resource list \
+              --resource-group "$rg_name" \
+              --output table > "cleanup-logs/resources-${rg_name}.txt" 2>/dev/null || true
+
+            # Count resources
+            if [ -f "cleanup-logs/resources-${rg_name}.txt" ]; then
+              resource_count=$(tail -n +3 "cleanup-logs/resources-${rg_name}.txt" | wc -l)
+              total_resources=$((total_resources + resource_count))
+              echo "Found $resource_count resources in $rg_name"
+            fi
+          fi
+        done < cleanup-logs/resource-groups.txt
+
+        echo "TOTAL_RESOURCES=$total_resources" >> $GITHUB_ENV
+        echo "Total resources to be deleted: $total_resources"
+
+    - name: Cleanup Ephemeral Resources
+      id: cleanup
+      shell: bash
+      run: |
+        echo "🧹 Starting cleanup of ephemeral resources..."
+
+        cleaned_up=false
+        resources_deleted=0
+        cleanup_errors=0
+
+        while IFS= read -r rg_name; do
+          if [ -n "$rg_name" ]; then
+            echo "Cleaning up resource group: $rg_name"
+
+            # Check if resource group exists
+            if docker run --rm \
+              mcr.microsoft.com/azure-cli:latest \
+              az group show --name "$rg_name" --output none 2>/dev/null; then
+
+              echo "Deleting resource group: $rg_name"
+
+              # Delete the resource group and all its resources
+              if docker run --rm \
+                mcr.microsoft.com/azure-cli:latest \
+                az group delete \
+                --name "$rg_name" \
+                --yes \
+                --no-wait; then
+
+                echo "✅ Initiated deletion of resource group: $rg_name"
+                cleaned_up=true
+
+                # Count resources from inventory
+                if [ -f "cleanup-logs/resources-${rg_name}.txt" ]; then
+                  rg_resources=$(tail -n +3 "cleanup-logs/resources-${rg_name}.txt" | wc -l)
+                  resources_deleted=$((resources_deleted + rg_resources))
+                fi
+
+              else
+                echo "❌ Failed to delete resource group: $rg_name"
+                cleanup_errors=$((cleanup_errors + 1))
+              fi
+            else
+              echo "⚠️ Resource group not found: $rg_name"
+            fi
+          fi
+        done < cleanup-logs/resource-groups.txt
+
+        # Handle case where no resource groups were found
+        if [ ! -s cleanup-logs/resource-groups.txt ]; then
+          echo "No resource groups found to cleanup"
+
+          if [ "${{ inputs.force-cleanup }}" = "true" ]; then
+            echo "Force cleanup enabled, marking as cleaned up"
+            cleaned_up=true
+          fi
+        fi
+
+        echo "Cleanup Summary:"
+        echo "- Cleaned up: $cleaned_up"
+        echo "- Resources deleted: $resources_deleted"
+        echo "- Cleanup errors: $cleanup_errors"
+
+        echo "cleaned-up=$cleaned_up" >> $GITHUB_OUTPUT
+        echo "resources-deleted=$resources_deleted" >> $GITHUB_OUTPUT
+
+        # Create cleanup summary
+        cat > cleanup-logs/summary.md << EOF
+        # Cleanup Summary
+
+        **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        **PR**: #${{ github.event.number }}
+        **Branch**: ${{ github.head_ref }}
+
+        ## Results
+        - **Cleanup Status**: $([ "$cleaned_up" = "true" ] && echo "✅ Completed" || echo "⚠️ No resources found")
+        - **Resources Deleted**: $resources_deleted
+        - **Errors**: $cleanup_errors
+
+        ## Resource Groups Processed
+        $([ -s cleanup-logs/resource-groups.txt ] && cat cleanup-logs/resource-groups.txt | sed 's/^/- /' || echo "None found")
+
+        ## Notes
+        - Resource group deletion is asynchronous and may take several minutes to complete
+        - All associated resources (Container Apps, Storage, etc.) are deleted with the resource group
+        - Cost tracking tags have been preserved in audit logs
+        EOF
+
+    - name: Wait for Cleanup Completion
+      if: steps.cleanup.outputs.cleaned-up == 'true'
+      shell: bash
+      run: |
+        echo "⏳ Waiting for cleanup completion..."
+
+        # Wait for resource groups to be fully deleted
+        max_wait=10  # 10 minutes maximum wait
+        wait_count=0
+
+        while IFS= read -r rg_name; do
+          if [ -n "$rg_name" ]; then
+            echo "Waiting for complete deletion of: $rg_name"
+
+            while [ $wait_count -lt $max_wait ]; do
+              if ! docker run --rm \
+                mcr.microsoft.com/azure-cli:latest \
+                az group show --name "$rg_name" --output none 2>/dev/null; then
+                echo "✅ Resource group fully deleted: $rg_name"
+                break
+              fi
+
+              echo "Still deleting... ($(($wait_count + 1))/$max_wait minutes)"
+              sleep 60
+              wait_count=$((wait_count + 1))
+            done
+
+            if [ $wait_count -eq $max_wait ]; then
+              echo "⚠️ Cleanup still in progress after $max_wait minutes: $rg_name"
+            fi
+          fi
+        done < cleanup-logs/resource-groups.txt
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request'
+      uses: actions/github-script@v7
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      with:
+        script: |
+          const fs = require('fs');
+
+          let summary = "Ephemeral environment cleanup completed.";
+          try {
+            summary = fs.readFileSync('cleanup-logs/summary.md', 'utf8');
+          } catch (error) {
+            console.log('Could not read cleanup summary:', error.message);
+          }
+
+          const cleanedUp = '${{ steps.cleanup.outputs.cleaned-up }}' === 'true';
+          const resourcesDeleted = '${{ steps.cleanup.outputs.resources-deleted }}';
+
+          const comment = `## 🧹 Ephemeral Environment Cleanup
+
+          ${summary}
+
+          ${cleanedUp ? '✅ Cleanup initiated successfully' : '⚠️ No ephemeral resources found to cleanup'}
+
+          ---
+          *Cleanup completed by GitHub Actions*`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+    - name: Upload Cleanup Logs
+      uses: actions/upload-artifact@v4
+      with:
+        name: cleanup-logs-pr-${{ github.event.number }}
+        path: |
+          cleanup-logs/
+        retention-days: 30

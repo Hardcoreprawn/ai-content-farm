@@ -1,0 +1,11 @@
+extends: default
+rules:
+  line-length:
+    max: 300  # Very lenient for embedded scripts and URLs
+  comments:
+    min-spaces-from-content: 1
+  indentation:
+    spaces: 2
+  document-start: disable  # Don't require --- at start
+  truthy:
+    allowed-values: ['true', 'false', 'on', 'off']

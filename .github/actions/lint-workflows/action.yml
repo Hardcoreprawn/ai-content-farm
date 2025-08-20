@@ -1,0 +1,109 @@
+name: Lint Workflows
+description: 'Validate GitHub Actions workflows and action files'
+inputs:
+  fail-on-error:
+    description: 'Fail the build if linting errors are found'
+    required: false
+    default: 'true'
+
+outputs:
+  yamllint-passed:
+    description: 'Whether yamllint validation passed'
+    value: ${{ steps.yamllint.outputs.passed }}
+  actionlint-passed:
+    description: 'Whether actionlint validation passed'
+    value: ${{ steps.actionlint.outputs.passed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Install linting tools
+      shell: bash
+      run: |
+        echo "🔧 Installing workflow linting tools..."
+
+        # Install yamllint
+        pip install yamllint
+
+        # Install actionlint
+        bash <(curl https://raw.githubusercontent.com/rhymond/actionlint/main/scripts/download-actionlint.bash)
+        sudo mv actionlint /usr/local/bin/
+
+    - name: Run yamllint
+      id: yamllint
+      shell: bash
+      run: |
+        echo "🔍 Running yamllint on workflow files..."
+
+        # Create yamllint config
+        cat > .yamllint.yml << EOF
+        extends: default
+        rules:
+          line-length:
+            max: 120
+          comments:
+            min-spaces-from-content: 1
+          indentation:
+            spaces: 2
+        EOF
+
+        # Run yamllint on all YAML files in .github
+        if yamllint .github/; then
+          echo "✅ yamllint passed"
+          echo "passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "❌ yamllint failed"
+          echo "passed=false" >> $GITHUB_OUTPUT
+
+          if [ "${{ inputs.fail-on-error }}" = "true" ]; then
+            exit 1
+          fi
+        fi
+
+    - name: Run actionlint
+      id: actionlint
+      shell: bash
+      run: |
+        echo "🔍 Running actionlint on GitHub Actions..."
+
+        # Run actionlint on workflows and actions
+        if actionlint .github/workflows/*.yml .github/actions/*/action.yml; then
+          echo "✅ actionlint passed"
+          echo "passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "❌ actionlint failed"
+          echo "passed=false" >> $GITHUB_OUTPUT
+
+          if [ "${{ inputs.fail-on-error }}" = "true" ]; then
+            exit 1
+          fi
+        fi
+
+    - name: Generate Lint Report
+      shell: bash
+      run: |
+        echo "📋 Generating workflow lint report..."
+
+        yamllint_status="${{ steps.yamllint.outputs.passed }}"
+        actionlint_status="${{ steps.actionlint.outputs.passed }}"
+
+        cat > workflow-lint-report.md << EOF
+        # Workflow Lint Report
+
+        **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+        ## Results
+        - **yamllint**: $([ "$yamllint_status" = "true" ] && echo "✅ Passed" || echo "❌ Failed")
+        - **actionlint**: $([ "$actionlint_status" = "true" ] && echo "✅ Passed" || echo "❌ Failed")
+
+        ## Summary
+        $([ "$yamllint_status" = "true" ] && [ "$actionlint_status" = "true" ] && echo "All workflow linting checks passed!" || echo "Some linting issues were found - check the logs above for details.")
+
+        EOF
+
+    - name: Upload Lint Report
+      uses: actions/upload-artifact@v4
+      with:
+        name: workflow-lint-report
+        path: workflow-lint-report.md
+        retention-days: 7

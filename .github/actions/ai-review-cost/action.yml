@@ -1,0 +1,413 @@
+name: 'AI Cost Review'
+description: 'AI-powered cost review from financial optimization perspective'
+inputs:
+  openai-api-key:
+    description: 'OpenAI API key for AI analysis (optional - leave empty to disable)'
+    required: false
+  github-token:
+    description: 'GitHub token for commenting on PRs'
+    required: true
+  model:
+    description: 'OpenAI model to use for analysis'
+    required: false
+    default: 'gpt-4'
+  comment-on-pr:
+    description: 'Comment review results on PR'
+    required: false
+    default: 'true'
+
+outputs:
+  cost-score:
+    description: 'Cost optimization score (1-10)'
+    value: ${{ steps.review.outputs.cost-score }}
+  savings-potential:
+    description: 'Estimated savings potential'
+    value: ${{ steps.review.outputs.savings-potential }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Prepare Cost Review Context
+      shell: bash
+      run: |
+        echo "💰 Preparing cost review context..."
+        mkdir -p ai-reviews/cost
+
+        # Collect cost-relevant file changes
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          echo "📋 Collecting infrastructure changes for cost review..."
+
+          # Get infrastructure and config changes
+          git diff --name-only origin/${{ github.base_ref }}...HEAD \
+            | grep -E '\.(tf|tfvars|yml|yaml|json)$|docker|infra|config' \
+            > ai-reviews/cost/changed-files.txt || true
+
+          # Extract infrastructure changes
+          git diff origin/${{ github.base_ref }}...HEAD \
+            --unified=10 \
+            -- '*.tf' '*.tfvars' '*.yml' '*.yaml' 'docker-compose*' 'Dockerfile*' \
+            > ai-reviews/cost/infrastructure-changes.diff
+        else
+          echo "📋 Collecting full infrastructure for cost review..."
+          find . -type f \( -name "*.tf" -o -name "*.tfvars" -o -name "*.yml" -o -name "*.yaml" -o -name "docker-compose*" -o -name "Dockerfile*" \) \
+            -not -path "./.git/*" \
+            > ai-reviews/cost/all-infra-files.txt
+        fi
+
+    - name: Collect Cost Analysis Results
+      shell: bash
+      run: |
+        echo "📊 Collecting cost analysis results for AI review..."
+
+        # Collect cost artifacts if they exist
+        if [ -d "cost-analysis" ]; then
+          cp -r cost-analysis/* ai-reviews/cost/ 2>/dev/null || true
+        fi
+
+        # Collect usage estimates
+        if [ -f "infra/usage-estimates.yml" ]; then
+          cp infra/usage-estimates.yml ai-reviews/cost/
+        fi
+
+        # Create cost context summary
+        cat > ai-reviews/cost/context.md << EOF
+        # Cost Review Context
+
+        **Review Type**: ${{ github.event_name }}
+        **Repository**: ${{ github.repository }}
+        **Branch**: ${{ github.ref }}
+        **Commit**: ${{ github.sha }}
+        **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+        ## Available Cost Data
+        - Infracost analysis: $([ -f "ai-reviews/cost/current.json" ] && echo "Available" || echo "Not available")
+        - Cost diff: $([ -f "ai-reviews/cost/diff.json" ] && echo "Available" || echo "Not available")
+        - Usage estimates: $([ -f "ai-reviews/cost/usage-estimates.yml" ] && echo "Available" || echo "Not available")
+        - Infrastructure changes: $([ -f "ai-reviews/cost/infrastructure-changes.diff" ] && echo "Available" || echo "Full infrastructure review")
+
+        ## Focus Areas for Cost Review
+        1. Resource rightsizing (CPU, memory, storage)
+        2. Auto-scaling configuration
+        3. Reserved vs on-demand pricing
+        4. Storage optimization
+        5. Network costs
+        6. Redundancy vs cost balance
+        7. Environment-specific sizing
+        8. Cost monitoring and alerting
+        9. Serverless vs container cost efficiency
+        10. Data transfer optimization
+        EOF
+
+    - name: Run AI Cost Review
+      id: review
+      shell: bash
+      env:
+        OPENAI_API_KEY: ${{ inputs.openai-api-key }}
+      run: |
+        echo "🤖 Checking AI cost review configuration..."
+
+        # Check if OpenAI API key is provided
+        if [ -z "${{ inputs.openai-api-key }}" ]; then
+          echo "ℹ️ OpenAI API key not provided - AI review disabled"
+          echo "💡 Using Copilot PR reviews instead for AI-powered analysis"
+
+          # Create placeholder results
+          mkdir -p ai-reviews/cost
+          cat > ai-reviews/cost/cost-analysis-ai.json << EOF
+        {
+          "cost_score": 5,
+          "optimization_level": "FAIR",
+          "high_impact_savings": [],
+          "medium_impact_optimizations": [],
+          "monitoring_recommendations": ["Use GitHub Copilot PR reviews for AI-powered cost analysis"],
+          "total_savings_potential": "Use Copilot for analysis",
+          "summary": "AI cost review disabled - using Copilot PR reviews for AI analysis"
+        }
+        EOF
+
+          echo "cost-score=5" >> $GITHUB_OUTPUT
+          echo "savings-potential=Use Copilot for analysis" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # Create Python script for AI cost analysis
+        cat > ai-reviews/cost/cost_review.py << 'EOF'
+        import os
+        import json
+        import requests
+        import sys
+        import yaml
+        from datetime import datetime
+
+        def read_file_safe(filepath):
+            """Safely read file content with encoding handling"""
+            try:
+                with open(filepath, 'r', encoding='utf-8') as f:
+                    return f.read()
+            except Exception as e:
+                return f"Error reading {filepath}: {str(e)}"
+
+        def read_json_safe(filepath):
+            """Safely read JSON file"""
+            try:
+                with open(filepath, 'r') as f:
+                    return json.load(f)
+            except Exception as e:
+                return {"error": f"Could not read {filepath}: {str(e)}"}
+
+        def analyze_cost_optimization(changes_content, cost_data, context):
+            """Perform AI cost optimization analysis"""
+
+            system_prompt = """You are a senior cloud cost optimization engineer.
+            Analyze the provided infrastructure changes, cost data, and context to identify cost optimization opportunities.
+
+            Focus on:
+            1. Resource rightsizing opportunities
+            2. Auto-scaling configuration optimization
+            3. Reserved vs on-demand pricing strategies
+            4. Storage tier optimization
+            5. Network cost reduction
+            6. Serverless vs containerized cost efficiency
+            7. Environment-specific cost optimization
+            8. Cost monitoring improvements
+            9. Redundancy vs cost balance
+            10. Data transfer optimization
+
+            Provide:
+            1. A cost optimization score (1-10, where 10 is most optimized)
+            2. High-impact cost savings opportunities
+            3. Medium-impact optimization suggestions
+            4. Cost monitoring recommendations
+            5. Estimated savings potential (percentage or dollar amounts)
+
+            Be specific about implementation and focus on actionable cost optimizations."""
+
+            user_content = f"""
+            # Cost Optimization Review Request
+
+            ## Context
+            {context}
+
+            ## Infrastructure Changes
+            {changes_content[:8000]}
+
+            ## Cost Analysis Data
+            {json.dumps(cost_data, indent=2)[:6000]}
+
+            Please provide a comprehensive cost optimization analysis in JSON format:
+            {{
+                "cost_score": <1-10>,
+                "optimization_level": "<POOR|FAIR|GOOD|EXCELLENT>",
+                "high_impact_savings": [
+                    {{
+                        "title": "Optimization title",
+                        "description": "Detailed description",
+                        "implementation": "How to implement",
+                        "estimated_savings": "Monthly $ or % savings",
+                        "effort": "<LOW|MEDIUM|HIGH>"
+                    }}
+                ],
+                "medium_impact_optimizations": [
+                    {{
+                        "title": "Optimization title",
+                        "description": "Detailed description",
+                        "implementation": "How to implement",
+                        "estimated_savings": "Monthly $ or % savings"
+                    }}
+                ],
+                "monitoring_recommendations": [
+                    "Cost monitoring recommendation 1",
+                    "Cost monitoring recommendation 2"
+                ],
+                "total_savings_potential": "Estimated total monthly savings",
+                "summary": "Overall cost optimization assessment"
+            }}
+            """
+
+            try:
+                response = requests.post(
+                    'https://api.openai.com/v1/chat/completions',
+                    headers={
+                        'Authorization': f'Bearer {os.environ["OPENAI_API_KEY"]}',
+                        'Content-Type': 'application/json'
+                    },
+                    json={
+                        'model': 'gpt-4',
+                        'messages': [
+                            {'role': 'system', 'content': system_prompt},
+                            {'role': 'user', 'content': user_content}
+                        ],
+                        'temperature': 0.3,
+                        'max_tokens': 2000
+                    }
+                )
+
+                if response.status_code == 200:
+                    result = response.json()
+                    content = result['choices'][0]['message']['content']
+
+                    # Try to extract JSON from response
+                    try:
+                        start = content.find('{')
+                        end = content.rfind('}') + 1
+                        if start >= 0 and end > start:
+                            return json.loads(content[start:end])
+                    except json.JSONDecodeError:
+                        pass
+
+                    # Fallback if JSON parsing fails
+                    return {
+                        "cost_score": 5,
+                        "optimization_level": "FAIR",
+                        "high_impact_savings": [],
+                        "medium_impact_optimizations": [],
+                        "monitoring_recommendations": ["Manual cost review recommended"],
+                        "total_savings_potential": "Review needed",
+                        "summary": f"AI analysis completed but JSON parsing failed. Raw content: {content[:500]}..."
+                    }
+                else:
+                    return {
+                        "cost_score": 5,
+                        "optimization_level": "FAIR",
+                        "high_impact_savings": [],
+                        "medium_impact_optimizations": [],
+                        "monitoring_recommendations": ["Manual cost review recommended"],
+                        "total_savings_potential": "Analysis failed",
+                        "summary": f"AI analysis failed with status {response.status_code}"
+                    }
+
+            except Exception as e:
+                return {
+                    "cost_score": 5,
+                    "optimization_level": "FAIR",
+                    "high_impact_savings": [],
+                    "medium_impact_optimizations": [],
+                    "monitoring_recommendations": ["Manual cost review recommended"],
+                    "total_savings_potential": "Error occurred",
+                    "summary": f"AI analysis error: {str(e)}"
+                }
+
+        # Main execution
+        if __name__ == "__main__":
+            # Read inputs
+            context = read_file_safe('context.md')
+
+            changes_content = ""
+            if os.path.exists('infrastructure-changes.diff'):
+                changes_content = read_file_safe('infrastructure-changes.diff')
+            elif os.path.exists('all-infra-files.txt'):
+                # For full infrastructure review, read key files
+                with open('all-infra-files.txt', 'r') as f:
+                    files = f.read().strip().split('\n')
+                for file in files:
+                    if os.path.exists(file) and file.strip():
+                        changes_content += f"\n\n=== {file} ===\n"
+                        changes_content += read_file_safe(file)[:3000]
+
+            # Collect cost data
+            cost_data = {}
+            if os.path.exists('current.json'):
+                cost_data['current'] = read_json_safe('current.json')
+            if os.path.exists('baseline.json'):
+                cost_data['baseline'] = read_json_safe('baseline.json')
+            if os.path.exists('diff.json'):
+                cost_data['diff'] = read_json_safe('diff.json')
+            if os.path.exists('usage-estimates.yml'):
+                try:
+                    with open('usage-estimates.yml', 'r') as f:
+                        cost_data['usage_estimates'] = yaml.safe_load(f)
+                except:
+                    pass
+
+            # Perform analysis
+            analysis = analyze_cost_optimization(changes_content, cost_data, context)
+
+            # Save results
+            with open('cost-analysis-ai.json', 'w') as f:
+                json.dump(analysis, f, indent=2)
+
+            # Output for GitHub Actions
+            print(f"cost-score={analysis.get('cost_score', 5)}")
+            print(f"savings-potential={analysis.get('total_savings_potential', 'Unknown')}")
+        EOF
+
+        # Run the cost analysis
+        cd ai-reviews/cost
+        python cost_review.py > review-output.txt 2>&1
+
+        # Extract outputs
+        if [ -f "review-output.txt" ]; then
+          cost_score=$(grep "cost-score=" review-output.txt | cut -d'=' -f2)
+          savings_potential=$(grep "savings-potential=" review-output.txt | cut -d'=' -f2-)
+
+          echo "cost-score=${cost_score:-5}" >> $GITHUB_OUTPUT
+          echo "savings-potential=${savings_potential:-Unknown}" >> $GITHUB_OUTPUT
+        else
+          echo "cost-score=5" >> $GITHUB_OUTPUT
+          echo "savings-potential=Unknown" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Generate Cost Optimization Report
+      shell: bash
+      run: |
+        echo "📄 Generating cost optimization report..."
+
+        cd ai-reviews/cost
+
+        # Create markdown report
+        cat > cost-review.md << EOF
+        # 💰 AI Cost Optimization Review Report
+
+        **Analysis Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        **Cost Score**: $([ -f "cost-analysis-ai.json" ] && jq -r '.cost_score // "N/A"' cost-analysis-ai.json || echo "N/A")/10
+        **Optimization Level**: $([ -f "cost-analysis-ai.json" ] && jq -r '.optimization_level // "UNKNOWN"' cost-analysis-ai.json || echo "UNKNOWN")
+        **Savings Potential**: $([ -f "cost-analysis-ai.json" ] && jq -r '.total_savings_potential // "Review needed"' cost-analysis-ai.json || echo "Review needed")
+
+        ## High-Impact Cost Savings Opportunities
+        $([ -f "cost-analysis-ai.json" ] && jq -r '.high_impact_savings[]? | "### \(.title)\n**Description**: \(.description)\n**Implementation**: \(.implementation)\n**Estimated Savings**: \(.estimated_savings)\n**Effort**: \(.effort)\n"' cost-analysis-ai.json || echo "None identified")
+
+        ## Medium-Impact Optimizations
+        $([ -f "cost-analysis-ai.json" ] && jq -r '.medium_impact_optimizations[]? | "- **\(.title)**: \(.description) (Savings: \(.estimated_savings))"' cost-analysis-ai.json || echo "None identified")
+
+        ## Cost Monitoring Recommendations
+        $([ -f "cost-analysis-ai.json" ] && jq -r '.monitoring_recommendations[]? | "- \(.)"' cost-analysis-ai.json || echo "Manual review recommended")
+
+        ## Summary
+        $([ -f "cost-analysis-ai.json" ] && jq -r '.summary // "Cost optimization analysis completed"' cost-analysis-ai.json || echo "Cost optimization analysis completed")
+
+        ---
+        *Generated by AI Cost Optimization Assistant*
+        EOF
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request' && inputs.comment-on-pr == 'true'
+      uses: actions/github-script@v7
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      with:
+        script: |
+          const fs = require('fs');
+
+          let report = "Cost optimization review completed.";
+          try {
+            report = fs.readFileSync('ai-reviews/cost/cost-review.md', 'utf8');
+          } catch (error) {
+            console.log('Could not read cost report:', error.message);
+          }
+
+          const comment = `${report}`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+    - name: Upload Cost Review Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ai-cost-review
+        path: |
+          ai-reviews/cost/
+        retention-days: 30

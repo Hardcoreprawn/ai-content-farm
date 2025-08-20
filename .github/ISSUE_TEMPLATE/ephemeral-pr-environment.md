@@ -19,7 +19,7 @@ Implement and harden ephemeral PR environments that provision a resource group /
 
 ## Acceptance criteria
 
-- [ ] Terraform prototype for ephemeral environments added under `infra/` and referenced by `.github/workflows/ephemeral-environment.yml`.
+- [ ] Terraform prototype for ephemeral environments added under `infra/` and referenced by `.github/workflows/cicd-pipeline.yml`.
 - [ ] Workflow creates workspace per PR and destroys it on close (already present; validate and harden).
 - [ ] Infracost runs and comments on PR with cost estimate.
 - [ ] Integration tests run against the ephemeral environment and are green.
@@ -27,7 +27,7 @@ Implement and harden ephemeral PR environments that provision a resource group /
 ## Files likely to change
 
 - `infra/` (new or modified modules)
-- `.github/workflows/ephemeral-environment.yml` (validate and harden)
+- `.github/workflows/cicd-pipeline.yml` (validate and harden)
 - `containers/*` (adjust container builds and health endpoints for smoke tests)
 
 ## Estimate

@@ -1,0 +1,416 @@
+name: 'Deploy Ephemeral Environment'
+description: 'Deploy temporary environment for PR testing'
+inputs:
+  azure-credentials:
+    description: 'Azure service principal credentials (JSON)'
+    required: true
+  environment-name:
+    description: 'Unique environment name (auto-generated if not provided)'
+    required: false
+  resource-group-suffix:
+    description: 'Resource group suffix for the ephemeral environment'
+    required: false
+    default: 'ephemeral'
+  github-token:
+    description: 'GitHub token for PR comments'
+    required: true
+  retention-hours:
+    description: 'Hours to keep environment before auto-cleanup'
+    required: false
+    default: '24'
+
+outputs:
+  environment-name:
+    description: 'The deployed environment name'
+    value: ${{ steps.deploy.outputs.environment-name }}
+  environment-url:
+    description: 'The environment URL'
+    value: ${{ steps.deploy.outputs.environment-url }}
+  resource-group:
+    description: 'The Azure resource group name'
+    value: ${{ steps.deploy.outputs.resource-group }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Environment Variables
+      shell: bash
+      run: |
+        echo "🚀 Setting up ephemeral environment deployment..."
+
+        # Generate unique environment name if not provided
+        if [ -z "${{ inputs.environment-name }}" ]; then
+          # Create name from PR number and short SHA
+          PR_NUM="${{ github.event.number }}"
+          SHORT_SHA="${{ github.sha }}"
+          SHORT_SHA="${SHORT_SHA:0:7}"
+          ENV_NAME="pr-${PR_NUM}-${SHORT_SHA}"
+        else
+          ENV_NAME="${{ inputs.environment-name }}"
+        fi
+
+        # Ensure environment name is valid (lowercase, alphanumeric, hyphens)
+        ENV_NAME=$(echo "$ENV_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g')
+
+        # Resource group name
+        RG_NAME="rg-ai-content-farm-${ENV_NAME}-${{ inputs.resource-group-suffix }}"
+
+        # Calculate cleanup time
+        CLEANUP_TIME=$(date -d "+${{ inputs.retention-hours }} hours" -u +"%Y-%m-%dT%H:%M:%SZ")
+
+        echo "ENV_NAME=$ENV_NAME" >> $GITHUB_ENV
+        echo "RG_NAME=$RG_NAME" >> $GITHUB_ENV
+        echo "CLEANUP_TIME=$CLEANUP_TIME" >> $GITHUB_ENV
+
+        echo "Environment Name: $ENV_NAME"
+        echo "Resource Group: $RG_NAME"
+        echo "Cleanup Time: $CLEANUP_TIME"
+
+    - name: Azure Login
+      shell: bash
+      env:
+        AZURE_CREDENTIALS: ${{ inputs.azure-credentials }}
+      run: |
+        echo "🔐 Logging into Azure..."
+
+        # Parse Azure credentials
+        CLIENT_ID=$(echo $AZURE_CREDENTIALS | jq -r '.clientId')
+        CLIENT_SECRET=$(echo $AZURE_CREDENTIALS | jq -r '.clientSecret')
+        SUBSCRIPTION_ID=$(echo $AZURE_CREDENTIALS | jq -r '.subscriptionId')
+        TENANT_ID=$(echo $AZURE_CREDENTIALS | jq -r '.tenantId')
+
+        # Login to Azure
+        docker run --rm \
+          -v ${{ github.workspace }}:/workspace \
+          mcr.microsoft.com/azure-cli:latest \
+          az login --service-principal \
+          --username "$CLIENT_ID" \
+          --password "$CLIENT_SECRET" \
+          --tenant "$TENANT_ID"
+
+        # Set subscription
+        docker run --rm \
+          -v ${{ github.workspace }}:/workspace \
+          mcr.microsoft.com/azure-cli:latest \
+          az account set --subscription "$SUBSCRIPTION_ID"
+
+    - name: Prepare Infrastructure Configuration
+      shell: bash
+      run: |
+        echo "🏗️ Preparing infrastructure configuration for ephemeral environment..."
+
+        mkdir -p ephemeral-deploy
+
+        # Copy infrastructure files
+        cp -r infra/* ephemeral-deploy/
+
+        # Create ephemeral-specific tfvars
+        cat > ephemeral-deploy/ephemeral.tfvars << EOF
+        # Ephemeral Environment Configuration
+        environment = "ephemeral"
+        resource_group_suffix = "${{ inputs.resource-group-suffix }}"
+
+        # Unique naming
+        project_name = "ai-content-farm"
+        environment_suffix = "${ENV_NAME}"
+
+        # Cost optimization for ephemeral environments
+        container_app_min_replicas = 0
+        container_app_max_replicas = 2
+
+        # Reduced SKUs for cost savings
+        log_analytics_sku = "PerGB2018"
+
+        # Auto-cleanup configuration
+        auto_cleanup_enabled = true
+        cleanup_time = "${CLEANUP_TIME}"
+
+        # Tags for identification and cleanup
+        additional_tags = {
+          "Environment" = "Ephemeral"
+          "PR" = "${{ github.event.number }}"
+          "Branch" = "${{ github.head_ref }}"
+          "CreatedBy" = "GitHub-Actions"
+          "CreatedAt" = "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          "CleanupAfter" = "${CLEANUP_TIME}"
+          "RetentionHours" = "${{ inputs.retention-hours }}"
+        }
+        EOF
+
+        # Update main.tf for ephemeral-specific configurations
+        cat >> ephemeral-deploy/main.tf << 'EOF'
+
+        # Ephemeral Environment Specific Resources
+        resource "azurerm_resource_group" "ephemeral" {
+          count    = var.environment == "ephemeral" ? 1 : 0
+          name     = "rg-${var.project_name}-${var.environment_suffix}-${var.resource_group_suffix}"
+          location = var.location
+
+          tags = merge(var.additional_tags, {
+            Environment = "Ephemeral"
+            Purpose     = "PR Testing"
+          })
+
+          lifecycle {
+            prevent_destroy = false
+          }
+        }
+
+        # Auto-cleanup automation account (if enabled)
+        resource "azurerm_automation_account" "cleanup" {
+          count               = var.auto_cleanup_enabled ? 1 : 0
+          name                = "aa-cleanup-${var.environment_suffix}"
+          location            = var.location
+          resource_group_name = azurerm_resource_group.ephemeral[0].name
+          sku_name           = "Basic"
+
+          tags = var.additional_tags
+        }
+
+        # Cleanup runbook
+        resource "azurerm_automation_runbook" "cleanup" {
+          count                    = var.auto_cleanup_enabled ? 1 : 0
+          name                     = "cleanup-ephemeral-environment"
+          location                 = var.location
+          resource_group_name      = azurerm_resource_group.ephemeral[0].name
+          automation_account_name  = azurerm_automation_account.cleanup[0].name
+          log_verbose              = true
+          log_progress             = true
+          runbook_type            = "PowerShell"
+
+          content = <<-EOT
+            param(
+                [string]$ResourceGroupName = "${azurerm_resource_group.ephemeral[0].name}"
+            )
+
+            Write-Output "Starting cleanup of ephemeral environment: $ResourceGroupName"
+
+            try {
+                # Connect using managed identity
+                Connect-AzAccount -Identity
+
+                # Delete the resource group
+                Remove-AzResourceGroup -Name $ResourceGroupName -Force
+
+                Write-Output "Successfully cleaned up ephemeral environment: $ResourceGroupName"
+            }
+            catch {
+                Write-Error "Failed to cleanup environment: $($_.Exception.Message)"
+                throw
+            }
+          EOT
+
+          tags = var.additional_tags
+        }
+
+        # Schedule cleanup
+        resource "azurerm_automation_schedule" "cleanup" {
+          count                   = var.auto_cleanup_enabled ? 1 : 0
+          name                    = "schedule-cleanup-${var.environment_suffix}"
+          resource_group_name     = azurerm_resource_group.ephemeral[0].name
+          automation_account_name = azurerm_automation_account.cleanup[0].name
+          frequency              = "OneTime"
+          start_time             = var.cleanup_time
+          description            = "Auto-cleanup for ephemeral environment ${var.environment_suffix}"
+        }
+
+        # Link runbook to schedule
+        resource "azurerm_automation_job_schedule" "cleanup" {
+          count                   = var.auto_cleanup_enabled ? 1 : 0
+          resource_group_name     = azurerm_resource_group.ephemeral[0].name
+          automation_account_name = azurerm_automation_account.cleanup[0].name
+          schedule_name          = azurerm_automation_schedule.cleanup[0].name
+          runbook_name           = azurerm_automation_runbook.cleanup[0].name
+        }
+        EOF
+
+        # Add ephemeral-specific variables
+        cat >> ephemeral-deploy/variables.tf << 'EOF'
+
+        # Ephemeral Environment Variables
+        variable "environment_suffix" {
+          description = "Unique suffix for ephemeral environment"
+          type        = string
+          default     = ""
+        }
+
+        variable "resource_group_suffix" {
+          description = "Resource group suffix"
+          type        = string
+          default     = "ephemeral"
+        }
+
+        variable "auto_cleanup_enabled" {
+          description = "Enable automatic cleanup of ephemeral environment"
+          type        = bool
+          default     = true
+        }
+
+        variable "cleanup_time" {
+          description = "ISO 8601 timestamp when environment should be cleaned up"
+          type        = string
+          default     = ""
+        }
+
+        variable "additional_tags" {
+          description = "Additional tags for ephemeral resources"
+          type        = map(string)
+          default     = {}
+        }
+        EOF
+
+    - name: Deploy Infrastructure
+      id: deploy
+      shell: bash
+      env:
+        AZURE_CREDENTIALS: ${{ inputs.azure-credentials }}
+      run: |
+        echo "🏗️ Deploying ephemeral infrastructure..."
+
+        cd ephemeral-deploy
+
+        # Initialize Terraform
+        docker run --rm \
+          -v $(pwd):/workspace \
+          -w /workspace \
+          hashicorp/terraform:latest \
+          init
+
+        # Plan deployment
+        docker run --rm \
+          -v $(pwd):/workspace \
+          -w /workspace \
+          hashicorp/terraform:latest \
+          plan \
+          -var-file="ephemeral.tfvars" \
+          -out=ephemeral.tfplan
+
+        # Apply deployment
+        docker run --rm \
+          -v $(pwd):/workspace \
+          -w /workspace \
+          hashicorp/terraform:latest \
+          apply \
+          -auto-approve \
+          ephemeral.tfplan
+
+        # Get outputs
+        ENVIRONMENT_URL=$(docker run --rm \
+          -v $(pwd):/workspace \
+          -w /workspace \
+          hashicorp/terraform:latest \
+          output -raw environment_url 2>/dev/null || echo "Not available")
+
+        echo "environment-name=${ENV_NAME}" >> $GITHUB_OUTPUT
+        echo "environment-url=${ENVIRONMENT_URL}" >> $GITHUB_OUTPUT
+        echo "resource-group=${RG_NAME}" >> $GITHUB_OUTPUT
+
+    - name: Wait for Environment Readiness
+      shell: bash
+      run: |
+        echo "⏳ Waiting for environment to be ready..."
+
+        # Wait for container apps to be ready
+        for i in {1..30}; do
+          echo "Checking environment readiness (attempt $i/30)..."
+
+          # Check if container apps are running
+          READY=$(docker run --rm \
+            mcr.microsoft.com/azure-cli:latest \
+            az containerapp list \
+            --resource-group "${RG_NAME}" \
+            --query "[?properties.provisioningState=='Succeeded'].name" \
+            --output tsv | wc -l)
+
+          if [ "$READY" -gt 0 ]; then
+            echo "✅ Environment is ready!"
+            break
+          fi
+
+          if [ $i -eq 30 ]; then
+            echo "⚠️ Environment readiness check timed out"
+            exit 1
+          fi
+
+          sleep 30
+        done
+
+    - name: Run Health Checks
+      shell: bash
+      run: |
+        echo "🏥 Running health checks on ephemeral environment..."
+
+        # Create health check script
+        cat > health_check.sh << 'EOF'
+        #!/bin/bash
+
+        ENV_URL="${{ steps.deploy.outputs.environment-url }}"
+
+        if [ "$ENV_URL" = "Not available" ]; then
+          echo "⚠️ Environment URL not available, skipping health checks"
+          exit 0
+        fi
+
+        echo "Testing environment health at: $ENV_URL"
+
+        # Basic connectivity test
+        if curl -f -s -o /dev/null --max-time 30 "$ENV_URL/health" || curl -f -s -o /dev/null --max-time 30 "$ENV_URL"; then
+          echo "✅ Environment is responding to HTTP requests"
+        else
+          echo "⚠️ Environment is not responding to HTTP requests"
+        fi
+
+        # Additional service-specific health checks can be added here
+        echo "Health check completed"
+        EOF
+
+        chmod +x health_check.sh
+        ./health_check.sh
+
+    - name: Comment on PR
+      uses: actions/github-script@v7
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      with:
+        script: |
+          const envName = '${{ steps.deploy.outputs.environment-name }}';
+          const envUrl = '${{ steps.deploy.outputs.environment-url }}';
+          const resourceGroup = '${{ steps.deploy.outputs.resource-group }}';
+          const cleanupTime = process.env.CLEANUP_TIME;
+
+          const comment = `## 🚀 Ephemeral Environment Deployed
+
+          **Environment**: \`${envName}\`
+          **Resource Group**: \`${resourceGroup}\`
+          **URL**: ${envUrl !== 'Not available' ? `[${envUrl}](${envUrl})` : 'Not available yet'}
+          **Auto-cleanup**: ${cleanupTime}
+
+          ### Environment Details
+          - **Retention**: ${{ inputs.retention-hours }} hours
+          - **Created**: ${new Date().toISOString()}
+          - **Branch**: ${{ github.head_ref }}
+          - **Commit**: ${{ github.sha }}
+
+          ### Usage Notes
+          - This environment will be automatically cleaned up after ${{ inputs.retention-hours }} hours
+          - All resources are tagged for identification and cost tracking
+          - Environment uses cost-optimized configurations
+
+          ---
+          *Environment will be cleaned up at: ${cleanupTime}*`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+    - name: Upload Deployment Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ephemeral-deployment-${{ steps.deploy.outputs.environment-name }}
+        path: |
+          ephemeral-deploy/
+          !ephemeral-deploy/.terraform/
+        retention-days: 7

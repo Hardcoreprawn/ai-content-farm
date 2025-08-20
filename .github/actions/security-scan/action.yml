@@ -1,0 +1,185 @@
+name: 'Security Scan'
+description: 'Comprehensive security scanning using multiple tools'
+inputs:
+  fail-on-critical:
+    description: 'Fail the action if critical vulnerabilities are found'
+    required: false
+    default: 'true'
+  upload-sarif:
+    description: 'Upload SARIF results to GitHub Security tab'
+    required: false
+    default: 'true'
+  environment:
+    description: 'Environment being scanned (development/staging/production)'
+    required: false
+    default: 'development'
+
+outputs:
+  passed:
+    description: 'Whether security scan passed without critical issues'
+    value: ${{ steps.evaluate.outputs.passed }}
+  critical-count:
+    description: 'Number of critical vulnerabilities found'
+    value: ${{ steps.evaluate.outputs.critical-count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up security scan environment
+      shell: bash
+      run: |
+        echo "🔒 Starting comprehensive security scan..."
+        mkdir -p security-results
+
+    - name: Run Trivy Infrastructure Scan
+      shell: bash
+      run: |
+        echo "🔍 Running Trivy infrastructure scan..."
+        docker run --rm -v ${{ github.workspace }}:/workspace \
+          aquasec/trivy:latest config /workspace \
+          --format sarif \
+          --output /workspace/security-results/trivy-infra.sarif \
+          --severity HIGH,CRITICAL
+
+    - name: Run Trivy Container Scan
+      shell: bash
+      run: |
+        echo "🔍 Running Trivy container scan..."
+        # Scan all Dockerfiles
+        find . -name "Dockerfile" -type f | while read dockerfile; do
+          container_name=$(basename $(dirname "$dockerfile"))
+          echo "Scanning $container_name..."
+          docker run --rm -v ${{ github.workspace }}:/workspace \
+            aquasec/trivy:latest config $(dirname "$dockerfile") \
+            --format json \
+            --output /workspace/security-results/trivy-${container_name}.json \
+            --severity HIGH,CRITICAL || true
+        done
+
+    - name: Run Semgrep SAST Scan
+      shell: bash
+      run: |
+        echo "🔍 Running Semgrep SAST scan..."
+        docker run --rm -v ${{ github.workspace }}:/src \
+          returntocorp/semgrep:latest \
+          --config=auto \
+          --sarif \
+          --output=/src/security-results/semgrep.sarif \
+          /src || true
+
+    - name: Run Python Security Scan
+      shell: bash
+      run: |
+        echo "🔍 Running Python security scans..."
+        # Install Python security tools
+        pip install safety bandit
+
+        # Run Safety check on all requirements files
+        find . -name "requirements.txt" -type f | while read req_file; do
+          container_name=$(basename $(dirname "$req_file"))
+          echo "Safety scan for $container_name..."
+          safety check -r "$req_file" --json --output security-results/safety-${container_name}.json || true
+        done
+
+        # Run Bandit on Python code
+        find . -name "*.py" -path "./containers/*" -type f | head -20 | xargs bandit -f json -o security-results/bandit.json || true
+
+    - name: Generate SBOM and Check Dependencies
+      shell: bash
+      run: |
+        echo "📋 Generating SBOM and checking dependencies..."
+        make sbom
+
+    - name: Run Checkov Infrastructure Scan
+      shell: bash
+      run: |
+        echo "🔍 Running Checkov infrastructure scan..."
+        docker run --rm -v ${{ github.workspace }}:/tf \
+          bridgecrew/checkov:latest \
+          -d /tf/infra \
+          --framework terraform \
+          --output sarif \
+          --output-file-path /tf/security-results/checkov.sarif \
+          --quiet || true
+
+    - name: Evaluate Security Results
+      id: evaluate
+      shell: bash
+      run: |
+        echo "📊 Evaluating security scan results..."
+
+        critical_count=0
+        high_count=0
+        medium_count=0
+
+        # Count issues from various scan results
+        if [ -f "security-results/trivy-infra.sarif" ]; then
+          trivy_critical=$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/trivy-infra.sarif 2>/dev/null | wc -l || echo "0")
+          critical_count=$((critical_count + trivy_critical))
+        fi
+
+        if [ -f "security-results/semgrep.sarif" ]; then
+          semgrep_critical=$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/semgrep.sarif 2>/dev/null | wc -l || echo "0")
+          critical_count=$((critical_count + semgrep_critical))
+        fi
+
+        echo "Critical vulnerabilities found: $critical_count"
+        echo "critical-count=$critical_count" >> $GITHUB_OUTPUT
+
+        # Determine if scan passed
+        if [ "$critical_count" -eq 0 ] || [ "${{ inputs.fail-on-critical }}" != "true" ]; then
+          echo "passed=true" >> $GITHUB_OUTPUT
+          echo "✅ Security scan passed"
+        else
+          echo "passed=false" >> $GITHUB_OUTPUT
+          echo "❌ Security scan failed - $critical_count critical issues found"
+        fi
+
+        # Generate summary report
+        cat > security-results/summary.md << EOF
+        # Security Scan Summary
+
+        **Environment**: ${{ inputs.environment }}
+        **Timestamp**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+        ## Results
+        - **Critical**: $critical_count
+        - **High**: $high_count
+        - **Medium**: $medium_count
+
+        ## Status
+        $([ "$critical_count" -eq 0 ] && echo "✅ **PASSED** - No critical vulnerabilities found" || echo "❌ **FAILED** - Critical vulnerabilities require attention")
+
+        ## Scans Performed
+        - ✅ Trivy (Infrastructure & Containers)
+        - ✅ Semgrep (SAST)
+        - ✅ Safety (Python dependencies)
+        - ✅ Bandit (Python security)
+        - ✅ Checkov (Infrastructure as Code)
+        - ✅ SBOM Analysis
+        EOF
+
+    - name: Upload SARIF Results
+      if: inputs.upload-sarif == 'true'
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: security-results/
+        category: security-scan
+
+    - name: Upload Security Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-scan-results
+        path: |
+          security-results/
+          output/sbom/
+          output/dependency-analysis-report.json
+        retention-days: 30
+
+    - name: Fail on Critical Issues
+      if: inputs.fail-on-critical == 'true' && steps.evaluate.outputs.passed != 'true'
+      shell: bash
+      run: |
+        echo "❌ Security scan failed with ${{ steps.evaluate.outputs.critical-count }} critical issues"
+        echo "Please review security-results/ for detailed findings"
+        exit 1

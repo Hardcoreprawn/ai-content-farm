@@ -1,0 +1,14 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2025-08-20T11:15:48.482501604Z",
+  "ArtifactName": "/workspace",
+  "ArtifactType": "filesystem",
+  "Metadata": {
+    "RepoURL": "https://github.com/Hardcoreprawn/ai-content-farm.git",
+    "Branch": "main",
+    "Commit": "c2457543b9a008e3ac0fa7fc4bad7d8fbb5b3f9f",
+    "CommitMsg": "�� Major implementation: Event-driven content generation with Azure Container Apps\n\n✨ Key Features Added:\n- Event-driven architecture replacing 30s polling (Event Grid → Service Bus → Container Apps)\n- Azure Container Apps infrastructure with auto-scaling (0-3 replicas)\n- Content Generator container with Azure OpenAI integration (gpt-4o-mini)\n- Intelligent content type selection (TL;DR/Blog/Deep-dive based on source richness)\n- Comprehensive cost optimization (scale-to-zero, consumption billing)\n\n🏗️ Infrastructure:\n- Complete Terraform configuration for Container Apps deployment\n- Managed Identity authentication across all Azure services\n- Service Bus integration for reliable event processing\n- Cost monitoring and alerting at multiple thresholds\n- Two-tier architecture (core + environment-specific resources)\n\n📦 New Components:\n- containers/content-generator/: Complete event-driven content generation service\n- infra/container_apps.tf: Azure Container Apps infrastructure\n- infra/cost_monitoring.tf: Cost optimization and monitoring\n- scripts/deploy-containers.sh: One-command deployment automation\n- docs/: Comprehensive implementation documentation\n\n🧹 Code Organization:\n- Moved all test files to appropriate directories (tests/ and containers/*/tests/)\n- Standardized container patterns across all services\n- Enhanced shared libraries with managed identity support\n- Removed deprecated files and consolidated functionality\n\n💰 Cost Optimization:\n- Scale-to-zero configuration for minimal idle costs (~-20/month)\n- Basic tier selections for all services where possible\n- Real-time processing eliminates polling overhead\n- Consumption-based billing model\n\n🔧 Enhancements:\n- All containers updated with health checks and proper error handling\n- Shared blob storage library with managed identity\n- Comprehensive test suites for all components\n- Event-driven pipeline validation tests\n\n📊 Ready for Production:\n- Complete CI/CD pipeline configuration\n- Azure deployment scripts validated\n- Cost analysis and monitoring tools\n- End-to-end testing framework\n\nThis commit represents a complete transformation from polling-based to event-driven architecture with production-ready Azure deployment capabilities.",
+    "Author": "James Brewster \u003c35832945+Hardcoreprawn@users.noreply.github.com\u003e",
+    "Committer": "James Brewster \u003c35832945+Hardcoreprawn@users.noreply.github.com\u003e"
+  }
+}

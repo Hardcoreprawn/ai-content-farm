@@ -1,48 +1,72 @@
 Infrastructure Components:
 =========================
+${azurerm_container_registry.main.login_server}/content-generator:latest
 azurerm_application_insights
 azurerm_client_config
 azurerm_cognitive_account
+azurerm_consumption_budget_resource_group
+azurerm_container_app
+azurerm_container_app_environment
+azurerm_container_registry
+azurerm_eventgrid_event_subscription
+azurerm_eventgrid_system_topic
 azurerm_key_vault
 azurerm_key_vault_access_policy
 azurerm_key_vault_secret
-azurerm_linux_function_app
 azurerm_log_analytics_workspace
+azurerm_monitor_action_group
 azurerm_monitor_diagnostic_setting
+azurerm_monitor_metric_alert
 azurerm_resource_group
 azurerm_role_assignment
-azurerm_service_plan
+azurerm_servicebus_namespace
+azurerm_servicebus_queue
 azurerm_storage_account
 azurerm_storage_container
-main.tf:    APPINSIGHTS_INSTRUMENTATIONKEY        = azurerm_application_insights.main.instrumentation_key
-main.tf:    APPLICATIONINSIGHTS_CONNECTION_STRING = azurerm_application_insights.main.connection_string
-main.tf:    AzureWebJobsStorage                   = azurerm_storage_account.main.primary_connection_string
-main.tf:    OUTPUT_CONTAINER                      = azurerm_storage_container.topics.name
-main.tf:    OUTPUT_STORAGE_ACCOUNT                = azurerm_storage_account.main.name
-main.tf:    application_insights_connection_string = azurerm_application_insights.main.connection_string
-main.tf:    application_insights_key               = azurerm_application_insights.main.instrumentation_key
-main.tf:  depends_on           = [azurerm_linux_function_app.main]
+azurerm_user_assigned_identity
+container_apps.tf:        value = azurerm_servicebus_namespace.main.name
+container_apps.tf:        value = azurerm_servicebus_queue.blob_events.name
+container_apps.tf:        value = azurerm_storage_account.main.name
+container_apps.tf:        value = azurerm_user_assigned_identity.containers.client_id
+container_apps.tf:    azurerm_key_vault_access_policy.containers
+container_apps.tf:    azurerm_role_assignment.containers_storage_blob_data_contributor,
+container_apps.tf:    identity_ids = [azurerm_user_assigned_identity.containers.id]
+container_apps.tf:    value = azurerm_cognitive_account.openai.endpoint
+container_apps.tf:    value = azurerm_cognitive_account.openai.primary_access_key
+container_apps.tf:  container_app_environment_id = azurerm_container_app_environment.main.id
+container_apps.tf:  depends_on = [azurerm_eventgrid_system_topic.storage]
+container_apps.tf:  depends_on = [azurerm_user_assigned_identity.containers]
+container_apps.tf:  key_vault_id = azurerm_key_vault.main.id
+container_apps.tf:  namespace_id = azurerm_servicebus_namespace.main.id
+container_apps.tf:  object_id    = azurerm_user_assigned_identity.containers.principal_id
+container_apps.tf:  principal_id         = azurerm_user_assigned_identity.containers.principal_id
+container_apps.tf:  resource_group_name          = azurerm_resource_group.main.name
+container_apps.tf:  resource_group_name    = azurerm_resource_group.main.name
+container_apps.tf:  resource_group_name = azurerm_resource_group.main.name
+container_apps.tf:  scope                 = azurerm_eventgrid_system_topic.storage.id
+container_apps.tf:  scope                = azurerm_container_registry.main.id
+container_apps.tf:  scope                = azurerm_storage_account.main.id
+container_apps.tf:  service_bus_queue_endpoint_id = azurerm_servicebus_queue.blob_events.id
+container_apps.tf:  source_arm_resource_id = azurerm_storage_account.main.id
+container_apps.tf:  tenant_id    = data.azurerm_client_config.current.tenant_id
+cost_monitoring.tf:        azurerm_resource_group.main.name,
+cost_monitoring.tf:    action_group_id = azurerm_monitor_action_group.cost_alerts.id
+cost_monitoring.tf:  resource_group_id = azurerm_resource_group.main.id
+cost_monitoring.tf:  resource_group_name = azurerm_resource_group.main.name
+cost_monitoring.tf:  scopes              = [azurerm_cognitive_account.openai.id]
 main.tf:  depends_on      = [azurerm_key_vault_access_policy.current_user]
 main.tf:  depends_on = [azurerm_log_analytics_workspace.main]
 main.tf:  key_vault_id    = azurerm_key_vault.main.id
 main.tf:  key_vault_id = azurerm_key_vault.main.id
 main.tf:  location                      = azurerm_resource_group.main.location
-main.tf:  location                    = azurerm_resource_group.main.location
 main.tf:  location            = azurerm_resource_group.main.location
 main.tf:  location = azurerm_resource_group.main.location
 main.tf:  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
-main.tf:  object_id    = azurerm_linux_function_app.main.identity[0].principal_id
 main.tf:  object_id    = data.azurerm_client_config.current.object_id
-main.tf:  principal_id         = azurerm_linux_function_app.main.identity[0].principal_id
 main.tf:  resource_group_name           = azurerm_resource_group.main.name
-main.tf:  resource_group_name         = azurerm_resource_group.main.name
 main.tf:  resource_group_name        = azurerm_resource_group.main.name
 main.tf:  resource_group_name = azurerm_resource_group.main.name
-main.tf:  scope                = azurerm_storage_account.main.id
-main.tf:  service_plan_id             = azurerm_service_plan.main.id
-main.tf:  storage_account_access_key  = azurerm_storage_account.main.primary_access_key
 main.tf:  storage_account_id    = azurerm_storage_account.main.id
-main.tf:  storage_account_name        = azurerm_storage_account.main.name
 main.tf:  target_resource_id         = azurerm_key_vault.main.id
 main.tf:  tenant_id                  = data.azurerm_client_config.current.tenant_id
 main.tf:  tenant_id    = data.azurerm_client_config.current.tenant_id
@@ -51,8 +75,6 @@ outputs.tf:  value = azurerm_application_insights.main.app_id
 outputs.tf:  value = azurerm_application_insights.main.name
 outputs.tf:  value = azurerm_key_vault.main.id
 outputs.tf:  value = azurerm_key_vault.main.name
-outputs.tf:  value = azurerm_linux_function_app.main.default_hostname
-outputs.tf:  value = azurerm_linux_function_app.main.name
 outputs.tf:  value = azurerm_log_analytics_workspace.main.name
 outputs.tf:  value = azurerm_storage_account.main.name
 outputs.tf:  value = azurerm_storage_container.topics.name

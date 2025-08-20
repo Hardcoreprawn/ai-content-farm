@@ -1,0 +1,222 @@
+name: 'Cost Analysis'
+description: 'Analyze infrastructure cost impact using Infracost'
+inputs:
+  infracost-api-key:
+    description: 'Infracost API key for cost estimation'
+    required: true
+  comment-on-pr:
+    description: 'Comment cost analysis on PR'
+    required: false
+    default: 'true'
+  baseline-branch:
+    description: 'Baseline branch for cost comparison'
+    required: false
+    default: 'main'
+
+outputs:
+  impact:
+    description: 'Cost impact summary (JSON)'
+    value: ${{ steps.analyze.outputs.impact }}
+  monthly-diff:
+    description: 'Monthly cost difference'
+    value: ${{ steps.analyze.outputs.monthly-diff }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Infracost
+      shell: bash
+      run: |
+        echo "💰 Setting up Infracost for cost analysis..."
+        mkdir -p cost-analysis
+
+    - name: Generate Current Cost Baseline
+      shell: bash
+      env:
+        INFRACOST_API_KEY: ${{ inputs.infracost-api-key }}
+      run: |
+        echo "📊 Generating cost baseline..."
+
+        # Generate cost breakdown for current infrastructure
+        docker run --rm \
+          -v ${{ github.workspace }}/infra:/workspace \
+          -e "INFRACOST_API_KEY=$INFRACOST_API_KEY" \
+          infracost/infracost:latest \
+          breakdown \
+          --path /workspace \
+          --format json \
+          --out-file /workspace/../cost-analysis/current.json
+
+    - name: Generate Baseline Cost (if PR)
+      if: github.event_name == 'pull_request'
+      shell: bash
+      env:
+        INFRACOST_API_KEY: ${{ inputs.infracost-api-key }}
+      run: |
+        echo "📊 Generating baseline cost for comparison..."
+
+        # Checkout baseline branch
+        git fetch origin ${{ inputs.baseline-branch }}
+        git checkout origin/${{ inputs.baseline-branch }} -- infra/
+
+        # Generate baseline cost
+        docker run --rm \
+          -v ${{ github.workspace }}/infra:/workspace \
+          -e "INFRACOST_API_KEY=$INFRACOST_API_KEY" \
+          infracost/infracost:latest \
+          breakdown \
+          --path /workspace \
+          --format json \
+          --out-file /workspace/../cost-analysis/baseline.json
+
+        # Restore current branch files
+        git checkout HEAD -- infra/
+
+    - name: Generate Cost Diff
+      if: github.event_name == 'pull_request'
+      shell: bash
+      env:
+        INFRACOST_API_KEY: ${{ inputs.infracost-api-key }}
+      run: |
+        echo "🔍 Generating cost difference analysis..."
+
+        docker run --rm \
+          -v ${{ github.workspace }}/cost-analysis:/workspace \
+          -e "INFRACOST_API_KEY=$INFRACOST_API_KEY" \
+          infracost/infracost:latest \
+          diff \
+          --path /workspace/baseline.json \
+          --compare-to /workspace/current.json \
+          --format json \
+          --out-file /workspace/diff.json
+
+    - name: Analyze Cost Impact
+      id: analyze
+      shell: bash
+      run: |
+        echo "📈 Analyzing cost impact..."
+
+        current_monthly=0
+        baseline_monthly=0
+        diff_monthly=0
+
+        # Extract current monthly cost
+        if [ -f "cost-analysis/current.json" ]; then
+          current_monthly=$(jq -r '.totalMonthlyCost // "0"' cost-analysis/current.json)
+        fi
+
+        # Extract baseline and diff if PR
+        if [ -f "cost-analysis/baseline.json" ] && [ -f "cost-analysis/diff.json" ]; then
+          baseline_monthly=$(jq -r '.totalMonthlyCost // "0"' cost-analysis/baseline.json)
+          diff_monthly=$(jq -r '.diffTotalMonthlyCost // "0"' cost-analysis/diff.json)
+        fi
+
+        echo "Current monthly cost: $current_monthly"
+        echo "Baseline monthly cost: $baseline_monthly"
+        echo "Monthly difference: $diff_monthly"
+
+        # Create impact summary
+        impact_json=$(cat << EOF
+        {
+          "current_monthly": "$current_monthly",
+          "baseline_monthly": "$baseline_monthly",
+          "monthly_difference": "$diff_monthly",
+          "percentage_change": "$(echo "scale=2; ($diff_monthly / $baseline_monthly) * 100" | bc -l 2>/dev/null || echo "0")",
+          "analysis_timestamp": "$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+        }
+        EOF
+        )
+
+        echo "impact=$impact_json" >> $GITHUB_OUTPUT
+        echo "monthly-diff=$diff_monthly" >> $GITHUB_OUTPUT
+
+        # Generate detailed report
+        cat > cost-analysis/summary.md << EOF
+        # Cost Analysis Report
+
+        **Analysis Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+        ## Monthly Cost Summary
+        - **Current Configuration**: \$${current_monthly}
+        - **Baseline Configuration**: \$${baseline_monthly}
+        - **Monthly Difference**: \$${diff_monthly}
+
+        ## Impact Assessment
+        $([ $(echo "$diff_monthly > 0" | bc -l 2>/dev/null || echo "0") -eq 1 ] && echo "⚠️ **COST INCREASE** - Review resource changes" || echo "✅ **COST NEUTRAL/DECREASE** - Changes look good")
+
+        ## Recommendations
+        $([ $(echo "$diff_monthly > 10" | bc -l 2>/dev/null || echo "0") -eq 1 ] && echo "- Consider cost optimization before deployment" || echo "- Cost impact is within acceptable range")
+        - Monitor actual usage after deployment
+        - Review resource sizing for optimization opportunities
+
+        EOF
+
+    - name: Generate HTML Report
+      shell: bash
+      env:
+        INFRACOST_API_KEY: ${{ inputs.infracost-api-key }}
+      run: |
+        echo "📋 Generating HTML cost report..."
+
+        if [ -f "cost-analysis/diff.json" ]; then
+          # Generate diff HTML report
+          docker run --rm \
+            -v ${{ github.workspace }}/cost-analysis:/workspace \
+            -e "INFRACOST_API_KEY=$INFRACOST_API_KEY" \
+            infracost/infracost:latest \
+            output \
+            --path /workspace/diff.json \
+            --format html \
+            --out-file /workspace/cost-report.html
+        else
+          # Generate current state HTML report
+          docker run --rm \
+            -v ${{ github.workspace }}/cost-analysis:/workspace \
+            -e "INFRACOST_API_KEY=$INFRACOST_API_KEY" \
+            infracost/infracost:latest \
+            output \
+            --path /workspace/current.json \
+            --format html \
+            --out-file /workspace/cost-report.html
+        fi
+
+    - name: Comment on PR
+      if: github.event_name == 'pull_request' && inputs.comment-on-pr == 'true'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+
+          // Read cost summary
+          let summary = "Cost analysis completed.";
+          try {
+            summary = fs.readFileSync('cost-analysis/summary.md', 'utf8');
+          } catch (error) {
+            console.log('Could not read summary file:', error.message);
+          }
+
+          const comment = `## 💰 Cost Analysis
+
+          ${summary}
+
+          <details>
+          <summary>📊 View detailed cost breakdown</summary>
+
+          Cost analysis artifacts have been uploaded and are available in the workflow run.
+
+          </details>`;
+
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: comment
+          });
+
+    - name: Upload Cost Analysis Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: cost-analysis-results
+        path: |
+          cost-analysis/
+        retention-days: 30

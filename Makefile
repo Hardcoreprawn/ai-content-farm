@@ -463,24 +463,29 @@ cost-analysis: cost-estimate cost-calculator
 sbom:
 	@echo "📋 Generating Software Bill of Materials..."
 	@echo "Creating SBOM for Python dependencies..."
-	@if command -v syft >/dev/null 2>&1; then \
-		cd azure-function-deploy && syft . -o json=sbom-python.json -o table; \
-		echo "✅ Python SBOM generated: azure-function-deploy/sbom-python.json"; \
-	else \
-		echo "⚠️  Syft not installed. Installing..."; \
-		curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sudo sh -s -- -b /usr/local/bin; \
-		cd azure-function-deploy && syft . -o json=sbom-python.json -o table; \
-	fi
-	@echo "Creating dependency list for Node.js components..."
-	@if [ -f site/package.json ]; then \
-		cd site && npm list --json > ../sbom-nodejs.json 2>/dev/null || true; \
-		echo "✅ Node.js dependencies listed: sbom-nodejs.json"; \
-	fi
+	@mkdir -p output/sbom
+	@# Generate SBOM for each container using containerized syft
+	@for container in content-collector content-processor content-ranker content-enricher content-generator site-generator markdown-generator collector-scheduler; do \
+		echo "Generating SBOM for $$container..."; \
+		docker run --rm -v $(PWD):/src anchore/syft:latest \
+			/src/containers/$$container \
+			-o json=/src/output/sbom/$$container-sbom.json \
+			-o table; \
+	done
+	@# Generate SBOM for shared libs
+	@echo "Generating SBOM for shared libs..."
+	@docker run --rm -v $(PWD):/src anchore/syft:latest \
+		/src/libs \
+		-o json=/src/output/sbom/libs-sbom.json \
+		-o table
 	@echo "Creating infrastructure SBOM..."
 	@echo "Infrastructure Components:" > infra/sbom-infrastructure.txt
 	@echo "=========================" >> infra/sbom-infrastructure.txt
 	@cd infra && grep -r "azurerm_" *.tf | cut -d'"' -f2 | sort -u >> sbom-infrastructure.txt
 	@echo "✅ Infrastructure SBOM generated: infra/sbom-infrastructure.txt"
+	@echo "✅ Python SBOMs generated in: output/sbom/"
+	@echo "🔍 Running dependency analysis..."
+	@python3 scripts/analyze-dependencies.py
 
 lint-terraform: terraform-format terraform-validate
 
@@ -730,14 +735,14 @@ collect-topics:
 
 process-content:
 	@echo "🏭 Running full content processing pipeline..."
-	cd content_processor && python3 -m pip install -r requirements.txt --quiet
-	cd content_processor && python3 pipeline.py --mode full --max-articles 5
+	cd containers/content-processor && python3 -m pip install -r requirements.txt --quiet
+	cd containers/content-processor && python3 pipeline.py --mode full --max-articles 5
 	@echo "✅ Content processing complete"
 
 rank-topics:
 	@echo "📊 Ranking collected topics..."
-	cd content_processor && python3 -m pip install -r requirements.txt --quiet
-	cd content_processor && python3 pipeline.py --mode rank --hours-back 24 --min-score 0.3
+	cd containers/content-processor && python3 -m pip install -r requirements.txt --quiet
+	cd containers/content-processor && python3 pipeline.py --mode rank --hours-back 24 --min-score 0.3
 	@echo "✅ Topic ranking complete"
 
 enrich-content:
@@ -746,8 +751,8 @@ enrich-content:
 		echo "❌ Please specify input file: make enrich-content FILE=ranked_topics_file.json"; \
 		exit 1; \
 	fi
-	cd content_processor && python3 -m pip install -r requirements.txt --quiet
-	cd content_processor && python3 pipeline.py --mode enrich --input-file $(FILE)
+	cd containers/content-processor && python3 -m pip install -r requirements.txt --quiet
+	cd containers/content-processor && python3 pipeline.py --mode enrich --input-file $(FILE)
 	@echo "✅ Content enrichment complete"
 
 publish-articles:
@@ -756,14 +761,15 @@ publish-articles:
 		echo "❌ Please specify input file: make publish-articles FILE=enriched_topics_file.json"; \
 		exit 1; \
 	fi
-	cd content_processor && python3 -m pip install -r requirements.txt --quiet
-	cd content_processor && python3 pipeline.py --mode publish --input-file $(FILE) --max-articles $(or $(MAX_ARTICLES),5)
+	cd containers/content-processor && python3 -m pip install -r requirements.txt --quiet
+	cd containers/content-processor && python3 pipeline.py --mode publish --input-file $(FILE) --max-articles $(or $(MAX_ARTICLES),5)
 	@echo "✅ Article publishing complete"
 
 content-status:
 	@echo "📈 Content processing status..."
-	cd content_processor && python3 -m pip install -r requirements.txt --quiet
-	cd content_processor && python3 pipeline.py --mode status
+	export AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;" && \
+	cd containers/content-processor && python3 -m pip install -r requirements.txt --quiet && \
+	python3 main.py --mode status
 
 # Cleanup duplicate articles in published content
 cleanup-articles:
