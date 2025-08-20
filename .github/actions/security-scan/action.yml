@@ -28,13 +28,13 @@ runs:
     - name: Set up security scan environment
       shell: bash
       run: |
-        echo "🔒 Starting comprehensive security scan..."
+        echo "Starting comprehensive security scan..."
         mkdir -p security-results
 
     - name: Run Trivy Infrastructure Scan
       shell: bash
       run: |
-        echo "🔍 Running Trivy infrastructure scan..."
+        echo "Running Trivy infrastructure scan..."
         docker run --rm -v ${{ github.workspace }}:/workspace \
           aquasec/trivy:latest config /workspace \
           --format sarif \
@@ -44,7 +44,7 @@ runs:
     - name: Run Trivy Container Scan
       shell: bash
       run: |
-        echo "🔍 Running Trivy container scan..."
+        echo "Running Trivy container scan..."
         # Scan all Dockerfiles
         find . -name "Dockerfile" -type f | while read dockerfile; do
           container_name=$(basename $(dirname "$dockerfile"))
@@ -61,7 +61,7 @@ runs:
     - name: Run Semgrep SAST Scan
       shell: bash
       run: |
-        echo "🔍 Running Semgrep SAST scan..."
+        echo "Running Semgrep SAST scan..."
         docker run --rm -v ${{ github.workspace }}:/src \
           returntocorp/semgrep:latest \
           semgrep --config=auto --sarif --output=/src/security-results/semgrep.sarif /src || true
@@ -69,7 +69,7 @@ runs:
     - name: Run Python Security Scan
       shell: bash
       run: |
-        echo "🔍 Running Python security scans..."
+        echo "Running Python security scans..."
 
         # Use containerized Safety (consistent with Makefile)
         find . -name "requirements.txt" -type f | while read req_file; do
@@ -93,7 +93,7 @@ runs:
     - name: Run Checkov Infrastructure Scan
       shell: bash
       run: |
-        echo "🔍 Running Checkov infrastructure scan..."
+        echo "Running Checkov infrastructure scan..."
         docker run --rm -v ${{ github.workspace }}:/tf \
           bridgecrew/checkov:latest \
           -d /tf/infra \
@@ -129,10 +129,10 @@ runs:
         # Determine if scan passed
         if [ "$critical_count" -eq 0 ] || [ "${{ inputs.fail-on-critical }}" != "true" ]; then
           echo "passed=true" >> $GITHUB_OUTPUT
-          echo "✅ Security scan passed"
+          echo "Security scan passed"
         else
           echo "passed=false" >> $GITHUB_OUTPUT
-          echo "❌ Security scan failed - $critical_count critical issues found"
+          echo "Security scan failed - $critical_count critical issues found"
         fi
 
         # Generate summary report
@@ -148,15 +148,15 @@ runs:
         - **Medium**: $medium_count
 
         ## Status
-        $([ "$critical_count" -eq 0 ] && echo "✅ **PASSED** - No critical vulnerabilities found" || echo "❌ **FAILED** - Critical vulnerabilities require attention")
+        $([ "$critical_count" -eq 0 ] && echo "**PASSED** - No critical vulnerabilities found" || echo "**FAILED** - Critical vulnerabilities require attention")
 
         ## Scans Performed
-        - ✅ Trivy (Infrastructure & Containers)
-        - ✅ Semgrep (SAST)
-        - ✅ Safety (Python dependencies)
-        - ✅ Bandit (Python security)
-        - ✅ Checkov (Infrastructure as Code)
-        - ✅ SBOM Analysis
+        - Trivy (Infrastructure & Containers)
+        - Semgrep (SAST)
+        - Safety (Python dependencies)
+        - Bandit (Python security)
+        - Checkov (Infrastructure as Code)
+        - SBOM Analysis
         EOF
 
     - name: Upload SARIF Results
@@ -180,6 +180,6 @@ runs:
       if: inputs.fail-on-critical == 'true' && steps.evaluate.outputs.passed != 'true'
       shell: bash
       run: |
-        echo "❌ Security scan failed with ${{ steps.evaluate.outputs.critical-count }} critical issues"
+        echo "Security scan failed with ${{ steps.evaluate.outputs.critical-count }} critical issues"
         echo "Please review security-results/ for detailed findings"
         exit 1

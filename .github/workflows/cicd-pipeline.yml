@@ -71,7 +71,7 @@ jobs:
 
       - name: Analyze Dependencies
         run: |
-          echo "🔍 Analyzing dependencies..."
+          echo "Analyzing dependencies..."
           if [ -f "scripts/dependency-analysis.sh" ]; then
             bash scripts/dependency-analysis.sh
           else
@@ -150,9 +150,9 @@ jobs:
           if [ -n "${{ needs.create-ephemeral-env.outputs.environment-url }}" ]; then
             echo "Testing environment health..."
             # Add actual integration tests here
-            echo "✅ Integration tests passed"
+            echo "Integration tests passed"
           else
-            echo "⚠️ Environment URL not available"
+            echo "Environment URL not available"
           fi
 
   # Production Quality Gates (main branch pushes)
@@ -181,7 +181,7 @@ jobs:
 
       - name: Production Dependency Analysis
         run: |
-          echo "🔍 Production dependency analysis..."
+          echo "Production dependency analysis..."
           if [ -f "scripts/dependency-analysis.sh" ]; then
             bash scripts/dependency-analysis.sh --production
           else
@@ -247,7 +247,7 @@ jobs:
 
       - name: Deploy to Production
         run: |
-          echo "🚀 Deploying to production..."
+          echo "Deploying to production..."
           echo "This would deploy using Azure credentials"
           echo "Deployment strategy: blue-green"
           # Add actual production deployment logic here

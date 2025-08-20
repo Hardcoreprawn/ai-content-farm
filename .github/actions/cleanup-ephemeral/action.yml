@@ -32,7 +32,7 @@ runs:
     - name: Determine Environment to Cleanup
       shell: bash
       run: |
-        echo "🔍 Determining environment to cleanup..."
+        echo "Determining environment to cleanup..."
 
         # Auto-detect environment name if not provided
         if [ -z "${{ inputs.environment-name }}" ]; then
@@ -44,7 +44,7 @@ runs:
             ENV_PATTERN="pr-${PR_NUM}-*"
             echo "Looking for environments matching pattern: $ENV_PATTERN"
           else
-            echo "⚠️ Cannot auto-detect environment name without PR number"
+            echo "Cannot auto-detect environment name without PR number"
             exit 1
           fi
         else
@@ -97,7 +97,7 @@ runs:
     - name: Find Ephemeral Resources
       shell: bash
       run: |
-        echo "🔍 Finding ephemeral resources to cleanup..."
+        echo "Finding ephemeral resources to cleanup..."
 
         mkdir -p cleanup-logs
 
@@ -121,7 +121,7 @@ runs:
             --output tsv > cleanup-logs/resource-groups.txt
 
         else
-          echo "⚠️ No resource group specified or pattern available"
+          echo "No resource group specified or pattern available"
           touch cleanup-logs/resource-groups.txt
         fi
 
@@ -192,7 +192,7 @@ runs:
                 --yes \
                 --no-wait; then
 
-                echo "✅ Initiated deletion of resource group: $rg_name"
+                echo "Initiated deletion of resource group: $rg_name"
                 cleaned_up=true
 
                 # Count resources from inventory
@@ -202,11 +202,11 @@ runs:
                 fi
 
               else
-                echo "❌ Failed to delete resource group: $rg_name"
+                echo "Failed to delete resource group: $rg_name"
                 cleanup_errors=$((cleanup_errors + 1))
               fi
             else
-              echo "⚠️ Resource group not found: $rg_name"
+              echo "Resource group not found: $rg_name"
             fi
           fi
         done < cleanup-logs/resource-groups.txt
@@ -238,7 +238,7 @@ runs:
         **Branch**: ${{ github.head_ref }}
 
         ## Results
-        - **Cleanup Status**: $([ "$cleaned_up" = "true" ] && echo "✅ Completed" || echo "⚠️ No resources found")
+        - **Cleanup Status**: $([ "$cleaned_up" = "true" ] && echo "Completed" || echo "No resources found")
         - **Resources Deleted**: $resources_deleted
         - **Errors**: $cleanup_errors
 
@@ -269,7 +269,7 @@ runs:
               if ! docker run --rm \
                 mcr.microsoft.com/azure-cli:latest \
                 az group show --name "$rg_name" --output none 2>/dev/null; then
-                echo "✅ Resource group fully deleted: $rg_name"
+                echo "Resource group fully deleted: $rg_name"
                 break
               fi
 
@@ -279,7 +279,7 @@ runs:
             done
 
             if [ $wait_count -eq $max_wait ]; then
-              echo "⚠️ Cleanup still in progress after $max_wait minutes: $rg_name"
+              echo "Cleanup still in progress after $max_wait minutes: $rg_name"
             fi
           fi
         done < cleanup-logs/resource-groups.txt
@@ -307,7 +307,7 @@ runs:
 
           ${summary}
 
-          ${cleanedUp ? '✅ Cleanup initiated successfully' : '⚠️ No ephemeral resources found to cleanup'}
+          ${cleanedUp ? 'Cleanup initiated successfully' : 'No ephemeral resources found to cleanup'}
 
           ---
           *Cleanup completed by GitHub Actions*`;

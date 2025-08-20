@@ -150,47 +150,47 @@ runs:
         # Check unit tests
         if [ "${{ inputs.test-type }}" = "unit" ] || [ "${{ inputs.test-type }}" = "all" ]; then
           if [ "${unit_exit_code:-0}" -ne 0 ]; then
-            echo "❌ Unit tests failed"
+            echo "Unit tests failed"
             overall_success=false
           else
-            echo "✅ Unit tests passed"
+            echo "Unit tests passed"
           fi
         fi
 
         # Check integration tests
         if [ "${{ inputs.test-type }}" = "integration" ] || [ "${{ inputs.test-type }}" = "all" ]; then
           if [ "${integration_exit_code:-0}" -ne 0 ]; then
-            echo "❌ Integration tests failed"
+            echo "Integration tests failed"
             overall_success=false
           else
-            echo "✅ Integration tests passed"
+            echo "Integration tests passed"
           fi
         fi
 
         # Check smoke tests
         if [ "${{ inputs.test-type }}" = "smoke" ] || [ "${{ inputs.test-type }}" = "all" ]; then
           if [ "${smoke_exit_code:-0}" -ne 0 ]; then
-            echo "❌ Smoke tests failed"
+            echo "Smoke tests failed"
             overall_success=false
           else
-            echo "✅ Smoke tests passed"
+            echo "Smoke tests passed"
           fi
         fi
 
         # Check performance tests
         if [ "${{ inputs.test-type }}" = "performance" ] || [ "${{ inputs.test-type }}" = "all" ]; then
           if [ "${performance_exit_code:-0}" -ne 0 ]; then
-            echo "⚠️ Performance tests had issues (non-blocking)"
+            echo "Performance tests had issues (non-blocking)"
           else
-            echo "✅ Performance tests passed"
+            echo "Performance tests passed"
           fi
         fi
 
         if [ "$overall_success" = "true" ]; then
-          echo "✅ All container tests passed"
+          echo "All container tests passed"
           echo "passed=true" >> $GITHUB_OUTPUT
         else
-          echo "❌ Some container tests failed"
+          echo "Some container tests failed"
           echo "passed=false" >> $GITHUB_OUTPUT
 
           if [ "${{ inputs.fail-fast }}" = "true" ]; then

@@ -20,26 +20,26 @@ runs:
     - name: Install linting tools
       shell: bash
       run: |
-        echo "🔧 Installing workflow linting tools..."
+        echo "Installing workflow linting tools..."
 
         # Use containerized yamllint (cytopia/yamllint)
-        echo "📝 yamllint will be run via Docker container"
+        echo "yamllint will be run via Docker container"
 
         # Use containerized actionlint (rhymond/actionlint)
-        echo "🔍 actionlint will be run via Docker container"
+        echo "actionlint will be run via Docker container"
 
     - name: Run yamllint
       id: yamllint
       shell: bash
       run: |
-        echo "🔍 Running yamllint via Makefile..."
+        echo "Running yamllint via Makefile..."
 
         # Use Makefile target for consistency
         if make yamllint; then
-          echo "✅ yamllint passed"
+          echo "yamllint passed"
           echo "passed=true" >> $GITHUB_OUTPUT
         else
-          echo "❌ yamllint failed"
+          echo "yamllint failed"
           echo "passed=false" >> $GITHUB_OUTPUT
 
           if [ "${{ inputs.fail-on-error }}" = "true" ]; then
@@ -51,14 +51,14 @@ runs:
       id: actionlint
       shell: bash
       run: |
-        echo "🔍 Running actionlint via Makefile..."
+        echo "Running actionlint via Makefile..."
 
         # Use Makefile target for consistency
         if make actionlint; then
-          echo "✅ actionlint passed"
+          echo "actionlint passed"
           echo "passed=true" >> $GITHUB_OUTPUT
         else
-          echo "❌ actionlint failed"
+          echo "actionlint failed"
           echo "passed=false" >> $GITHUB_OUTPUT
 
           if [ "${{ inputs.fail-on-error }}" = "true" ]; then
@@ -75,10 +75,9 @@ runs:
         echo "passed=$actionlint_status" >> $GITHUB_OUTPUT
 
         if [ "$actionlint_status" = "true" ]; then
-          echo "✅ actionlint passed"
+          echo "actionlint passed"
         else
-          echo "❌ actionlint failed"
-        fi
+          echo "actionlint failed"
         fi
 
     - name: Generate Lint Report
@@ -95,8 +94,8 @@ runs:
         **Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
 
         ## Results
-        - **yamllint**: $([ "$yamllint_status" = "true" ] && echo "✅ Passed" || echo "❌ Failed")
-        - **actionlint**: $([ "$actionlint_status" = "true" ] && echo "✅ Passed" || echo "❌ Failed")
+        - **yamllint**: $([ "$yamllint_status" = "true" ] && echo "Passed" || echo "Failed")
+        - **actionlint**: $([ "$actionlint_status" = "true" ] && echo "Passed" || echo "Failed")
 
         ## Summary
         $([ "$yamllint_status" = "true" ] && [ "$actionlint_status" = "true" ] && echo "All workflow linting checks passed!" || echo "Some linting issues were found - check the logs above for details.")

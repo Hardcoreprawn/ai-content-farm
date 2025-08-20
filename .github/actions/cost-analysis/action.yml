@@ -78,7 +78,7 @@ runs:
       env:
         INFRACOST_API_KEY: ${{ inputs.infracost-api-key }}
       run: |
-        echo "🔍 Generating cost difference analysis..."
+        echo "Generating cost difference analysis..."
 
         docker run --rm \
           -v ${{ github.workspace }}/cost-analysis:/workspace \
@@ -142,7 +142,7 @@ runs:
         - **Monthly Difference**: \$${diff_monthly}
 
         ## Impact Assessment
-        $([ $(echo "$diff_monthly > 0" | bc -l 2>/dev/null || echo "0") -eq 1 ] && echo "⚠️ **COST INCREASE** - Review resource changes" || echo "✅ **COST NEUTRAL/DECREASE** - Changes look good")
+        $([ $(echo "$diff_monthly > 0" | bc -l 2>/dev/null || echo "0") -eq 1 ] && echo "**COST INCREASE** - Review resource changes" || echo "**COST NEUTRAL/DECREASE** - Changes look good")
 
         ## Recommendations
         $([ $(echo "$diff_monthly > 10" | bc -l 2>/dev/null || echo "0") -eq 1 ] && echo "- Consider cost optimization before deployment" || echo "- Cost impact is within acceptable range")

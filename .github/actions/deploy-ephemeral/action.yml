@@ -36,7 +36,7 @@ runs:
     - name: Setup Environment Variables
       shell: bash
       run: |
-        echo "🚀 Setting up ephemeral environment deployment..."
+        echo "Setting up ephemeral environment deployment..."
 
         # Generate unique environment name if not provided
         if [ -z "${{ inputs.environment-name }}" ]; then
@@ -323,12 +323,12 @@ runs:
             --output tsv | wc -l)
 
           if [ "$READY" -gt 0 ]; then
-            echo "✅ Environment is ready!"
+            echo "Environment is ready!"
             break
           fi
 
           if [ $i -eq 30 ]; then
-            echo "⚠️ Environment readiness check timed out"
+            echo "Environment readiness check timed out"
             exit 1
           fi
 
@@ -347,7 +347,7 @@ runs:
         ENV_URL="${{ steps.deploy.outputs.environment-url }}"
 
         if [ "$ENV_URL" = "Not available" ]; then
-          echo "⚠️ Environment URL not available, skipping health checks"
+          echo "Environment URL not available, skipping health checks"
           exit 0
         fi
 
@@ -355,9 +355,9 @@ runs:
 
         # Basic connectivity test
         if curl -f -s -o /dev/null --max-time 30 "$ENV_URL/health" || curl -f -s -o /dev/null --max-time 30 "$ENV_URL"; then
-          echo "✅ Environment is responding to HTTP requests"
+          echo "Environment is responding to HTTP requests"
         else
-          echo "⚠️ Environment is not responding to HTTP requests"
+          echo "Environment is not responding to HTTP requests"
         fi
 
         # Additional service-specific health checks can be added here
@@ -378,7 +378,7 @@ runs:
           const resourceGroup = '${{ steps.deploy.outputs.resource-group }}';
           const cleanupTime = process.env.CLEANUP_TIME;
 
-          const comment = `## 🚀 Ephemeral Environment Deployed
+          const comment = `## Ephemeral Environment Deployed
 
           **Environment**: \`${envName}\`
           **Resource Group**: \`${resourceGroup}\`

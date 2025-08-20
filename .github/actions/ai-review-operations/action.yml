@@ -139,7 +139,7 @@ runs:
         # Check if OpenAI API key is provided
         if [ -z "${{ inputs.openai-api-key }}" ]; then
           echo "ℹ️ OpenAI API key not provided - AI review disabled"
-          echo "💡 Using Copilot PR reviews instead for AI-powered analysis"
+          echo "Using Copilot PR reviews instead for AI-powered analysis"
 
           # Create placeholder results
           mkdir -p ai-reviews/operations

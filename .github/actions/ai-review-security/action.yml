@@ -30,7 +30,7 @@ runs:
     - name: Prepare Security Review Context
       shell: bash
       run: |
-        echo "🔒 Preparing security review context..."
+        echo "Preparing security review context..."
         mkdir -p ai-reviews/security
 
         # Collect security-relevant file changes
@@ -57,7 +57,7 @@ runs:
     - name: Collect Security Scan Results
       shell: bash
       run: |
-        echo "🔍 Collecting security scan results for AI analysis..."
+        echo "Collecting security scan results for AI analysis..."
 
         # Collect security artifacts if they exist
         if [ -d "security-results" ]; then
@@ -101,7 +101,7 @@ runs:
         # Check if OpenAI API key is provided
         if [ -z "${{ inputs.openai-api-key }}" ]; then
           echo "ℹ️ OpenAI API key not provided - AI review disabled"
-          echo "💡 Using Copilot PR reviews instead for AI-powered analysis"
+          echo "Using Copilot PR reviews instead for AI-powered analysis"
 
           # Create placeholder results
           mkdir -p ai-reviews/security
@@ -325,7 +325,7 @@ runs:
 
         # Create markdown report
         cat > security-review.md << EOF
-        # 🔒 AI Security Review Report
+        # AI Security Review Report
 
         **Analysis Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
         **Security Score**: $([ -f "security-analysis.json" ] && jq -r '.security_score // "N/A"' security-analysis.json || echo "N/A")
