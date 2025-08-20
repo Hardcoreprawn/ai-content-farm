@@ -80,6 +80,27 @@ terraform-plan:
 	@echo "📋 Planning Terraform changes..."
 	cd infra && terraform plan
 
+# Workflow linting targets
+yamllint:
+	@echo "📝 Running yamllint on GitHub Actions..."
+	@if command -v docker >/dev/null 2>&1; then \
+		docker run --rm -v $(PWD):/workspace cytopia/yamllint:latest -c /workspace/.yamllint.yml /workspace/.github/; \
+	else \
+		echo "❌ Docker not available, skipping yamllint"; \
+	fi
+
+actionlint:
+	@echo "🔍 Running actionlint on GitHub Actions..."
+	@if [ ! -f ./actionlint ]; then \
+		echo "📥 Downloading actionlint..."; \
+		curl -L -o actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz; \
+		tar xf actionlint.tar.gz; \
+		rm actionlint.tar.gz; \
+	fi
+	@./actionlint -color
+
+lint-workflows: yamllint actionlint
+
 checkov:
 	@echo "🔒 Running Checkov security scan..."
 	@if command -v docker >/dev/null 2>&1; then \

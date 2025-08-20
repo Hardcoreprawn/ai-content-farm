@@ -12,7 +12,7 @@ outputs:
     value: ${{ steps.yamllint.outputs.passed }}
   actionlint-passed:
     description: 'Whether actionlint validation passed'
-    value: ${{ steps.actionlint.outputs.passed }}
+    value: ${{ steps.set-actionlint-output.outputs.passed }}
 
 runs:
   using: 'composite'
@@ -32,19 +32,10 @@ runs:
       id: yamllint
       shell: bash
       run: |
-        echo "🔍 Running yamllint on workflow files..."
+        echo "🔍 Running yamllint via Makefile..."
 
-        # Verify our yamllint config exists
-        if [ -f .yamllint.yml ]; then
-          echo "📋 Using existing .yamllint.yml configuration"
-          cat .yamllint.yml
-        else
-          echo "⚠️ No .yamllint.yml found, yamllint will use defaults"
-        fi
-
-        # Run yamllint via Docker, mounting our config file
-        if docker run --rm -v ${{ github.workspace }}:/workspace \
-          cytopia/yamllint:latest -c /workspace/.yamllint.yml /workspace/.github/; then
+        # Use Makefile target for consistency
+        if make yamllint; then
           echo "✅ yamllint passed"
           echo "passed=true" >> $GITHUB_OUTPUT
         else
@@ -57,26 +48,37 @@ runs:
         fi
 
     - name: Run actionlint
-      uses: raven-actions/actionlint@v1
       id: actionlint
-      with:
-        files: ".github/workflows/*.yml .github/actions/*/action.yml"
-      continue-on-error: true
-
-    - name: Set actionlint output
       shell: bash
       run: |
-        # Set actionlint status based on exit code
-        if [ "${{ steps.actionlint.outcome }}" = "success" ]; then
-          echo "passed=true" >> $GITHUB_OUTPUT
+        echo "🔍 Running actionlint via Makefile..."
+
+        # Use Makefile target for consistency
+        if make actionlint; then
           echo "✅ actionlint passed"
+          echo "passed=true" >> $GITHUB_OUTPUT
         else
-          echo "passed=false" >> $GITHUB_OUTPUT
           echo "❌ actionlint failed"
+          echo "passed=false" >> $GITHUB_OUTPUT
 
           if [ "${{ inputs.fail-on-error }}" = "true" ]; then
             exit 1
           fi
+        fi
+
+    - name: Set actionlint output
+      id: set-actionlint-output
+      shell: bash
+      run: |
+        # Pass through actionlint status
+        actionlint_status="${{ steps.actionlint.outputs.passed }}"
+        echo "passed=$actionlint_status" >> $GITHUB_OUTPUT
+
+        if [ "$actionlint_status" = "true" ]; then
+          echo "✅ actionlint passed"
+        else
+          echo "❌ actionlint failed"
+        fi
         fi
 
     - name: Generate Lint Report
@@ -85,7 +87,7 @@ runs:
         echo "📋 Generating workflow lint report..."
 
         yamllint_status="${{ steps.yamllint.outputs.passed }}"
-        actionlint_status="${{ steps.actionlint.outputs.passed }}"
+        actionlint_status="${{ steps.set-actionlint-output.outputs.passed }}"
 
         cat > workflow-lint-report.md << EOF
         # Workflow Lint Report
