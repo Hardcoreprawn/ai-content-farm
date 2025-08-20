@@ -97,7 +97,7 @@ runs:
     - name: Prepare Infrastructure Configuration
       shell: bash
       run: |
-        echo "🏗️ Preparing infrastructure configuration for ephemeral environment..."
+        echo "Preparing infrastructure configuration for ephemeral environment..."
 
         mkdir -p ephemeral-deploy
 
@@ -265,7 +265,7 @@ runs:
       env:
         AZURE_CREDENTIALS: ${{ inputs.azure-credentials }}
       run: |
-        echo "🏗️ Deploying ephemeral infrastructure..."
+        echo "Deploying ephemeral infrastructure..."
 
         cd ephemeral-deploy
 

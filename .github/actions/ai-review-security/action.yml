@@ -35,7 +35,7 @@ runs:
 
         # Collect security-relevant file changes
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          echo "📋 Collecting changed files for security review..."
+          echo "Collecting changed files for security review..."
 
           # Get list of changed files
           git diff --name-only origin/${{ github.base_ref }}...HEAD > ai-reviews/security/changed-files.txt
@@ -46,7 +46,7 @@ runs:
             -- '*.py' '*.js' '*.ts' '*.tf' '*.yml' '*.yaml' '*.json' '*.sh' \
             > ai-reviews/security/security-changes.diff
         else
-          echo "📋 Collecting full codebase for security review..."
+          echo "Collecting full codebase for security review..."
           find . -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.tf" -o -name "*.yml" -o -name "*.yaml" -o -name "*.json" -o -name "*.sh" \) \
             -not -path "./.git/*" \
             -not -path "./node_modules/*" \
@@ -100,7 +100,7 @@ runs:
 
         # Check if OpenAI API key is provided
         if [ -z "${{ inputs.openai-api-key }}" ]; then
-          echo "ℹ️ OpenAI API key not provided - AI review disabled"
+          echo "OpenAI API key not provided - AI review disabled"
           echo "Using Copilot PR reviews instead for AI-powered analysis"
 
           # Create placeholder results

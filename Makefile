@@ -5,7 +5,7 @@
 			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format json --out-file /workspace/infracost-base.json; \
 			echo "📊 Displaying cost summary..."; \
 			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format table; \
-			echo "📋 Generating HTML report..."; \ank-topics enrich-content publish-articles content-status cleanup-articles scan-containers
+			echo "Generating HTML report..."; \ank-topics enrich-content publish-articles content-status cleanup-articles scan-containers
 
 help:
 	@echo "Available targets:"
@@ -77,7 +77,7 @@ terraform-validate:
 	cd infra && terraform validate
 
 terraform-plan:
-	@echo "📋 Planning Terraform changes..."
+	@echo "Planning Terraform changes..."
 	cd infra && terraform plan
 
 # Workflow linting targets
@@ -173,7 +173,7 @@ scan-all: checkov trivy terrascan scan-python cost-estimate
 
 # Parallel security and cost analysis for faster CI/CD execution
 scan-parallel:
-	@echo "🚀 Running security and cost analysis in parallel..."
+	@echo "Running security and cost analysis in parallel..."
 	@echo "Starting parallel analysis at $$(date)"
 	@$(MAKE) -j5 checkov trivy terrascan scan-python infracost-parallel || echo "Some scans completed with warnings"
 	@echo "📊 Generating comprehensive analysis summary..."
@@ -322,7 +322,7 @@ cost-estimate:
 		fi; \
 		if [ -z "$$INFRACOST_API_KEY" ]; then \
 			echo ""; \
-			echo "💡 To set up Infracost API key:"; \
+			echo "To set up Infracost API key:"; \
 			echo "   1. Get your API key from https://dashboard.infracost.io"; \
 			echo "   2. Set it as environment variable: export INFRACOST_API_KEY=your-key"; \
 			echo "   3. Or store in Key Vault after deploying: make setup-infracost"; \
@@ -333,7 +333,7 @@ cost-estimate:
 			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format json --out-file /workspace/infracost-base.json; \
 			echo "📊 Displaying cost summary..."; \
 			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format table; \
-			echo "📋 Generating HTML report..."; \
+			echo "Generating HTML report..."; \
 			docker run --rm -v $$(pwd)/infra:/workspace -e "INFRACOST_API_KEY=$$INFRACOST_API_KEY" infracost/infracost:latest breakdown --path /workspace --format html --out-file /workspace/infracost-report.html; \
 			echo "Cost estimation complete. See infra/infracost-report.html for detailed breakdown"; \
 		fi; \
@@ -345,7 +345,7 @@ cost-estimate:
 # Setup Infracost API key in Key Vault
 setup-infracost:
 	@echo "💰 Setting up Infracost API key in Key Vault..."
-	@echo "📋 To get an Infracost API key:"
+	@echo "To get an Infracost API key:"
 	@echo "   1. Visit https://dashboard.infracost.io"
 	@echo "   2. Sign up/login with your email or GitHub"
 	@echo "   3. Copy your API key from the settings"
@@ -366,7 +366,7 @@ setup-infracost:
 				echo "Infracost API key stored in environment Key Vault: $$KEYVAULT_NAME"; \
 			else \
 				echo "No Key Vault found. Please deploy infrastructure first with 'make deploy-staging'"; \
-				echo "💡 For now, you can use: export INFRACOST_API_KEY=$$INFRACOST_KEY"; \
+				echo "For now, you can use: export INFRACOST_API_KEY=$$INFRACOST_KEY"; \
 			fi; \
 		fi; \
 	else \
@@ -444,8 +444,8 @@ setup-infracost-env:
 	@echo "Setting up Infracost API key from environment..."
 	@if [ -z "$$INFRACOST_API_KEY" ]; then \
 		echo "INFRACOST_API_KEY environment variable not set"; \
-		echo "💡 Please set it first: export INFRACOST_API_KEY=your-key"; \
-		echo "💡 Or check your existing variables with: env | grep INFRACOST"; \
+		echo "Please set it first: export INFRACOST_API_KEY=your-key"; \
+		echo "Or check your existing variables with: env | grep INFRACOST"; \
 		exit 1; \
 	fi
 	@echo "INFRACOST_API_KEY is set (ending in: ...$(shell echo $$INFRACOST_API_KEY | tail -c 5))"
@@ -482,7 +482,7 @@ cost-analysis: cost-estimate cost-calculator
 
 # Generate Software Bill of Materials (SBOM)
 sbom:
-	@echo "📋 Generating Software Bill of Materials..."
+	@echo "Generating Software Bill of Materials..."
 	@echo "Creating SBOM for Python dependencies..."
 	@mkdir -p output/sbom
 	@# Generate SBOM for each container using containerized syft
@@ -526,17 +526,17 @@ verify: terraform-init lint-terraform security-scan cost-estimate sbom terraform
 		echo "Cost estimation not available" >> infra/deployment-report.txt; \
 	fi
 	@echo "" >> infra/deployment-report.txt
-	@echo "📋 SBOM STATUS:" >> infra/deployment-report.txt
+	@echo "SBOM STATUS:" >> infra/deployment-report.txt
 	@echo "- Python SBOM: azure-function-deploy/sbom-python.json" >> infra/deployment-report.txt
 	@echo "- Infrastructure SBOM: infra/sbom-infrastructure.txt" >> infra/deployment-report.txt
 	@if [ -f sbom-nodejs.json ]; then echo "- Node.js SBOM: sbom-nodejs.json" >> infra/deployment-report.txt; fi
 	@echo "" >> infra/deployment-report.txt
 	@echo "Verification complete. Check infra/deployment-report.txt for full summary."
-	@echo "🚀 Infrastructure is ready for deployment."
+	@echo "Infrastructure is ready for deployment."
 
 # Deploy infrastructure after verification
 apply: verify
-	@echo "🚀 Deploying infrastructure..."
+	@echo "Deploying infrastructure..."
 	cd infra && terraform apply
 
 # Destroy infrastructure
@@ -558,7 +558,7 @@ verify-functions:
 	@echo "Azure Functions verification complete."
 
 deploy-functions: verify-functions
-	@echo "🚀 Deploying Azure Functions..."
+	@echo "Deploying Azure Functions..."
 	cd azure-function-deploy && func azure functionapp publish hot-topics-func --python
 	@echo "Azure Functions deployment complete."
 
@@ -615,7 +615,7 @@ clean:
 
 # Environment-specific deployment targets
 deploy-staging: verify-staging
-	@echo "🚀 Deploying to staging environment..."
+	@echo "Deploying to staging environment..."
 	@if [ "$(shell git branch --show-current)" != "develop" ] && [ ! "$(shell git branch --show-current)" = "feature/"* ]; then \
 		echo "Staging deployment only allowed from develop or feature/ branches"; \
 		exit 1; \
@@ -629,7 +629,7 @@ deploy-staging: verify-staging
 # Staging-specific verification (more flexible than full verify)
 verify-staging: terraform-init lint-terraform security-scan cost-estimate-optional sbom terraform-plan-staging
 	@echo "📊 Staging verification complete"
-	@echo "🚀 Infrastructure is ready for staging deployment"
+	@echo "Infrastructure is ready for staging deployment"
 
 # Optional cost estimation that doesn't fail deployment
 cost-estimate-optional:
@@ -639,17 +639,17 @@ cost-estimate-optional:
 		$(MAKE) cost-estimate; \
 	else \
 		echo "INFRACOST_API_KEY not set, skipping cost estimation"; \
-		echo "💡 To enable cost estimation: export INFRACOST_API_KEY=your-key"; \
-		echo "💡 Or get your key from: https://dashboard.infracost.io"; \
+		echo "To enable cost estimation: export INFRACOST_API_KEY=your-key"; \
+		echo "Or get your key from: https://dashboard.infracost.io"; \
 	fi
 
 # Terraform plan for staging
 terraform-plan-staging:
-	@echo "📋 Planning Terraform changes for staging..."
+	@echo "Planning Terraform changes for staging..."
 	cd infra && terraform plan -var-file="staging.tfvars"
 
 deploy-production: verify
-	@echo "🎯 Deploying to production environment..."
+	@echo "Deploying to production environment..."
 	@if [ "$(shell git branch --show-current)" != "main" ]; then \
 		echo "Production deployment only allowed from main branch"; \
 		exit 1; \
@@ -687,7 +687,7 @@ rollback-staging:
 	@echo "This will rollback staging to previous state. Continue? [y/N]" && read ans && [ $${ans:-N} = y ]
 	cd infra && terraform workspace select staging
 	cd infra && terraform apply -auto-approve -refresh-only
-	@echo "ℹ️  Manual rollback: Check previous git tags and redeploy from desired commit"
+	@echo "Manual rollback: Check previous git tags and redeploy from desired commit"
 
 rollback-production:
 	@echo "🚨 Rolling back production deployment..."
@@ -721,7 +721,7 @@ get-secrets:
 		echo "Key Vault not found. Please deploy infrastructure first."; \
 		exit 1; \
 	fi; \
-	echo "📋 Key Vault: $$KEYVAULT_NAME"; \
+	echo "Key Vault: $$KEYVAULT_NAME"; \
 	echo "Available secrets:"; \
 	az keyvault secret list --vault-name "$$KEYVAULT_NAME" --query "[].name" -o table
 

@@ -156,7 +156,7 @@ runs:
       env:
         INFRACOST_API_KEY: ${{ inputs.infracost-api-key }}
       run: |
-        echo "📋 Generating HTML cost report..."
+        echo "Generating HTML cost report..."
 
         if [ -f "cost-analysis/diff.json" ]; then
           # Generate diff HTML report

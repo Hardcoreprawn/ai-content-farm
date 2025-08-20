@@ -35,7 +35,7 @@ runs:
 
         # Collect cost-relevant file changes
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          echo "📋 Collecting infrastructure changes for cost review..."
+          echo "Collecting infrastructure changes for cost review..."
 
           # Get infrastructure and config changes
           git diff --name-only origin/${{ github.base_ref }}...HEAD \
@@ -48,7 +48,7 @@ runs:
             -- '*.tf' '*.tfvars' '*.yml' '*.yaml' 'docker-compose*' 'Dockerfile*' \
             > ai-reviews/cost/infrastructure-changes.diff
         else
-          echo "📋 Collecting full infrastructure for cost review..."
+          echo "Collecting full infrastructure for cost review..."
           find . -type f \( -name "*.tf" -o -name "*.tfvars" -o -name "*.yml" -o -name "*.yaml" -o -name "docker-compose*" -o -name "Dockerfile*" \) \
             -not -path "./.git/*" \
             > ai-reviews/cost/all-infra-files.txt
@@ -108,7 +108,7 @@ runs:
 
         # Check if OpenAI API key is provided
         if [ -z "${{ inputs.openai-api-key }}" ]; then
-          echo "ℹ️ OpenAI API key not provided - AI review disabled"
+          echo "OpenAI API key not provided - AI review disabled"
           echo "Using Copilot PR reviews instead for AI-powered analysis"
 
           # Create placeholder results

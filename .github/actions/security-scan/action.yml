@@ -87,7 +87,7 @@ runs:
     - name: Generate SBOM and Check Dependencies
       shell: bash
       run: |
-        echo "📋 Generating SBOM and checking dependencies..."
+        echo "Generating SBOM and checking dependencies..."
         make sbom
 
     - name: Run Checkov Infrastructure Scan

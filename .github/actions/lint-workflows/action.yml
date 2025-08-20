@@ -83,7 +83,7 @@ runs:
     - name: Generate Lint Report
       shell: bash
       run: |
-        echo "📋 Generating workflow lint report..."
+        echo "Generating workflow lint report..."
 
         yamllint_status="${{ steps.yamllint.outputs.passed }}"
         actionlint_status="${{ steps.set-actionlint-output.outputs.passed }}"

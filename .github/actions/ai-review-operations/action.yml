@@ -30,12 +30,12 @@ runs:
     - name: Prepare Operations Review Context
       shell: bash
       run: |
-        echo "⚙️ Preparing operations review context..."
+        echo "Preparing operations review context..."
         mkdir -p ai-reviews/operations
 
         # Collect ops-relevant file changes
         if [ "${{ github.event_name }}" = "pull_request" ]; then
-          echo "📋 Collecting operational changes for review..."
+          echo "Collecting operational changes for review..."
 
           # Get ops-relevant files
           git diff --name-only origin/${{ github.base_ref }}...HEAD \
@@ -48,7 +48,7 @@ runs:
             -- '*.tf' '*.tfvars' '*.yml' '*.yaml' 'docker-compose*' 'Dockerfile*' '*.sh' 'Makefile*' \
             > ai-reviews/operations/operational-changes.diff
         else
-          echo "📋 Collecting full operational configuration for review..."
+          echo "Collecting full operational configuration for review..."
           find . -type f \( -name "*.tf" -o -name "*.tfvars" -o -name "*.yml" -o -name "*.yaml" -o -name "docker-compose*" -o -name "Dockerfile*" -o -name "*.sh" -o -name "Makefile*" \) \
             -not -path "./.git/*" \
             > ai-reviews/operations/all-ops-files.txt
@@ -138,7 +138,7 @@ runs:
 
         # Check if OpenAI API key is provided
         if [ -z "${{ inputs.openai-api-key }}" ]; then
-          echo "ℹ️ OpenAI API key not provided - AI review disabled"
+          echo "OpenAI API key not provided - AI review disabled"
           echo "Using Copilot PR reviews instead for AI-powered analysis"
 
           # Create placeholder results
@@ -383,7 +383,7 @@ runs:
 
         # Create markdown report
         cat > operations-review.md << EOF
-        # ⚙️ AI Operations Review Report
+        # AI Operations Review Report
 
         **Analysis Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
         **Operations Score**: $([ -f "operations-analysis.json" ] && jq -r '.ops_score // "N/A"' operations-analysis.json || echo "N/A")/10
