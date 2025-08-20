@@ -24,6 +24,8 @@ resource "azurerm_log_analytics_workspace" "container_apps" {
 #checkov:skip=CKV_AZURE_165:Geo-replication requires Premium SKU - cost prohibitive for development
 #checkov:skip=CKV_AZURE_233:Zone redundancy requires Premium SKU - cost prohibitive for development  
 resource "azurerm_container_registry" "main" {
+  # checkov:skip=CKV_AZURE_165: Geo-replication requires Premium SKU - too expensive for development
+  # checkov:skip=CKV_AZURE_233: Zone redundancy requires Premium SKU - too expensive for development
   name                = "${replace(var.resource_prefix, "-", "")}acr"
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
@@ -49,6 +51,14 @@ resource "azurerm_container_registry" "main" {
   quarantine_policy_enabled = true
 
   tags = local.common_tags
+}
+
+# Resource lock to prevent accidental deletion of Container Registry
+resource "azurerm_management_lock" "container_registry_lock" {
+  name       = "container-registry-lock"
+  scope      = azurerm_container_registry.main.id
+  lock_level = "CanNotDelete"
+  notes      = "Prevents accidental deletion of the container registry and all stored images"
 }
 
 # Managed Identity for containers
@@ -116,6 +126,8 @@ resource "azurerm_eventgrid_system_topic" "storage" {
 #checkov:skip=CKV_AZURE_199:Double encryption complex and costly for development environment
 #checkov:skip=CKV_AZURE_201:Customer-managed encryption complex setup for development environment  
 resource "azurerm_servicebus_namespace" "main" {
+  # checkov:skip=CKV_AZURE_201: Customer-managed encryption requires complex setup - using Azure-managed encryption for development
+  # checkov:skip=CKV_AZURE_199: Double encryption requires complex configuration - single encryption sufficient for development
   name                = "${var.resource_prefix}-sb"
   location            = var.location
   resource_group_name = azurerm_resource_group.main.name

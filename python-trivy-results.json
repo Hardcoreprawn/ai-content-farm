@@ -1,0 +1,14 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2025-08-20T19:07:58.941691559Z",
+  "ArtifactName": "/workspace",
+  "ArtifactType": "filesystem",
+  "Metadata": {
+    "RepoURL": "https://github.com/Hardcoreprawn/ai-content-farm.git",
+    "Branch": "main",
+    "Commit": "86d15ec38232a880dc6544a4e06b6e52e4cf2344",
+    "CommitMsg": "🌍 Move all resources to UK South + resolve Checkov compliance\n\nREGIONAL COMPLIANCE:\n- Default location: westeurope → uksouth\n- OpenAI: East US → UK South (for UK data residency)\n- All test configurations updated to UK South endpoints\n- Scripts and environment variables updated for UK South\n\nSECURITY COMPLIANCE:\n- Added Checkov skips for cost-prohibitive features in development:\n  * CKV_AZURE_165: ACR geo-replication (requires Premium SKU)\n  * CKV_AZURE_233: ACR zone redundancy (requires Premium SKU)\n  * CKV_AZURE_199: Service Bus double encryption (complex setup)\n  * CKV_AZURE_201: Service Bus customer-managed encryption (complex setup)\n  * CKV_AZURE_112: Key Vault HSM backing (requires Premium Key Vault)\n  * CKV_AZURE_247: OpenAI data loss prevention (complex configuration)\n  * CKV2_AZURE_22: Cognitive Services customer-managed encryption (circular dependency)\n\nIMPACT:\n- All resources now deployed in UK for data sovereignty compliance\n- Security scanning should now pass with appropriate development environment skips\n- Cost-effective configuration maintained while addressing critical security requirements",
+    "Author": "James Brewster \u003c35832945+Hardcoreprawn@users.noreply.github.com\u003e",
+    "Committer": "James Brewster \u003c35832945+Hardcoreprawn@users.noreply.github.com\u003e"
+  }
+}

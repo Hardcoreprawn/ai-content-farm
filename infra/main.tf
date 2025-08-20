@@ -13,6 +13,14 @@ resource "azurerm_resource_group" "main" {
   tags = local.common_tags
 }
 
+# Resource lock to prevent accidental deletion
+resource "azurerm_management_lock" "resource_group_lock" {
+  name       = "resource-group-lock"
+  scope      = azurerm_resource_group.main.id
+  lock_level = "CanNotDelete"
+  notes      = "Prevents accidental deletion of the resource group and all its resources"
+}
+
 
 resource "azurerm_key_vault" "main" {
   # checkov:skip=CKV_AZURE_189: Public access is acceptable for this use case
@@ -135,6 +143,7 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
 # Service Bus encryption key
 #checkov:skip=CKV_AZURE_112:HSM backing requires Premium Key Vault - cost prohibitive for development
 resource "azurerm_key_vault_key" "servicebus" {
+  # checkov:skip=CKV_AZURE_112: HSM backing requires Premium Key Vault - too expensive for development
   name            = "servicebus-encryption-key"
   key_vault_id    = azurerm_key_vault.main.id
   key_type        = "RSA" # Use standard RSA key (HSM requires Premium Key Vault)
@@ -227,6 +236,8 @@ resource "azurerm_storage_container" "topics" {
 #checkov:skip=CKV_AZURE_247:Data loss prevention configuration complex for development environment
 #checkov:skip=CKV2_AZURE_22:Customer-managed encryption would create circular dependency in development environment  
 resource "azurerm_cognitive_account" "openai" {
+  # checkov:skip=CKV_AZURE_247: Data loss prevention requires complex configuration - using network ACLs for access control
+  # checkov:skip=CKV2_AZURE_22: Customer-managed encryption requires complex setup - using Azure-managed encryption for development
   name                = "${local.resource_prefix}-openai"
   location            = "UK South" # OpenAI available in UK South for European compliance
   resource_group_name = azurerm_resource_group.main.name
