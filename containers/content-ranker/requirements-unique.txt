@@ -1,0 +1,5 @@
+# UNIQUE dependencies for content-ranker only
+# All dependencies (fastapi, uvicorn, pydantic, httpx, testing, etc.) 
+# come from ai-content-farm-base:web-services
+
+# No unique dependencies needed - everything is in base layers!

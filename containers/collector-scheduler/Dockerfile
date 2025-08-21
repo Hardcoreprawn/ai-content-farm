@@ -1,26 +1,14 @@
-FROM python:3.11-slim
+# Build from scheduler tier (has APScheduler, httpx, fastapi, etc.)
+FROM ai-content-farm-base:scheduler AS base
 
-# Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# Copy application code
+COPY containers/collector-scheduler/ .
 
-# Install curl for health checks
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+# Service-specific configuration
+ENV SERVICE_NAME=collector-scheduler
+ENV LOG_LEVEL=info
 
-WORKDIR /app
-COPY libs /app/libs
-# Install shared libs package
-RUN pip install --no-cache-dir /app/libs
-COPY containers/collector-scheduler/requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-COPY containers/collector-scheduler/ /app
-
-# Change ownership to non-root user
-RUN chown -R appuser:appuser /app
-
-# Switch to non-root user
-USER appuser
-
-# Health check (assuming the scheduler creates a health endpoint or file)
+# Health check (check for running python process)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD ps aux | grep -v grep | grep python || exit 1
 

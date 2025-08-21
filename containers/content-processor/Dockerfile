@@ -1,52 +1,16 @@
-# Multi-stage build for efficiency using standard Python base
-FROM python:3.11-slim AS builder
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements and install dependencies to a standard location
-WORKDIR /app
-# Copy requirements from the container directory when using repo-root build context
-COPY containers/content-processor/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Production stage using standard Python base
-FROM python:3.11-slim
-
-# Create non-root user
-RUN groupadd -g 1000 appuser && \
-    useradd -u 1000 -g appuser -m -s /bin/bash appuser
-
-# Copy installed packages from builder
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Build from web-services tier (has ALL required dependencies)
+FROM ai-content-farm-base:web-services AS base
 
 # Copy application code
-WORKDIR /app
 COPY containers/content-processor/ .
 
-# Copy top-level libs so runtime code can import `libs.blob_storage`
-COPY libs /app/libs
-# Install shared libs package
-RUN pip install --no-cache-dir /app/libs
+# Service-specific configuration
+ENV SERVICE_NAME=content-processor
+ENV LOG_LEVEL=info
 
-# Set ownership to appuser
-RUN chown -R appuser:appuser /app
-
-# Switch to non-root user
-USER appuser
-
-# Add user's local bin to PATH
-ENV PATH=/home/appuser/.local/bin:$PATH
-
-# Expose port
-EXPOSE 8000
-
-# Health check
+# Health check (httpx available from base layers)
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8000/health').raise_for_status()" || exit 1
+    CMD python -c "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"
 
 # Run application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

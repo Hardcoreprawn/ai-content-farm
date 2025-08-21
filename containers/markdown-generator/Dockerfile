@@ -1,46 +1,23 @@
-FROM python:3.11-slim
-
-# Create non-root user
-RUN groupadd -r appuser && useradd -r -g appuser appuser
-
-# Set working directory
-WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Create application directories
-RUN mkdir -p /app/temp
-
-# Copy and install shared libs package
-COPY libs /app/libs
-RUN pip install --no-cache-dir /app/libs
+# Build from web-services tier (has ALL required dependencies)
+FROM ai-content-farm-base:web-services AS base
 
 # Copy application code
-COPY . .
+COPY containers/markdown-generator/ .
 
-# Create health check script
-RUN echo '#!/bin/bash\ncurl -f http://localhost:8000/health || exit 1' > /usr/local/bin/healthcheck.sh && \
-    chmod +x /usr/local/bin/healthcheck.sh
+# Create application directories in writable location
+RUN mkdir -p /tmp/markdown-temp
 
-# Change ownership to non-root user
-RUN chown -R appuser:appuser /app
-
-# Switch to non-root user
-USER appuser
+# Service-specific configuration  
+ENV SERVICE_NAME=markdown-generator
+ENV LOG_LEVEL=info
+ENV TEMP_DIR=/tmp/markdown-temp
 
 # Expose port
 EXPOSE 8000
 
-# Health check
+# Health check (curl available in base image)
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD ["/usr/local/bin/healthcheck.sh"]
+    CMD ["curl", "-f", "http://localhost:8000/health"]
 
 # Run the application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

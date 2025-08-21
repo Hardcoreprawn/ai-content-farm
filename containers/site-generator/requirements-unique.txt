@@ -1,0 +1,6 @@
+# UNIQUE dependencies for site-generator only
+# All common deps (fastapi, uvicorn, pydantic, azure-*, httpx, etc.) 
+# come from ai-content-farm-base:web-services
+
+# Template engine (unique to site-generator)
+jinja2==3.1.6

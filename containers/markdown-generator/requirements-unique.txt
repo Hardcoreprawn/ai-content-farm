@@ -1,0 +1,5 @@
+# UNIQUE dependencies for markdown-generator only
+# All dependencies (fastapi, uvicorn, pydantic, Azure SDK, testing, etc.) 
+# come from ai-content-farm-base:web-services
+
+# No unique dependencies needed - everything is in base layers!

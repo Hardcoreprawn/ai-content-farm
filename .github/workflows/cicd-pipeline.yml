@@ -41,19 +41,64 @@ jobs:
 
       - name: Test All Container Builds
         run: |
-          echo "🐳 Testing Docker builds for all containers..."
+          echo "🐳 Testing Docker builds with multi-tier strategy..."
 
           build_failures=0
           containers_tested=0
 
+          # Step 1: Build base images (required for all service containers)
+          echo "🏗️ Building multi-tier base images..."
+          
+          echo "Building foundation tier..."
+          if ! docker build -f containers/base/Dockerfile.multitier -t ai-content-farm-base:foundation --target foundation .; then
+            echo "❌ Foundation base image build failed"
+            exit 1
+          fi
+          
+          echo "Building common-deps tier..."
+          if ! docker build -f containers/base/Dockerfile.multitier -t ai-content-farm-base:common-deps --target common-deps .; then
+            echo "❌ Common-deps base image build failed"
+            exit 1
+          fi
+          
+          echo "Building web-services tier..."
+          if ! docker build -f containers/base/Dockerfile.multitier -t ai-content-farm-base:web-services --target web-services .; then
+            echo "❌ Web-services base image build failed"
+            exit 1
+          fi
+          
+          echo "Building data-processing tier..."
+          if ! docker build -f containers/base/Dockerfile.multitier -t ai-content-farm-base:data-processing --target data-processing .; then
+            echo "❌ Data-processing base image build failed"
+            exit 1
+          fi
+          
+          echo "Building scheduler tier..."
+          if ! docker build -f containers/base/Dockerfile.multitier -t ai-content-farm-base:scheduler --target scheduler .; then
+            echo "❌ Scheduler base image build failed"
+            exit 1
+          fi
+          
+          echo "✅ All base images built successfully"
+
+          # Step 2: Build service containers (now they can find their base images)
+          echo "🔨 Building service containers..."
+          
           for container_dir in containers/*/; do
+            container_name=$(basename "$container_dir")
+            
+            # Skip the base directory (not a service container)
+            if [ "$container_name" = "base" ]; then
+              continue
+            fi
+            
             if [ -d "$container_dir" ] && [ -f "$container_dir/Dockerfile" ]; then
-              container_name=$(basename "$container_dir")
               containers_tested=$((containers_tested + 1))
 
               echo "🔨 Building $container_name..."
 
-              if docker build -t "test-$container_name:latest" "$container_dir"; then
+              # Build from repo root with correct context for multi-tier strategy
+              if docker build -f "$container_dir/Dockerfile" -t "test-$container_name:latest" .; then
                 echo "✅ $container_name builds successfully"
                 # Clean up test image
                 docker rmi "test-$container_name:latest" || true

@@ -1,26 +1,17 @@
-# Standard Python base image (migrated from Azure Functions)
-FROM python:3.11-slim
+# Build from web-services tier (inherits foundation + common + web deps)
+FROM ai-content-farm-base:web-services AS base
 
-# Create non-root user for security
-RUN groupadd -g 1000 appuser && \
-    useradd -u 1000 -g appuser -m -s /bin/bash appuser
-
-WORKDIR /app
-
-# Install requirements
-COPY containers/content-enricher/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy and install shared libs package
-COPY libs /app/libs
-RUN pip install --no-cache-dir /app/libs
+# Add ONLY service-specific dependencies
+# (FastAPI, uvicorn, pydantic, Azure SDK, testing, etc. come from base layers)
+COPY containers/content-enricher/requirements-unique.txt .
+RUN pip install --no-cache-dir -r requirements-unique.txt
 
 # Copy application code
 COPY containers/content-enricher/ .
 
-# Set ownership and switch to non-root user
-RUN chown -R appuser:appuser /app
-USER appuser
+# Service-specific configuration
+ENV SERVICE_NAME=content-enricher
+ENV LOG_LEVEL=info
 
 EXPOSE 8000
 
