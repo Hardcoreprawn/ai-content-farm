@@ -8,7 +8,7 @@ asyncpraw==7.7.1
 feedparser==6.0.10
 beautifulsoup4==4.12.2
 lxml==4.9.3
-python-dateutil==2.8.2
+python-dateutil==2.9.0.post0
 python-multipart==0.0.18
 azure-keyvault-secrets==4.7.0
 azure-identity==1.16.1
