@@ -13,10 +13,10 @@ inputs:
 outputs:
   validation-passed:
     description: 'Whether all container validations passed'
-    value: ${{ steps.validate.outputs.passed }}
+    value: ${{ steps.validate.outputs.validation-passed }}
   containers-tested:
     description: 'Number of containers tested'
-    value: ${{ steps.validate.outputs.tested }}
+    value: ${{ steps.validate.outputs.containers-tested }}
 
 runs:
   using: 'composite'
@@ -52,11 +52,14 @@ runs:
 
           if [ -f "$container_path/Dockerfile" ]; then
             # Quick syntax and build context validation (no actual build)
+            echo "Running: docker build --check '$container_path'"
             if docker build --check "$container_path" > /dev/null 2>&1; then
               echo "✅ $container_name: Build validation passed"
-              ((passed_containers++))
+              passed_containers=$((passed_containers + 1))
             else
               echo "❌ $container_name: Build validation failed"
+              echo "Error details for $container_name:"
+              docker build --check "$container_path" 2>&1 || true
               failed_containers+=("$container_name")
 
               if [ "$FAIL_FAST" = "true" ]; then
