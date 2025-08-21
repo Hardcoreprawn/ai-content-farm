@@ -130,17 +130,17 @@ updates:
       - "collector-scheduler"
     open-pull-requests-limit: 5
 
-  # Docker base images
-  - package-ecosystem: "docker"
-    directory: "/containers"
-    schedule:
-      interval: "monthly"
-      day: "monday"
-      time: "06:00"
-    labels:
-      - "dependencies"
-      - "docker"
-    open-pull-requests-limit: 10
+  # # Docker base images
+  # - package-ecosystem: "docker"
+  #   directory: "/containers"
+  #   schedule:
+  #     interval: "monthly"
+  #     day: "monday"
+  #     time: "06:00"
+  #   labels:
+  #     - "dependencies"
+  #     - "docker"
+  #   open-pull-requests-limit: 10
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
