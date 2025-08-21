@@ -227,8 +227,10 @@ resource "azurerm_storage_account" "main" {
   public_network_access_enabled = true
   shared_access_key_enabled     = true
   network_rules {
-    default_action = "Allow"
+    default_action = "Deny"
     bypass         = ["AzureServices"] # This is the recommended configuration for Microsoft services
+    # Allow access from Container Apps and development environments
+    ip_rules = []  # Add specific IP ranges in production
   }
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"
