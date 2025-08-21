@@ -10,7 +10,7 @@ azure-core==1.29.5
 azure-identity==1.24.0
 
 # HTTP client
-httpx==0.25.0
+httpx==0.28.1
 
 # Template engine for HTML generation
 # Template engine for HTML generation
