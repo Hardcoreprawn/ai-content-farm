@@ -96,9 +96,9 @@ def test_reddit_credentials():
     for key, env_var in env_vars.items():
         env_value = os.getenv(env_var)
         if env_value:
-            print(f"     ✅ {key}: Found in {env_var}")
+            print(f"     ✅ {key}: Found in environment")
         else:
-            print(f"     ❌ {key}: Not in {env_var}")
+            print(f"     ❌ {key}: Not in environment")
 
 
 def test_health_check():

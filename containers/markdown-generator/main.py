@@ -43,7 +43,7 @@ async def start_content_watcher():
                 await asyncio.sleep(config.WATCH_INTERVAL)
 
             except Exception as e:
-                logger.error(f"Content watcher error: {e}")
+                logger.error("Content watcher error occurred")
                 await asyncio.sleep(30)  # Wait before retrying on error
 
     watcher_task = asyncio.create_task(watcher_loop())
@@ -89,7 +89,7 @@ async def lifespan(app: FastAPI):
         logger.info("Service startup completed successfully")
 
     except Exception as e:
-        logger.error(f"Failed to start service: {e}")
+        logger.error("Failed to start service")
         raise
 
     yield
@@ -104,7 +104,7 @@ async def lifespan(app: FastAPI):
         logger.info("Service shutdown completed")
 
     except Exception as e:
-        logger.error(f"Error during shutdown: {e}")
+        logger.error("Error during shutdown")
 
 
 # Create FastAPI application
@@ -145,14 +145,14 @@ async def health_check():
             return JSONResponse(status_code=503, content=health_result)
 
     except Exception as e:
-        logger.error(f"Health check failed: {e}")
+        logger.error("Health check failed")
         return JSONResponse(
             status_code=503,
             content={
                 "status": "unhealthy",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "service": config.SERVICE_NAME,
-                "error": str(e),
+                "error": "Health check failed",
                 "blob_storage_healthy": False,
             },
         )
@@ -166,8 +166,8 @@ async def get_status():
         return status
 
     except Exception as e:
-        logger.error(f"Failed to get service status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to get service status")
+        raise HTTPException(status_code=500, detail="Failed to get service status")
 
 
 @app.post("/generate", response_model=GenerationResult)
@@ -199,11 +199,11 @@ async def generate_markdown(request: MarkdownRequest):
         # Re-raise HTTP exceptions as-is
         raise
     except ValueError as e:
-        logger.warning(f"Invalid request: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        logger.warning("Invalid request parameters")
+        raise HTTPException(status_code=400, detail="Invalid request parameters")
     except Exception as e:
-        logger.error(f"Manual markdown generation failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Manual markdown generation failed")
+        raise HTTPException(status_code=500, detail="Manual markdown generation failed")
 
 
 @app.post("/trigger")
@@ -225,8 +225,8 @@ async def trigger_check():
             }
 
     except Exception as e:
-        logger.error(f"Manual trigger failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Manual trigger failed")
+        raise HTTPException(status_code=500, detail="Manual trigger failed")
 
 
 @app.get("/watcher/status")
@@ -235,8 +235,8 @@ async def get_watcher_status():
     try:
         return content_watcher.get_watcher_status()
     except Exception as e:
-        logger.error(f"Failed to get watcher status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error("Failed to get watcher status")
+        raise HTTPException(status_code=500, detail="Failed to get watcher status")
 
 
 if __name__ == "__main__":

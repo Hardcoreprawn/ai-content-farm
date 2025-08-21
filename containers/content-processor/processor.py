@@ -104,29 +104,29 @@ def extract_content_type(url: str, selftext: str) -> str:
         if any(path.endswith(ext) for ext in image_extensions):
             return "image"
 
-        # Image hosting domains
+        # Image hosting domains (exact match only)
         image_domains = {"i.imgur.com", "i.redd.it", "imgur.com"}
-        if any(domain.endswith(img_domain) for img_domain in image_domains):
+        if domain in image_domains:
             return "image"
 
-        # Video detection
+        # Video detection by extension
         video_extensions = {".mp4", ".webm", ".avi", ".mov", ".mkv"}
         if any(path.endswith(ext) for ext in video_extensions):
             return "video"
 
-        # Video hosting domains
+        # Video hosting domains (exact match or subdomain)
         video_domains = {
             "youtube.com",
-            "youtu.be",
+            "youtu.be", 
             "vimeo.com",
             "v.redd.it",
             "twitch.tv",
         }
-        if any(domain.endswith(vid_domain) for vid_domain in video_domains):
+        if domain in video_domains or any(domain.endswith(f".{vid_domain}") for vid_domain in video_domains):
             return "video"
 
-        # Reddit-hosted content
-        if domain.endswith("reddit.com"):
+        # Reddit-hosted content (exact match or subdomain)
+        if domain == "reddit.com" or domain.endswith(".reddit.com"):
             return "text"
 
         # Default to link for external URLs

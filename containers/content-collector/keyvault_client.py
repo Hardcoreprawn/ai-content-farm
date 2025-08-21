@@ -27,7 +27,7 @@ class KeyVaultClient:
 
         # Log the configuration status
         if self.vault_url:
-            logger.info(f"Azure Key Vault URL configured: {self.vault_url}")
+            logger.info("Azure Key Vault URL configured")
             try:
                 self._initialize_client()
             except Exception as e:
@@ -101,32 +101,30 @@ class KeyVaultClient:
             Secret value or None if not found
         """
         if not self.client:
-            logger.warning(
-                f"Key Vault client not available, cannot retrieve secret: {secret_name}"
-            )
+            logger.warning("Key Vault client not available, cannot retrieve secret")
             return None
 
         # Check cache first
         if use_cache and secret_name in self._secrets_cache:
-            logger.debug(f"Using cached value for secret: {secret_name}")
+            logger.debug("Using cached value for secret")
             return self._secrets_cache[secret_name]
 
         try:
-            logger.debug(f"Retrieving secret from Key Vault: {secret_name}")
+            logger.debug("Retrieving secret from Key Vault")
             secret = self.client.get_secret(secret_name)
 
             # Cache the secret
             if use_cache and secret.value:
                 self._secrets_cache[secret_name] = secret.value
 
-            logger.info(f"Successfully retrieved secret: {secret_name}")
+            logger.info("Successfully retrieved secret from Key Vault")
             return secret.value
 
         except AzureError as e:
-            logger.error(f"Azure error retrieving secret {secret_name}: {e}")
+            logger.error(f"Azure error retrieving secret: {e}")
             return None
         except Exception as e:
-            logger.error(f"Unexpected error retrieving secret {secret_name}: {e}")
+            logger.error(f"Unexpected error retrieving secret: {e}")
             return None
 
     def get_reddit_credentials(self) -> Dict[str, Optional[str]]:
@@ -147,10 +145,10 @@ class KeyVaultClient:
         missing_creds = [key for key, value in credentials.items() if value is None]
 
         if found_creds:
-            logger.info(f"Retrieved Reddit credentials from Key Vault: {found_creds}")
+            logger.info(f"Retrieved Reddit credentials from Key Vault: {len(found_creds)} items")
 
         if missing_creds:
-            logger.warning(f"Missing Reddit credentials in Key Vault: {missing_creds}")
+            logger.warning(f"Missing Reddit credentials in Key Vault: {len(missing_creds)} items")
 
         return credentials
 
@@ -216,17 +214,17 @@ def get_reddit_credentials_with_fallback() -> Dict[str, Optional[str]]:
             env_value = os.getenv(env_var)
             if env_value:
                 credentials[key] = env_value
-                logger.info(f"Using environment variable for Reddit {key}: {env_var}")
+                logger.info(f"Using environment variable for Reddit {key}")
 
     # Log final status
     available_creds = [key for key, value in credentials.items() if value is not None]
     missing_creds = [key for key, value in credentials.items() if value is None]
 
     if available_creds:
-        logger.info(f"Reddit credentials available: {available_creds}")
+        logger.info(f"Reddit credentials available: {len(available_creds)} items")
 
     if missing_creds:
-        logger.warning(f"Reddit credentials missing: {missing_creds}")
+        logger.warning(f"Reddit credentials missing: {len(missing_creds)} items")
         logger.warning(
             "Reddit API functionality may be limited without proper credentials"
         )
@@ -245,7 +243,7 @@ def health_check_keyvault() -> Dict[str, Any]:
 
     health_info = {
         "key_vault_configured": kv_client.vault_url is not None,
-        "key_vault_url": kv_client.vault_url,
+        "key_vault_url": "***" if kv_client.vault_url else None,
         "client_available": kv_client.is_available(),
         "status": "unknown",
     }
