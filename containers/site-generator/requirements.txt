@@ -7,7 +7,7 @@ python-multipart==0.0.18
 # Azure dependencies
 azure-storage-blob==12.26.0
 azure-core==1.29.5
-azure-identity==1.16.1
+azure-identity==1.24.0
 
 # HTTP client
 httpx==0.25.0
