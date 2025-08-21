@@ -116,13 +116,8 @@ runs:
           -d /tf/infra \
           --framework terraform \
           --output sarif \
-          --output-file-path /tf \
+          --output-file-path /tf/security-results \
           --quiet || echo "Checkov scan completed with warnings"
-
-        # Move the generated SARIF file to the expected location
-        if [ -f "results_sarif.sarif" ]; then
-          mv results_sarif.sarif security-results/checkov.sarif
-        fi
 
     - name: Evaluate Security Results
       id: evaluate

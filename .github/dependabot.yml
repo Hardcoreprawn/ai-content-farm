@@ -1,6 +1,16 @@
 # Dependabot configuration for AI Content Farm
-# Works in conjunction with our security scanning stack (Safety, Semgrep, Trivy, Checkov)
-# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+# Features:
+# - Auto-merge enabled for security updates and minor/patch versions
+# - Manual review required for major version updates
+# - Comprehensive testing via dependabot-automerge.yml workflow
+# - Works with security scanning stack (Safety, Semgrep, Trivy, Checkov)
+#
+# Auto-merge criteria:
+# - Security updates: Always auto-merged after CI validation
+# - Patch/minor updates: Auto-merged after CI validation
+# - Major updates: Require manual review
+#
+# Ref: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
 updates:
@@ -18,7 +28,10 @@ updates:
       - "Hardcoreprawn"
     assignees:
       - "Hardcoreprawn"
-    open-pull-requests-limit: 10
+    open-pull-requests-limit: 15
+    # Enable auto-merge for security and patch updates
+    pull-request-branch-name:
+      separator: "/"
 
   # Python dependencies - container services
   - package-ecosystem: "pip"
@@ -31,6 +44,7 @@ updates:
       - "dependencies"
       - "python"
       - "content-collector"
+    open-pull-requests-limit: 5
 
   - package-ecosystem: "pip"
     directory: "/containers/content-processor"
@@ -42,6 +56,7 @@ updates:
       - "dependencies"
       - "python"
       - "content-processor"
+    open-pull-requests-limit: 5
 
   - package-ecosystem: "pip"
     directory: "/containers/content-enricher"
@@ -53,6 +68,7 @@ updates:
       - "dependencies"
       - "python"
       - "content-enricher"
+    open-pull-requests-limit: 5
 
   - package-ecosystem: "pip"
     directory: "/containers/content-ranker"
@@ -64,6 +80,7 @@ updates:
       - "dependencies"
       - "python"
       - "content-ranker"
+    open-pull-requests-limit: 5
 
   - package-ecosystem: "pip"
     directory: "/containers/content-generator"
@@ -75,6 +92,7 @@ updates:
       - "dependencies"
       - "python"
       - "content-generator"
+    open-pull-requests-limit: 5
 
   - package-ecosystem: "pip"
     directory: "/containers/markdown-generator"
@@ -86,6 +104,7 @@ updates:
       - "dependencies"
       - "python"
       - "markdown-generator"
+    open-pull-requests-limit: 5
 
   - package-ecosystem: "pip"
     directory: "/containers/site-generator"
@@ -97,6 +116,7 @@ updates:
       - "dependencies"
       - "python"
       - "site-generator"
+    open-pull-requests-limit: 5
 
   - package-ecosystem: "pip"
     directory: "/containers/collector-scheduler"
@@ -108,6 +128,7 @@ updates:
       - "dependencies"
       - "python"
       - "collector-scheduler"
+    open-pull-requests-limit: 5
 
   # Docker base images
   - package-ecosystem: "docker"
@@ -119,6 +140,7 @@ updates:
     labels:
       - "dependencies"
       - "docker"
+    open-pull-requests-limit: 10
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
@@ -130,3 +152,4 @@ updates:
     labels:
       - "dependencies"
       - "github-actions"
+    open-pull-requests-limit: 5

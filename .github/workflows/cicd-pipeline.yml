@@ -24,6 +24,53 @@ jobs:
       - name: Validate Workflows
         uses: ./.github/actions/lint-workflows
 
+  # Container Build Validation - Quick smoke test for all containers
+  container-build-validation:
+    name: Container Build Validation
+    runs-on: ubuntu-latest
+    needs: workflow-validation
+    if: always() && needs.workflow-validation.result != 'failure'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test All Container Builds
+        run: |
+          echo "🐳 Testing Docker builds for all containers..."
+
+          build_failures=0
+          containers_tested=0
+
+          for container_dir in containers/*/; do
+            if [ -d "$container_dir" ] && [ -f "$container_dir/Dockerfile" ]; then
+              container_name=$(basename "$container_dir")
+              containers_tested=$((containers_tested + 1))
+
+              echo "🔨 Building $container_name..."
+
+              if docker build -t "test-$container_name:latest" "$container_dir"; then
+                echo "✅ $container_name builds successfully"
+                # Clean up test image
+                docker rmi "test-$container_name:latest" || true
+              else
+                echo "❌ $container_name build failed"
+                build_failures=$((build_failures + 1))
+              fi
+            fi
+          done
+
+          echo "📊 Build Summary:"
+          echo "- Containers tested: $containers_tested"
+          echo "- Build failures: $build_failures"
+          echo "- Success rate: $(( (containers_tested - build_failures) * 100 / containers_tested ))%"
+
+          if [ "$build_failures" -gt 0 ]; then
+            echo "❌ $build_failures container(s) failed to build"
+            exit 1
+          else
+            echo "✅ All containers build successfully"
+          fi
+
   # Quality Gate - Parallel Matrix of Quality Checks
   quality-gate:
     name: Quality Check - ${{ matrix.check-type }}
