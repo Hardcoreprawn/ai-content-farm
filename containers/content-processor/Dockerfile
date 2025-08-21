@@ -1,5 +1,5 @@
 # Multi-stage build for efficiency using Microsoft's official Azure Functions Python base
-FROM mcr.microsoft.com/azure-functions/python:4-python3.11-slim as builder
+FROM mcr.microsoft.com/azure-functions/python:4-python3.11-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

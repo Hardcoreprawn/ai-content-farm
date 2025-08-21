@@ -1,5 +1,5 @@
 name: 'Validate Containers'
-description: 'Quick validation that all containers can build successfully'
+description: 'Quick validation that all containers have valid Dockerfiles and can pass build checks'
 inputs:
   containers-changed:
     description: 'Comma-separated list of changed containers (optional - defaults to all)'
@@ -51,8 +51,8 @@ runs:
           echo "🔍 Testing container: $container_name"
 
           if [ -f "$container_path/Dockerfile" ]; then
-            # Quick syntax check and build validation
-            if docker build --dry-run "$container_path" > /dev/null 2>&1; then
+            # Quick syntax and build context validation (no actual build)
+            if docker build --check "$container_path" > /dev/null 2>&1; then
               echo "✅ $container_name: Build validation passed"
               ((passed_containers++))
             else
