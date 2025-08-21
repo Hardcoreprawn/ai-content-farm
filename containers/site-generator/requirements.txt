@@ -5,7 +5,7 @@ pydantic==2.4.2
 python-multipart==0.0.18
 
 # Azure dependencies
-azure-storage-blob==12.19.0
+azure-storage-blob==12.26.0
 azure-core==1.29.5
 azure-identity==1.16.1
 
