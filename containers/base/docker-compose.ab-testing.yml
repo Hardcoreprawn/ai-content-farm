@@ -9,6 +9,9 @@ services:
   # =============================================================================
   load-balancer:
     image: nginx:alpine
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "80:80"
     volumes:
@@ -78,6 +81,9 @@ services:
   # =============================================================================
   prometheus:
     image: prom/prometheus
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "9090:9090"
     volumes:
@@ -90,6 +96,9 @@ services:
 
   grafana:
     image: grafana/grafana
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "3000:3000"
     environment:

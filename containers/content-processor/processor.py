@@ -117,7 +117,7 @@ def extract_content_type(url: str, selftext: str) -> str:
         # Video hosting domains (exact match or subdomain)
         video_domains = {
             "youtube.com",
-            "youtu.be", 
+            "youtu.be",
             "vimeo.com",
             "v.redd.it",
             "twitch.tv",
@@ -160,7 +160,8 @@ def transform_reddit_post(post: Dict[str, Any]) -> Dict[str, Any]:
 
     # Convert timestamp to ISO format
     if created_utc:
-        published_at = datetime.fromtimestamp(created_utc, tz=timezone.utc).isoformat()
+        published_at = datetime.fromtimestamp(
+            created_utc, tz=timezone.utc).isoformat()
     else:
         published_at = datetime.now(tz=timezone.utc).isoformat()
 
@@ -184,7 +185,8 @@ def transform_reddit_post(post: Dict[str, Any]) -> Dict[str, Any]:
             "original_comments": comments,
             "subreddit": subreddit,
             "reddit_id": reddit_id,
-            "selftext": selftext[:500] if selftext else "",  # Truncate long text
+            # Truncate long text
+            "selftext": selftext[:500] if selftext else "",
             "created_utc": created_utc,
         },
     }

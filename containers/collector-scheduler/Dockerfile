@@ -12,4 +12,8 @@ ENV LOG_LEVEL=info
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD ps aux | grep -v grep | grep python || exit 1
 
+# Create non-root user
+RUN useradd --create-home --shell /bin/bash app
+USER app
+
 CMD ["python", "main.py"]

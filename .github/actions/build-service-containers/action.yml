@@ -27,6 +27,10 @@ runs:
     - name: Build Service Containers
       id: build-services
       shell: bash
+      env:
+        CONTAINERS: ${{ inputs.containers }}
+        USE_PRODUCTION_DOCKERFILES: ${{ inputs.use-production-dockerfiles }}
+        REGISTRY: ${{ inputs.registry }}
       run: |
         echo "🔨 Building service containers with multi-tier strategy..."
 
@@ -35,7 +39,7 @@ runs:
         built_containers=""
 
         # Determine which containers to build
-        if [ "${{ inputs.containers }}" = "all" ]; then
+        if [ "$CONTAINERS" = "all" ]; then
           # Build all containers found in containers/ directory
           container_list=""
           for container_dir in containers/*/; do
@@ -50,7 +54,7 @@ runs:
             fi
           done
         else
-          container_list="${{ inputs.containers }}"
+          container_list="$CONTAINERS"
         fi
 
         echo "📋 Containers to build: $container_list"
@@ -63,7 +67,7 @@ runs:
           container_dir="containers/$container_name"
 
           # Determine which Dockerfile to use
-          if [ "${{ inputs.use-production-dockerfiles }}" = "true" ]; then
+          if [ "$USE_PRODUCTION_DOCKERFILES" = "true" ]; then
             dockerfile_path="$container_dir/Dockerfile.production"
             build_strategy="production (self-contained)"
           else
@@ -87,13 +91,13 @@ runs:
               fi
 
               # Tag for registry if provided
-              if [ -n "${{ inputs.registry }}" ]; then
-                docker tag $container_name:latest ${{ inputs.registry }}/$container_name:latest
-                echo "Tagged for registry: ${{ inputs.registry }}/$container_name:latest"
+              if [ -n "$REGISTRY" ]; then
+                docker tag $container_name:latest "$REGISTRY/$container_name:latest"
+                echo "Tagged for registry: $REGISTRY/$container_name:latest"
               fi
 
               # Clean up test image (keep for deployment if registry provided)
-              if [ -z "${{ inputs.registry }}" ]; then
+              if [ -z "$REGISTRY" ]; then
                 docker rmi "$container_name:latest" || true
               fi
             else

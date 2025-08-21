@@ -35,17 +35,24 @@ runs:
 
     - name: Get ACR login server
       shell: bash
+      env:
+        ACR_NAME: ${{ inputs.acr-name }}
+        RESOURCE_GROUP: ${{ inputs.resource-group }}
       run: |
-        ACR_LOGIN_SERVER=$(az acr show --name ${{ inputs.acr-name }} --resource-group ${{ inputs.resource-group }} --query loginServer -o tsv)
+        ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" --query loginServer -o tsv)
         echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> $GITHUB_ENV
 
     - name: Login to Azure Container Registry
       shell: bash
-      run: az acr login --name ${{ inputs.acr-name }}
+      env:
+        ACR_NAME: ${{ inputs.acr-name }}
+      run: az acr login --name "$ACR_NAME"
 
     - name: Build and push all containers
       id: deploy
       shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
       run: |
         echo "🚀 Building and pushing all containers using production Dockerfiles..."
 
@@ -67,13 +74,13 @@ runs:
           echo "🏗️ Building and pushing $container..."
 
           # Build using production Dockerfile (self-contained)
-          docker build -f containers/$container/Dockerfile.production -t $container:${{ inputs.environment }} .
+          docker build -f containers/$container/Dockerfile.production -t $container:"$ENVIRONMENT" .
 
           # Tag for ACR
-          docker tag $container:${{ inputs.environment }} $ACR_LOGIN_SERVER/$container:${{ inputs.environment }}
+          docker tag $container:"$ENVIRONMENT" $ACR_LOGIN_SERVER/$container:"$ENVIRONMENT"
 
           # Push to ACR
-          docker push $ACR_LOGIN_SERVER/$container:${{ inputs.environment }}
+          docker push $ACR_LOGIN_SERVER/$container:"$ENVIRONMENT"
 
           echo "✅ $container pushed to ACR"
           deployed_containers="$deployed_containers $container"
@@ -84,16 +91,19 @@ runs:
 
     - name: Update Container Apps
       shell: bash
+      env:
+        RESOURCE_GROUP: ${{ inputs.resource-group }}
+        ENVIRONMENT: ${{ inputs.environment }}
       run: |
         echo "🔄 Updating Container Apps..."
 
         # For now, update the main content-generator app
         # TODO: Expand to handle all container apps when Terraform defines them
-        if az containerapp show --name "ai-content-farm-core-content-generator" --resource-group ${{ inputs.resource-group }} >/dev/null 2>&1; then
+        if az containerapp show --name "ai-content-farm-core-content-generator" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
           az containerapp update \
             --name "ai-content-farm-core-content-generator" \
-            --resource-group ${{ inputs.resource-group }} \
-            --image $ACR_LOGIN_SERVER/content-generator:${{ inputs.environment }}
+            --resource-group "$RESOURCE_GROUP" \
+            --image $ACR_LOGIN_SERVER/content-generator:"$ENVIRONMENT"
           echo "✅ content-generator Container App updated"
         else
           echo "⚠️ content-generator Container App not found - may need Terraform deployment first"
@@ -102,11 +112,13 @@ runs:
     - name: Get deployment URL
       id: get-url
       shell: bash
+      env:
+        RESOURCE_GROUP: ${{ inputs.resource-group }}
       run: |
-        if az containerapp show --name "ai-content-farm-core-content-generator" --resource-group ${{ inputs.resource-group }} >/dev/null 2>&1; then
+        if az containerapp show --name "ai-content-farm-core-content-generator" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
           URL=$(az containerapp show \
             --name "ai-content-farm-core-content-generator" \
-            --resource-group ${{ inputs.resource-group }} \
+            --resource-group "$RESOURCE_GROUP" \
             --query "properties.configuration.ingress.fqdn" \
             -o tsv)
           echo "url=https://$URL" >> $GITHUB_OUTPUT

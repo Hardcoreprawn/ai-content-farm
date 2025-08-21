@@ -167,7 +167,8 @@ async def get_status():
 
     except Exception as e:
         logger.error("Failed to get service status")
-        raise HTTPException(status_code=500, detail="Failed to get service status")
+        raise HTTPException(
+            status_code=500, detail="Failed to get service status")
 
 
 @app.post("/generate", response_model=GenerationResult)
@@ -175,11 +176,13 @@ async def generate_markdown(request: MarkdownRequest):
     """Manually trigger markdown generation from provided content items."""
     try:
         if not request.content_items:
-            raise HTTPException(status_code=400, detail="No content items provided")
+            raise HTTPException(
+                status_code=400, detail="No content items provided")
 
         # Check if service is initialized
         if markdown_generator is None:
-            raise HTTPException(status_code=503, detail="Service not initialized")
+            raise HTTPException(
+                status_code=503, detail="Service not initialized")
 
         logger.info(
             f"Manual markdown generation requested for {len(request.content_items)} items"
@@ -191,7 +194,8 @@ async def generate_markdown(request: MarkdownRequest):
             request.template_style or config.MARKDOWN_TEMPLATE_STYLE,
         )
 
-        logger.info(f"Manual generation completed: {result['files_generated']} files")
+        logger.info(
+            f"Manual generation completed: {result['files_generated']} files")
 
         return GenerationResult(**result)
 
@@ -200,10 +204,12 @@ async def generate_markdown(request: MarkdownRequest):
         raise
     except ValueError as e:
         logger.warning("Invalid request parameters")
-        raise HTTPException(status_code=400, detail="Invalid request parameters")
+        raise HTTPException(
+            status_code=400, detail="Invalid request parameters")
     except Exception as e:
         logger.error("Manual markdown generation failed")
-        raise HTTPException(status_code=500, detail="Manual markdown generation failed")
+        raise HTTPException(
+            status_code=500, detail="Manual markdown generation failed")
 
 
 @app.post("/trigger")
@@ -236,7 +242,8 @@ async def get_watcher_status():
         return content_watcher.get_watcher_status()
     except Exception as e:
         logger.error("Failed to get watcher status")
-        raise HTTPException(status_code=500, detail="Failed to get watcher status")
+        raise HTTPException(
+            status_code=500, detail="Failed to get watcher status")
 
 
 if __name__ == "__main__":
