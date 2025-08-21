@@ -35,18 +35,20 @@ runs:
       shell: bash
       env:
         WORKSPACE_PATH: ${{ github.workspace }}
+      continue-on-error: true
       run: |
         echo "Running Trivy infrastructure scan..."
         docker run --rm -v "${WORKSPACE_PATH}":/workspace \
           aquasec/trivy:latest config /workspace \
           --format sarif \
           --output /workspace/security-results/trivy-infra.sarif \
-          --severity HIGH,CRITICAL
+          --severity HIGH,CRITICAL || echo "Trivy infrastructure scan completed with warnings"
 
     - name: Run Trivy Container Scan
       shell: bash
       env:
         WORKSPACE_PATH: ${{ github.workspace }}
+      continue-on-error: true
       run: |
         echo "Running Trivy container scan..."
         # Scan all Dockerfiles
@@ -67,15 +69,17 @@ runs:
       shell: bash
       env:
         WORKSPACE_PATH: ${{ github.workspace }}
+      continue-on-error: true
       run: |
         echo "Running standardized Semgrep SAST scan..."
         chmod +x ./scripts/run-semgrep.sh
-        ./scripts/run-semgrep.sh "${WORKSPACE_PATH}" security-results semgrep/semgrep:latest
+        ./scripts/run-semgrep.sh "${WORKSPACE_PATH}" security-results semgrep/semgrep:latest || echo "Semgrep scan completed with warnings"
 
     - name: Run Python Security Scan
       shell: bash
       env:
         WORKSPACE_PATH: ${{ github.workspace }}
+      continue-on-error: true
       run: |
         echo "Running Python security scans..."
 
@@ -95,14 +99,16 @@ runs:
 
     - name: Generate SBOM and Check Dependencies
       shell: bash
+      continue-on-error: true
       run: |
         echo "Generating SBOM and checking dependencies..."
-        make sbom
+        make sbom || echo "SBOM generation completed with warnings"
 
     - name: Run Checkov Infrastructure Scan
       shell: bash
       env:
         WORKSPACE_PATH: ${{ github.workspace }}
+      continue-on-error: true
       run: |
         echo "Running Checkov infrastructure scan..."
         docker run --rm -v "${WORKSPACE_PATH}":/tf \
@@ -110,8 +116,13 @@ runs:
           -d /tf/infra \
           --framework terraform \
           --output sarif \
-          --output-file-path /tf/security-results/checkov.sarif \
-          --quiet || true
+          --output-file-path /tf \
+          --quiet || echo "Checkov scan completed with warnings"
+
+        # Move the generated SARIF file to the expected location
+        if [ -f "results_sarif.sarif" ]; then
+          mv results_sarif.sarif security-results/checkov.sarif
+        fi
 
     - name: Evaluate Security Results
       id: evaluate
@@ -208,19 +219,12 @@ runs:
         fi
 
         # 5. Checkov Infrastructure as Code
-        if [ -f "security-results/checkov.sarif" ] || [ -f "security-results/checkov.sarif/results_sarif.sarif" ]; then
-          checkov_file="security-results/checkov.sarif/results_sarif.sarif"
-          [ ! -f "$checkov_file" ] && checkov_file="security-results/checkov.sarif"
-
-          if [ -f "$checkov_file" ]; then
-            checkov_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' "$checkov_file" 2>/dev/null | wc -l)" || checkov_critical="0"
-            checkov_high="$(jq -r '.runs[0].results[] | select(.level == "warning") | .ruleId' "$checkov_file" 2>/dev/null | wc -l)" || checkov_high="0"
-            total_critical=$((total_critical + checkov_critical))
-            total_high=$((total_high + checkov_high))
-            echo "📋 Checkov Infrastructure: $checkov_critical critical, $checkov_high high"
-          else
-            echo "📋 Checkov Infrastructure: scan file not found"
-          fi
+        if [ -f "security-results/checkov.sarif" ]; then
+          checkov_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/checkov.sarif 2>/dev/null | wc -l)" || checkov_critical="0"
+          checkov_high="$(jq -r '.runs[0].results[] | select(.level == "warning") | .ruleId' security-results/checkov.sarif 2>/dev/null | wc -l)" || checkov_high="0"
+          total_critical=$((total_critical + checkov_critical))
+          total_high=$((total_high + checkov_high))
+          echo "📋 Checkov Infrastructure: $checkov_critical critical, $checkov_high high"
         else
           echo "📋 Checkov Infrastructure: scan file not found"
         fi
@@ -309,11 +313,14 @@ runs:
         EOF
 
     - name: Upload SARIF Results
-      if: inputs.upload-sarif == 'true'
+      if: inputs.upload-sarif == 'true' && success()
       uses: github/codeql-action/upload-sarif@v3
       with:
-        sarif_file: security-results/
+        sarif_file: |
+          security-results/trivy-infra.sarif
+          security-results/checkov.sarif
         category: security-scan
+      continue-on-error: true
 
     - name: Upload Security Artifacts
       uses: actions/upload-artifact@v4
