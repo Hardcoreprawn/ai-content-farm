@@ -45,6 +45,8 @@ runs:
 
     - name: Run Trivy Container Scan
       shell: bash
+      env:
+        WORKSPACE_PATH: ${{ github.workspace }}
       run: |
         echo "Running Trivy container scan..."
         # Scan all Dockerfiles
@@ -72,10 +74,13 @@ runs:
 
     - name: Run Python Security Scan
       shell: bash
+      env:
+        WORKSPACE_PATH: ${{ github.workspace }}
       run: |
         echo "Running Python security scans..."
 
-        # Use containerized Safety (consistent with Makefile)
+        # Use containerized Safety for Python dependency vulnerabilities
+        # Safety provides specialized Python package vulnerability detection
         find . -name "requirements.txt" -type f | while read -r req_file; do
           req_file_dir="$(dirname "$req_file")"
           container_name="$(basename "$req_file_dir")"
@@ -84,10 +89,9 @@ runs:
             pyupio/safety:latest check --json --file "/workspace/$req_file" \
             > "security-results/safety-${container_name}.json" 2>/dev/null || true
         done
-
-        # Use bandit directly (no official container, but lightweight install)
-        pip install bandit
-        find . -name "*.py" -path "./containers/*" -type f | head -20 | xargs bandit -f json -o security-results/bandit.json || true
+        
+        # Note: Bandit removed - Semgrep provides superior Python security analysis
+        # with broader language support and more comprehensive rule sets
 
     - name: Generate SBOM and Check Dependencies
       shell: bash
@@ -118,17 +122,48 @@ runs:
       run: |
         echo "📊 Evaluating security scan results..."
 
-        critical_count=0
-        high_count=0
-        medium_count=0
+        # Initialize counters for each scan type
+        trivy_infra_critical=0
+        trivy_container_critical=0
+        semgrep_critical=0
+        safety_critical=0
+        checkov_critical=0
+        
+        total_critical=0
+        total_high=0
+        total_medium=0
 
-        # Count issues from various scan results
+        echo "## Security Scan Results by Tool"
+
+        # 1. Trivy Infrastructure Scan
         if [ -f "security-results/trivy-infra.sarif" ]; then
-          trivy_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/trivy-infra.sarif 2>/dev/null | wc -l)" || trivy_critical="0"
-          critical_count=$((critical_count + trivy_critical))
+          trivy_infra_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/trivy-infra.sarif 2>/dev/null | wc -l)" || trivy_infra_critical="0"
+          trivy_infra_high="$(jq -r '.runs[0].results[] | select(.level == "warning") | .ruleId' security-results/trivy-infra.sarif 2>/dev/null | wc -l)" || trivy_infra_high="0"
+          echo "🔍 Trivy Infrastructure: $trivy_infra_critical critical, $trivy_infra_high high"
+          total_critical=$((total_critical + trivy_infra_critical))
+          total_high=$((total_high + trivy_infra_high))
+        else
+          echo "🔍 Trivy Infrastructure: scan file not found"
         fi
 
-        # Count Semgrep findings from standardized JSON output
+        # 2. Trivy Container Scans
+        trivy_container_files=$(find security-results -name "trivy-*.json" 2>/dev/null | wc -l)
+        if [ "$trivy_container_files" -gt 0 ]; then
+          for trivy_file in security-results/trivy-*.json; do
+            if [ -f "$trivy_file" ] && [ -s "$trivy_file" ]; then
+              container_critical="$(jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL") | .VulnerabilityID' "$trivy_file" 2>/dev/null | wc -l)" || container_critical="0"
+              container_high="$(jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH") | .VulnerabilityID' "$trivy_file" 2>/dev/null | wc -l)" || container_high="0"
+              trivy_container_critical=$((trivy_container_critical + container_critical))
+              container_name=$(basename "$trivy_file" .json | sed 's/trivy-//')
+              echo "🐳 Trivy Container ($container_name): $container_critical critical, $container_high high"
+            fi
+          done
+          total_critical=$((total_critical + trivy_container_critical))
+        else
+          echo "🐳 Trivy Container: no valid scan files found"
+        fi
+
+        # 3. Semgrep SAST Scan
         if [ -f "security-results/semgrep-results.json" ]; then
           # Count all semgrep findings first
           total_semgrep="$(jq -r '.results[] | select(.extra.severity == "ERROR" or .extra.severity == "WARNING") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || total_semgrep="0"
@@ -139,35 +174,82 @@ runs:
 
           # Only count critical findings (excluding documented acceptable ones)
           semgrep_critical=$((total_semgrep - acceptable_bypass - acceptable_queue))
-          critical_count=$((critical_count + semgrep_critical))
+          total_critical=$((total_critical + semgrep_critical))
 
-          echo "Semgrep total findings: $total_semgrep"
-          echo "Semgrep acceptable exceptions: $((acceptable_bypass + acceptable_queue))"
-          echo "Semgrep critical (blocking): $semgrep_critical"
+          echo "🔎 Semgrep SAST: $total_semgrep total findings, $((acceptable_bypass + acceptable_queue)) acceptable exceptions, $semgrep_critical critical"
         elif [ -f "security-results/semgrep.sarif" ]; then
           # Fallback to SARIF format if JSON not available
           semgrep_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/semgrep.sarif 2>/dev/null | wc -l)" || semgrep_critical="0"
-          critical_count=$((critical_count + semgrep_critical))
+          total_critical=$((total_critical + semgrep_critical))
+          echo "🔎 Semgrep SAST: $semgrep_critical critical (from SARIF fallback)"
+        else
+          echo "🔎 Semgrep SAST: scan file not found"
         fi
 
-        echo "Critical vulnerabilities found: $critical_count"
-        echo "critical-count=$critical_count" >> "$GITHUB_OUTPUT"
+        # 4. Safety Python Dependency Scan
+        safety_files=$(find security-results -name "safety-*.json" 2>/dev/null | wc -l)
+        if [ "$safety_files" -gt 0 ]; then
+          for safety_file in security-results/safety-*.json; do
+            if [ -f "$safety_file" ] && [ -s "$safety_file" ]; then
+              container_safety="$(jq -r '.vulnerabilities[]? | select(.severity == "high" or .severity == "critical") | .id' "$safety_file" 2>/dev/null | wc -l)" || container_safety="0"
+              safety_critical=$((safety_critical + container_safety))
+              container_name=$(basename "$safety_file" .json | sed 's/safety-//')
+              if [ "$container_safety" -gt 0 ]; then
+                echo "🐍 Safety ($container_name): $container_safety high/critical vulnerabilities"
+              fi
+            fi
+          done
+          total_critical=$((total_critical + safety_critical))
+          if [ "$safety_critical" -eq 0 ]; then
+            echo "🐍 Safety Python Dependencies: no high/critical vulnerabilities found"
+          fi
+        else
+          echo "🐍 Safety Python Dependencies: no scan files found"
+        fi
+
+        # 5. Checkov Infrastructure as Code
+        if [ -f "security-results/checkov.sarif" ] || [ -f "security-results/checkov.sarif/results_sarif.sarif" ]; then
+          checkov_file="security-results/checkov.sarif/results_sarif.sarif"
+          [ ! -f "$checkov_file" ] && checkov_file="security-results/checkov.sarif"
+          
+          if [ -f "$checkov_file" ]; then
+            checkov_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' "$checkov_file" 2>/dev/null | wc -l)" || checkov_critical="0"
+            checkov_high="$(jq -r '.runs[0].results[] | select(.level == "warning") | .ruleId' "$checkov_file" 2>/dev/null | wc -l)" || checkov_high="0"
+            total_critical=$((total_critical + checkov_critical))
+            total_high=$((total_high + checkov_high))
+            echo "📋 Checkov Infrastructure: $checkov_critical critical, $checkov_high high"
+          else
+            echo "📋 Checkov Infrastructure: scan file not found"
+          fi
+        else
+          echo "📋 Checkov Infrastructure: scan file not found"
+        fi
+
+        echo ""
+        echo "## Summary"
+        echo "Total Critical Issues: $total_critical"
+        echo "Total High Issues: $total_high"
+        echo "Total Medium Issues: $total_medium"
+
+        echo "critical-count=$total_critical" >> "$GITHUB_OUTPUT"
 
         # Determine if scan passed
-        if [ "$critical_count" -eq 0 ] || [ "$FAIL_ON_CRITICAL" != "true" ]; then
+        if [ "$total_critical" -eq 0 ] || [ "$FAIL_ON_CRITICAL" != "true" ]; then
           echo "passed=true" >> "$GITHUB_OUTPUT"
-          echo "Security scan passed"
+          echo "✅ Security scan PASSED - No critical blocking issues found"
         else
           echo "passed=false" >> "$GITHUB_OUTPUT"
-          echo "Security scan failed - $critical_count critical issues found"
+          echo "❌ Security scan FAILED - $total_critical critical issues require attention"
         fi
 
-        # Generate summary report
+        # Generate comprehensive summary report
         report_timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
-        if [ "$critical_count" -eq 0 ]; then
+        if [ "$total_critical" -eq 0 ]; then
           status_message="**PASSED** - No critical vulnerabilities found"
+          status_emoji="✅"
         else
           status_message="**FAILED** - Critical vulnerabilities require attention"
+          status_emoji="❌"
         fi
 
         cat > security-results/summary.md << EOF
@@ -175,22 +257,55 @@ runs:
 
         **Environment**: $ENVIRONMENT
         **Timestamp**: $report_timestamp
+        **Status**: $status_emoji $status_message
 
-        ## Results
-        - **Critical**: $critical_count
-        - **High**: $high_count
-        - **Medium**: $medium_count
+        ## Overall Results
+        - **Critical**: $total_critical
+        - **High**: $total_high  
+        - **Medium**: $total_medium
 
-        ## Status
-        $status_message
+        ## Results by Scan Tool
+
+        ### Infrastructure Security
+        - **Trivy Infrastructure**: $trivy_infra_critical critical findings
+        - **Checkov IaC**: $checkov_critical critical findings
+
+        ### Container Security  
+        - **Trivy Containers**: $trivy_container_critical critical findings across all containers
+
+        ### Code Security
+        - **Semgrep SAST**: $semgrep_critical critical findings (after excluding documented exceptions)
+          *Comprehensive static analysis covering Python security patterns and more*
+
+        ### Dependency Security
+        - **Safety Python**: $safety_critical high/critical dependency vulnerabilities
+          *Specialized Python package vulnerability detection*
+
+        ## Acceptable Exceptions
+        As documented in \`docs/SECURITY_EXCEPTIONS.md\`:
+        - Azure Storage service bypass (required for Container Apps)
+        - Azure Storage queue logging (not applicable - we use Service Bus)
+
+        ## Action Required
+        $(if [ "$total_critical" -eq 0 ]; then
+          echo "✅ **No action required** - All scans passed"
+        else
+          echo "⚠️  **Review Required** - Please review the $total_critical critical findings above"
+          echo ""
+          echo "**Next Steps:**"
+          echo "1. Review detailed scan results in the artifacts"
+          echo "2. Address critical findings or document as acceptable exceptions"
+          echo "3. Update \`docs/SECURITY_EXCEPTIONS.md\` if accepting new exceptions"
+        fi)
 
         ## Scans Performed
-        - Trivy (Infrastructure & Containers)
-        - Semgrep (SAST)
-        - Safety (Python dependencies)
-        - Bandit (Python security)
-        - Checkov (Infrastructure as Code)
-        - SBOM Analysis
+        - ✅ **Trivy** - Infrastructure & Container security scanning
+        - ✅ **Semgrep** - Static Application Security Testing (includes Python security)
+        - ✅ **Safety** - Python dependency vulnerability detection  
+        - ✅ **Checkov** - Infrastructure as Code compliance & best practices
+        - ✅ **SBOM Analysis** - Software Bill of Materials generation
+        
+        *Note: Bandit removed in favor of Semgrep's superior Python security coverage*
         EOF
 
     - name: Upload SARIF Results
@@ -214,8 +329,16 @@ runs:
       shell: bash
       env:
         CRITICAL_COUNT: ${{ steps.evaluate.outputs.critical-count }}
+        PASSED: ${{ steps.evaluate.outputs.passed }}
       run: |
-        echo "Security scan failed with $CRITICAL_COUNT critical issues"
-        echo "Please review security-results/ for detailed findings"
-        exit 1
+        if [ "$PASSED" = "true" ]; then
+          echo "✅ Security scan completed successfully"
+          echo "📊 Found $CRITICAL_COUNT critical issues (all acceptable or resolved)"
+          echo "📋 Review security-results/summary.md for detailed breakdown"
+        else
+          echo "❌ Security scan failed with $CRITICAL_COUNT critical issues requiring attention"
+          echo "📋 Please review security-results/ for detailed findings"
+          echo "📖 See docs/SECURITY_EXCEPTIONS.md for guidance on acceptable exceptions"
+          exit 1
+        fi
       if: steps.evaluate.outputs.passed == 'false'
