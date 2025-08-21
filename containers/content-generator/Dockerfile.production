@@ -1,0 +1,70 @@
+# AI Content Farm - Self-Contained Production Dockerfile for Content Generator
+# Builds all dependencies inline - no external base image dependency
+
+# =============================================================================
+# STAGE 1: Foundation Layer
+# =============================================================================
+FROM python:3.11-slim AS foundation
+
+# Create non-root user (security best practice)
+RUN groupadd -g 1000 appuser && \
+    useradd -u 1000 -g appuser -m -s /bin/bash appuser
+
+# Install system dependencies (common across ALL containers)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    git \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Security: Update certificates and Python
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# =============================================================================
+# STAGE 2: Common Dependencies Layer
+# =============================================================================
+FROM foundation AS common-deps
+
+WORKDIR /app
+
+# Install CORE dependencies (testing, Azure, etc.)
+COPY containers/base/requirements-core.txt .
+RUN pip install --no-cache-dir -r requirements-core.txt
+
+# Install shared libs package
+COPY libs /app/libs
+RUN pip install --no-cache-dir /app/libs
+
+# =============================================================================
+# STAGE 3: Web Services Layer
+# =============================================================================
+FROM common-deps AS web-services
+
+# Install web framework dependencies
+COPY containers/base/requirements-web.txt .
+RUN pip install --no-cache-dir -r requirements-web.txt
+
+USER appuser
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# =============================================================================
+# STAGE 4: Service-Specific Layer (Content Generator)
+# =============================================================================
+FROM web-services AS final
+
+# Add ONLY content-generator specific dependencies
+COPY containers/content-generator/requirements-unique.txt .
+RUN pip install --no-cache-dir -r requirements-unique.txt
+
+# Copy application code
+COPY containers/content-generator/ .
+
+# Service-specific configuration
+ENV SERVICE_NAME=content-generator
+ENV LOG_LEVEL=info
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD ["curl", "-f", "http://localhost:8000/health"]

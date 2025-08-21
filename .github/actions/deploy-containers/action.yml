@@ -1,0 +1,117 @@
+name: 'Deploy Containers to Azure'
+description: 'Deploy all container services to Azure Container Apps using production Dockerfiles'
+inputs:
+  azure-credentials:
+    description: 'Azure service principal credentials'
+    required: true
+  resource-group:
+    description: 'Azure resource group name'
+    required: true
+    default: 'ai-content-farm-core-rg'
+  acr-name:
+    description: 'Azure Container Registry name'
+    required: true
+    default: 'aicontentfarm76ko2hacr'
+  environment:
+    description: 'Deployment environment (staging/production)'
+    required: true
+    default: 'production'
+
+outputs:
+  deployment-url:
+    description: 'URL of the deployed application'
+    value: ${{ steps.get-url.outputs.url }}
+  deployed-containers:
+    description: 'List of deployed containers'
+    value: ${{ steps.deploy.outputs.containers }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Login to Azure
+      uses: azure/login@v1
+      with:
+        creds: ${{ inputs.azure-credentials }}
+
+    - name: Get ACR login server
+      shell: bash
+      run: |
+        ACR_LOGIN_SERVER=$(az acr show --name ${{ inputs.acr-name }} --resource-group ${{ inputs.resource-group }} --query loginServer -o tsv)
+        echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> $GITHUB_ENV
+
+    - name: Login to Azure Container Registry
+      shell: bash
+      run: az acr login --name ${{ inputs.acr-name }}
+
+    - name: Build and push all containers
+      id: deploy
+      shell: bash
+      run: |
+        echo "🚀 Building and pushing all containers using production Dockerfiles..."
+        
+        # Define containers to deploy with their specific Dockerfile requirements
+        declare -A CONTAINERS=(
+          ["content-generator"]="web"
+          ["content-enricher"]="web" 
+          ["content-processor"]="web"
+          ["content-ranker"]="web"
+          ["markdown-generator"]="web"
+          ["site-generator"]="web"
+          ["content-collector"]="data"
+          ["collector-scheduler"]="scheduler"
+        )
+        
+        deployed_containers=""
+        
+        for container in "${!CONTAINERS[@]}"; do
+          echo "🏗️ Building and pushing $container..."
+          
+          # Build using production Dockerfile (self-contained)
+          docker build -f containers/$container/Dockerfile.production -t $container:${{ inputs.environment }} .
+          
+          # Tag for ACR
+          docker tag $container:${{ inputs.environment }} $ACR_LOGIN_SERVER/$container:${{ inputs.environment }}
+          
+          # Push to ACR
+          docker push $ACR_LOGIN_SERVER/$container:${{ inputs.environment }}
+          
+          echo "✅ $container pushed to ACR"
+          deployed_containers="$deployed_containers $container"
+        done
+        
+        echo "containers=$deployed_containers" >> $GITHUB_OUTPUT
+        echo "✅ All containers pushed to ACR"
+
+    - name: Update Container Apps
+      shell: bash
+      run: |
+        echo "🔄 Updating Container Apps..."
+        
+        # For now, update the main content-generator app
+        # TODO: Expand to handle all container apps when Terraform defines them
+        if az containerapp show --name "ai-content-farm-core-content-generator" --resource-group ${{ inputs.resource-group }} >/dev/null 2>&1; then
+          az containerapp update \
+            --name "ai-content-farm-core-content-generator" \
+            --resource-group ${{ inputs.resource-group }} \
+            --image $ACR_LOGIN_SERVER/content-generator:${{ inputs.environment }}
+          echo "✅ content-generator Container App updated"
+        else
+          echo "⚠️ content-generator Container App not found - may need Terraform deployment first"
+        fi
+
+    - name: Get deployment URL
+      id: get-url
+      shell: bash
+      run: |
+        if az containerapp show --name "ai-content-farm-core-content-generator" --resource-group ${{ inputs.resource-group }} >/dev/null 2>&1; then
+          URL=$(az containerapp show \
+            --name "ai-content-farm-core-content-generator" \
+            --resource-group ${{ inputs.resource-group }} \
+            --query "properties.configuration.ingress.fqdn" \
+            -o tsv)
+          echo "url=https://$URL" >> $GITHUB_OUTPUT
+          echo "🌐 Deployment URL: https://$URL"
+        else
+          echo "url=not-available" >> $GITHUB_OUTPUT
+          echo "⚠️ Deployment URL not available"
+        fi

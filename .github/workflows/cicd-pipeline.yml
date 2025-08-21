@@ -35,91 +35,28 @@ jobs:
     runs-on: ubuntu-latest
     needs: workflow-validation
     if: always() && needs.workflow-validation.result != 'failure'
+    outputs:
+      base-images: ${{ steps.build-bases.outputs.base-images-built }}
+      service-containers: ${{ steps.build-services.outputs.containers-built }}
+      build-summary: ${{ steps.build-services.outputs.build-summary }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Test All Container Builds
+      - name: Build Multi-Tier Base Images
+        id: build-bases
+        uses: ./.github/actions/build-base-images
+
+      - name: Build Service Containers
+        id: build-services
+        uses: ./.github/actions/build-service-containers
+
+      - name: Build Summary
         run: |
-          echo "🐳 Testing Docker builds with multi-tier strategy..."
-
-          build_failures=0
-          containers_tested=0
-
-          # Step 1: Build base images (required for all service containers)
-          echo "🏗️ Building multi-tier base images..."
-          
-          echo "Building foundation tier..."
-          if ! docker build -f containers/base/Dockerfile.multitier -t ai-content-farm-base:foundation --target foundation .; then
-            echo "❌ Foundation base image build failed"
-            exit 1
-          fi
-          
-          echo "Building common-deps tier..."
-          if ! docker build -f containers/base/Dockerfile.multitier -t ai-content-farm-base:common-deps --target common-deps .; then
-            echo "❌ Common-deps base image build failed"
-            exit 1
-          fi
-          
-          echo "Building web-services tier..."
-          if ! docker build -f containers/base/Dockerfile.multitier -t ai-content-farm-base:web-services --target web-services .; then
-            echo "❌ Web-services base image build failed"
-            exit 1
-          fi
-          
-          echo "Building data-processing tier..."
-          if ! docker build -f containers/base/Dockerfile.multitier -t ai-content-farm-base:data-processing --target data-processing .; then
-            echo "❌ Data-processing base image build failed"
-            exit 1
-          fi
-          
-          echo "Building scheduler tier..."
-          if ! docker build -f containers/base/Dockerfile.multitier -t ai-content-farm-base:scheduler --target scheduler .; then
-            echo "❌ Scheduler base image build failed"
-            exit 1
-          fi
-          
-          echo "✅ All base images built successfully"
-
-          # Step 2: Build service containers (now they can find their base images)
-          echo "🔨 Building service containers..."
-          
-          for container_dir in containers/*/; do
-            container_name=$(basename "$container_dir")
-            
-            # Skip the base directory (not a service container)
-            if [ "$container_name" = "base" ]; then
-              continue
-            fi
-            
-            if [ -d "$container_dir" ] && [ -f "$container_dir/Dockerfile" ]; then
-              containers_tested=$((containers_tested + 1))
-
-              echo "🔨 Building $container_name..."
-
-              # Build from repo root with correct context for multi-tier strategy
-              if docker build -f "$container_dir/Dockerfile" -t "test-$container_name:latest" .; then
-                echo "✅ $container_name builds successfully"
-                # Clean up test image
-                docker rmi "test-$container_name:latest" || true
-              else
-                echo "❌ $container_name build failed"
-                build_failures=$((build_failures + 1))
-              fi
-            fi
-          done
-
-          echo "📊 Build Summary:"
-          echo "- Containers tested: $containers_tested"
-          echo "- Build failures: $build_failures"
-          echo "- Success rate: $(( (containers_tested - build_failures) * 100 / containers_tested ))%"
-
-          if [ "$build_failures" -gt 0 ]; then
-            echo "❌ $build_failures container(s) failed to build"
-            exit 1
-          else
-            echo "✅ All containers build successfully"
-          fi
+          echo "🎉 Container Build Validation Complete!"
+          echo "📊 ${{ steps.build-services.outputs.build-summary }}"
+          echo "🏗️ Base images built: ${{ steps.build-bases.outputs.base-images-built }}"
+          echo "🔨 Service containers built: ${{ steps.build-services.outputs.containers-built }}"
 
   # Quality Gate - Parallel Matrix of Quality Checks
   quality-gate:
@@ -400,6 +337,7 @@ jobs:
     environment: production
     outputs:
       deployment-url: ${{ steps.deploy.outputs.deployment-url }}
+      deployed-containers: ${{ steps.deploy.outputs.deployed-containers }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -416,48 +354,21 @@ jobs:
         with:
           terraform_version: "1.14.0"
 
-      - name: Deploy to Production
+      - name: Deploy to Azure Container Apps
         id: deploy
+        uses: ./.github/actions/deploy-to-azure
+        with:
+          azure-credentials: ${{ secrets.AZURE_CREDENTIALS }}
+          resource-group: 'ai-content-farm-core-rg'
+          acr-name: 'aicontentfarm76ko2hacr'
+          environment: 'production'
+          containers: 'all'
+
+      - name: Deployment Summary
         run: |
-          echo "Starting production deployment using Terraform and Azure Container Apps..."
-
-          # Deploy infrastructure and containers using existing deployment logic
-          echo "Deploying to production environment..."
-
-          # Switch to production workspace
-          cd infra
-          terraform workspace select production || terraform workspace new production
-
-          # Initialize if needed
-          if [ ! -d ".terraform" ]; then
-            terraform init
-          fi
-
-          # Plan and apply infrastructure changes
-          terraform plan -var="environment=production" -var="resource_prefix=ai-content-prod" -out=tfplan
-          terraform apply "tfplan"
-
-          # Deploy containers using the deployment script
-          echo "Deploying containers..."
-          cd ..
-          bash "scripts/deploy-containers.sh"
-
-          # Get the Container App URL
-          CONTAINER_APP_URL=$(az containerapp show \
-            --name "ai-content-farm-core-content-generator" \
-            --resource-group "ai-content-farm-core-rg" \
-            --query "properties.configuration.ingress.fqdn" \
-            -o tsv)
-
-          # Set the deployment URL output
-          if [ -n "$CONTAINER_APP_URL" ]; then
-            echo "deployment-url=https://$CONTAINER_APP_URL" >> "$GITHUB_OUTPUT"
-            echo "Production deployment completed successfully"
-            echo "Container App URL: https://$CONTAINER_APP_URL"
-          else
-            echo "Failed to get Container App URL"
-            exit 1
-          fi
+          echo "🎉 Production deployment completed successfully!"
+          echo "🌐 Deployment URL: ${{ steps.deploy.outputs.deployment-url }}"
+          echo "📦 Deployed containers: ${{ steps.deploy.outputs.deployed-containers }}"
 
   # Post-Deployment Tests
   post-deployment-tests:
