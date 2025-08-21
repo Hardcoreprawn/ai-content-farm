@@ -1,4 +1,5 @@
 # Security scan results and sensitive reports
+security-results/
 infra/*-results.json
 infra/security-summary.txt
 infra/deployment-report.txt
