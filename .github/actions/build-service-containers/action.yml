@@ -29,11 +29,11 @@ runs:
       shell: bash
       run: |
         echo "🔨 Building service containers with multi-tier strategy..."
-        
+
         build_failures=0
         containers_tested=0
         built_containers=""
-        
+
         # Determine which containers to build
         if [ "${{ inputs.containers }}" = "all" ]; then
           # Build all containers found in containers/ directory
@@ -52,16 +52,16 @@ runs:
         else
           container_list="${{ inputs.containers }}"
         fi
-        
+
         echo "📋 Containers to build: $container_list"
-        
+
         # Convert comma-separated list to array
         IFS=',' read -ra CONTAINERS <<< "$container_list"
-        
+
         # Build each container
         for container_name in "${CONTAINERS[@]}"; do
           container_dir="containers/$container_name"
-          
+
           # Determine which Dockerfile to use
           if [ "${{ inputs.use-production-dockerfiles }}" = "true" ]; then
             dockerfile_path="$container_dir/Dockerfile.production"
@@ -70,28 +70,28 @@ runs:
             dockerfile_path="$container_dir/Dockerfile"
             build_strategy="multi-tier"
           fi
-          
+
           if [ -d "$container_dir" ] && [ -f "$dockerfile_path" ]; then
             containers_tested=$((containers_tested + 1))
             echo "🔨 Building $container_name using $build_strategy..."
-            
+
             # Build from repo root with correct context
             if docker build -f "$dockerfile_path" -t "$container_name:latest" .; then
               echo "✅ $container_name builds successfully"
-              
+
               # Add to built containers list
               if [ -z "$built_containers" ]; then
                 built_containers="$container_name"
               else
                 built_containers="$built_containers,$container_name"
               fi
-              
+
               # Tag for registry if provided
               if [ -n "${{ inputs.registry }}" ]; then
                 docker tag $container_name:latest ${{ inputs.registry }}/$container_name:latest
                 echo "Tagged for registry: ${{ inputs.registry }}/$container_name:latest"
               fi
-              
+
               # Clean up test image (keep for deployment if registry provided)
               if [ -z "${{ inputs.registry }}" ]; then
                 docker rmi "$container_name:latest" || true
@@ -104,24 +104,24 @@ runs:
             echo "⚠️ Skipping $container_name - no Dockerfile found at $container_dir"
           fi
         done
-        
+
         # Generate summary
         success_rate=0
         if [ $containers_tested -gt 0 ]; then
           success_rate=$(( (containers_tested - build_failures) * 100 / containers_tested ))
         fi
-        
+
         summary="Containers tested: $containers_tested, Build failures: $build_failures, Success rate: $success_rate%"
-        
+
         echo "📊 Build Summary:"
         echo "- $summary"
-        
+
         if [ "$build_failures" -gt 0 ]; then
           echo "❌ $build_failures container(s) failed to build"
           exit 1
         else
           echo "✅ All containers build successfully"
         fi
-        
+
         echo "containers=$built_containers" >> $GITHUB_OUTPUT
         echo "summary=$summary" >> $GITHUB_OUTPUT

@@ -35,126 +35,126 @@ runs:
       uses: azure/login@v1
       with:
         creds: ${{ inputs.azure-credentials }}
-    
+
     - name: Build and Push Base Images
       shell: bash
       run: |
         echo "🏗️ Building and pushing multi-tier base images to ACR..."
-        
+
         # Get ACR login server
         ACR_LOGIN_SERVER=$(az acr show --name ${{ inputs.acr-name }} --resource-group ${{ inputs.resource-group }} --query loginServer -o tsv)
         echo "📋 ACR Login Server: $ACR_LOGIN_SERVER"
-        
+
         # Login to ACR
         az acr login --name ${{ inputs.acr-name }}
-        
+
         # Build and push base images
         base_images=("foundation" "common-deps" "web-services" "data-processing" "scheduler")
-        
+
         for tier in "${base_images[@]}"; do
           echo "Building and pushing $tier base image..."
-          
+
           # Build base image
           docker build -f containers/base/Dockerfile.multitier \
             -t ai-content-farm-base:$tier \
             --target $tier .
-          
+
           # Tag for ACR
           docker tag ai-content-farm-base:$tier $ACR_LOGIN_SERVER/ai-content-farm-base:$tier
-          
+
           # Push to ACR
           docker push $ACR_LOGIN_SERVER/ai-content-farm-base:$tier
-          
+
           echo "✅ $tier base image pushed to ACR"
         done
-    
+
     - name: Build and Push Service Containers
       shell: bash
       run: |
         echo "🔨 Building and pushing service containers..."
-        
+
         ACR_LOGIN_SERVER=$(az acr show --name ${{ inputs.acr-name }} --resource-group ${{ inputs.resource-group }} --query loginServer -o tsv)
-        
+
         # Determine which containers to deploy
         if [ "${{ inputs.containers }}" = "all" ]; then
           CONTAINERS=("content-generator" "content-enricher" "content-processor" "content-ranker" "markdown-generator" "site-generator" "content-collector" "collector-scheduler")
         else
           IFS=',' read -ra CONTAINERS <<< "${{ inputs.containers }}"
         fi
-        
+
         for container in "${CONTAINERS[@]}"; do
           echo "Building and pushing $container..."
-          
+
           # Build from repo root with correct context
           docker build -f containers/$container/Dockerfile -t $container:latest .
-          
-          # Tag for ACR  
+
+          # Tag for ACR
           docker tag $container:latest $ACR_LOGIN_SERVER/$container:latest
-          
+
           # Push to ACR
           docker push $ACR_LOGIN_SERVER/$container:latest
-          
+
           echo "✅ $container pushed to ACR"
         done
-    
+
     - name: Deploy Infrastructure
       shell: bash
       run: |
         echo "📦 Deploying infrastructure with Terraform..."
         cd infra
-        
+
         # Initialize Terraform if needed
         if [ ! -d ".terraform" ]; then
           terraform init
         fi
-        
+
         # Select workspace
         terraform workspace select ${{ inputs.environment }} || terraform workspace new ${{ inputs.environment }}
-        
+
         # Plan and apply
         terraform plan -var="environment=${{ inputs.environment }}" -out=tfplan
         terraform apply tfplan
-        
+
         echo "✅ Infrastructure deployed"
-    
+
     - name: Update Container Apps
       id: deploy
       shell: bash
       run: |
         echo "🔄 Updating Container Apps..."
-        
+
         ACR_LOGIN_SERVER=$(az acr show --name ${{ inputs.acr-name }} --resource-group ${{ inputs.resource-group }} --query loginServer -o tsv)
         deployed_containers=""
-        
+
         # For now, just update content-generator (expand this as more container apps are defined)
         containers_to_update=("content-generator")
-        
+
         for container in "${containers_to_update[@]}"; do
           echo "Updating $container container app..."
-          
+
           az containerapp update \
             --name "ai-content-farm-core-$container" \
             --resource-group ${{ inputs.resource-group }} \
             --image $ACR_LOGIN_SERVER/$container:latest
-          
+
           echo "✅ $container container app updated"
-          
+
           if [ -z "$deployed_containers" ]; then
             deployed_containers="$container"
           else
             deployed_containers="$deployed_containers,$container"
           fi
         done
-        
+
         # Get deployment URL
         DEPLOYMENT_URL=$(az containerapp show \
           --name "ai-content-farm-core-content-generator" \
           --resource-group ${{ inputs.resource-group }} \
           --query "properties.configuration.ingress.fqdn" \
           -o tsv)
-        
+
         echo "🌐 Deployment URL: https://$DEPLOYMENT_URL"
         echo "📊 Deployed containers: $deployed_containers"
-        
+
         echo "url=https://$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
         echo "containers=$deployed_containers" >> $GITHUB_OUTPUT

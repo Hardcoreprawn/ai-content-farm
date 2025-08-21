@@ -18,34 +18,34 @@ runs:
       shell: bash
       run: |
         echo "🏗️ Building multi-tier base images..."
-        
+
         # Track built images
         built_images=""
-        
+
         # Build each tier in dependency order
         base_images=(
           "foundation"
-          "common-deps" 
+          "common-deps"
           "web-services"
           "data-processing"
           "scheduler"
         )
-        
+
         for tier in "${base_images[@]}"; do
           echo "Building $tier tier..."
-          
+
           if docker build -f containers/base/Dockerfile.multitier \
              -t ai-content-farm-base:$tier \
              --target $tier .; then
             echo "✅ $tier base image built successfully"
-            
+
             # Add to built images list
             if [ -z "$built_images" ]; then
               built_images="ai-content-farm-base:$tier"
             else
               built_images="$built_images,ai-content-farm-base:$tier"
             fi
-            
+
             # Tag for registry if provided
             if [ -n "${{ inputs.registry }}" ]; then
               docker tag ai-content-farm-base:$tier ${{ inputs.registry }}/ai-content-farm-base:$tier
@@ -56,6 +56,6 @@ runs:
             exit 1
           fi
         done
-        
+
         echo "✅ All base images built successfully: $built_images"
         echo "images=$built_images" >> $GITHUB_OUTPUT

@@ -48,11 +48,11 @@ runs:
       shell: bash
       run: |
         echo "🚀 Building and pushing all containers using production Dockerfiles..."
-        
+
         # Define containers to deploy with their specific Dockerfile requirements
         declare -A CONTAINERS=(
           ["content-generator"]="web"
-          ["content-enricher"]="web" 
+          ["content-enricher"]="web"
           ["content-processor"]="web"
           ["content-ranker"]="web"
           ["markdown-generator"]="web"
@@ -60,25 +60,25 @@ runs:
           ["content-collector"]="data"
           ["collector-scheduler"]="scheduler"
         )
-        
+
         deployed_containers=""
-        
+
         for container in "${!CONTAINERS[@]}"; do
           echo "🏗️ Building and pushing $container..."
-          
+
           # Build using production Dockerfile (self-contained)
           docker build -f containers/$container/Dockerfile.production -t $container:${{ inputs.environment }} .
-          
+
           # Tag for ACR
           docker tag $container:${{ inputs.environment }} $ACR_LOGIN_SERVER/$container:${{ inputs.environment }}
-          
+
           # Push to ACR
           docker push $ACR_LOGIN_SERVER/$container:${{ inputs.environment }}
-          
+
           echo "✅ $container pushed to ACR"
           deployed_containers="$deployed_containers $container"
         done
-        
+
         echo "containers=$deployed_containers" >> $GITHUB_OUTPUT
         echo "✅ All containers pushed to ACR"
 
@@ -86,7 +86,7 @@ runs:
       shell: bash
       run: |
         echo "🔄 Updating Container Apps..."
-        
+
         # For now, update the main content-generator app
         # TODO: Expand to handle all container apps when Terraform defines them
         if az containerapp show --name "ai-content-farm-core-content-generator" --resource-group ${{ inputs.resource-group }} >/dev/null 2>&1; then
