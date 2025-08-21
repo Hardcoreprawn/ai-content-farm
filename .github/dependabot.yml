@@ -15,23 +15,23 @@
 version: 2
 updates:
   # Python dependencies - main workspace
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-    labels:
-      - "dependencies"
-      - "python"
-    reviewers:
-      - "Hardcoreprawn"
-    assignees:
-      - "Hardcoreprawn"
-    open-pull-requests-limit: 15
-    # Enable auto-merge for security and patch updates
-    pull-request-branch-name:
-      separator: "/"
+  # - package-ecosystem: "pip"
+  #   directory: "/"
+  #   schedule:
+  #     interval: "weekly"
+  #     day: "monday"
+  #     time: "06:00"
+  #   labels:
+  #     - "dependencies"
+  #     - "python"
+  #   reviewers:
+  #     - "Hardcoreprawn"
+  #   assignees:
+  #     - "Hardcoreprawn"
+  #   open-pull-requests-limit: 15
+  #   # Enable auto-merge for security and patch updates
+  #   pull-request-branch-name:
+  #     separator: "/"
 
   # Python dependencies - container services
   - package-ecosystem: "pip"
