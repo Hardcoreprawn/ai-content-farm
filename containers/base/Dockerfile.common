@@ -1,0 +1,43 @@
+# AI Content Farm - Common Base Image
+# This consolidates shared dependencies across all containers
+FROM python:3.11-slim AS base-common
+
+# Create non-root user (consistent across all containers)
+RUN groupadd -g 1000 appuser && \
+    useradd -u 1000 -g appuser -m -s /bin/bash appuser
+
+# Install common system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install COMMON dependencies that appear in 3+ containers
+# This eliminates the majority of dependabot churn
+COPY containers/base/requirements-common.txt .
+RUN pip install --no-cache-dir -r requirements-common.txt
+
+# Install shared libs package (used by most containers)
+COPY libs /app/libs
+RUN pip install --no-cache-dir /app/libs
+
+# Create optimized Azure Functions variant
+FROM mcr.microsoft.com/azure-functions/python:4-python3.11-slim AS base-azure-functions
+
+# Copy everything from common base
+COPY --from=base-common /usr/local /usr/local
+COPY --from=base-common /app /app
+
+# Create non-root user (consistent with common base)
+RUN groupadd -g 1000 appuser && \
+    useradd -u 1000 -g appuser -m -s /bin/bash appuser
+
+WORKDIR /app
+
+# Default target for most containers
+FROM base-common AS final
+USER appuser
+EXPOSE 8000

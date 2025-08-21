@@ -1,0 +1,19 @@
+# Example: Updated Content Generator Dockerfile
+# Shows how containers become MUCH simpler with common base
+
+# Use our common base image with all shared dependencies pre-installed
+FROM ai-content-farm/base:latest
+
+# Only install SPECIFIC dependencies for this container
+COPY containers/content-generator/requirements-specific.txt .
+RUN pip install --no-cache-dir -r requirements-specific.txt
+
+# Copy application code
+COPY containers/content-generator/ .
+
+# Switch to non-root user (already created in base)
+USER appuser
+
+# Set container-specific environment
+ENV PYTHONPATH=/app
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

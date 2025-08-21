@@ -1,0 +1,98 @@
+# A/B Testing & Versioning Strategy
+# Enables safe deployment and performance comparison
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # LOAD BALANCER: Routes traffic for A/B testing
+  # =============================================================================
+  load-balancer:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx-ab-config.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - content-generator-v1
+      - content-generator-v2
+      - content-generator-experimental
+
+  # =============================================================================
+  # PRODUCTION VERSION (50% traffic)
+  # =============================================================================
+  content-generator-v1:
+    build:
+      context: .
+      dockerfile: containers/content-generator/Dockerfile
+      target: web-services # Uses multi-tier base
+    environment:
+      - VERSION=v1.2.3
+      - AI_MODEL=gpt-4
+      - TRAFFIC_SPLIT=production
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # A/B TEST VERSION (30% traffic)  
+  # =============================================================================
+  content-generator-v2:
+    build:
+      context: .
+      dockerfile: containers/content-generator/Dockerfile
+      target: web-services # Same base, different config
+    environment:
+      - VERSION=v1.3.0
+      - AI_MODEL=claude-3-5-sonnet
+      - TRAFFIC_SPLIT=ab-test
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # EXPERIMENTAL VERSION (20% traffic)
+  # =============================================================================
+  content-generator-experimental:
+    build:
+      context: .
+      dockerfile: containers/content-generator/Dockerfile.experimental
+      target: web-services # Same base, experimental code
+    environment:
+      - VERSION=v1.4.0-beta
+      - AI_MODEL=gpt-4-experimental
+      - TRAFFIC_SPLIT=experimental
+      - ENABLE_FEATURE_FLAGS=true
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # =============================================================================
+  # MONITORING: Compare performance across versions
+  # =============================================================================
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards

@@ -1,0 +1,80 @@
+# AI Content Farm - Enhanced Multi-Tier Base Strategy
+# Reduces toil, improves security, enables A/B testing
+
+# =============================================================================
+# TIER 1: Foundation Base (ai-content-farm-base)
+# Contains: System deps, Python runtime, security baseline
+# =============================================================================
+FROM python:3.11-slim AS foundation
+
+# Create non-root user (security best practice)
+RUN groupadd -g 1000 appuser && \
+    useradd -u 1000 -g appuser -m -s /bin/bash appuser
+
+# Install system dependencies (common across ALL containers)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    git \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Security: Update certificates and Python
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# =============================================================================
+# TIER 2: Common Dependencies (ai-content-farm-common)
+# Contains: Shared Python packages, testing framework, Azure SDK
+# =============================================================================
+FROM foundation AS common-deps
+
+WORKDIR /app
+
+# Install CORE dependencies (used by 5+ containers)
+# Single point of maintenance for major dependencies
+COPY containers/base/requirements-core.txt .
+RUN pip install --no-cache-dir -r requirements-core.txt
+
+# Install shared libs package
+COPY libs /app/libs
+RUN pip install --no-cache-dir /app/libs
+
+# =============================================================================
+# TIER 3A: Web Services Specialization
+# Contains: Web-specific deps (FastAPI, HTTP utilities)
+# =============================================================================
+FROM common-deps AS web-services
+
+COPY containers/base/requirements-web.txt .
+RUN pip install --no-cache-dir -r requirements-web.txt
+
+USER appuser
+EXPOSE 8000
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# =============================================================================
+# TIER 3B: Data Processing Specialization  
+# Contains: Data processing, ML, async processing tools
+# =============================================================================
+FROM common-deps AS data-processing
+
+COPY containers/base/requirements-data.txt .
+RUN pip install --no-cache-dir -r requirements-data.txt
+
+USER appuser
+
+# =============================================================================
+# TIER 3C: Scheduler Specialization
+# Contains: Scheduling, monitoring, lightweight processing
+# =============================================================================
+FROM common-deps AS scheduler
+
+COPY containers/base/requirements-scheduler.txt .
+RUN pip install --no-cache-dir -r requirements-scheduler.txt
+
+USER appuser
+
+# =============================================================================
+# DEFAULT TARGET: Most containers use web-services
+# =============================================================================
+FROM web-services AS final

@@ -1,0 +1,32 @@
+# Common dependencies across ALL containers
+# This file consolidates dependencies that appear in 3+ containers
+# Updating this file affects ALL containers - single point of maintenance
+
+# Core API Framework (used in 7/8 containers)
+fastapi==0.116.1
+uvicorn[standard]==0.35.0  # Recently updated via parallel processing
+pydantic==2.11.7           # Recently updated via parallel processing
+
+# HTTP & Networking (used in 5+ containers) 
+httpx==0.28.1              # Recently updated via parallel processing
+requests==2.32.5           # Recently updated via parallel processing
+python-multipart==0.0.20   # Recently updated via parallel processing
+
+# Azure SDK (used in 4+ containers)
+azure-identity==1.24.0     # Recently updated via parallel processing
+azure-storage-blob==12.26.0
+azure-keyvault-secrets==4.10.0  # Recently updated via parallel processing
+
+# Development & Testing (used in 8/8 containers)
+pytest==8.4.1             # Recently updated via parallel processing
+pytest-asyncio==1.1.0     # Recently updated via parallel processing
+pytest-cov==4.1.0
+black==25.1.0
+mypy==1.7.1
+types-requests==2.31.0.10
+
+# Utilities (used in 3+ containers)
+python-dateutil==2.8.2
+
+# RSS/Feed Processing (content-collector specific but small)
+feedparser==6.0.11        # Recently updated via parallel processing

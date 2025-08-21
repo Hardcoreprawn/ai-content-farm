@@ -1,0 +1,26 @@
+# CORE dependencies - Foundation layer (ALL containers inherit these)
+# Update this file = Update ALL containers at once
+# Reduces dependency PRs from 38 to ~8-10 total
+
+# Python Runtime & Packaging
+pip==24.3.1
+setuptools==75.6.0
+wheel==0.45.0
+
+# Testing Framework (used by ALL containers)
+pytest==8.4.1
+pytest-asyncio==1.1.0
+pytest-cov==4.1.0
+
+# Code Quality (used by ALL containers)
+black==25.1.0
+mypy==1.7.1
+
+# Azure Core (used by 6+ containers)
+azure-core==1.32.0
+azure-identity==1.24.0
+azure-storage-blob==12.26.0
+
+# Utilities (used by 4+ containers)
+python-dateutil==2.8.2
+python-json-logger==2.0.7
