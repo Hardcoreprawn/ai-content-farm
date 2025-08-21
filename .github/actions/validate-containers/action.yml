@@ -23,11 +23,12 @@ runs:
   steps:
     - name: Validate container builds
       id: validate
-      shell: bash
+      shell: bash {0}
       env:
         CONTAINERS_CHANGED: ${{ inputs.containers-changed }}
         FAIL_FAST: ${{ inputs.fail-fast }}
       run: |
+        set +e  # Disable exit on error for better control
         echo "🐳 Validating container builds..."
 
         # Determine which containers to test
@@ -55,7 +56,7 @@ runs:
             echo "Running: docker build --check '$container_path'"
             if docker build --check "$container_path" > /dev/null 2>&1; then
               echo "✅ $container_name: Build validation passed"
-              passed_containers=$((passed_containers + 1))
+              passed_containers=$((passed_containers + 1)) || true
             else
               echo "❌ $container_name: Build validation failed"
               echo "Error details for $container_name:"
