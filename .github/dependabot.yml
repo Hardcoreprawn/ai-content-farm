@@ -1,11 +1,132 @@
-# To get started with Dependabot version updates, you'll need to specify which
-# package ecosystems to update and where the package manifests are located.
-# Please see the documentation for all configuration options:
+# Dependabot configuration for AI Content Farm
+# Works in conjunction with our security scanning stack (Safety, Semgrep, Trivy, Checkov)
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
 updates:
-  - package-ecosystem: "pip" # See documentation for possible values
-    directory: "/" # Location of package manifests
+  # Python dependencies - main workspace
+  - package-ecosystem: "pip"
+    directory: "/"
     schedule:
       interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "python"
+    reviewers:
+      - "Hardcoreprawn"
+    assignees:
+      - "Hardcoreprawn"
+    open-pull-requests-limit: 10
+
+  # Python dependencies - container services
+  - package-ecosystem: "pip"
+    directory: "/containers/content-collector"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "python"
+      - "content-collector"
+
+  - package-ecosystem: "pip"
+    directory: "/containers/content-processor"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "python"
+      - "content-processor"
+
+  - package-ecosystem: "pip"
+    directory: "/containers/content-enricher"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "python"
+      - "content-enricher"
+
+  - package-ecosystem: "pip"
+    directory: "/containers/content-ranker"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "python"
+      - "content-ranker"
+
+  - package-ecosystem: "pip"
+    directory: "/containers/content-generator"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "python"
+      - "content-generator"
+
+  - package-ecosystem: "pip"
+    directory: "/containers/markdown-generator"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "python"
+      - "markdown-generator"
+
+  - package-ecosystem: "pip"
+    directory: "/containers/site-generator"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "python"
+      - "site-generator"
+
+  - package-ecosystem: "pip"
+    directory: "/containers/collector-scheduler"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "python"
+      - "collector-scheduler"
+
+  # Docker base images
+  - package-ecosystem: "docker"
+    directory: "/containers"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+      day: "monday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "github-actions"

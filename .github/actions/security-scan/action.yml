@@ -89,7 +89,7 @@ runs:
             pyupio/safety:latest check --json --file "/workspace/$req_file" \
             > "security-results/safety-${container_name}.json" 2>/dev/null || true
         done
-        
+
         # Note: Bandit removed - Semgrep provides superior Python security analysis
         # with broader language support and more comprehensive rule sets
 
@@ -128,7 +128,7 @@ runs:
         semgrep_critical=0
         safety_critical=0
         checkov_critical=0
-        
+
         total_critical=0
         total_high=0
         total_medium=0
@@ -211,7 +211,7 @@ runs:
         if [ -f "security-results/checkov.sarif" ] || [ -f "security-results/checkov.sarif/results_sarif.sarif" ]; then
           checkov_file="security-results/checkov.sarif/results_sarif.sarif"
           [ ! -f "$checkov_file" ] && checkov_file="security-results/checkov.sarif"
-          
+
           if [ -f "$checkov_file" ]; then
             checkov_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' "$checkov_file" 2>/dev/null | wc -l)" || checkov_critical="0"
             checkov_high="$(jq -r '.runs[0].results[] | select(.level == "warning") | .ruleId' "$checkov_file" 2>/dev/null | wc -l)" || checkov_high="0"
@@ -261,7 +261,7 @@ runs:
 
         ## Overall Results
         - **Critical**: $total_critical
-        - **High**: $total_high  
+        - **High**: $total_high
         - **Medium**: $total_medium
 
         ## Results by Scan Tool
@@ -270,7 +270,7 @@ runs:
         - **Trivy Infrastructure**: $trivy_infra_critical critical findings
         - **Checkov IaC**: $checkov_critical critical findings
 
-        ### Container Security  
+        ### Container Security
         - **Trivy Containers**: $trivy_container_critical critical findings across all containers
 
         ### Code Security
@@ -301,10 +301,10 @@ runs:
         ## Scans Performed
         - ✅ **Trivy** - Infrastructure & Container security scanning
         - ✅ **Semgrep** - Static Application Security Testing (includes Python security)
-        - ✅ **Safety** - Python dependency vulnerability detection  
+        - ✅ **Safety** - Python dependency vulnerability detection
         - ✅ **Checkov** - Infrastructure as Code compliance & best practices
         - ✅ **SBOM Analysis** - Software Bill of Materials generation
-        
+
         *Note: Bandit removed in favor of Semgrep's superior Python security coverage*
         EOF
 

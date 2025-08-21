@@ -2,7 +2,18 @@
 
 This document explains our security scanning tool choices and why certain tools were selected or removed.
 
-## Current Security Stack (4 Core Tools)
+## Current Security Stack (4 Core Tools + Dependabot)
+
+### 🔄 **Proactive Dependency Management**
+
+#### **GitHub Dependabot** ✅ ESSENTIAL
+- **Purpose**: Automated dependency updates and vulnerability alerts
+- **Unique Value**:
+  - Proactive weekly dependency updates
+  - Automated PR creation for security patches
+  - Multi-ecosystem support (Python, Docker, GitHub Actions)
+  - GitHub security advisory integration
+- **Complements our stack**: Prevents vulnerabilities vs. detecting existing ones
 
 ### 🛡️ **Infrastructure & Container Security**
 
@@ -60,27 +71,48 @@ This document explains our security scanning tool choices and why certain tools 
 
 ## Tool Coverage Matrix
 
-| Security Area | Primary Tool | Secondary/Complement | Coverage Gap |
-|---------------|--------------|---------------------|--------------|
-| Container Vulnerabilities | Trivy | - | None |
+| Security Area | Primary Tool | Secondary/Complement | Proactive Prevention |
+|---------------|--------------|---------------------|---------------------|
+| Dependency Updates | Dependabot | Safety (detection) | ✅ Automated PRs |
+| Container Vulnerabilities | Trivy | Dependabot (base images) | ✅ Monthly Docker updates |
 | Infrastructure Misconfig | Trivy | Checkov (compliance) | None |
 | Code Security Patterns | Semgrep | - | None |
-| Python Dependencies | Safety | Trivy (containers) | None |
+| Python Dependencies | Safety | Dependabot + Trivy | ✅ Weekly updates |
 | Compliance/Best Practices | Checkov | - | None |
 | SBOM Generation | Trivy | - | None |
+| GitHub Actions Security | - | Dependabot | ✅ Monthly updates |
 
-## Scan Performance Benefits
+## Enhanced Security Workflow
 
-**Before (5 tools)**: Trivy + Checkov + Semgrep + Safety + Bandit
-- Average scan time: ~8-10 minutes
-- Tool overlap: Bandit + Semgrep both scanning Python code
-- Maintenance overhead: 5 tool configurations
+### **Weekly Dependabot Cycle:**
+```
+Monday 06:00 UTC
+├── Dependabot scans for updates
+├── Creates PRs for outdated packages  
+├── Our CI/CD triggers on PR
+├── Security scans run automatically
+├── Safety validates no new vulnerabilities
+├── Semgrep checks usage patterns remain secure
+└── Auto-merge if all scans pass
+```
 
-**After (4 tools)**: Trivy + Checkov + Semgrep + Safety  
-- Average scan time: ~6-8 minutes
-- No tool overlap: Each tool has unique coverage area
-- Maintenance overhead: 4 tool configurations
-- **Result**: 20-25% faster scans with same security coverage
+### **Developer Commit Cycle:**
+```
+Developer pushes code
+├── Security scans run (all 4 tools)
+├── Vulnerabilities detected → Block merge
+├── Clean scan → Merge approved
+└── Dependabot likely has updates ready for any issues
+```
+
+### **Vulnerability Response:**
+```
+New CVE published
+├── Safety detects in next scan
+├── Developer gets immediate alert
+├── Dependabot already has update PR ready
+└── Quick resolution cycle
+```
 
 ## Decision Criteria
 
