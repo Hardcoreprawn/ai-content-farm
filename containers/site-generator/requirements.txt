@@ -1,5 +1,5 @@
 # Core FastAPI dependencies
-fastapi==0.104.1
+fastapi==0.116.1
 uvicorn[standard]==0.24.0
 pydantic==2.4.2
 python-multipart==0.0.18
