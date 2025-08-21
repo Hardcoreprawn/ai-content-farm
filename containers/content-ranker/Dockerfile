@@ -1,4 +1,5 @@
-FROM mcr.microsoft.com/azure-functions/python:4-python3.11-slim
+# Standard Python base image (migrated from Azure Functions)
+FROM python:3.11-slim
 
 # Create non-root user for security
 RUN groupadd -g 1000 appuser && \

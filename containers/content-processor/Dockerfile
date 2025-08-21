@@ -1,5 +1,5 @@
-# Multi-stage build for efficiency using Microsoft's official Azure Functions Python base
-FROM mcr.microsoft.com/azure-functions/python:4-python3.11-slim AS builder
+# Multi-stage build for efficiency using standard Python base
+FROM python:3.11-slim AS builder
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -12,8 +12,8 @@ WORKDIR /app
 COPY containers/content-processor/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Production stage using Microsoft's official Azure Functions Python base
-FROM mcr.microsoft.com/azure-functions/python:4-python3.11-slim
+# Production stage using standard Python base
+FROM python:3.11-slim
 
 # Create non-root user
 RUN groupadd -g 1000 appuser && \
