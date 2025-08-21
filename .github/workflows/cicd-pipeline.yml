@@ -24,7 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Validate Workflows
         uses: ./.github/actions/lint-workflows
@@ -37,7 +37,7 @@ jobs:
     if: always() && needs.workflow-validation.result != 'failure'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Test All Container Builds
         run: |
@@ -94,7 +94,7 @@ jobs:
       quality-passed: ${{ steps.quality-check.outputs.passed }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python (for quality checks)
         if: matrix.check-type == 'code-quality' || matrix.check-type == 'dependency-check'
@@ -222,7 +222,7 @@ jobs:
     needs: quality-gate-summary
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Analyze Infrastructure Costs
         uses: ./.github/actions/cost-analysis
@@ -237,7 +237,7 @@ jobs:
     needs: quality-gate-summary
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Analyze Dependencies
         run: |
@@ -271,7 +271,7 @@ jobs:
       fail-fast: false  # Continue testing other containers even if one fails
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -295,7 +295,7 @@ jobs:
     if: always() && needs.container-tests.result != 'cancelled'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Download All Test Results
         uses: actions/download-artifact@v5
@@ -340,7 +340,7 @@ jobs:
   #   if: always() && (needs.quality-gate-summary.result == 'success' || needs.quality-gate-summary.result == 'failure')
   #   steps:
   #     - name: Checkout code
-  #       uses: actions/checkout@v4
+  #       uses: actions/checkout@v5
   #
   #     - name: AI Security Review
   #       uses: ./.github/actions/ai-review-security
@@ -357,7 +357,7 @@ jobs:
       deployment-url: ${{ steps.deploy.outputs.deployment-url }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Azure Login via OIDC
         uses: azure/login@v2
@@ -422,7 +422,7 @@ jobs:
     if: needs.production-deployment.result == 'success'
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Health Check
         run: |
