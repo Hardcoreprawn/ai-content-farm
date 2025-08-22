@@ -121,7 +121,7 @@ jobs:
   security-trivy:
     name: Trivy Security Scan
     runs-on: ubuntu-latest
-    needs: workflow-validation
+    needs: [workflow-validation, change-detection]
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -184,11 +184,48 @@ jobs:
       - name: Run Checkov Scan
         uses: ./.github/actions/security-checkov
 
-  security-scanning:
-    name: Security Results Summary
+  code-quality:
+    name: Code Quality
     runs-on: ubuntu-latest
-    needs: [security-trivy, security-semgrep, security-python, security-sbom, security-checkov]
-    if: always()
+    needs: [workflow-validation, change-detection]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Run Code Quality Checks
+        uses: ./.github/actions/code-quality
+
+  dependency-analysis:
+    name: Dependency Analysis
+    runs-on: ubuntu-latest
+    needs: [workflow-validation, change-detection]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Run Dependency Security Analysis
+        uses: ./.github/actions/dependency-analysis
+
+  cost-analysis:
+    name: Cost Analysis
+    runs-on: ubuntu-latest
+    needs: [workflow-validation, change-detection]
+    if: needs.change-detection.outputs.infra-changed == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Analyze Infrastructure Costs
+        uses: ./.github/actions/cost-analysis
+        with:
+          infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
+          comment-on-pr: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+
+  # Stage 5: Quality & Security Summary
+  quality-gate-summary:
+    name: Quality & Security Gate Summary
+    runs-on: ubuntu-latest
+    needs: [security-trivy, security-semgrep, security-python, security-sbom, security-checkov, code-quality, infrastructure-quality, dependency-analysis, cost-analysis]
+    if: always() && !cancelled()
+    outputs:
+      passed: ${{ steps.evaluate.outputs.passed }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -200,38 +237,6 @@ jobs:
           python-result: ${{ needs.security-python.result }}
           sbom-result: ${{ needs.security-sbom.result }}
           checkov-result: ${{ needs.security-checkov.result }}
-
-  code-quality:
-    name: Code Quality
-    runs-on: ubuntu-latest
-    needs: workflow-validation
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Run Code Quality Checks
-        uses: ./.github/actions/code-quality
-
-  dependency-analysis:
-    name: Dependency Analysis
-    runs-on: ubuntu-latest
-    needs: workflow-validation
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Run Dependency Security Analysis
-        uses: ./.github/actions/dependency-analysis
-
-  # Stage 5: Quality Gate Summary
-  quality-gate-summary:
-    name: Quality Gate Summary
-    runs-on: ubuntu-latest
-    needs: [security-trivy, security-semgrep, security-python, security-sbom, security-checkov, security-scanning, code-quality, infrastructure-quality, dependency-analysis, cost-analysis]
-    if: always() && !cancelled()
-    outputs:
-      passed: ${{ steps.evaluate.outputs.passed }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
       - name: Evaluate Quality Gates
         id: evaluate
         uses: ./.github/actions/evaluate-quality-gates
@@ -301,22 +306,7 @@ jobs:
             exit 1
           fi
 
-  # Stage 8: Cost Analysis (for infrastructure changes)
-  cost-analysis:
-    name: Cost Analysis
-    runs-on: ubuntu-latest
-    needs: [workflow-validation, change-detection]
-    if: needs.change-detection.outputs.infra-changed == 'true'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Analyze Infrastructure Costs
-        uses: ./.github/actions/cost-analysis
-        with:
-          infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
-          comment-on-pr: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
-
-  # Stage 9: Deployment (Production Only)
+  # Stage 8: Deployment (Production Only)
   deployment:
     name: Deploy to Production
     runs-on: ubuntu-latest
@@ -350,7 +340,7 @@ jobs:
           environment: production
           containers: ${{ needs.container-build.outputs.service-containers || 'all' }}
 
-  # Stage 10: Post-Deployment Tests
+  # Stage 9: Post-Deployment Tests
   post-deployment:
     name: Post-Deployment Validation
     runs-on: ubuntu-latest
