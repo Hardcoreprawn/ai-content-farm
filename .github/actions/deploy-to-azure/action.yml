@@ -151,8 +151,14 @@ runs:
         for container in "${containers_to_update[@]}"; do
           echo "Updating $container container app..."
 
+          # Use correct naming convention from Terraform
+          app_name="ai-content-dev-content-gen"
+          if [ "$container" = "content-generator" ]; then
+            app_name="ai-content-dev-content-gen"
+          fi
+
           az containerapp update \
-            --name "ai-content-farm-core-$container" \
+            --name "$app_name" \
             --resource-group "$RESOURCE_GROUP" \
             --image $ACR_LOGIN_SERVER/$container:latest
 
@@ -165,15 +171,18 @@ runs:
           fi
         done
 
-        # Get deployment URL
+        # Get deployment URL using correct container app name
         DEPLOYMENT_URL=$(az containerapp show \
-          --name "ai-content-farm-core-content-generator" \
+          --name "ai-content-dev-content-gen" \
           --resource-group "$RESOURCE_GROUP" \
           --query "properties.configuration.ingress.fqdn" \
           -o tsv)
 
-        echo "[URL] Deployment URL: https://$DEPLOYMENT_URL"
-        echo "[STATS] Deployed containers: $deployed_containers"
-
-        echo "url=https://$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+        if [ -n "$DEPLOYMENT_URL" ]; then
+          echo "[SUCCESS] 🌐 Website URL: https://$DEPLOYMENT_URL"
+          echo "url=https://$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
+        else
+          echo "[WARNING] Could not retrieve deployment URL"
+          echo "url=" >> $GITHUB_OUTPUT
+        fi
         echo "containers=$deployed_containers" >> $GITHUB_OUTPUT

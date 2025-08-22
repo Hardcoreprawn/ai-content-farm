@@ -22,6 +22,7 @@ permissions:
   issues: write
   actions: read
   checks: write
+  id-token: write  # Required for Azure OIDC authentication
 
 env:
   DOCKER_BUILDKIT: 1
