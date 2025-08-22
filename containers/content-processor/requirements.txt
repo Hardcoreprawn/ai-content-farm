@@ -1,25 +1,25 @@
 # Core web framework
-fastapi==0.116.1
-uvicorn[standard]==0.24.0
+fastapi~=0.116.1
+uvicorn[standard]~=0.24.0
 
 # Data processing
-pydantic==2.5.0
-python-dateutil==2.8.2
+pydantic~=2.5.0
+python-dateutil~=2.8.2
 
 # HTTP client for health checks
-requests==2.32.5
+requests~=2.32.5
 
 # Azure integration
-azure-keyvault-secrets==4.10.0
-azure-storage-blob==12.19.0
-azure-identity==1.24.0
+azure-keyvault-secrets~=4.10.0
+azure-storage-blob~=12.19.0
+azure-identity~=1.24.0
 
 # Testing
-pytest==8.4.1
-pytest-asyncio==1.1.0
-httpx==0.28.1  # For TestClient
+pytest~=8.4.1
+pytest-asyncio~=1.1.0
+httpx~=0.28.1  # For TestClient
 
 # Development
-black==25.1.0
-isort==5.12.0
-mypy==1.7.1
+black~=25.1.0
+isort~=5.12.0
+mypy~=1.7.1

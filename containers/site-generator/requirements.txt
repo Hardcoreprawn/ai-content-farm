@@ -1,20 +1,20 @@
 # Core FastAPI dependencies
-fastapi==0.116.1
-uvicorn[standard]==0.35.0
-pydantic==2.11.7
-python-multipart==0.0.18
+fastapi~=0.116.1
+uvicorn[standard]~=0.35.0
+pydantic~=2.11.7
+python-multipart~=0.0.18
 
 # Azure dependencies
-azure-storage-blob==12.26.0
-azure-core==1.29.5
-azure-identity==1.24.0
+azure-storage-blob~=12.26.0
+azure-core~=1.29.5
+azure-identity~=1.24.0
 
 # HTTP client
-httpx==0.28.1
+httpx~=0.28.1
 
 # Template engine for HTML generation
 # Template engine for HTML generation
-jinja2==3.1.6
+jinja2~=3.1.6
 
 # Utilities
-python-dateutil==2.8.2
+python-dateutil~=2.8.2

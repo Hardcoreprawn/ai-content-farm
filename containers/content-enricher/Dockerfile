@@ -14,11 +14,11 @@ WORKDIR /app
 
 # 1. Install common dependencies first (highest cache hit rate)
 COPY containers/base/requirements-common.txt /tmp/
-RUN pip install --no-cache-dir -r /tmp/requirements-common.txt
+RUN pip install -r /tmp/requirements-common.txt
 
 # 2. Install service-specific dependencies  
 COPY containers/content-enricher/requirements.txt /tmp/
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+RUN pip install -r /tmp/requirements.txt
 
 # 3. Copy shared libraries
 COPY libs/ ./libs/

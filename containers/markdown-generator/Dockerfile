@@ -1,26 +1,44 @@
-# Build from web-services tier (has ALL required dependencies)
-FROM ai-content-farm-base:web-services AS base
+# Optimized Dockerfile for fast builds and reliable caching
+FROM python:3.11-slim
 
-# Copy application code
+# System dependencies (cached layer)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user for security
+RUN useradd --create-home --shell /bin/bash appuser
+
+WORKDIR /app
+
+# 1. Install common dependencies first (highest cache hit rate)
+COPY containers/base/requirements-common.txt /tmp/
+RUN pip install -r /tmp/requirements-common.txt
+
+# 2. Install service-specific dependencies  
+COPY containers/markdown-generator/requirements.txt /tmp/
+RUN pip install -r /tmp/requirements.txt
+
+# 3. Copy shared libraries
+COPY libs/ ./libs/
+
+# 4. Copy application code (changes most frequently)
 COPY containers/markdown-generator/ .
 
-# Create application directories in writable location
-RUN mkdir -p /tmp/markdown-temp
-
-# Service-specific configuration  
+# Service configuration
 ENV SERVICE_NAME=markdown-generator
 ENV LOG_LEVEL=info
-ENV TEMP_DIR=/tmp/markdown-temp
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD python -c "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"
+
+# Switch to non-root user
+USER appuser
 
 # Expose port
 EXPOSE 8000
 
-# Health check (curl available in base image)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD ["curl", "-f", "http://localhost:8000/health"]
-
-# Use existing appuser from base image
-USER appuser
-
-# Run the application
+# Run application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
