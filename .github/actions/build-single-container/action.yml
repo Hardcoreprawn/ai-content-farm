@@ -55,7 +55,7 @@ runs:
 
         # Configure aggressive caching for speed
         build_args="--cache-from=type=gha --cache-to=type=gha,mode=max"
-        
+
         if [ "$ENABLE_CACHE" = "false" ]; then
           build_args="--no-cache"
         fi
