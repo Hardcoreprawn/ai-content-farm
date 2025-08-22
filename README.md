@@ -2,6 +2,8 @@
 
 **An intelligent, event-driven content aggregation and curation system** that collects interesting articles from various sources and presents them as high-quality static websites. Built with Docker microservices and Azure blob storage for scalability and reliability.
 
+> **Latest Update (Aug 22, 2025)**: Enhanced CI/CD pipeline with parallel security scanning and modular action architecture for improved maintainability and performance.
+
 ## 🎯 Vision
 
 Create a **personal content curation platform** that automatically:
