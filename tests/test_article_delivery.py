@@ -4,6 +4,8 @@ End-to-end test script for article delivery pipeline.
 Tests the complete flow from ranked content to markdown generation.
 """
 
+import asyncio
+import json
 import os
 import sys
 from pathlib import Path

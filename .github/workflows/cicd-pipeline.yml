@@ -147,7 +147,7 @@ jobs:
           pip install flake8 black isort mypy pylint
           black --check --diff .
           isort --check-only --diff .
-          flake8 --max-line-length=100 --extend-ignore=E203,W503 .
+          flake8 .
 
   infrastructure-quality:
     name: Infrastructure Quality
