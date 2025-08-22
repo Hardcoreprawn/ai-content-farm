@@ -172,5 +172,5 @@ class HealthChecker:
                 "service": config.SERVICE_NAME,
                 "status": "error",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
-                "error": str(e),
+                "error": "Failed to get service status",
             }
