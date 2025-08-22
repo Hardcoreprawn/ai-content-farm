@@ -1,5 +1,5 @@
-name: 'Build Single Container'
-description: 'Builds a single service container using multi-tier base images'
+name: 'Build Single Container (Optimized)'
+description: 'Builds a single service container with optimized caching for speed'
 inputs:
   container-name:
     description: 'Name of the container to build'
@@ -8,14 +8,10 @@ inputs:
     description: 'Container registry to tag images for (optional)'
     required: false
     default: ''
-  use-production-dockerfiles:
-    description: 'Use production Dockerfiles instead of multi-tier base images'
-    required: false
-    default: 'false'
   enable-cache:
     description: 'Enable Docker layer caching'
     required: false
-    default: 'false'
+    default: 'true'
 outputs:
   build-result:
     description: 'Build result: success or failure'
@@ -27,30 +23,18 @@ outputs:
 runs:
   using: 'composite'
   steps:
-    - name: Build Container
+    - name: Build Container (Optimized)
       id: build
       shell: bash
       env:
         CONTAINER_NAME: ${{ inputs.container-name }}
-        USE_PRODUCTION_DOCKERFILES: ${{ inputs.use-production-dockerfiles }}
         ENABLE_CACHE: ${{ inputs.enable-cache }}
         REGISTRY: ${{ inputs.registry }}
       run: |
-        echo "[BUILD] Building container: $CONTAINER_NAME"
+        echo "[BUILD] Building container: $CONTAINER_NAME (optimized for speed)"
 
         container_dir="containers/$CONTAINER_NAME"
-
-        # Determine which Dockerfile to use
-        if [ "$USE_PRODUCTION_DOCKERFILES" = "true" ]; then
-          dockerfile_path="$container_dir/Dockerfile.production"
-          build_strategy="production (self-contained)"
-        else
-          dockerfile_path="$container_dir/Dockerfile"
-          build_strategy="multi-tier"
-        fi
-
-        echo "[INFO] Build strategy: $build_strategy"
-        echo "[INFO] Dockerfile: $dockerfile_path"
+        dockerfile_path="$container_dir/Dockerfile"
 
         # Verify files exist
         if [ ! -d "$container_dir" ]; then
@@ -65,14 +49,18 @@ runs:
           exit 1
         fi
 
-        # Build image
+        # Build image with optimized caching
         image_tag="$CONTAINER_NAME:latest"
         echo "[BUILD] Building image: $image_tag"
 
-        build_args=""
-        if [ "$ENABLE_CACHE" = "true" ]; then
-          build_args="--cache-from=type=gha --cache-to=type=gha,mode=max"
+        # Configure aggressive caching for speed
+        build_args="--cache-from=type=gha --cache-to=type=gha,mode=max"
+        
+        if [ "$ENABLE_CACHE" = "false" ]; then
+          build_args="--no-cache"
         fi
+
+        echo "[INFO] Using Docker BuildKit with caching: $build_args"
 
         if docker build $build_args -f "$dockerfile_path" -t "$image_tag" .; then
           echo "[PASS] $CONTAINER_NAME built successfully"
