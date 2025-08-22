@@ -5,6 +5,10 @@ inputs:
     description: 'Container registry to tag images for (optional)'
     required: false
     default: ''
+  enable-cache:
+    description: 'Enable Docker layer caching'
+    required: false
+    default: 'false'
 outputs:
   base-images-built:
     description: 'Comma-separated list of base images that were built'
@@ -18,11 +22,19 @@ runs:
       shell: bash
       env:
         REGISTRY: ${{ inputs.registry }}
+        ENABLE_CACHE: ${{ inputs.enable-cache }}
       run: |
         echo "🏗️ Building multi-tier base images..."
 
         # Track built images
         built_images=""
+
+        # Configure Docker cache if enabled
+        cache_args=""
+        if [ "$ENABLE_CACHE" = "true" ]; then
+          echo "🚀 Docker layer caching enabled"
+          cache_args="--cache-from=type=gha --cache-to=type=gha,mode=max"
+        fi
 
         # Build each tier in dependency order
         base_images=(
@@ -36,9 +48,18 @@ runs:
         for tier in "${base_images[@]}"; do
           echo "Building $tier tier..."
 
-          if docker build -f containers/base/Dockerfile.multitier \
-             -t ai-content-farm-base:$tier \
-             --target $tier .; then
+          # Build command with optional caching
+          build_cmd="docker build -f containers/base/Dockerfile.multitier"
+          build_cmd="$build_cmd -t ai-content-farm-base:$tier"
+          build_cmd="$build_cmd --target $tier"
+
+          if [ -n "$cache_args" ]; then
+            build_cmd="$build_cmd $cache_args"
+          fi
+
+          build_cmd="$build_cmd ."
+
+          if eval "$build_cmd"; then
             echo "✅ $tier base image built successfully"
 
             # Add to built images list

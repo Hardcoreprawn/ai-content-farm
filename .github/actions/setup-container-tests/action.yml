@@ -1,0 +1,78 @@
+name: 'Setup Container Tests'
+description: 'Determine which containers to test and generate matrix configuration'
+inputs:
+  containers-changed:
+    description: 'Comma-separated list of containers that changed'
+    required: true
+  libs-changed:
+    description: 'Whether libs changed (affects all containers)'
+    required: true
+  all-containers:
+    description: 'Complete list of all containers'
+    required: true
+
+outputs:
+  containers-to-test:
+    description: 'Comma-separated list of containers to test'
+    value: ${{ steps.determine.outputs.containers }}
+  containers-json:
+    description: 'JSON array of containers for matrix strategy'
+    value: ${{ steps.determine.outputs.containers-json }}
+  test-summary:
+    description: 'Summary of testing strategy'
+    value: ${{ steps.determine.outputs.summary }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine Containers to Test
+      id: determine
+      shell: bash
+      env:
+        CONTAINERS_CHANGED: ${{ inputs.containers-changed }}
+        LIBS_CHANGED: ${{ inputs.libs-changed }}
+        ALL_CONTAINERS: ${{ inputs.all-containers }}
+      run: |
+        echo "🧪 Determining which containers need testing..."
+
+        # If libs changed, test all containers
+        if [[ "$LIBS_CHANGED" == "true" ]]; then
+          containers_to_test="$ALL_CONTAINERS"
+          echo "📚 Libs changed - testing all containers"
+          strategy="all (libs changed)"
+        elif [[ -n "$CONTAINERS_CHANGED" ]]; then
+          containers_to_test="$CONTAINERS_CHANGED"
+          echo "📦 Testing only changed containers"
+          strategy="changed only"
+        else
+          containers_to_test=""
+          echo "⏭️ No containers need testing"
+          strategy="none"
+        fi
+
+        # Convert comma-separated list to JSON array for matrix strategy
+        if [ -n "$containers_to_test" ]; then
+          # Split by comma and create JSON array
+          containers_json="["
+          IFS=',' read -ra containers_array <<< "$containers_to_test"
+          for i in "${!containers_array[@]}"; do
+            if [ $i -gt 0 ]; then
+              containers_json+=","
+            fi
+            containers_json+="\"${containers_array[$i]}\""
+          done
+          containers_json+="]"
+
+          echo "containers=$containers_to_test" >> "$GITHUB_OUTPUT"
+          echo "containers-json=$containers_json" >> "$GITHUB_OUTPUT"
+          echo "summary=Testing ${#containers_array[@]} containers ($strategy)" >> "$GITHUB_OUTPUT"
+
+          echo "Containers to test: $containers_to_test"
+          echo "JSON format: $containers_json"
+          echo "Test matrix will have $((${#containers_array[@]} * 2)) jobs (unit + integration)"
+        else
+          echo "containers=" >> "$GITHUB_OUTPUT"
+          echo "containers-json=[]" >> "$GITHUB_OUTPUT"
+          echo "summary=No containers require testing" >> "$GITHUB_OUTPUT"
+          echo "No containers to test"
+        fi

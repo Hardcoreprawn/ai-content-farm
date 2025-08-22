@@ -1,0 +1,131 @@
+name: 'Evaluate Quality Gates'
+description: 'Aggregate results from all quality gate checks and determine overall pass/fail'
+inputs:
+  security-result:
+    description: 'Result of security scanning job'
+    required: true
+  code-quality-result:
+    description: 'Result of code quality job'
+    required: true
+  infrastructure-result:
+    description: 'Result of infrastructure quality job'
+    required: true
+  dependency-result:
+    description: 'Result of dependency analysis job'
+    required: true
+
+outputs:
+  passed:
+    description: 'Whether all quality gates passed'
+    value: ${{ steps.evaluate.outputs.passed }}
+  summary:
+    description: 'Human-readable summary of results'
+    value: ${{ steps.evaluate.outputs.summary }}
+  failed-gates:
+    description: 'Comma-separated list of failed gates'
+    value: ${{ steps.evaluate.outputs.failed-gates }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Evaluate Quality Gate Results
+      id: evaluate
+      shell: bash
+      env:
+        SECURITY_RESULT: ${{ inputs.security-result }}
+        QUALITY_RESULT: ${{ inputs.code-quality-result }}
+        INFRA_RESULT: ${{ inputs.infrastructure-result }}
+        DEPS_RESULT: ${{ inputs.dependency-result }}
+      run: |
+        echo "📊 Evaluating quality gate results..."
+
+        # Track failures
+        failed_gates=""
+        total_gates=0
+        passed_gates=0
+
+        # Security scanning (always runs)
+        total_gates=$((total_gates + 1))
+        if [[ "$SECURITY_RESULT" == "success" ]]; then
+          passed_gates=$((passed_gates + 1))
+          echo "✅ Security scanning: PASSED"
+        else
+          failed_gates="security-scanning"
+          echo "❌ Security scanning: FAILED"
+        fi
+
+        # Code quality (always runs)
+        total_gates=$((total_gates + 1))
+        if [[ "$QUALITY_RESULT" == "success" ]]; then
+          passed_gates=$((passed_gates + 1))
+          echo "✅ Code quality: PASSED"
+        else
+          if [ -n "$failed_gates" ]; then
+            failed_gates="$failed_gates,code-quality"
+          else
+            failed_gates="code-quality"
+          fi
+          echo "❌ Code quality: FAILED"
+        fi
+
+        # Infrastructure quality (conditional)
+        if [[ "$INFRA_RESULT" != "skipped" ]]; then
+          total_gates=$((total_gates + 1))
+          if [[ "$INFRA_RESULT" == "success" ]]; then
+            passed_gates=$((passed_gates + 1))
+            echo "✅ Infrastructure quality: PASSED"
+          else
+            if [ -n "$failed_gates" ]; then
+              failed_gates="$failed_gates,infrastructure-quality"
+            else
+              failed_gates="infrastructure-quality"
+            fi
+            echo "❌ Infrastructure quality: FAILED"
+          fi
+        else
+          echo "⏭️ Infrastructure quality: SKIPPED (no infra changes)"
+        fi
+
+        # Dependency analysis (always runs)
+        total_gates=$((total_gates + 1))
+        if [[ "$DEPS_RESULT" == "success" ]]; then
+          passed_gates=$((passed_gates + 1))
+          echo "✅ Dependency analysis: PASSED"
+        else
+          if [ -n "$failed_gates" ]; then
+            failed_gates="$failed_gates,dependency-analysis"
+          else
+            failed_gates="dependency-analysis"
+          fi
+          echo "❌ Dependency analysis: FAILED"
+        fi
+
+        # Overall result
+        if [[ -z "$failed_gates" ]]; then
+          echo "✅ All quality gates passed ($passed_gates/$total_gates)"
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+          summary="✅ **Quality Gate**: PASSED ($passed_gates/$total_gates gates)"
+        else
+          echo "❌ Quality gate failed - failed gates: $failed_gates"
+          echo "passed=false" >> "$GITHUB_OUTPUT"
+          summary="❌ **Quality Gate**: FAILED ($passed_gates/$total_gates gates) - Failed: $failed_gates"
+        fi
+
+        echo "summary=$summary" >> "$GITHUB_OUTPUT"
+        echo "failed-gates=$failed_gates" >> "$GITHUB_OUTPUT"
+
+        {
+          echo "## Quality Gate Summary"
+          echo "$summary"
+          echo ""
+          echo "### Gate Results:"
+          echo "- Security Scanning: $SECURITY_RESULT"
+          echo "- Code Quality: $QUALITY_RESULT"
+          echo "- Infrastructure Quality: $INFRA_RESULT"
+          echo "- Dependency Analysis: $DEPS_RESULT"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        # Exit with error if any gates failed
+        if [[ -n "$failed_gates" ]]; then
+          exit 1
+        fi

@@ -1,0 +1,203 @@
+name: 'Pipeline Monitoring & Observability'
+description: 'Collect pipeline metrics, performance data, and observability information'
+
+inputs:
+  stage-name:
+    description: 'Name of the pipeline stage being monitored'
+    required: true
+  stage-result:
+    description: 'Result of the stage (success/failure/skipped)'
+    required: true
+  stage-duration:
+    description: 'Duration of the stage in seconds'
+    required: false
+    default: '0'
+  collect-metrics:
+    description: 'Whether to collect detailed metrics'
+    required: false
+    default: 'true'
+  github-token:
+    description: 'GitHub token for API access'
+    required: false
+
+outputs:
+  metrics-collected:
+    description: 'Whether metrics were successfully collected'
+  performance-score:
+    description: 'Performance score for this stage'
+  recommendations:
+    description: 'Performance optimization recommendations'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Initialize Monitoring
+      shell: bash
+      env:
+        STAGE_NAME: ${{ inputs.stage-name }}
+        STAGE_RESULT: ${{ inputs.stage-result }}
+        STAGE_DURATION: ${{ inputs.stage-duration }}
+        COLLECT_METRICS: ${{ inputs.collect-metrics }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+        GITHUB_RUN_NUMBER: ${{ github.run_number }}
+        GITHUB_SHA: ${{ github.sha }}
+        GITHUB_REF: ${{ github.ref }}
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        GITHUB_ACTOR: ${{ github.actor }}
+      run: |
+        echo "📊 Initializing pipeline monitoring for stage: $STAGE_NAME"
+        mkdir -p pipeline-metrics
+
+        # Create stage metrics file
+        timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+        cat > pipeline-metrics/${STAGE_NAME}-metrics.json << EOF
+        {
+          "stage_name": "$STAGE_NAME",
+          "result": "$STAGE_RESULT",
+          "duration_seconds": $STAGE_DURATION,
+          "timestamp": "$timestamp",
+          "github": {
+            "repository": "$GITHUB_REPOSITORY",
+            "run_id": "$GITHUB_RUN_ID",
+            "run_number": "$GITHUB_RUN_NUMBER",
+            "sha": "$GITHUB_SHA",
+            "ref": "$GITHUB_REF",
+            "event_name": "$GITHUB_EVENT_NAME",
+            "actor": "$GITHUB_ACTOR"
+          }
+        }
+        EOF
+
+    - name: Collect Performance Metrics
+      if: inputs.collect-metrics == 'true'
+      shell: bash
+      env:
+        STAGE_NAME: ${{ inputs.stage-name }}
+        STAGE_RESULT: ${{ inputs.stage-result }}
+      run: |
+        echo "🔍 Collecting performance metrics for $STAGE_NAME..."
+
+        # System metrics
+        cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | awk -F'%' '{print $1}' || echo "0")
+        memory_usage=$(free | grep Mem | awk '{printf "%.2f", $3/$2 * 100.0}' || echo "0")
+        disk_usage=$(df / | tail -1 | awk '{print $5}' | sed 's/%//' || echo "0")
+
+        # Pipeline-specific metrics
+        if [ -f "test-results-*.xml" ]; then
+          test_files=$(ls test-results-*.xml 2>/dev/null | wc -l || echo "0")
+        else
+          test_files=0
+        fi
+
+        if [ -f "coverage-*.xml" ]; then
+          coverage_files=$(ls coverage-*.xml 2>/dev/null | wc -l || echo "0")
+        else
+          coverage_files=0
+        fi
+
+        # Calculate performance score
+        performance_score=100
+        if [ "$STAGE_RESULT" != "success" ]; then
+          performance_score=$((performance_score - 30))
+        fi
+
+        if [ "${STAGE_DURATION:-0}" -gt 300 ]; then  # > 5 minutes
+          performance_score=$((performance_score - 20))
+        fi
+
+        # Update metrics file
+        jq --argjson cpu "$cpu_usage" \
+           --argjson memory "$memory_usage" \
+           --argjson disk "$disk_usage" \
+           --argjson tests "$test_files" \
+           --argjson coverage "$coverage_files" \
+           --argjson score "$performance_score" \
+           '.system = {
+             "cpu_usage_percent": $cpu,
+             "memory_usage_percent": $memory,
+             "disk_usage_percent": $disk
+           } | .metrics = {
+             "test_files": $tests,
+             "coverage_files": $coverage,
+             "performance_score": $score
+           }' pipeline-metrics/${STAGE_NAME}-metrics.json > temp.json && mv temp.json pipeline-metrics/${STAGE_NAME}-metrics.json
+
+        echo "performance-score=$performance_score" >> $GITHUB_OUTPUT
+
+    - name: Generate Recommendations
+      shell: bash
+      env:
+        STAGE_NAME: ${{ inputs.stage-name }}
+        STAGE_RESULT: ${{ inputs.stage-result }}
+        STAGE_DURATION: ${{ inputs.stage-duration }}
+      run: |
+        echo "💡 Generating optimization recommendations..."
+
+        recommendations=""
+
+        # Duration-based recommendations
+        if [ "${STAGE_DURATION:-0}" -gt 600 ]; then  # > 10 minutes
+          recommendations="$recommendations- Consider optimizing $STAGE_NAME (duration: ${STAGE_DURATION}s exceeds 10min threshold)\n"
+        fi
+
+        # Result-based recommendations
+        if [ "$STAGE_RESULT" = "failure" ]; then
+          recommendations="$recommendations- Investigate $STAGE_NAME failures for reliability improvements\n"
+        fi
+
+        # Stage-specific recommendations
+        case "$STAGE_NAME" in
+          "container-tests")
+            recommendations="$recommendations- Consider parallel test execution to reduce container test time\n"
+            ;;
+          "security-scanning")
+            recommendations="$recommendations- Cache security scan results for unchanged files\n"
+            ;;
+          "infrastructure-quality")
+            recommendations="$recommendations- Use terraform plan cache to speed up infrastructure validation\n"
+            ;;
+        esac
+
+        # Save recommendations
+        echo -e "$recommendations" > pipeline-metrics/${STAGE_NAME}-recommendations.txt
+
+        # Set output (escape newlines for GitHub Actions)
+        recommendations_escaped=$(echo -e "$recommendations" | sed ':a;N;$!ba;s/\n/\\n/g')
+        echo "recommendations=$recommendations_escaped" >> $GITHUB_OUTPUT
+
+    - name: Create Pipeline Dashboard Data
+      shell: bash
+      env:
+        STAGE_NAME: ${{ inputs.stage-name }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
+      run: |
+        echo "📈 Creating dashboard data..."
+
+        # Aggregate metrics for dashboard
+        if [ ! -f "pipeline-metrics/dashboard.json" ]; then
+          cat > pipeline-metrics/dashboard.json << EOF
+        {
+          "run_id": "$GITHUB_RUN_ID",
+          "start_time": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+          "stages": [],
+          "overall_performance": 0,
+          "total_duration": 0,
+          "success_rate": 100
+        }
+        EOF
+        fi
+
+        # Add current stage to dashboard
+        stage_data=$(cat pipeline-metrics/${STAGE_NAME}-metrics.json)
+        jq --argjson stage "$stage_data" '.stages += [$stage]' pipeline-metrics/dashboard.json > temp.json && mv temp.json pipeline-metrics/dashboard.json
+
+        echo "metrics-collected=true" >> $GITHUB_OUTPUT
+
+    - name: Upload Metrics Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: pipeline-metrics-${{ inputs.stage-name }}-${{ github.run_number }}
+        path: pipeline-metrics/
+        retention-days: 30

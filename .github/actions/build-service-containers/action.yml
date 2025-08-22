@@ -13,6 +13,14 @@ inputs:
     description: 'Use production Dockerfiles instead of multi-tier base images'
     required: false
     default: 'false'
+  force-rebuild-on-libs-change:
+    description: 'Force rebuild of all containers if libs changed'
+    required: false
+    default: 'false'
+  enable-cache:
+    description: 'Enable Docker layer caching'
+    required: false
+    default: 'false'
 outputs:
   containers-built:
     description: 'Comma-separated list of service containers that were built'
@@ -30,16 +38,18 @@ runs:
       env:
         CONTAINERS: ${{ inputs.containers }}
         USE_PRODUCTION_DOCKERFILES: ${{ inputs.use-production-dockerfiles }}
+        FORCE_REBUILD_ON_LIBS_CHANGE: ${{ inputs.force-rebuild-on-libs-change }}
+        ENABLE_CACHE: ${{ inputs.enable-cache }}
         REGISTRY: ${{ inputs.registry }}
       run: |
-        echo "🔨 Building service containers with multi-tier strategy..."
+        echo "🔨 Building service containers with smart build strategy..."
 
         build_failures=0
         containers_tested=0
         built_containers=""
 
         # Determine which containers to build
-        if [ "$CONTAINERS" = "all" ]; then
+        if [ "$CONTAINERS" = "all" ] || [ "$FORCE_REBUILD_ON_LIBS_CHANGE" = "true" ]; then
           # Build all containers found in containers/ directory
           container_list=""
           for container_dir in containers/*/; do

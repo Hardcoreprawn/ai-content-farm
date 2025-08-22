@@ -1,0 +1,14 @@
+{
+  "SchemaVersion": 2,
+  "CreatedAt": "2025-08-22T08:44:51.505916426Z",
+  "ArtifactName": "/workspace",
+  "ArtifactType": "filesystem",
+  "Metadata": {
+    "RepoURL": "https://github.com/Hardcoreprawn/ai-content-farm.git",
+    "Branch": "main",
+    "Commit": "0ff3b38ba38f7313a6795a6fb80ddeba0bfcd295",
+    "CommitMsg": "📚 Document security remediation completion\n\n- Update agent instructions with security best practices\n- Add comprehensive daily report for August 21, 2025\n- Document all 25+ vulnerabilities fixed and process improvements\n- Include next steps and risk assessment for future work",
+    "Author": "James Brewster \u003c35832945+Hardcoreprawn@users.noreply.github.com\u003e",
+    "Committer": "James Brewster \u003c35832945+Hardcoreprawn@users.noreply.github.com\u003e"
+  }
+}

@@ -1,7 +1,14 @@
 name: CI/CD Pipeline
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
+    paths-ignore:
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - '**.md'
+      - 'docs/**'
+  pull_request:
+    branches: [main, develop]
     paths-ignore:
       - '.github/workflows/**'
       - '.github/actions/**'
@@ -15,10 +22,14 @@ permissions:
   issues: write
   actions: read
   checks: write
-  id-token: write # Required for OIDC authentication
+  id-token: write
+
+env:
+  DOCKER_BUILDKIT: 1
+  BUILDKIT_PROGRESS: plain
 
 jobs:
-  # Workflow Validation - Fast fail if workflows are invalid
+  # Stage 1: Fast Validation
   workflow-validation:
     name: Validate Workflows
     runs-on: ubuntu-latest
@@ -26,382 +37,286 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Record Stage Start
+        id: start-time
+        run: echo "start-time=$(date +%s)" >> "$GITHUB_OUTPUT"
+
       - name: Validate Workflows
         uses: ./.github/actions/lint-workflows
 
-  # Container Build Validation - Quick smoke test for all containers
-  container-build-validation:
-    name: Container Build Validation
+      - name: Calculate Stage Duration
+        id: stage-end
+        if: always()
+        run: |
+          end_time=$(date +%s)
+          start_time=${{ steps.start-time.outputs.start-time }}
+          duration=$((end_time - start_time))
+          echo "duration=$duration" >> "$GITHUB_OUTPUT"
+
+      - name: Monitor Stage Performance
+        if: always()
+        uses: ./.github/actions/pipeline-monitoring
+        with:
+          stage-name: 'workflow-validation'
+          stage-result: ${{ job.status }}
+          stage-duration: ${{ steps.stage-end.outputs.duration }}
+          collect-metrics: 'true'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Stage 2: Change Detection
+  change-detection:
+    name: Detect Changes
     runs-on: ubuntu-latest
     needs: workflow-validation
-    if: always() && needs.workflow-validation.result != 'failure'
     outputs:
-      base-images: ${{ steps.build-bases.outputs.base-images-built }}
-      service-containers: ${{ steps.build-services.outputs.containers-built }}
-      build-summary: ${{ steps.build-services.outputs.build-summary }}
+      containers-changed: ${{ steps.changes.outputs.containers-changed }}
+      infra-changed: ${{ steps.changes.outputs.infrastructure-changed }}
+      libs-changed: ${{ steps.changes.outputs.libs-changed }}
+      all-containers: ${{ steps.changes.outputs.all-containers }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Detect Changes
+        id: changes
+        uses: ./.github/actions/detect-changes
 
-      - name: Build Multi-Tier Base Images
-        id: build-bases
+  # Stage 3: Container Build
+  container-build:
+    name: Build Containers
+    runs-on: ubuntu-latest
+    needs: [workflow-validation, change-detection]
+    if: needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true'
+    outputs:
+      service-containers: ${{ steps.build-services.outputs.containers-built }}
+      containers-to-test: ${{ steps.test-setup.outputs.containers-to-test }}
+      containers-json: ${{ steps.test-setup.outputs.containers-json }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Base Images
         uses: ./.github/actions/build-base-images
-
+        with:
+          enable-cache: 'true'
       - name: Build Service Containers
         id: build-services
         uses: ./.github/actions/build-service-containers
+        with:
+          containers: ${{ needs.change-detection.outputs.containers-changed }}
+          force-rebuild-on-libs-change: ${{ needs.change-detection.outputs.libs-changed }}
+          enable-cache: 'true'
+      - name: Setup Container Tests
+        id: test-setup
+        uses: ./.github/actions/setup-container-tests
+        with:
+          containers-changed: ${{ needs.change-detection.outputs.containers-changed }}
+          libs-changed: ${{ needs.change-detection.outputs.libs-changed }}
+          all-containers: ${{ needs.change-detection.outputs.all-containers }}
 
-      - name: Build Summary
-        run: |
-          echo "🎉 Container Build Validation Complete!"
-          echo "📊 ${{ steps.build-services.outputs.build-summary }}"
-          echo "🏗️ Base images built: ${{ steps.build-bases.outputs.base-images-built }}"
-          echo "🔨 Service containers built: ${{ steps.build-services.outputs.containers-built }}"
-
-  # Quality Gate - Parallel Matrix of Quality Checks
-  quality-gate:
-    name: Quality Check - ${{ matrix.check-type }}
+  # Stage 4: Quality Gates (Parallel)
+  security-scanning:
+    name: Security Scanning
     runs-on: ubuntu-latest
     needs: workflow-validation
-    strategy:
-      matrix:
-        check-type:
-          - security-scan
-          - code-quality
-          - dependency-check
-          - infrastructure-lint
-      fail-fast: false  # Continue other checks even if one fails
-    outputs:
-      security-passed: ${{ steps.security-check.outputs.passed }}
-      quality-passed: ${{ steps.quality-check.outputs.passed }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-
-      - name: Set up Python (for quality checks)
-        if: matrix.check-type == 'code-quality' || matrix.check-type == 'dependency-check'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
       - name: Run Security Scan
-        if: matrix.check-type == 'security-scan'
-        id: security-check
         uses: ./.github/actions/security-scan
         with:
           upload-sarif: 'true'
+          environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
 
-      - name: Run Code Quality Checks
-        if: matrix.check-type == 'code-quality'
-        id: quality-check
-        run: |
-          echo "🔍 Running code quality checks..."
-
-          # Install quality tools
-          pip install flake8 black isort mypy pylint
-
-          # Run code formatting checks
-          echo "Checking code formatting with black..."
-          black --check --diff . || echo "black_failed=true" >> "$GITHUB_ENV"
-
-          # Run import sorting checks
-          echo "Checking import sorting with isort..."
-          isort --check-only --diff . || echo "isort_failed=true" >> "$GITHUB_ENV"
-
-          # Run linting
-          echo "Running flake8 linting..."
-          flake8 --max-line-length=100 --extend-ignore=E203,W503 . || echo "flake8_failed=true" >> "$GITHUB_ENV"
-
-          # Check for any failures
-          if [[ "${black_failed}" == "true" || "${isort_failed}" == "true" || "${flake8_failed}" == "true" ]]; then
-            echo "passed=false" >> "$GITHUB_OUTPUT"
-            exit 1
-          else
-            echo "passed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Run Dependency Security Check
-        if: matrix.check-type == 'dependency-check'
-        run: |
-          echo "🔒 Running dependency security checks..."
-
-          # Install safety for dependency scanning
-          pip install safety
-
-          # Check each container's requirements
-          find containers/ -name "requirements.txt" -type f | while read -r req_file; do
-            echo "Checking dependencies in $req_file..."
-            safety check --file "$req_file" --output text || echo "safety issues found in $req_file"
-          done
-
-          # Check main libs requirements
-          if [ -f "libs/requirements.txt" ]; then
-            echo "Checking libs dependencies..."
-            safety check --file "libs/requirements.txt" --output text || echo "safety issues found in libs"
-          fi
-
-      - name: Run Infrastructure Linting
-        if: matrix.check-type == 'infrastructure-lint'
-        run: |
-          echo "🏗️ Running infrastructure linting..."
-
-          # Run Terraform formatting check
-          if command -v terraform >/dev/null 2>&1; then
-            echo "Checking Terraform formatting..."
-            terraform fmt -check -recursive infra/ || echo "terraform_fmt_failed=true"
-          else
-            echo "Terraform not available, using Docker..."
-            docker run --rm -v "$(pwd)/infra:/workspace" -w /workspace hashicorp/terraform:latest fmt -check -recursive . || echo "terraform_fmt_failed=true"
-          fi
-
-          # Run YAML linting on infrastructure files
-          echo "Checking YAML files..."
-          find infra/ -name "*.yml" -o -name "*.yaml" | head -5 | while read -r file; do
-            echo "Checking $file"
-          done
-
-  # Quality Gate Summary - Aggregate Results
-  quality-gate-summary:
-    name: Quality Gate Summary
+  code-quality:
+    name: Code Quality
     runs-on: ubuntu-latest
-    needs: quality-gate
-    if: always() && needs.quality-gate.result != 'cancelled'
-    outputs:
-      passed: ${{ steps.evaluate.outputs.passed }}
-    steps:
-      - name: Evaluate Quality Gate Results
-        id: evaluate
-        run: |
-          echo "📊 Evaluating quality gate results..."
-
-          # Check if any quality gate jobs failed
-          if [ "${{ needs.quality-gate.result }}" = "failure" ]; then
-            echo "❌ Quality gate failed - see individual check results"
-            echo "passed=false" >> "$GITHUB_OUTPUT"
-
-            {
-              echo "## Quality Gate Summary"
-              echo "❌ **Status**: FAILED"
-              echo "Some quality checks did not pass. Review the individual check results above."
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          else
-            echo "✅ Quality gate passed - all checks successful"
-            echo "passed=true" >> "$GITHUB_OUTPUT"
-
-            {
-              echo "## Quality Gate Summary"
-              echo "✅ **Status**: PASSED"
-              echo "All quality checks completed successfully!"
-            } >> "$GITHUB_STEP_SUMMARY"
-          fi
-
-  # Cost Analysis
-  cost-analysis:
-    name: Cost Analysis
-    runs-on: ubuntu-latest
-    needs: quality-gate-summary
+    needs: workflow-validation
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-
-      - name: Analyze Infrastructure Costs
-        uses: ./.github/actions/cost-analysis
-        with:
-          infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
-          comment-on-pr: 'false'
-
-  # Dependency Analysis
-  dependency-analysis:
-    name: Dependency Analysis
-    runs-on: ubuntu-latest
-    needs: quality-gate-summary
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Analyze Dependencies
-        run: |
-          echo "Analyzing dependencies..."
-          if [ -f "scripts/dependency-analysis.sh" ]; then
-            bash scripts/dependency-analysis.sh
-          else
-            echo "Dependency analysis script not found - using basic analysis"
-          fi
-
-  # Container Tests - Comprehensive Matrix Strategy
-  container-tests:
-    name: Test ${{ matrix.container }} (${{ matrix.test-type }})
-    runs-on: ubuntu-latest
-    needs: quality-gate-summary
-    strategy:
-      matrix:
-        container:
-          - content-collector
-          - content-processor
-          - content-ranker
-          - content-enricher
-          - content-generator
-          - site-generator
-          - markdown-generator
-          - collector-scheduler
-        test-type:
-          - smoke
-          - unit
-          - integration
-      fail-fast: false  # Continue testing other containers even if one fails
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
+      - name: Run Code Quality Checks
+        run: |
+          pip install flake8 black isort mypy pylint
+          black --check --diff .
+          isort --check-only --diff .
+          flake8 --max-line-length=100 --extend-ignore=E203,W503 .
 
+  infrastructure-quality:
+    name: Infrastructure Quality
+    runs-on: ubuntu-latest
+    needs: [workflow-validation, change-detection]
+    if: needs.change-detection.outputs.infra-changed == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Run Infrastructure Checks
+        run: |
+          docker run --rm -v "$(pwd)/infra:/workspace" -w /workspace hashicorp/terraform:latest fmt -check -recursive .
+
+  dependency-analysis:
+    name: Dependency Analysis
+    runs-on: ubuntu-latest
+    needs: workflow-validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run Dependency Security Check
+        run: |
+          pip install safety
+          find containers/ -name "requirements.txt" -exec safety check --file {} \;
+
+  # Stage 5: Quality Gate Summary
+  quality-gate-summary:
+    name: Quality Gate Summary
+    runs-on: ubuntu-latest
+    needs: [security-scanning, code-quality, infrastructure-quality, dependency-analysis]
+    if: always() && !cancelled()
+    outputs:
+      passed: ${{ steps.evaluate.outputs.passed }}
+    steps:
+      - name: Evaluate Quality Gates
+        id: evaluate
+        uses: ./.github/actions/evaluate-quality-gates
+        with:
+          security-result: ${{ needs.security-scanning.result }}
+          code-quality-result: ${{ needs.code-quality.result }}
+          infrastructure-result: ${{ needs.infrastructure-quality.result }}
+          dependency-result: ${{ needs.dependency-analysis.result }}
+
+  # Stage 6: Container Tests
+  container-tests:
+    name: Test ${{ matrix.container }} (${{ matrix.test-type }})
+    runs-on: ubuntu-latest
+    needs: [container-build, quality-gate-summary]
+    if: needs.container-build.outputs.containers-to-test != ''
+    strategy:
+      matrix:
+        container: ${{ fromJson(needs.container-build.outputs.containers-json) }}
+        test-type: [unit, integration]
+        exclude:
+          - container: collector-scheduler
+            test-type: integration
+          - container: markdown-generator
+            test-type: integration
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
       - name: Test Container
         uses: ./.github/actions/test-single-container
         with:
           container-name: ${{ matrix.container }}
           test-type: ${{ matrix.test-type }}
-          fail-fast: 'false'
           upload-coverage: 'true'
 
-  # Container Test Results Aggregation
+  # Stage 7: Container Test Summary
   container-tests-summary:
     name: Container Tests Summary
     runs-on: ubuntu-latest
-    needs: container-tests
-    if: always() && needs.container-tests.result != 'cancelled'
+    needs: [container-build, container-tests]
+    if: always() && !cancelled()
+    outputs:
+      tests-passed: ${{ steps.summary.outputs.passed }}
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Download All Test Results
-        uses: actions/download-artifact@v5
-        with:
-          pattern: test-results-*
-          path: test-results/
-
-      - name: Aggregate Test Results
+      - name: Evaluate Test Results
+        id: summary
         run: |
-          echo "📊 Aggregating test results from all containers..."
-
-          total_jobs="${{ strategy.job-total }}"
-          failed_jobs=0
-
-          # Count successful vs failed matrix jobs
-          if [ "${{ needs.container-tests.result }}" = "failure" ]; then
-            echo "❌ Some container tests failed"
-            failed_jobs=1
-          fi
-
-          {
-            echo "## Container Test Summary"
-            echo "- **Total Matrix Jobs**: ${total_jobs}"
-            echo "- **Failed Jobs**: ${failed_jobs}"
-            echo "- **Success Rate**: $(( (total_jobs - failed_jobs) * 100 / total_jobs ))%"
-            echo ""
-            echo "### Test Artifacts Generated:"
-            find test-results/ -name "*.xml" | sort
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          # Exit with error if any tests failed
-          if [ "$failed_jobs" -gt 0 ]; then
-            echo "Container tests failed - see individual job logs for details"
+          if [[ "${{ needs.container-build.outputs.containers-to-test }}" == "" ]]; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+            echo "No containers needed testing"
+          elif [[ "${{ needs.container-tests.result }}" == "success" ]]; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+            echo "All container tests passed"
+          else
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+            echo "Some container tests failed"
             exit 1
           fi
 
-  # AI Security Review - DISABLED FOR PERFORMANCE
-  # ai-security-review:
-  #   name: AI Security Review
-  #   runs-on: ubuntu-latest
-  #   needs: quality-gate-summary
-  #   if: always() && (needs.quality-gate-summary.result == 'success' || needs.quality-gate-summary.result == 'failure')
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v5
-  #
-  #     - name: AI Security Review
-  #       uses: ./.github/actions/ai-review-security
-  #       with:
-  #         github-token: ${{ secrets.GITHUB_TOKEN }}
-
-  # Production Deployment
-  production-deployment:
-    name: Production Deployment
+  # Stage 8: Cost Analysis (for infrastructure changes)
+  cost-analysis:
+    name: Cost Analysis
     runs-on: ubuntu-latest
-    needs: [quality-gate-summary, cost-analysis, dependency-analysis, container-tests-summary]
-    environment: production
-    outputs:
-      deployment-url: ${{ steps.deploy.outputs.deployment-url }}
-      deployed-containers: ${{ steps.deploy.outputs.deployed-containers }}
+    needs: [workflow-validation, change-detection]
+    if: needs.change-detection.outputs.infra-changed == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+      - name: Analyze Infrastructure Costs
+        uses: ./.github/actions/cost-analysis
+        with:
+          infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
+          comment-on-pr: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
 
+  # Stage 9: Deployment
+  deployment:
+    name: Deploy to ${{ github.ref == 'refs/heads/main' && 'Production' || 'Staging' }}
+    runs-on: ubuntu-latest
+    needs: [quality-gate-summary, container-tests-summary, cost-analysis, container-build]
+    if: |
+      always() &&
+      needs.quality-gate-summary.outputs.passed == 'true' &&
+      (needs.container-tests-summary.outputs.tests-passed == 'true' || needs.container-tests-summary.result == 'skipped') &&
+      (needs.cost-analysis.result == 'success' || needs.cost-analysis.result == 'skipped')
+    environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+    outputs:
+      deployment-url: ${{ steps.deploy.outputs.deployment-url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
       - name: Azure Login via OIDC
         uses: azure/login@v2
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: "1.14.0"
-
-      - name: Deploy to Azure Container Apps
+      - name: Deploy to Azure
         id: deploy
         uses: ./.github/actions/deploy-to-azure
         with:
           azure-credentials: ${{ secrets.AZURE_CREDENTIALS }}
-          resource-group: 'ai-content-farm-core-rg'
-          acr-name: 'aicontentfarm76ko2hacr'
-          environment: 'production'
-          containers: 'all'
+          resource-group: ${{ github.ref == 'refs/heads/main' && 'ai-content-farm-core-rg' || 'ai-content-farm-staging-rg' }}
+          environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'staging' }}
+          containers: ${{ needs.container-build.outputs.service-containers || 'all' }}
 
-      - name: Deployment Summary
-        run: |
-          echo "🎉 Production deployment completed successfully!"
-          echo "🌐 Deployment URL: ${{ steps.deploy.outputs.deployment-url }}"
-          echo "📦 Deployed containers: ${{ steps.deploy.outputs.deployed-containers }}"
-
-  # Post-Deployment Tests
-  post-deployment-tests:
-    name: Post-Deployment Tests
+  # Stage 10: Post-Deployment Tests
+  post-deployment:
+    name: Post-Deployment Validation
     runs-on: ubuntu-latest
-    needs: production-deployment
-    if: needs.production-deployment.result == 'success'
+    needs: deployment
+    if: needs.deployment.result == 'success'
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-
       - name: Health Check
         run: |
-          echo "Running post-deployment health checks..."
-          deployment_url="${{ needs.production-deployment.outputs.deployment-url }}"
+          deployment_url="${{ needs.deployment.outputs.deployment-url }}"
           if [ -n "$deployment_url" ]; then
-            echo "Testing deployment at: \"$deployment_url\""
-            # Add actual health check logic here
-            # curl -f "$deployment_url/health" || exit 1
-            echo "Health check passed"
-          else
-            echo "No deployment URL available for testing"
+            for attempt in {1..5}; do
+              if curl -f --max-time 30 "$deployment_url/health"; then
+                echo "Health check passed"
+                exit 0
+              fi
+              echo "Attempt $attempt failed, retrying..."
+              sleep 10
+            done
+            echo "Health check failed after 5 attempts"
             exit 1
           fi
-
-      - name: Integration Tests
-        run: |
-          echo "Running post-deployment integration tests..."
-          # Add actual integration test logic here
-          echo "Integration tests passed"
-
-      - name: Smoke Tests
-        run: |
-          echo "Running smoke tests against production..."
-          # Add actual smoke test logic here
-          echo "Smoke tests passed"

@@ -1,0 +1,108 @@
+name: 'Detect Changes'
+description: 'Detect what components changed to optimize CI/CD pipeline execution'
+inputs:
+  base-ref:
+    description: 'Base reference for change detection'
+    required: false
+    default: 'HEAD~1'
+  head-ref:
+    description: 'Head reference for change detection'
+    required: false
+    default: 'HEAD'
+
+outputs:
+  containers-changed:
+    description: 'Comma-separated list of containers that changed'
+    value: ${{ steps.detect.outputs.containers }}
+  infrastructure-changed:
+    description: 'Whether infrastructure files changed'
+    value: ${{ steps.detect.outputs.infrastructure }}
+  libs-changed:
+    description: 'Whether shared libs changed (affects all containers)'
+    value: ${{ steps.detect.outputs.libs }}
+  tests-changed:
+    description: 'Whether test files changed'
+    value: ${{ steps.detect.outputs.tests }}
+  all-containers:
+    description: 'Complete list of all containers in the project'
+    value: ${{ steps.inventory.outputs.containers }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Detect Changed Files
+      id: detect
+      shell: bash
+      env:
+        BASE_REF: ${{ inputs.base-ref }}
+        HEAD_REF: ${{ inputs.head-ref }}
+        GITHUB_EVENT_NAME: ${{ github.event_name }}
+        GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        GITHUB_SHA: ${{ github.sha }}
+      run: |
+        echo "🔍 Detecting changes between $BASE_REF and $HEAD_REF..."
+
+        # Get list of changed files
+        if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+          changed_files=$(git diff --name-only "$GITHUB_BASE_SHA".."$GITHUB_SHA")
+        else
+          changed_files=$(git diff --name-only "$BASE_REF" "$HEAD_REF")
+        fi
+
+        echo "Changed files:"
+        echo "$changed_files"
+
+        # Detect container changes
+        containers_changed=""
+        for container_dir in containers/*/; do
+          container_name=$(basename "$container_dir")
+          if echo "$changed_files" | grep -q "^containers/$container_name/"; then
+            if [ -z "$containers_changed" ]; then
+              containers_changed="$container_name"
+            else
+              containers_changed="$containers_changed,$container_name"
+            fi
+          fi
+        done
+
+        # Detect other changes
+        infra_changed="false"
+        if echo "$changed_files" | grep -q "^infra/"; then
+          infra_changed="true"
+        fi
+
+        libs_changed="false"
+        if echo "$changed_files" | grep -q "^libs/"; then
+          libs_changed="true"
+        fi
+
+        tests_changed="false"
+        if echo "$changed_files" | grep -q "^tests/"; then
+          tests_changed="true"
+        fi
+
+        {
+          echo "containers=$containers_changed"
+          echo "infrastructure=$infra_changed"
+          echo "libs=$libs_changed"
+          echo "tests=$tests_changed"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Container Inventory
+      id: inventory
+      shell: bash
+      run: |
+        echo "📦 Building complete container inventory..."
+        all_containers=""
+        for container_dir in containers/*/; do
+          container_name=$(basename "$container_dir")
+          if [ "$container_name" != "base" ]; then  # Exclude base directory
+            if [ -z "$all_containers" ]; then
+              all_containers="$container_name"
+            else
+              all_containers="$all_containers,$container_name"
+            fi
+          fi
+        done
+        echo "containers=$all_containers" >> "$GITHUB_OUTPUT"
+        echo "All containers: $all_containers"

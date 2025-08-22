@@ -1,0 +1,257 @@
+name: 'Pipeline Test Validation'
+description: 'Comprehensive testing and validation of the CI/CD pipeline'
+
+inputs:
+  test-type:
+    description: 'Type of test to run (smoke, integration, full)'
+    required: false
+    default: 'smoke'
+  containers-to-test:
+    description: 'Comma-separated list of containers to test'
+    required: false
+    default: 'all'
+  collect-performance-data:
+    description: 'Whether to collect detailed performance data'
+    required: false
+    default: 'true'
+
+outputs:
+  test-results:
+    description: 'Summary of test results'
+  performance-data:
+    description: 'Performance metrics collected'
+  recommendations:
+    description: 'Testing recommendations'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Test Environment
+      shell: bash
+      env:
+        TEST_TYPE: ${{ inputs.test-type }}
+        CONTAINERS_TO_TEST: ${{ inputs.containers-to-test }}
+      run: |
+        echo "🧪 Setting up test environment for $TEST_TYPE testing"
+        mkdir -p test-results pipeline-validation
+
+        # Create test plan
+        cat > pipeline-validation/test-plan.json << EOF
+        {
+          "test_type": "$TEST_TYPE",
+          "containers": "$CONTAINERS_TO_TEST",
+          "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
+          "test_stages": []
+        }
+        EOF
+
+    - name: Validate Pipeline Structure
+      shell: bash
+      run: |
+        echo "🔍 Validating pipeline structure..."
+
+        validation_results=""
+        score=100
+
+        # Check main workflow exists and is properly structured
+        if [ ! -f ".github/workflows/cicd-pipeline.yml" ]; then
+          validation_results="$validation_results- ❌ Main CI/CD pipeline not found\n"
+          score=$((score - 30))
+        else
+          validation_results="$validation_results- ✅ Main CI/CD pipeline found\n"
+        fi
+
+        # Check required actions exist
+        required_actions="detect-changes evaluate-quality-gates setup-container-tests"
+        for action in $required_actions; do
+          if [ -d ".github/actions/$action" ]; then
+            validation_results="$validation_results- ✅ Action $action found\n"
+          else
+            validation_results="$validation_results- ❌ Action $action missing\n"
+            score=$((score - 10))
+          fi
+        done
+
+        # Check workflow syntax
+        if command -v actionlint >/dev/null 2>&1; then
+          if actionlint .github/workflows/cicd-pipeline.yml; then
+            validation_results="$validation_results- ✅ Workflow syntax valid\n"
+          else
+            validation_results="$validation_results- ❌ Workflow syntax issues found\n"
+            score=$((score - 20))
+          fi
+        fi
+
+        # Save validation results
+        echo -e "$validation_results" > pipeline-validation/structure-validation.txt
+        echo "structure_score=$score" >> pipeline-validation/scores.txt
+
+    - name: Test Change Detection
+      shell: bash
+      run: |
+        echo "🔄 Testing change detection logic..."
+
+        # Test change detection with sample changes
+        test_results=""
+
+        # Simulate container changes
+        mkdir -p test-containers/test-service
+        echo "FROM alpine" > test-containers/test-service/Dockerfile
+        echo "RUN echo 'test'" >> test-containers/test-service/Dockerfile
+
+        # Test the detect-changes action (dry run)
+        if [ -f ".github/actions/detect-changes/action.yml" ]; then
+          test_results="$test_results- ✅ Change detection action available\n"
+
+          # Validate action structure
+          if grep -q "outputs:" ".github/actions/detect-changes/action.yml"; then
+            test_results="$test_results- ✅ Change detection has outputs defined\n"
+          else
+            test_results="$test_results- ❌ Change detection missing outputs\n"
+          fi
+        else
+          test_results="$test_results- ❌ Change detection action not found\n"
+        fi
+
+        echo -e "$test_results" > pipeline-validation/change-detection-test.txt
+
+    - name: Test Quality Gates
+      shell: bash
+      run: |
+        echo "🚪 Testing quality gate evaluation..."
+
+        gate_results=""
+
+        # Test quality gate action
+        if [ -f ".github/actions/evaluate-quality-gates/action.yml" ]; then
+          gate_results="$gate_results- ✅ Quality gates action found\n"
+
+          # Check for required inputs
+          required_inputs="security-result code-quality-result infrastructure-result dependency-result"
+          for input in $required_inputs; do
+            if grep -q "$input:" ".github/actions/evaluate-quality-gates/action.yml"; then
+              gate_results="$gate_results- ✅ Input $input defined\n"
+            else
+              gate_results="$gate_results- ❌ Input $input missing\n"
+            fi
+          done
+        else
+          gate_results="$gate_results- ❌ Quality gates action not found\n"
+        fi
+
+        echo -e "$gate_results" > pipeline-validation/quality-gates-test.txt
+
+    - name: Performance Baseline Test
+      if: inputs.collect-performance-data == 'true'
+      shell: bash
+      run: |
+        echo "⚡ Running performance baseline tests..."
+
+        start_time=$(date +%s)
+
+        # Test basic operations that will be used in pipeline
+        perf_results=""
+
+        # Test file operations
+        file_start=$(date +%s)
+        for i in {1..100}; do
+          echo "test data $i" > test-file-$i.txt
+        done
+        file_end=$(date +%s)
+        file_duration=$((file_end - file_start))
+        perf_results="$perf_results- File operations (100 files): ${file_duration}s\n"
+
+        # Test JSON processing
+        json_start=$(date +%s)
+        echo '{"test": "data", "number": 123}' | jq '.test' > /dev/null 2>&1 || true
+        json_end=$(date +%s)
+        json_duration=$((json_end - json_start))
+        perf_results="$perf_results- JSON processing: ${json_duration}s\n"
+
+        # Test container operations (if docker available)
+        if command -v docker >/dev/null 2>&1; then
+          docker_start=$(date +%s)
+          docker --version > /dev/null 2>&1 || true
+          docker_end=$(date +%s)
+          docker_duration=$((docker_end - docker_start))
+          perf_results="$perf_results- Docker availability check: ${docker_duration}s\n"
+        fi
+
+        # Cleanup
+        rm -f test-file-*.txt
+
+        end_time=$(date +%s)
+        total_duration=$((end_time - start_time))
+
+        # Save performance data
+        cat > pipeline-validation/performance-baseline.json << EOF
+        {
+          "total_duration": $total_duration,
+          "file_operations_duration": $file_duration,
+          "json_processing_duration": $json_duration,
+          "baseline_timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+        }
+        EOF
+
+        echo -e "$perf_results" > pipeline-validation/performance-results.txt
+
+    - name: Generate Test Summary
+      shell: bash
+      run: |
+        echo "📋 Generating comprehensive test summary..."
+
+        # Aggregate all test results
+        overall_score=100
+        total_tests=0
+        passed_tests=0
+
+        # Count results from each test phase
+        if [ -f "pipeline-validation/scores.txt" ]; then
+          structure_score=$(grep "structure_score=" pipeline-validation/scores.txt | cut -d'=' -f2 || echo "0")
+          overall_score=$((overall_score * structure_score / 100))
+        fi
+
+        # Create comprehensive summary
+        cat > pipeline-validation/test-summary.md << EOF
+        # Pipeline Validation Test Summary
+
+        **Test Run**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+        **Test Type**: ${{ inputs.test-type }}
+        **Overall Score**: ${overall_score}/100
+
+        ## Structure Validation
+        $([ -f "pipeline-validation/structure-validation.txt" ] && cat pipeline-validation/structure-validation.txt || echo "No structure validation data")
+
+        ## Change Detection Tests
+        $([ -f "pipeline-validation/change-detection-test.txt" ] && cat pipeline-validation/change-detection-test.txt || echo "No change detection test data")
+
+        ## Quality Gates Tests
+        $([ -f "pipeline-validation/quality-gates-test.txt" ] && cat pipeline-validation/quality-gates-test.txt || echo "No quality gates test data")
+
+        ## Performance Baseline
+        $([ -f "pipeline-validation/performance-results.txt" ] && cat pipeline-validation/performance-results.txt || echo "No performance test data")
+
+        ## Recommendations
+        - Ensure all required actions are present and properly configured
+        - Validate workflow syntax regularly with actionlint
+        - Monitor performance baselines for regression detection
+        - Test change detection logic with various file change scenarios
+
+        ---
+        *Generated by Pipeline Test Validation*
+        EOF
+
+        # Set outputs
+        echo "test-results=Score: ${overall_score}/100" >> $GITHUB_OUTPUT
+
+        if [ -f "pipeline-validation/performance-baseline.json" ]; then
+          perf_data=$(cat pipeline-validation/performance-baseline.json | tr -d '\n')
+          echo "performance-data=$perf_data" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: pipeline-validation-${{ github.run_number }}
+        path: pipeline-validation/
+        retention-days: 30
