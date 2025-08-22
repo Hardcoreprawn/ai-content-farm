@@ -42,11 +42,11 @@ runs:
         ACR_NAME: ${{ inputs.acr-name }}
         RESOURCE_GROUP: ${{ inputs.resource-group }}
       run: |
-        echo "🏗️ Building and pushing multi-tier base images to ACR..."
+        echo "[BUILD] Building and pushing multi-tier base images to ACR..."
 
         # Get ACR login server
         ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" --query loginServer -o tsv)
-        echo "📋 ACR Login Server: $ACR_LOGIN_SERVER"
+        echo "[REPORT] ACR Login Server: $ACR_LOGIN_SERVER"
 
         # Login to ACR
         az acr login --name "$ACR_NAME"
@@ -68,7 +68,7 @@ runs:
           # Push to ACR
           docker push $ACR_LOGIN_SERVER/ai-content-farm-base:$tier
 
-          echo "✅ $tier base image pushed to ACR"
+          echo "[PASS] $tier base image pushed to ACR"
         done
 
     - name: Build and Push Service Containers
@@ -101,7 +101,7 @@ runs:
           # Push to ACR
           docker push $ACR_LOGIN_SERVER/$container:latest
 
-          echo "✅ $container pushed to ACR"
+          echo "[PASS] $container pushed to ACR"
         done
 
     - name: Deploy Infrastructure
@@ -109,7 +109,7 @@ runs:
       env:
         ENVIRONMENT: ${{ inputs.environment }}
       run: |
-        echo "📦 Deploying infrastructure with Terraform..."
+        echo "[PACKAGE] Deploying infrastructure with Terraform..."
         cd infra
 
         # Initialize Terraform if needed
@@ -124,7 +124,7 @@ runs:
         terraform plan -var="environment=$ENVIRONMENT" -out=tfplan
         terraform apply tfplan
 
-        echo "✅ Infrastructure deployed"
+        echo "[PASS] Infrastructure deployed"
 
     - name: Update Container Apps
       id: deploy
@@ -133,7 +133,7 @@ runs:
         ACR_NAME: ${{ inputs.acr-name }}
         RESOURCE_GROUP: ${{ inputs.resource-group }}
       run: |
-        echo "🔄 Updating Container Apps..."
+        echo "[PROCESS] Updating Container Apps..."
 
         ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" --query loginServer -o tsv)
         deployed_containers=""
@@ -149,7 +149,7 @@ runs:
             --resource-group "$RESOURCE_GROUP" \
             --image $ACR_LOGIN_SERVER/$container:latest
 
-          echo "✅ $container container app updated"
+          echo "[PASS] $container container app updated"
 
           if [ -z "$deployed_containers" ]; then
             deployed_containers="$container"
@@ -166,7 +166,7 @@ runs:
           -o tsv)
 
         echo "🌐 Deployment URL: https://$DEPLOYMENT_URL"
-        echo "📊 Deployed containers: $deployed_containers"
+        echo "[STATS] Deployed containers: $deployed_containers"
 
         echo "url=https://$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
         echo "containers=$deployed_containers" >> $GITHUB_OUTPUT

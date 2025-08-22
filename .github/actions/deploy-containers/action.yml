@@ -54,7 +54,7 @@ runs:
       env:
         ENVIRONMENT: ${{ inputs.environment }}
       run: |
-        echo "🚀 Building and pushing all containers using production Dockerfiles..."
+        echo "[DEPLOY] Building and pushing all containers using production Dockerfiles..."
 
         # Define containers to deploy with their specific Dockerfile requirements
         declare -A CONTAINERS=(
@@ -71,7 +71,7 @@ runs:
         deployed_containers=""
 
         for container in "${!CONTAINERS[@]}"; do
-          echo "🏗️ Building and pushing $container..."
+          echo "[BUILD] Building and pushing $container..."
 
           # Build using production Dockerfile (self-contained)
           docker build -f containers/$container/Dockerfile.production -t $container:"$ENVIRONMENT" .
@@ -82,12 +82,12 @@ runs:
           # Push to ACR
           docker push $ACR_LOGIN_SERVER/$container:"$ENVIRONMENT"
 
-          echo "✅ $container pushed to ACR"
+          echo "[PASS] $container pushed to ACR"
           deployed_containers="$deployed_containers $container"
         done
 
         echo "containers=$deployed_containers" >> $GITHUB_OUTPUT
-        echo "✅ All containers pushed to ACR"
+        echo "[PASS] All containers pushed to ACR"
 
     - name: Update Container Apps
       shell: bash
@@ -95,7 +95,7 @@ runs:
         RESOURCE_GROUP: ${{ inputs.resource-group }}
         ENVIRONMENT: ${{ inputs.environment }}
       run: |
-        echo "🔄 Updating Container Apps..."
+        echo "[PROCESS] Updating Container Apps..."
 
         # For now, update the main content-generator app
         # TODO: Expand to handle all container apps when Terraform defines them
@@ -104,9 +104,9 @@ runs:
             --name "ai-content-farm-core-content-generator" \
             --resource-group "$RESOURCE_GROUP" \
             --image $ACR_LOGIN_SERVER/content-generator:"$ENVIRONMENT"
-          echo "✅ content-generator Container App updated"
+          echo "[PASS] content-generator Container App updated"
         else
-          echo "⚠️ content-generator Container App not found - may need Terraform deployment first"
+          echo "[WARN] content-generator Container App not found - may need Terraform deployment first"
         fi
 
     - name: Get deployment URL
@@ -125,5 +125,5 @@ runs:
           echo "🌐 Deployment URL: https://$URL"
         else
           echo "url=not-available" >> $GITHUB_OUTPUT
-          echo "⚠️ Deployment URL not available"
+          echo "[WARN] Deployment URL not available"
         fi

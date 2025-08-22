@@ -21,7 +21,7 @@ jobs:
 
       - name: Validate workflows
         run: |
-          echo "🔍 Validating workflow syntax..."
+          echo "[SCAN] Validating workflow syntax..."
           # Reuse existing make target for consistency
           make lint-workflows
 
@@ -52,16 +52,16 @@ jobs:
             echo "should-auto-merge=true" >> "$GITHUB_OUTPUT"
           # Check for patch/minor updates (safe to auto-merge)
           elif echo "$PR_TITLE" | grep -E "(patch|minor).*update|bump.*\([0-9]+\.[0-9]+\.[0-9]+\)"; then
-            echo "🔄 Patch/minor update detected - safe for auto-merge"
+            echo "[AUTO] Patch/minor update detected - safe for auto-merge"
             echo "is-security=false" >> "$GITHUB_OUTPUT"
             echo "should-auto-merge=true" >> "$GITHUB_OUTPUT"
           # Major updates require manual review
           elif echo "$PR_TITLE" | grep -i "major.*update"; then
-            echo "⚠️  Major update detected - requires manual review"
+            echo "[WARN]  Major update detected - requires manual review"
             echo "is-security=false" >> "$GITHUB_OUTPUT"
             echo "should-auto-merge=false" >> "$GITHUB_OUTPUT"
           else
-            echo "🔍 Standard dependency update - safe for auto-merge"
+            echo "[SCAN] Standard dependency update - safe for auto-merge"
             echo "is-security=false" >> "$GITHUB_OUTPUT"
             echo "should-auto-merge=true" >> "$GITHUB_OUTPUT"
           fi
@@ -73,7 +73,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           IS_SECURITY: ${{ steps.check-ready.outputs.is-security }}
         run: |
-          echo "✅ Enabling auto-merge for Dependabot PR"
+          echo "[PASS] Enabling auto-merge for Dependabot PR"
 
           # Add informative comment
           if [ "$IS_SECURITY" = "true" ]; then
@@ -93,8 +93,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo "⚠️  Manual review required for this PR"
+          echo "[WARN]  Manual review required for this PR"
 
-          comment="⚠️  **Manual Review Required** - This PR contains major updates that require manual review before merging. Please review the changes and merge manually if appropriate."
+          comment="[WARN]  **Manual Review Required** - This PR contains major updates that require manual review before merging. Please review the changes and merge manually if appropriate."
 
           gh pr comment "$PR_NUMBER" --body "$comment"

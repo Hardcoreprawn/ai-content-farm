@@ -111,6 +111,7 @@ def pytest_runtest_setup(item):
     # target the wrong module when running the full suite.
     try:
         import sys as _sys
+
         _for_container = s
         # Only print diagnostics when running in verbose pytest output or when
         # the active container is content-collector to minimize noise.
@@ -121,12 +122,14 @@ def pytest_runtest_setup(item):
                 if _path:
                     # print to stderr so it appears in pytest output
                     import sys as _sys2
-                    _sys2.stderr.write(
-                        f"[conftest] resolved module {_m} -> {_path}\n")
+
+                    _sys2.stderr.write(f"[conftest] resolved module {_m} -> {_path}\n")
                 else:
                     import sys as _sys3
+
                     _sys3.stderr.write(
-                        f"[conftest] resolved module {_m} -> (not loaded)\n")
+                        f"[conftest] resolved module {_m} -> (not loaded)\n"
+                    )
 
             # Additional: if collector is present, show which callable will be patched
             try:
@@ -135,8 +138,10 @@ def pytest_runtest_setup(item):
                     _fetch = getattr(_col_mod, "fetch_from_subreddit", None)
                     if _fetch:
                         import sys as _sys4
+
                         _sys4.stderr.write(
-                            f"[conftest] collector.fetch_from_subreddit -> id={id(_fetch)} repr={getattr(_fetch, '__name__', repr(_fetch))} module={getattr(_fetch, '__module__', None)}\n")
+                            f"[conftest] collector.fetch_from_subreddit -> id={id(_fetch)} repr={getattr(_fetch, '__name__', repr(_fetch))} module={getattr(_fetch, '__module__', None)}\n"
+                        )
             except Exception:
                 pass
     except Exception:

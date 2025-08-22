@@ -11,13 +11,13 @@ import json
 from typing import Dict, Any
 
 # Add the current directory to Python path for imports
-sys.path.insert(0, '/workspaces/ai-content-farm/containers/content-collector')
+sys.path.insert(0, "/workspaces/ai-content-farm/containers/content-collector")
 
 try:
     from keyvault_client import (
         get_keyvault_client,
         get_reddit_credentials_with_fallback,
-        health_check_keyvault
+        health_check_keyvault,
     )
 except ImportError as e:
     print(f"❌ Import error: {e}")
@@ -44,7 +44,8 @@ def test_keyvault_client():
 
         if test_secret:
             print(
-                f"✅ Successfully retrieved reddit-client-id: {'*' * len(test_secret[:4])}...")
+                f"✅ Successfully retrieved reddit-client-id: {'*' * len(test_secret[:4])}..."
+            )
         else:
             print("⚠️  reddit-client-id not found or not accessible")
 
@@ -54,7 +55,8 @@ def test_keyvault_client():
             print("   💡 Tip: Set AZURE_KEY_VAULT_URL in your .env file")
         else:
             print(
-                "   💡 Tip: Check your Azure authentication (az login or service principal)")
+                "   💡 Tip: Check your Azure authentication (az login or service principal)"
+            )
 
 
 def test_reddit_credentials():
@@ -67,8 +69,7 @@ def test_reddit_credentials():
     print("Credential Status:")
     for key, value in credentials.items():
         if value:
-            masked_value = f"{'*' * len(value[:4])}..." if len(
-                value) > 4 else "***"
+            masked_value = f"{'*' * len(value[:4])}..." if len(value) > 4 else "***"
             print(f"  ✅ {key}: {masked_value}")
         else:
             print(f"  ❌ {key}: Not found")
@@ -90,7 +91,7 @@ def test_reddit_credentials():
     env_vars = {
         "client_id": "REDDIT_CLIENT_ID",
         "client_secret": "REDDIT_CLIENT_SECRET",
-        "user_agent": "REDDIT_USER_AGENT"
+        "user_agent": "REDDIT_USER_AGENT",
     }
 
     for key, env_var in env_vars.items():
@@ -113,9 +114,10 @@ def test_health_check():
     print(f"Key Vault Configured: {health['key_vault_configured']}")
     print(f"Client Available: {health['client_available']}")
 
-    if 'test_secret_retrieval' in health:
+    if "test_secret_retrieval" in health:
         print(
-            f"Secret Retrieval Test: {'✅ Passed' if health['test_secret_retrieval'] else '❌ Failed'}")
+            f"Secret Retrieval Test: {'✅ Passed' if health['test_secret_retrieval'] else '❌ Failed'}"
+        )
 
 
 def test_service_health():
@@ -133,18 +135,18 @@ def test_service_health():
 
             print(f"Service Status: {health_data['status']}")
 
-            kv_info = health_data.get(
-                'environment_info', {}).get('key_vault', {})
+            kv_info = health_data.get("environment_info", {}).get("key_vault", {})
             print(f"Key Vault Status: {kv_info.get('status', 'unknown')}")
             print(f"Key Vault Message: {kv_info.get('message', 'N/A')}")
 
-            config_info = health_data.get(
-                'environment_info', {}).get('config_validation', {})
+            config_info = health_data.get("environment_info", {}).get(
+                "config_validation", {}
+            )
             print(f"Config Valid: {config_info.get('valid', False)}")
 
-            if config_info.get('issues'):
+            if config_info.get("issues"):
                 print("Config Issues:")
-                for issue in config_info['issues']:
+                for issue in config_info["issues"]:
                     print(f"  ❌ {issue}")
             else:
                 print("✅ No config issues")

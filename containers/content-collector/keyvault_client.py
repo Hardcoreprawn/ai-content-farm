@@ -32,8 +32,7 @@ class KeyVaultClient:
                 self._initialize_client()
             except Exception as e:
                 logger.error(f"Failed to initialize Key Vault client: {e}")
-                logger.info(
-                    "Will fall back to environment variables for credentials")
+                logger.info("Will fall back to environment variables for credentials")
                 self.client = None
         else:
             logger.info("AZURE_KEY_VAULT_URL not configured")
@@ -55,8 +54,7 @@ class KeyVaultClient:
         try:
             # Try managed identity first (for Azure environments)
             if os.getenv("AZURE_CLIENT_ID"):
-                logger.info(
-                    "Using managed identity for Key Vault authentication")
+                logger.info("Using managed identity for Key Vault authentication")
                 credential = ManagedIdentityCredential(
                     client_id=os.getenv("AZURE_CLIENT_ID")
                 )
@@ -67,8 +65,7 @@ class KeyVaultClient:
                 )
                 credential = DefaultAzureCredential()
 
-            self.client = SecretClient(
-                vault_url=self.vault_url, credential=credential)
+            self.client = SecretClient(vault_url=self.vault_url, credential=credential)
 
             # Test the connection
             self._test_connection()
@@ -104,8 +101,7 @@ class KeyVaultClient:
             Secret value or None if not found
         """
         if not self.client:
-            logger.warning(
-                "Key Vault client not available, cannot retrieve secret")
+            logger.warning("Key Vault client not available, cannot retrieve secret")
             return None
 
         # Check cache first
@@ -145,18 +141,18 @@ class KeyVaultClient:
         }
 
         # Log which credentials were found (without values)
-        found_creds = [key for key, value in credentials.items()
-                       if value is not None]
-        missing_creds = [key for key,
-                         value in credentials.items() if value is None]
+        found_creds = [key for key, value in credentials.items() if value is not None]
+        missing_creds = [key for key, value in credentials.items() if value is None]
 
         if found_creds:
             logger.info(
-                f"Retrieved Reddit credentials from Key Vault: {len(found_creds)} items")
+                f"Retrieved Reddit credentials from Key Vault: {len(found_creds)} items"
+            )
 
         if missing_creds:
             logger.warning(
-                f"Missing Reddit credentials in Key Vault: {len(missing_creds)} items")
+                f"Missing Reddit credentials in Key Vault: {len(missing_creds)} items"
+            )
 
         return credentials
 
@@ -225,18 +221,14 @@ def get_reddit_credentials_with_fallback() -> Dict[str, Optional[str]]:
                 logger.info(f"Using environment variable for Reddit {key}")
 
     # Log final status
-    available_creds = [key for key,
-                       value in credentials.items() if value is not None]
-    missing_creds = [key for key, value in credentials.items()
-                     if value is None]
+    available_creds = [key for key, value in credentials.items() if value is not None]
+    missing_creds = [key for key, value in credentials.items() if value is None]
 
     if available_creds:
-        logger.info(
-            f"Reddit credentials available: {len(available_creds)} items")
+        logger.info(f"Reddit credentials available: {len(available_creds)} items")
 
     if missing_creds:
-        logger.warning(
-            f"Reddit credentials missing: {len(missing_creds)} items")
+        logger.warning(f"Reddit credentials missing: {len(missing_creds)} items")
         logger.warning(
             "Reddit API functionality may be limited without proper credentials"
         )

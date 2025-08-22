@@ -164,9 +164,9 @@ class BlobStorageClient:
 
             # Update manifest with blob information
             manifest["blob_files"] = blob_files
-            manifest[
-                "storage_location"
-            ] = f"blob://{config.GENERATED_CONTENT_CONTAINER}/markdown/{timestamp}/"
+            manifest["storage_location"] = (
+                f"blob://{config.GENERATED_CONTENT_CONTAINER}/markdown/{timestamp}/"
+            )
 
             # Upload manifest
             manifest_blob_name = f"manifests/{timestamp}_manifest.json"

@@ -10,8 +10,8 @@ import sys
 from datetime import datetime
 
 # Add the containers directory to the path
-sys.path.append('/workspaces/ai-content-farm/containers/content-generator')
-sys.path.append('/workspaces/ai-content-farm')
+sys.path.append("/workspaces/ai-content-farm/containers/content-generator")
+sys.path.append("/workspaces/ai-content-farm")
 
 
 async def test_event_driven_generation():
@@ -22,7 +22,8 @@ async def test_event_driven_generation():
     os.environ["ENVIRONMENT"] = "development"
     os.environ["AZURE_OPENAI_ENDPOINT"] = "https://uksouth.api.cognitive.microsoft.com/"
     os.environ["AZURE_OPENAI_API_KEY"] = os.getenv(
-        "AZURE_OPENAI_API_KEY", "mock-test-key-for-development")
+        "AZURE_OPENAI_API_KEY", "mock-test-key-for-development"
+    )
     os.environ["AZURE_OPENAI_DEPLOYMENT_NAME"] = "gpt-4o-mini"
 
     print("🎯 Testing Event-Driven Content Generation")
@@ -50,8 +51,8 @@ async def test_event_driven_generation():
                             "metadata": {
                                 "source_type": "research",
                                 "credibility_score": 9.5,
-                                "publication_date": "2025-08-19"
-                            }
+                                "publication_date": "2025-08-19",
+                            },
                         },
                         {
                             "name": "Healthcare Technology Review",
@@ -62,8 +63,8 @@ async def test_event_driven_generation():
                             "metadata": {
                                 "source_type": "industry_analysis",
                                 "credibility_score": 8.8,
-                                "publication_date": "2025-08-18"
-                            }
+                                "publication_date": "2025-08-18",
+                            },
                         },
                         {
                             "name": "Journal of Medical Innovation",
@@ -74,22 +75,34 @@ async def test_event_driven_generation():
                             "metadata": {
                                 "source_type": "academic",
                                 "credibility_score": 9.2,
-                                "publication_date": "2025-08-17"
-                            }
-                        }
+                                "publication_date": "2025-08-17",
+                            },
+                        },
                     ],
                     "rank": 1,
                     "ai_score": 94.7,
                     "sentiment": "positive",
-                    "tags": ["artificial intelligence", "healthcare", "medical diagnosis", "machine learning", "cancer detection"],
+                    "tags": [
+                        "artificial intelligence",
+                        "healthcare",
+                        "medical diagnosis",
+                        "machine learning",
+                        "cancer detection",
+                    ],
                     "metadata": {
                         "category": "healthcare_technology",
-                        "keywords": ["AI", "medical imaging", "cancer detection", "healthcare", "machine learning"],
+                        "keywords": [
+                            "AI",
+                            "medical imaging",
+                            "cancer detection",
+                            "healthcare",
+                            "machine learning",
+                        ],
                         "ranking_timestamp": "2025-08-19T20:45:00Z",
                         "trending_score": 88.5,
                         "engagement_score": 91.2,
-                        "source_quality": 9.2
-                    }
+                        "source_quality": 9.2,
+                    },
                 }
             ],
             "metadata": {
@@ -100,11 +113,11 @@ async def test_event_driven_generation():
                 "ranking_criteria": {
                     "engagement_weight": 0.4,
                     "recency_weight": 0.35,
-                    "quality_weight": 0.25
+                    "quality_weight": 0.25,
                 },
                 "source": "content_ranker",
-                "version": "1.0.0"
-            }
+                "version": "1.0.0",
+            },
         }
 
         # Upload to ranked-content container
@@ -119,8 +132,8 @@ async def test_event_driven_generation():
                 metadata={
                     "test_type": "event_driven_generation",
                     "topics_count": "1",
-                    "test_timestamp": datetime.utcnow().isoformat()
-                }
+                    "test_timestamp": datetime.utcnow().isoformat(),
+                },
             )
             print(f"✅ Uploaded test ranked content: {blob_name}")
             print(f"   Blob URL: {blob_url}")
@@ -128,7 +141,8 @@ async def test_event_driven_generation():
 
             # The content generator should detect this blob and generate content automatically
             print(
-                "\n⏳ Content generator should automatically detect and process this blob...")
+                "\n⏳ Content generator should automatically detect and process this blob..."
+            )
             print("   Check the 'generated-content' container for results")
             print("   (This may take 30-60 seconds as the watcher checks every 30s)")
 
@@ -142,8 +156,10 @@ async def test_event_driven_generation():
     except Exception as e:
         print(f"❌ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
+
 
 if __name__ == "__main__":
     result = asyncio.run(test_event_driven_generation())

@@ -2,7 +2,7 @@
 Phase 2A Integration Tests: Content Collector Standardizati        # List blobs to verify our collection was saved
         blobs = blob_client.list_blobs(container_name)
         collection_blob_found = any(
-            collection_id in blob["name"] 
+            collection_id in blob["name"]
             for blob in blobs
         )sts that validate the content collector follows standardized patterns:
 - Uses shared blob storage library

@@ -65,7 +65,7 @@ runs:
         GITHUB_REF: ${{ github.ref }}
         GITHUB_SHA: ${{ github.sha }}
       run: |
-        echo "📊 Collecting operational metrics and configurations..."
+        echo "[STATS] Collecting operational metrics and configurations..."
 
         # Collect available operational data
         if [ -d "security-results" ]; then
@@ -385,7 +385,7 @@ runs:
     - name: Generate Operations Report
       shell: bash
       run: |
-        echo "📄 Generating operations readiness report..."
+        echo "[FILE] Generating operations readiness report..."
 
         cd ai-reviews/operations
 

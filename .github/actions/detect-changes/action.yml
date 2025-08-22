@@ -40,7 +40,7 @@ runs:
         GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         GITHUB_SHA: ${{ github.sha }}
       run: |
-        echo "🔍 Detecting changes between $BASE_REF and $HEAD_REF..."
+        echo "[SCAN] Detecting changes between $BASE_REF and $HEAD_REF..."
 
         # Get list of changed files
         if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
@@ -92,7 +92,7 @@ runs:
       id: inventory
       shell: bash
       run: |
-        echo "📦 Building complete container inventory..."
+        echo "[PACKAGE] Building complete container inventory..."
         all_containers=""
         for container_dir in containers/*/; do
           container_name=$(basename "$container_dir")

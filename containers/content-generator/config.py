@@ -108,9 +108,13 @@ class Config:
                 "has_openai": has_openai_direct,
                 "has_claude": has_claude,
                 "storage_account": cls.STORAGE_ACCOUNT_NAME,
-                "blob_storage": "managed_identity"
-                if has_managed_identity_storage
-                else ("connection_string" if has_connection_string else "development"),
+                "blob_storage": (
+                    "managed_identity"
+                    if has_managed_identity_storage
+                    else (
+                        "connection_string" if has_connection_string else "development"
+                    )
+                ),
             },
         }
 

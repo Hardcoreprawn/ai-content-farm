@@ -65,7 +65,7 @@ runs:
         GITHUB_REF: ${{ github.ref }}
         GITHUB_SHA: ${{ github.sha }}
       run: |
-        echo "📊 Collecting cost analysis results for AI review..."
+        echo "[STATS] Collecting cost analysis results for AI review..."
 
         # Collect cost artifacts if they exist
         if [ -d "cost-analysis" ]; then
@@ -358,7 +358,7 @@ runs:
     - name: Generate Cost Optimization Report
       shell: bash
       run: |
-        echo "📄 Generating cost optimization report..."
+        echo "[FILE] Generating cost optimization report..."
 
         cd ai-reviews/cost
 

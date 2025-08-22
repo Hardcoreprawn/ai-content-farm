@@ -510,10 +510,12 @@ CONTENT:
                     "requested_topics": len(topics),
                     "generated_articles": len(generated_content),
                     "success_rate": len(generated_content) / len(topics),
-                    "avg_word_count": sum(c.word_count for c in generated_content)
-                    / len(generated_content)
-                    if generated_content
-                    else 0,
+                    "avg_word_count": (
+                        sum(c.word_count for c in generated_content)
+                        / len(generated_content)
+                        if generated_content
+                        else 0
+                    ),
                 },
             )
 

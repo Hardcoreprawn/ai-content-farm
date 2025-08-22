@@ -175,9 +175,7 @@ class DependencyAnalyzer:
         overall_risk = (
             "HIGH"
             if "HIGH" in risk_levels
-            else "MEDIUM"
-            if "MEDIUM" in risk_levels
-            else "LOW"
+            else "MEDIUM" if "MEDIUM" in risk_levels else "LOW"
         )
 
         return {

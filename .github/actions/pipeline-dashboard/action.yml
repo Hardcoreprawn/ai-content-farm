@@ -26,7 +26,7 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_RUN_ID: ${{ github.run_id }}
       run: |
-        echo "📊 Setting up pipeline dashboard..."
+        echo "[STATS] Setting up pipeline dashboard..."
         mkdir -p dashboard/data dashboard/assets
 
         # Install dashboard dependencies
@@ -38,7 +38,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
-        echo "📈 Collecting pipeline metrics from GitHub API..."
+        echo "[METRIC] Collecting pipeline metrics from GitHub API..."
 
         # Get recent workflow runs
         workflow_runs=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
@@ -76,7 +76,7 @@ runs:
     - name: Generate Performance Trends
       shell: bash
       run: |
-        echo "📊 Generating performance trend analysis..."
+        echo "[STATS] Generating performance trend analysis..."
 
         # Download recent metrics artifacts if available
         if [ -d "pipeline-metrics" ]; then
@@ -239,7 +239,7 @@ runs:
         <body>
             <div class="container">
                 <div class="header">
-                    <h1>🚀 AI Content Farm</h1>
+                    <h1>[DEPLOY] AI Content Farm</h1>
                     <h2>CI/CD Pipeline Dashboard</h2>
                     <p>Repository: $GITHUB_REPOSITORY | Run: $GITHUB_RUN_ID</p>
                 </div>
@@ -263,13 +263,13 @@ runs:
                         <div class="metric-label">Avg Duration</div>
                     </div>
                     <div class="metric-card">
-                        <div class="metric-value">✅</div>
+                        <div class="metric-value">[PASS]</div>
                         <div class="metric-label">Security Status</div>
                     </div>
                 </div>
 
                 <div class="section">
-                    <h3>🔍 Key Features</h3>
+                    <h3>[SCAN] Key Features</h3>
                     <ul>
                         <li><strong>Smart Change Detection</strong> - Only runs tests for changed components</li>
                         <li><strong>Quality Gates</strong> - Security, code quality, and infrastructure validation</li>
@@ -281,7 +281,7 @@ runs:
                 </div>
 
                 <div class="section">
-                    <h3>📊 Recent Performance</h3>
+                    <h3>[STATS] Recent Performance</h3>
                     <p>Pipeline optimized from 797 to 298 lines (63% reduction)</p>
                     <p>Enhanced with reusable actions and comprehensive monitoring</p>
                     <p>Security-hardened with proper environment variable usage</p>

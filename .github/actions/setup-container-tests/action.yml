@@ -33,7 +33,7 @@ runs:
         LIBS_CHANGED: ${{ inputs.libs-changed }}
         ALL_CONTAINERS: ${{ inputs.all-containers }}
       run: |
-        echo "🧪 Determining which containers need testing..."
+        echo "[TEST] Determining which containers need testing..."
 
         # If libs changed, test all containers
         if [[ "$LIBS_CHANGED" == "true" ]]; then
@@ -42,7 +42,7 @@ runs:
           strategy="all (libs changed)"
         elif [[ -n "$CONTAINERS_CHANGED" ]]; then
           containers_to_test="$CONTAINERS_CHANGED"
-          echo "📦 Testing only changed containers"
+          echo "[PACKAGE] Testing only changed containers"
           strategy="changed only"
         else
           containers_to_test=""

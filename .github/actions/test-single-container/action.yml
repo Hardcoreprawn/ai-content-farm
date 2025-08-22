@@ -32,7 +32,7 @@ runs:
       env:
         CONTAINER_NAME: ${{ inputs.container-name }}
       run: |
-        echo "🐍 Setting up Python test environment for ${CONTAINER_NAME}..."
+        echo "[PYTHON] Setting up Python test environment for ${CONTAINER_NAME}..."
         python -m pip install --upgrade pip
         pip install pytest pytest-cov pytest-asyncio pytest-xdist
 
@@ -41,7 +41,7 @@ runs:
       env:
         CONTAINER_NAME: ${{ inputs.container-name }}
       run: |
-        echo "📦 Installing dependencies for ${CONTAINER_NAME}..."
+        echo "[PACKAGE] Installing dependencies for ${CONTAINER_NAME}..."
 
         # Install shared libs first
         if [ -f "libs/requirements.txt" ]; then
@@ -60,7 +60,7 @@ runs:
           echo "Installing ${CONTAINER_NAME} dependencies..."
           pip install -r "containers/${CONTAINER_NAME}/requirements.txt"
         else
-          echo "⚠️ No requirements.txt found for ${CONTAINER_NAME}"
+          echo "[WARN] No requirements.txt found for ${CONTAINER_NAME}"
         fi
 
     - name: Run Unit Tests
@@ -70,7 +70,7 @@ runs:
         CONTAINER_NAME: ${{ inputs.container-name }}
         INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
       run: |
-        echo "🧪 Running unit tests for ${CONTAINER_NAME}..."
+        echo "[TEST] Running unit tests for ${CONTAINER_NAME}..."
 
         pytest_args=""
         if [ "${INPUT_FAIL_FAST}" = "true" ]; then
@@ -137,7 +137,7 @@ runs:
         CONTAINER_NAME: ${{ inputs.container-name }}
         TEST_TYPE: ${{ inputs.test-type }}
       run: |
-        echo "📊 Calculating coverage for ${CONTAINER_NAME} (${TEST_TYPE})..."
+        echo "[STATS] Calculating coverage for ${CONTAINER_NAME} (${TEST_TYPE})..."
 
         coverage_file="coverage-${CONTAINER_NAME}-${TEST_TYPE}.xml"
 
@@ -167,16 +167,16 @@ runs:
         CONTAINER_NAME: ${{ inputs.container-name }}
         TEST_TYPE: ${{ inputs.test-type }}
       run: |
-        echo "📋 Evaluating test results for ${CONTAINER_NAME} (${TEST_TYPE})..."
+        echo "[REPORT] Evaluating test results for ${CONTAINER_NAME} (${TEST_TYPE})..."
 
         # Check for test failures
         if [ "$unit_test_failed" = "true" ] || [ "$integration_test_failed" = "true" ] || [ "$smoke_test_failed" = "true" ]; then
           echo "passed=false" >> $GITHUB_OUTPUT
-          echo "❌ Tests failed for ${CONTAINER_NAME} (${TEST_TYPE})"
+          echo "[FAIL] Tests failed for ${CONTAINER_NAME} (${TEST_TYPE})"
           exit 1
         else
           echo "passed=true" >> $GITHUB_OUTPUT
-          echo "✅ Tests passed for ${CONTAINER_NAME} (${TEST_TYPE})"
+          echo "[PASS] Tests passed for ${CONTAINER_NAME} (${TEST_TYPE})"
         fi
 
     - name: Upload Test Results

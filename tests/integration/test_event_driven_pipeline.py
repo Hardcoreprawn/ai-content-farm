@@ -4,7 +4,7 @@ Test Event-Driven Pipeline
 
 This script tests the complete containerized, event-driven pipeline:
 1. Send test data to enricher
-2. Enricher forwards to ranker  
+2. Enricher forwards to ranker
 3. Ranker triggers markdown generator
 4. Markdown generator triggers static site generator
 5. View the generated website
@@ -35,39 +35,43 @@ async def test_event_driven_pipeline():
             "engagement_score": 0.89,
             "published_at": datetime.now(timezone.utc).isoformat(),
             "topic_classification": {
-                "topics": ["Quantum Computing", "Artificial Intelligence", "Machine Learning", "Research"],
-                "confidence": 0.95
+                "topics": [
+                    "Quantum Computing",
+                    "Artificial Intelligence",
+                    "Machine Learning",
+                    "Research",
+                ],
+                "confidence": 0.95,
             },
-            "sentiment_analysis": {
-                "sentiment": "positive",
-                "confidence": 0.92
-            },
+            "sentiment_analysis": {"sentiment": "positive", "confidence": 0.92},
             "source_metadata": {
                 "site_name": "Quantum Tech Today",
-                "published_at": datetime.now(timezone.utc).isoformat()
-            }
+                "published_at": datetime.now(timezone.utc).isoformat(),
+            },
         },
         {
             "id": "test_uk_ai_investment_2025",
             "title": "UK government announces £3bn investment in AI infrastructure",
-            "clean_title": "UK government announces £3bn investment in AI infrastructure", 
+            "clean_title": "UK government announces £3bn investment in AI infrastructure",
             "source_url": "https://example.com/uk-ai-investment",
             "content_type": "article",
             "normalized_score": 0.76,
             "engagement_score": 0.76,
             "published_at": datetime.now(timezone.utc).isoformat(),
             "topic_classification": {
-                "topics": ["UK Politics", "AI Infrastructure", "Government Policy", "Investment"],
-                "confidence": 0.88
+                "topics": [
+                    "UK Politics",
+                    "AI Infrastructure",
+                    "Government Policy",
+                    "Investment",
+                ],
+                "confidence": 0.88,
             },
-            "sentiment_analysis": {
-                "sentiment": "positive",
-                "confidence": 0.85
-            },
+            "sentiment_analysis": {"sentiment": "positive", "confidence": 0.85},
             "source_metadata": {
                 "site_name": "UK Tech News",
-                "published_at": datetime.now(timezone.utc).isoformat()
-            }
+                "published_at": datetime.now(timezone.utc).isoformat(),
+            },
         },
         {
             "id": "test_open_source_ai_2025",
@@ -79,20 +83,23 @@ async def test_event_driven_pipeline():
             "engagement_score": 0.82,
             "published_at": datetime.now(timezone.utc).isoformat(),
             "topic_classification": {
-                "topics": ["Open Source", "AI Models", "Big Tech", "Machine Learning", "Industry"],
-                "confidence": 0.91
+                "topics": [
+                    "Open Source",
+                    "AI Models",
+                    "Big Tech",
+                    "Machine Learning",
+                    "Industry",
+                ],
+                "confidence": 0.91,
             },
-            "sentiment_analysis": {
-                "sentiment": "positive",
-                "confidence": 0.87
-            },
+            "sentiment_analysis": {"sentiment": "positive", "confidence": 0.87},
             "source_metadata": {
                 "site_name": "Open AI Weekly",
-                "published_at": datetime.now(timezone.utc).isoformat()
-            }
-        }
+                "published_at": datetime.now(timezone.utc).isoformat(),
+            },
+        },
     ]
-    
+
     async with httpx.AsyncClient() as client:
 
         print("📡 Step 1: Checking service health...")
@@ -101,13 +108,17 @@ async def test_event_driven_pipeline():
             ("Ranker", "http://localhost:8004/health"),
             ("Markdown Generator", "http://localhost:8007/health"),
             ("SSG", "http://localhost:8005/health"),
-            ("Markdown Converter", "http://localhost:8006/health")
+            ("Markdown Converter", "http://localhost:8006/health"),
         ]
 
         for service_name, url in services:
             try:
                 response = await client.get(url, timeout=5.0)
-                status = "✅ Healthy" if response.status_code == 200 else f"❌ Error {response.status_code}"
+                status = (
+                    "✅ Healthy"
+                    if response.status_code == 200
+                    else f"❌ Error {response.status_code}"
+                )
                 print(f"   {service_name}: {status}")
             except Exception as e:
                 print(f"   {service_name}: ❌ Unreachable ({e})")
@@ -117,15 +128,14 @@ async def test_event_driven_pipeline():
         try:
             # Send content directly to ranker for ranking
             response = await client.post(
-                "http://localhost:8004/rank",
-                json={"items": test_content},
-                timeout=30.0
+                "http://localhost:8004/rank", json={"items": test_content}, timeout=30.0
             )
 
             if response.status_code == 200:
                 ranking_result = response.json()
                 print(
-                    f"✅ Content ranked successfully: {len(ranking_result.get('ranked_items', []))} items")
+                    f"✅ Content ranked successfully: {len(ranking_result.get('ranked_items', []))} items"
+                )
             else:
                 print(f"❌ Ranking failed: {response.status_code}")
                 return
@@ -142,10 +152,10 @@ async def test_event_driven_pipeline():
             response = await client.get("http://localhost:8007/status", timeout=10.0)
             if response.status_code == 200:
                 status = response.json()
-                markdown_files = status.get(
-                    'file_statistics', {}).get('markdown_files', 0)
-                print(
-                    f"✅ Markdown Generator Status: {markdown_files} files generated")
+                markdown_files = status.get("file_statistics", {}).get(
+                    "markdown_files", 0
+                )
+                print(f"✅ Markdown Generator Status: {markdown_files} files generated")
             else:
                 print(f"❌ Could not get markdown generator status")
         except Exception as e:
@@ -160,10 +170,12 @@ async def test_event_driven_pipeline():
                 print(f"✅ Static Site Generator: Ready")
 
                 # Try to trigger site generation manually to ensure it's ready
-                response = await client.get("http://localhost:8005/generate/sync", timeout=60.0)
+                response = await client.get(
+                    "http://localhost:8005/generate/sync", timeout=60.0
+                )
                 if response.status_code == 200:
                     result = response.json()
-                    pages = result.get('result', {}).get('pages_generated', 0)
+                    pages = result.get("result", {}).get("pages_generated", 0)
                     print(f"✅ Website generated: {pages} pages")
                 else:
                     print(f"❌ Site generation failed: {response.status_code}")
@@ -177,11 +189,12 @@ async def test_event_driven_pipeline():
         # Get status from all services
         try:
             # Check markdown converter notifications
-            response = await client.get("http://localhost:8006/notifications", timeout=10.0)
+            response = await client.get(
+                "http://localhost:8006/notifications", timeout=10.0
+            )
             if response.status_code == 200:
-                notifications = response.json().get('notifications', [])
-                print(
-                    f"✅ Markdown Converter: {len(notifications)} notifications")
+                notifications = response.json().get("notifications", [])
+                print(f"✅ Markdown Converter: {len(notifications)} notifications")
 
             # Get SSG status
             response = await client.get("http://localhost:8005/", timeout=10.0)
@@ -201,10 +214,13 @@ async def test_event_driven_pipeline():
         print(f"")
         print(f"💡 The pipeline is now event-driven:")
         print(f"   ➡️  Ranker receives content → triggers Markdown Generator")
-        print(f"   ➡️  Markdown Generator creates files → triggers Static Site Generator")
+        print(
+            f"   ➡️  Markdown Generator creates files → triggers Static Site Generator"
+        )
         print(f"   ➡️  Static Site Generator creates website → ready for viewing")
         print(f"")
         print(f"🚀 Your AI Content Farm is live and automatically updating!")
+
 
 if __name__ == "__main__":
     asyncio.run(test_event_driven_pipeline())
