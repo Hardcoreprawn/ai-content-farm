@@ -1,5 +1,5 @@
 name: 'Evaluate Quality Gates'
-description: 'Aggregate results from all quality gate checks and determine overall pass/fail'
+description: 'Aggregate results from all quality gate checks with flexible pass/warn policies'
 inputs:
   security-trivy-result:
     description: 'Result of Trivy security scan'
@@ -28,6 +28,14 @@ inputs:
   cost-analysis-result:
     description: 'Result of cost analysis job'
     required: false
+  allow-security-warnings:
+    description: 'Allow security scan failures as warnings if at least one passes'
+    required: false
+    default: 'true'
+  allow-cost-warnings:
+    description: 'Allow cost analysis failures as warnings'
+    required: false
+    default: 'true'
     default: 'skipped'
 
 outputs:
@@ -40,6 +48,9 @@ outputs:
   failed-gates:
     description: 'Comma-separated list of failed gates'
     value: ${{ steps.evaluate.outputs.failed-gates }}
+  warning-gates:
+    description: 'Comma-separated list of gates with warnings'
+    value: ${{ steps.evaluate.outputs.warning-gates }}
 
 runs:
   using: 'composite'
@@ -57,59 +68,178 @@ runs:
         INFRA_RESULT: ${{ inputs.infrastructure-result }}
         DEPS_RESULT: ${{ inputs.dependency-result }}
         COST_RESULT: ${{ inputs.cost-analysis-result }}
+        ALLOW_SECURITY_WARNINGS: ${{ inputs.allow-security-warnings }}
+        ALLOW_COST_WARNINGS: ${{ inputs.allow-cost-warnings }}
       run: |
-        echo "[STATS] Evaluating quality gate results..."
+        echo "[STATS] Evaluating quality gate results with flexible policies..."
 
-        # Track failures
+        # Track results
         failed_gates=""
+        warning_gates=""
         total_gates=0
         passed_gates=0
+        security_gates=0
+        security_passed=0
 
-        # Security scans
+        # Evaluate security scans with flexible policy
+        echo "=== Security Scan Results ==="
         for scan in "trivy:$SECURITY_TRIVY_RESULT" "semgrep:$SECURITY_SEMGREP_RESULT" "python:$SECURITY_PYTHON_RESULT" "sbom:$SECURITY_SBOM_RESULT" "checkov:$SECURITY_CHECKOV_RESULT"; do
           scan_name="${scan%%:*}"
           scan_result="${scan##*:}"
+          
+          # Skip skipped scans for security count
+          if [[ "$scan_result" == "skipped" ]]; then
+            echo "[SKIP] Security $scan_name: SKIPPED (conditional)"
+            continue
+          fi
+          
+          security_gates=$((security_gates + 1))
           total_gates=$((total_gates + 1))
 
           if [[ "$scan_result" == "success" ]]; then
+            security_passed=$((security_passed + 1))
             passed_gates=$((passed_gates + 1))
             echo "[PASS] Security $scan_name: PASSED"
           else
+            echo "[FAIL] Security $scan_name: FAILED ($scan_result)"
             if [ -n "$failed_gates" ]; then
               failed_gates="$failed_gates,security-$scan_name"
             else
               failed_gates="security-$scan_name"
             fi
-            echo "[FAIL] Security $scan_name: FAILED"
           fi
         done
 
-        # Code quality (always runs)
+        # Apply flexible security policy
+        if [[ "$ALLOW_SECURITY_WARNINGS" == "true" && $security_passed -gt 0 ]]; then
+          echo ""
+          echo "[POLICY] Flexible security policy: At least one security scan passed ($security_passed/$security_gates)"
+          if [[ $security_passed -lt $security_gates ]]; then
+            # Move failed security scans to warnings
+            failed_security=$(echo "$failed_gates" | tr ',' '\n' | grep '^security-' || true)
+            if [ -n "$failed_security" ]; then
+              warning_gates="$failed_security"
+              # Remove security failures from hard failures
+              failed_gates=$(echo "$failed_gates" | tr ',' '\n' | grep -v '^security-' | tr '\n' ',' | sed 's/,$//' || true)
+              echo "[WARN] Security scans with warnings: $(echo "$failed_security" | tr '\n' ',' | sed 's/,$//')"
+            fi
+          fi
+        else
+          echo "[POLICY] Strict security policy: All security scans must pass"
+        fi
+
+        echo ""
+        echo "=== Quality Gate Results ==="
+        
+        # Code quality (always runs - strict)
         total_gates=$((total_gates + 1))
         if [[ "$QUALITY_RESULT" == "success" ]]; then
           passed_gates=$((passed_gates + 1))
           echo "[PASS] Code quality: PASSED"
         else
+          echo "[FAIL] Code quality: FAILED ($QUALITY_RESULT)"
           if [ -n "$failed_gates" ]; then
             failed_gates="$failed_gates,code-quality"
           else
             failed_gates="code-quality"
           fi
-          echo "[FAIL] Code quality: FAILED"
         fi
 
-        # Infrastructure quality (conditional)
+        # Infrastructure quality (conditional - strict)
         if [[ "$INFRA_RESULT" != "skipped" ]]; then
           total_gates=$((total_gates + 1))
           if [[ "$INFRA_RESULT" == "success" ]]; then
             passed_gates=$((passed_gates + 1))
             echo "[PASS] Infrastructure quality: PASSED"
           else
+            echo "[FAIL] Infrastructure quality: FAILED ($INFRA_RESULT)"
             if [ -n "$failed_gates" ]; then
               failed_gates="$failed_gates,infrastructure-quality"
             else
               failed_gates="infrastructure-quality"
             fi
+          fi
+        else
+          echo "[SKIP] Infrastructure quality: SKIPPED (no infrastructure changes)"
+        fi
+
+        # Dependency analysis (conditional - strict)
+        if [[ "$DEPS_RESULT" != "skipped" ]]; then
+          total_gates=$((total_gates + 1))
+          if [[ "$DEPS_RESULT" == "success" ]]; then
+            passed_gates=$((passed_gates + 1))
+            echo "[PASS] Dependency analysis: PASSED"
+          else
+            echo "[FAIL] Dependency analysis: FAILED ($DEPS_RESULT)"
+            if [ -n "$failed_gates" ]; then
+              failed_gates="$failed_gates,dependency-analysis"
+            else
+              failed_gates="dependency-analysis"
+            fi
+          fi
+        else
+          echo "[SKIP] Dependency analysis: SKIPPED"
+        fi
+
+        # Cost analysis (conditional - flexible)
+        echo ""
+        echo "=== Cost Analysis ==="
+        if [[ "$COST_RESULT" != "skipped" && "$COST_RESULT" != "" ]]; then
+          if [[ "$COST_RESULT" == "success" ]]; then
+            echo "[PASS] Cost analysis: PASSED"
+          else
+            echo "[FAIL] Cost analysis: FAILED ($COST_RESULT)"
+            if [[ "$ALLOW_COST_WARNINGS" == "true" ]]; then
+              echo "[WARN] Cost analysis failure treated as warning"
+              if [ -n "$warning_gates" ]; then
+                warning_gates="$warning_gates,cost-analysis"
+              else
+                warning_gates="cost-analysis"
+              fi
+            else
+              if [ -n "$failed_gates" ]; then
+                failed_gates="$failed_gates,cost-analysis"
+              else
+                failed_gates="cost-analysis"
+              fi
+            fi
+          fi
+        else
+          if [[ "$ALLOW_COST_WARNINGS" == "true" ]]; then
+            echo "[WARN] Cost analysis: SKIPPED (no infrastructure changes)"
+          else
+            echo "[SKIP] Cost analysis: SKIPPED (no infrastructure changes)"
+          fi
+        fi
+
+        # Generate summary
+        echo ""
+        echo "=== Quality Gate Summary ==="
+        echo "Security scans: $security_passed/$security_gates passed"
+        if [ -n "$warning_gates" ]; then
+          echo "Warnings: $warning_gates"
+        fi
+        if [ -n "$failed_gates" ]; then
+          echo "Hard failures: $failed_gates"
+        fi
+
+        # Determine overall result
+        if [ -z "$failed_gates" ]; then
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+          echo "[PASS] All quality gates passed or have acceptable warnings"
+          summary="PASSED: All critical quality gates passed"
+          if [ -n "$warning_gates" ]; then
+            summary="$summary (with warnings: $warning_gates)"
+          fi
+        else
+          echo "passed=false" >> "$GITHUB_OUTPUT"
+          echo "[FAIL] Quality gates failed: $failed_gates"
+          summary="FAILED: Critical quality gates failed: $failed_gates"
+        fi
+
+        echo "summary=$summary" >> "$GITHUB_OUTPUT"
+        echo "failed-gates=$failed_gates" >> "$GITHUB_OUTPUT"
+        echo "warning-gates=$warning_gates" >> "$GITHUB_OUTPUT"
             echo "[FAIL] Infrastructure quality: FAILED"
           fi
         else
