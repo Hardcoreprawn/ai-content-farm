@@ -1,0 +1,138 @@
+name: 'Build Report'
+description: 'Generate comprehensive build report combining quality gates and test results'
+inputs:
+  # Quality Gate Results
+  security-trivy-result:
+    description: 'Trivy security scan result'
+    required: true
+  security-semgrep-result:
+    description: 'Semgrep SAST scan result'
+    required: true
+  security-python-result:
+    description: 'Python security scan result'
+    required: true
+  security-sbom-result:
+    description: 'SBOM generation result'
+    required: true
+  security-checkov-result:
+    description: 'Checkov infrastructure scan result'
+    required: true
+  code-quality-result:
+    description: 'Code quality check result'
+    required: true
+  infrastructure-result:
+    description: 'Infrastructure quality check result'
+    required: true
+  dependency-result:
+    description: 'Dependency analysis result'
+    required: true
+  cost-analysis-result:
+    description: 'Cost analysis result'
+    required: true
+
+  # Container Test Results
+  containers-to-test:
+    description: 'Comma-separated list of containers that were supposed to be tested'
+    required: true
+  containers-json:
+    description: 'JSON array of containers for debugging'
+    required: true
+  container-tests-result:
+    description: 'Overall result of container tests job'
+    required: true
+  container-build-result:
+    description: 'Result of container build job'
+    required: true
+
+outputs:
+  quality-passed:
+    description: 'Whether quality gates passed'
+    value: ${{ steps.evaluate-quality.outputs.passed }}
+  tests-passed:
+    description: 'Whether container tests passed'
+    value: ${{ steps.evaluate-tests.outputs.passed }}
+  build-passed:
+    description: 'Whether overall build passed (quality + tests)'
+    value: ${{ steps.final-evaluation.outputs.passed }}
+  summary:
+    description: 'Build summary message'
+    value: ${{ steps.final-evaluation.outputs.summary }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Generate Security Summary
+      uses: ./.github/actions/security-summary
+      with:
+        trivy-result: ${{ inputs.security-trivy-result }}
+        semgrep-result: ${{ inputs.security-semgrep-result }}
+        python-result: ${{ inputs.security-python-result }}
+        sbom-result: ${{ inputs.security-sbom-result }}
+        checkov-result: ${{ inputs.security-checkov-result }}
+
+    - name: Evaluate Quality Gates
+      id: evaluate-quality
+      uses: ./.github/actions/evaluate-quality-gates
+      with:
+        security-trivy-result: ${{ inputs.security-trivy-result }}
+        security-semgrep-result: ${{ inputs.security-semgrep-result }}
+        security-python-result: ${{ inputs.security-python-result }}
+        security-sbom-result: ${{ inputs.security-sbom-result }}
+        security-checkov-result: ${{ inputs.security-checkov-result }}
+        code-quality-result: ${{ inputs.code-quality-result }}
+        infrastructure-result: ${{ inputs.infrastructure-result }}
+        dependency-result: ${{ inputs.dependency-result }}
+        cost-analysis-result: ${{ inputs.cost-analysis-result }}
+
+    - name: Evaluate Container Tests
+      id: evaluate-tests
+      shell: bash
+      run: |
+        containers_to_test="${{ inputs.containers-to-test }}"
+        containers_json="${{ inputs.containers-json }}"
+        tests_result="${{ inputs.container-tests-result }}"
+
+        echo "Containers to test: '$containers_to_test'"
+        echo "Containers JSON: '$containers_json'"
+        echo "Container tests result: '$tests_result'"
+        echo "Container-build result: '${{ inputs.container-build-result }}'"
+
+        if [[ -z "$containers_to_test" ]]; then
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+          echo "[PASS] No containers required testing"
+        elif [[ "$tests_result" == "success" ]]; then
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+          echo "[PASS] All container tests passed"
+        elif [[ "$tests_result" == "skipped" ]]; then
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+          echo "[SKIP] Container tests were skipped"
+          echo "[DEBUG] containers-to-test='$containers_to_test', containers-json='$containers_json'"
+        else
+          echo "passed=false" >> "$GITHUB_OUTPUT"
+          echo "[FAIL] Some container tests failed (result: $tests_result)"
+        fi
+
+    - name: Final Build Evaluation
+      id: final-evaluation
+      shell: bash
+      run: |
+        quality_passed="${{ steps.evaluate-quality.outputs.passed }}"
+        tests_passed="${{ steps.evaluate-tests.outputs.passed }}"
+
+        echo "Quality gates passed: $quality_passed"
+        echo "Container tests passed: $tests_passed"
+
+        if [[ "$quality_passed" == "true" && "$tests_passed" == "true" ]]; then
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+          echo "summary=[PASS] Build passed - Quality gates and container tests successful" >> "$GITHUB_OUTPUT"
+          echo "[SUCCESS] Build Report: All checks passed!"
+        else
+          echo "passed=false" >> "$GITHUB_OUTPUT"
+          if [[ "$quality_passed" != "true" ]]; then
+            echo "summary=[FAIL] Build failed - Quality gates failed" >> "$GITHUB_OUTPUT"
+          elif [[ "$tests_passed" != "true" ]]; then
+            echo "summary=[FAIL] Build failed - Container tests failed" >> "$GITHUB_OUTPUT"
+          fi
+          echo "[FAIL] Build Report: Some checks failed"
+          exit 1
+        fi

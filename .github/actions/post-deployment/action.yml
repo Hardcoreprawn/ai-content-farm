@@ -89,22 +89,22 @@ runs:
       shell: bash
       run: |
         deployment_url="${{ inputs.deployment-url }}"
-        
+
         {
-          echo "## 🚀 Deployment Successful!"
+          echo "## [DEPLOY] Deployment Successful!"
           echo ""
           if [ -n "$deployment_url" ]; then
-            echo "### 🌐 Live Website URL:"
+            echo "### Live Website URL:"
             echo "**$deployment_url**"
             echo ""
-            echo "🔗 [Visit the Website]($deployment_url)"
+            echo "[Visit the Website]($deployment_url)"
             echo ""
-            echo "### 📊 Deployment Details:"
-            echo "- **Status**: ✅ Healthy"
+            echo "### Deployment Details:"
+            echo "- **Status**: Healthy"
             echo "- **Environment**: Production"
             echo "- **Validation**: All checks passed"
           else
-            echo "### ⚠️ Deployment URL Not Available"
+            echo "### [WARN] Deployment URL Not Available"
             echo "The deployment completed but the URL could not be retrieved."
           fi
           echo ""

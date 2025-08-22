@@ -179,7 +179,7 @@ runs:
           -o tsv)
 
         if [ -n "$DEPLOYMENT_URL" ]; then
-          echo "[SUCCESS] 🌐 Website URL: https://$DEPLOYMENT_URL"
+          echo "[SUCCESS] Website URL: https://$DEPLOYMENT_URL"
           echo "url=https://$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
         else
           echo "[WARNING] Could not retrieve deployment URL"

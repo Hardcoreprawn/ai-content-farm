@@ -3,7 +3,7 @@ variable "location" {
   default     = "uksouth"
 }
 
-# Updated for enhanced CI/CD pipeline - Aug 22, 2025
+# Updated: Enhanced CI/CD pipeline with unified build reporting - Aug 22, 2025
 variable "subscription_id" {
   description = "The Azure Subscription ID to use. Leave blank to use the default from Azure CLI context."
   type        = string
