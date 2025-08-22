@@ -3,7 +3,7 @@
 AI Content Farm - Dependency Analysis and Vulnerability Assessment
 Analyzes SBOM files, identifies vulnerabilities, and creates GitHub issues for updates.
 
-Version: 1.1.0 - Enhanced for parallel CI/CD pipeline (Aug 22, 2025)
+Version: 1.1.1 - Enhanced for parallel CI/CD pipeline (Aug 22, 2025)
 """
 
 import json
