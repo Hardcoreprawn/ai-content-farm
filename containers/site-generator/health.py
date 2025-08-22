@@ -70,9 +70,11 @@ class HealthChecker:
             uptime = (datetime.now(timezone.utc) - self.start_time).total_seconds()
 
             return {
-                "status": "healthy"
-                if all(dep["status"] == "healthy" for dep in dependencies.values())
-                else "degraded",
+                "status": (
+                    "healthy"
+                    if all(dep["status"] == "healthy" for dep in dependencies.values())
+                    else "degraded"
+                ),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "service": self.config.service_name,
                 "version": self.config.version,

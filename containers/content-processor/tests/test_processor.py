@@ -223,7 +223,7 @@ class TestEdgeCases:
         """Should handle Reddit posts with missing fields gracefully"""
         minimal_post = {
             "title": "Test",
-            "score": 100
+            "score": 100,
             # Missing other fields
         }
         # Should not raise exception

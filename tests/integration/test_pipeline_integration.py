@@ -25,12 +25,12 @@ def test_pipeline_integration():
                 {
                     "type": "reddit",
                     "subreddits": ["technology", "programming"],
-                    "limit": 5
+                    "limit": 5,
                 }
             ],
-            "deduplicate": True
+            "deduplicate": True,
         },
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json"},
     )
 
     if collector_response.status_code != 200:
@@ -40,29 +40,25 @@ def test_pipeline_integration():
     collected_data = collector_response.json()
     print(f"✅ Collected {len(collected_data.get('items', []))} items")
 
-    if not collected_data.get('items'):
+    if not collected_data.get("items"):
         print("⚠️  No items collected, cannot continue pipeline test")
         return False
 
     # Take first few items for testing
-    test_items = collected_data['items'][:3]
+    test_items = collected_data["items"][:3]
     print(f"🔬 Using {len(test_items)} items for pipeline test")
 
     # Step 2: Test content processing
     print("\n🔧 Step 2: Testing Content Processing...")
     processing_request = {
         "items": test_items,
-        "options": {
-            "clean_html": True,
-            "normalize_scores": True,
-            "deduplicate": True
-        }
+        "options": {"clean_html": True, "normalize_scores": True, "deduplicate": True},
     }
 
     processor_response = requests.post(
         "http://localhost:8002/process",
         json=processing_request,
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json"},
     )
 
     if processor_response.status_code != 200:
@@ -71,7 +67,7 @@ def test_pipeline_integration():
         return False
 
     processed_data = processor_response.json()
-    processed_items = processed_data.get('processed_items', [])
+    processed_items = processed_data.get("processed_items", [])
     print(f"✅ Processed {len(processed_items)} items")
 
     # Step 3: Test content enrichment
@@ -81,14 +77,14 @@ def test_pipeline_integration():
         "options": {
             "analyze_sentiment": True,
             "classify_topics": True,
-            "analyze_trends": True
-        }
+            "analyze_trends": True,
+        },
     }
 
     enricher_response = requests.post(
         "http://localhost:8003/enrich",
         json=enrichment_request,
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json"},
     )
 
     if enricher_response.status_code != 200:
@@ -97,7 +93,7 @@ def test_pipeline_integration():
         return False
 
     enriched_data = enricher_response.json()
-    enriched_items = enriched_data.get('enriched_items', [])
+    enriched_items = enriched_data.get("enriched_items", [])
     print(f"✅ Enriched {len(enriched_items)} items")
 
     # Step 4: Test content ranking
@@ -105,19 +101,15 @@ def test_pipeline_integration():
     ranking_request = {
         "items": enriched_items,
         "options": {
-            "weights": {
-                "engagement": 0.4,
-                "recency": 0.35,
-                "topic_relevance": 0.25
-            },
-            "limit": 10
-        }
+            "weights": {"engagement": 0.4, "recency": 0.35, "topic_relevance": 0.25},
+            "limit": 10,
+        },
     }
 
     ranker_response = requests.post(
         "http://localhost:8004/rank",
         json=ranking_request,
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json"},
     )
 
     if ranker_response.status_code != 200:
@@ -126,7 +118,7 @@ def test_pipeline_integration():
         return False
 
     ranked_data = ranker_response.json()
-    ranked_items = ranked_data.get('ranked_items', [])
+    ranked_items = ranked_data.get("ranked_items", [])
     print(f"✅ Ranked {len(ranked_items)} items")
 
     # Step 5: Show pipeline results
@@ -142,33 +134,31 @@ def test_pipeline_integration():
         print("\n🥇 Top Ranked Item:")
         print(f"   Title: {top_item.get('title', 'N/A')}")
         print(
-            f"   Source: {top_item.get('source_metadata', {}).get('platform', 'N/A')}")
+            f"   Source: {top_item.get('source_metadata', {}).get('platform', 'N/A')}"
+        )
 
-        ranking_scores = top_item.get('ranking_scores', {})
-        final_score = top_item.get('final_rank_score', 'N/A')
+        ranking_scores = top_item.get("ranking_scores", {})
+        final_score = top_item.get("final_rank_score", "N/A")
         print(f"   Final Score: {final_score}")
 
         if ranking_scores:
-            print(
-                f"   Engagement: {ranking_scores.get('engagement_score', 'N/A')}")
+            print(f"   Engagement: {ranking_scores.get('engagement_score', 'N/A')}")
             print(f"   Recency: {ranking_scores.get('recency_score', 'N/A')}")
             print(
-                f"   Topic Relevance: {ranking_scores.get('topic_relevance_score', 'N/A')}")
+                f"   Topic Relevance: {ranking_scores.get('topic_relevance_score', 'N/A')}"
+            )
 
         # Show enrichment data
-        topic_class = top_item.get('topic_classification', {})
-        sentiment = top_item.get('sentiment_analysis', {})
+        topic_class = top_item.get("topic_classification", {})
+        sentiment = top_item.get("sentiment_analysis", {})
 
         if topic_class:
-            print(
-                f"   Primary Topic: {topic_class.get('primary_topic', 'N/A')}")
-            print(
-                f"   Topic Confidence: {topic_class.get('confidence', 'N/A')}")
+            print(f"   Primary Topic: {topic_class.get('primary_topic', 'N/A')}")
+            print(f"   Topic Confidence: {topic_class.get('confidence', 'N/A')}")
 
         if sentiment:
             print(f"   Sentiment: {sentiment.get('sentiment', 'N/A')}")
-            print(
-                f"   Sentiment Score: {sentiment.get('compound_score', 'N/A')}")
+            print(f"   Sentiment Score: {sentiment.get('compound_score', 'N/A')}")
 
     print("\n🎉 End-to-End Pipeline Test Completed Successfully!")
     return True
@@ -182,7 +172,7 @@ def test_service_health():
         ("Content Collector", "http://localhost:8001/health"),
         ("Content Processor", "http://localhost:8002/health"),
         ("Content Enricher", "http://localhost:8003/health"),
-        ("Content Ranker", "http://localhost:8004/health")
+        ("Content Ranker", "http://localhost:8004/health"),
     ]
 
     all_healthy = True
@@ -192,7 +182,7 @@ def test_service_health():
             response = requests.get(health_url, timeout=5)
             if response.status_code == 200:
                 health_data = response.json()
-                status = health_data.get('status', 'unknown')
+                status = health_data.get("status", "unknown")
                 print(f"   ✅ {service_name}: {status}")
             else:
                 print(f"   ❌ {service_name}: HTTP {response.status_code}")

@@ -28,8 +28,8 @@ def create_mock_collected_items() -> List[Dict[str, Any]]:
                 "subreddit": "MachineLearning",
                 "upvotes": 245,
                 "comments": 67,
-                "platform": "reddit"
-            }
+                "platform": "reddit",
+            },
         },
         {
             "id": "mock_002",
@@ -43,8 +43,8 @@ def create_mock_collected_items() -> List[Dict[str, Any]]:
                 "subreddit": "programming",
                 "upvotes": 189,
                 "comments": 45,
-                "platform": "reddit"
-            }
+                "platform": "reddit",
+            },
         },
         {
             "id": "mock_003",
@@ -58,9 +58,9 @@ def create_mock_collected_items() -> List[Dict[str, Any]]:
                 "subreddit": "science",
                 "upvotes": 156,
                 "comments": 34,
-                "platform": "reddit"
-            }
-        }
+                "platform": "reddit",
+            },
+        },
     ]
 
 
@@ -77,17 +77,13 @@ def test_pipeline_with_mock_data():
     print("\n🔧 Step 1: Testing Content Processing...")
     processing_request = {
         "items": mock_items,
-        "options": {
-            "clean_html": True,
-            "normalize_scores": True,
-            "deduplicate": True
-        }
+        "options": {"clean_html": True, "normalize_scores": True, "deduplicate": True},
     }
 
     processor_response = requests.post(
         "http://localhost:8002/process",
         json=processing_request,
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json"},
     )
 
     if processor_response.status_code != 200:
@@ -96,7 +92,7 @@ def test_pipeline_with_mock_data():
         return False
 
     processed_data = processor_response.json()
-    processed_items = processed_data.get('processed_items', [])
+    processed_items = processed_data.get("processed_items", [])
     print(f"✅ Processed {len(processed_items)} items")
 
     # Step 2: Test content enrichment
@@ -106,14 +102,14 @@ def test_pipeline_with_mock_data():
         "options": {
             "analyze_sentiment": True,
             "classify_topics": True,
-            "analyze_trends": True
-        }
+            "analyze_trends": True,
+        },
     }
 
     enricher_response = requests.post(
         "http://localhost:8003/enrich",
         json=enrichment_request,
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json"},
     )
 
     if enricher_response.status_code != 200:
@@ -122,7 +118,7 @@ def test_pipeline_with_mock_data():
         return False
 
     enriched_data = enricher_response.json()
-    enriched_items = enriched_data.get('enriched_items', [])
+    enriched_items = enriched_data.get("enriched_items", [])
     print(f"✅ Enriched {len(enriched_items)} items")
 
     # Step 3: Test content ranking
@@ -130,19 +126,15 @@ def test_pipeline_with_mock_data():
     ranking_request = {
         "items": enriched_items,
         "options": {
-            "weights": {
-                "engagement": 0.4,
-                "recency": 0.35,
-                "topic_relevance": 0.25
-            },
-            "limit": 10
-        }
+            "weights": {"engagement": 0.4, "recency": 0.35, "topic_relevance": 0.25},
+            "limit": 10,
+        },
     }
 
     ranker_response = requests.post(
         "http://localhost:8004/rank",
         json=ranking_request,
-        headers={"Content-Type": "application/json"}
+        headers={"Content-Type": "application/json"},
     )
 
     if ranker_response.status_code != 200:
@@ -151,7 +143,7 @@ def test_pipeline_with_mock_data():
         return False
 
     ranked_data = ranker_response.json()
-    ranked_items = ranked_data.get('ranked_items', [])
+    ranked_items = ranked_data.get("ranked_items", [])
     print(f"✅ Ranked {len(ranked_items)} items")
 
     # Step 4: Show results
@@ -167,39 +159,56 @@ def test_pipeline_with_mock_data():
         print("\n🥇 Top Ranked Item:")
         print(f"   Title: {top_item.get('title', 'N/A')}")
 
-        ranking_scores = top_item.get('ranking_scores', {})
-        final_score = top_item.get('final_rank_score', 'N/A')
-        print(f"   Final Score: {final_score:.3f}" if isinstance(
-            final_score, (int, float)) else f"   Final Score: {final_score}")
+        ranking_scores = top_item.get("ranking_scores", {})
+        final_score = top_item.get("final_rank_score", "N/A")
+        print(
+            f"   Final Score: {final_score:.3f}"
+            if isinstance(final_score, (int, float))
+            else f"   Final Score: {final_score}"
+        )
 
         if ranking_scores:
-            eng_score = ranking_scores.get('engagement_score', 'N/A')
-            rec_score = ranking_scores.get('recency_score', 'N/A')
-            topic_score = ranking_scores.get('topic_relevance_score', 'N/A')
+            eng_score = ranking_scores.get("engagement_score", "N/A")
+            rec_score = ranking_scores.get("recency_score", "N/A")
+            topic_score = ranking_scores.get("topic_relevance_score", "N/A")
 
-            print(f"   Engagement: {eng_score:.3f}" if isinstance(
-                eng_score, (int, float)) else f"   Engagement: {eng_score}")
-            print(f"   Recency: {rec_score:.3f}" if isinstance(
-                rec_score, (int, float)) else f"   Recency: {rec_score}")
-            print(f"   Topic Relevance: {topic_score:.3f}" if isinstance(
-                topic_score, (int, float)) else f"   Topic Relevance: {topic_score}")
+            print(
+                f"   Engagement: {eng_score:.3f}"
+                if isinstance(eng_score, (int, float))
+                else f"   Engagement: {eng_score}"
+            )
+            print(
+                f"   Recency: {rec_score:.3f}"
+                if isinstance(rec_score, (int, float))
+                else f"   Recency: {rec_score}"
+            )
+            print(
+                f"   Topic Relevance: {topic_score:.3f}"
+                if isinstance(topic_score, (int, float))
+                else f"   Topic Relevance: {topic_score}"
+            )
 
         # Show enrichment data
-        topic_class = top_item.get('topic_classification', {})
-        sentiment = top_item.get('sentiment_analysis', {})
+        topic_class = top_item.get("topic_classification", {})
+        sentiment = top_item.get("sentiment_analysis", {})
 
         if topic_class:
+            print(f"   Primary Topic: {topic_class.get('primary_topic', 'N/A')}")
+            confidence = topic_class.get("confidence", "N/A")
             print(
-                f"   Primary Topic: {topic_class.get('primary_topic', 'N/A')}")
-            confidence = topic_class.get('confidence', 'N/A')
-            print(f"   Topic Confidence: {confidence:.3f}" if isinstance(
-                confidence, (int, float)) else f"   Topic Confidence: {confidence}")
+                f"   Topic Confidence: {confidence:.3f}"
+                if isinstance(confidence, (int, float))
+                else f"   Topic Confidence: {confidence}"
+            )
 
         if sentiment:
             print(f"   Sentiment: {sentiment.get('sentiment', 'N/A')}")
-            compound = sentiment.get('compound_score', 'N/A')
-            print(f"   Sentiment Score: {compound:.3f}" if isinstance(
-                compound, (int, float)) else f"   Sentiment Score: {compound}")
+            compound = sentiment.get("compound_score", "N/A")
+            print(
+                f"   Sentiment Score: {compound:.3f}"
+                if isinstance(compound, (int, float))
+                else f"   Sentiment Score: {compound}"
+            )
 
     print("\n🎉 Pipeline Test with Mock Data Completed Successfully!")
     return True
@@ -213,7 +222,7 @@ def test_service_connectivity():
         ("Content Collector", "http://localhost:8001/health"),
         ("Content Processor", "http://localhost:8002/health"),
         ("Content Enricher", "http://localhost:8003/health"),
-        ("Content Ranker", "http://localhost:8004/health")
+        ("Content Ranker", "http://localhost:8004/health"),
     ]
 
     all_connected = True
@@ -223,7 +232,7 @@ def test_service_connectivity():
             response = requests.get(health_url, timeout=5)
             if response.status_code == 200:
                 health_data = response.json()
-                status = health_data.get('status', 'unknown')
+                status = health_data.get("status", "unknown")
                 print(f"   ✅ {service_name}: {status}")
             else:
                 print(f"   ❌ {service_name}: HTTP {response.status_code}")
@@ -251,7 +260,9 @@ def main():
     success = test_pipeline_with_mock_data()
 
     if success:
-        print("\n🎉 Pipeline test with mock data passed! All services are connected and working.")
+        print(
+            "\n🎉 Pipeline test with mock data passed! All services are connected and working."
+        )
         print("\n📝 Next Steps:")
         print("   1. Configure Reddit API credentials for live data collection")
         print("   2. Configure OpenAI API key for enhanced enrichment")

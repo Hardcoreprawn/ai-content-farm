@@ -272,12 +272,16 @@ class BlobStorageClient:
                     {
                         "name": blob.name,
                         "size": blob.size,
-                        "last_modified": blob.last_modified.isoformat()
-                        if blob.last_modified
-                        else None,
-                        "content_type": blob.content_settings.content_type
-                        if blob.content_settings
-                        else None,
+                        "last_modified": (
+                            blob.last_modified.isoformat()
+                            if blob.last_modified
+                            else None
+                        ),
+                        "content_type": (
+                            blob.content_settings.content_type
+                            if blob.content_settings
+                            else None
+                        ),
                         "metadata": blob.metadata or {},
                     }
                 )
@@ -351,9 +355,11 @@ class BlobStorageClient:
 
             return {
                 "status": "healthy",
-                "connection_type": "managed_identity"
-                if self.storage_account_name
-                else "connection_string",
+                "connection_type": (
+                    "managed_identity"
+                    if self.storage_account_name
+                    else "connection_string"
+                ),
                 "environment": self.environment,
                 "storage_account": self.storage_account_name
                 or "connection_string_based",
@@ -364,9 +370,11 @@ class BlobStorageClient:
             return {
                 "status": "unhealthy",
                 "error": str(e),
-                "connection_type": "managed_identity"
-                if self.storage_account_name
-                else "connection_string",
+                "connection_type": (
+                    "managed_identity"
+                    if self.storage_account_name
+                    else "connection_string"
+                ),
                 "environment": self.environment,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }

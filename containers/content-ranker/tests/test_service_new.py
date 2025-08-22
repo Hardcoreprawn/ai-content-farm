@@ -199,7 +199,7 @@ class TestRankingService:
         print("Testing incomplete data...")
         incomplete_item = {
             "id": "incomplete_001",
-            "title": "Test Title"
+            "title": "Test Title",
             # Missing other fields
         }
         incomplete_result = rank_content_items([incomplete_item])

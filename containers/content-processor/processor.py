@@ -122,7 +122,9 @@ def extract_content_type(url: str, selftext: str) -> str:
             "v.redd.it",
             "twitch.tv",
         }
-        if domain in video_domains or any(domain.endswith(f".{vid_domain}") for vid_domain in video_domains):
+        if domain in video_domains or any(
+            domain.endswith(f".{vid_domain}") for vid_domain in video_domains
+        ):
             return "video"
 
         # Reddit-hosted content (exact match or subdomain)
@@ -160,8 +162,7 @@ def transform_reddit_post(post: Dict[str, Any]) -> Dict[str, Any]:
 
     # Convert timestamp to ISO format
     if created_utc:
-        published_at = datetime.fromtimestamp(
-            created_utc, tz=timezone.utc).isoformat()
+        published_at = datetime.fromtimestamp(created_utc, tz=timezone.utc).isoformat()
     else:
         published_at = datetime.now(tz=timezone.utc).isoformat()
 

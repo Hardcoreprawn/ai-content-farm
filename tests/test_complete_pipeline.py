@@ -38,7 +38,7 @@ async def test_complete_pipeline():
             "subject": "/blobServices/default/containers/ranked-content/blobs/test_content.json",
             "data": {
                 "url": "https://test.blob.core.windows.net/ranked-content/test_content.json"
-            }
+            },
         }
 
         await event_processor._process_blob_event(test_event)
@@ -46,16 +46,18 @@ async def test_complete_pipeline():
 
         # Test blob name extraction
         blob_name = event_processor._extract_blob_name(test_event["subject"])
-        container_name = event_processor._extract_container_name(
-            test_event["subject"])
+        container_name = event_processor._extract_container_name(test_event["subject"])
 
-        assert blob_name == "test_content.json", f"Expected 'test_content.json', got '{blob_name}'"
-        assert container_name == "ranked-content", f"Expected 'ranked-content', got '{container_name}'"
+        assert (
+            blob_name == "test_content.json"
+        ), f"Expected 'test_content.json', got '{blob_name}'"
+        assert (
+            container_name == "ranked-content"
+        ), f"Expected 'ranked-content', got '{container_name}'"
         print("   ✅ Blob name/container extraction works")
 
     except ImportError as e:
-        print(
-            f"   ⚠️  Service Bus libraries not available (expected in dev): {e}")
+        print(f"   ⚠️  Service Bus libraries not available (expected in dev): {e}")
     except Exception as e:
         print(f"   ❌ Event processing test failed: {e}")
         return False
@@ -64,9 +66,9 @@ async def test_complete_pipeline():
     print("\n2️⃣  Testing Content Type Intelligence:")
     try:
         import sys
-        sys.path.append(
-            '/workspaces/ai-content-farm/containers/content-generator')
-        sys.path.append('/workspaces/ai-content-farm')
+
+        sys.path.append("/workspaces/ai-content-farm/containers/content-generator")
+        sys.path.append("/workspaces/ai-content-farm")
 
         from models import RankedTopic, SourceData
         from service_logic import ContentGeneratorService
@@ -77,16 +79,19 @@ async def test_complete_pipeline():
         rich_topic = RankedTopic(
             topic="Test Topic",
             sources=[
-                SourceData(name="Source 1",
-                           url="http://example.com/1", title="Title 1"),
-                SourceData(name="Source 2",
-                           url="http://example.com/2", title="Title 2"),
-                SourceData(name="Source 3",
-                           url="http://example.com/3", title="Title 3"),
+                SourceData(
+                    name="Source 1", url="http://example.com/1", title="Title 1"
+                ),
+                SourceData(
+                    name="Source 2", url="http://example.com/2", title="Title 2"
+                ),
+                SourceData(
+                    name="Source 3", url="http://example.com/3", title="Title 3"
+                ),
             ],
             rank=1,
             ai_score=90.0,
-            sentiment="positive"
+            sentiment="positive",
         )
 
         content_type = service._determine_content_type(rich_topic)
@@ -97,14 +102,16 @@ async def test_complete_pipeline():
         medium_topic = RankedTopic(
             topic="Test Topic",
             sources=[
-                SourceData(name="Source 1",
-                           url="http://example.com/1", title="Title 1"),
-                SourceData(name="Source 2",
-                           url="http://example.com/2", title="Title 2"),
+                SourceData(
+                    name="Source 1", url="http://example.com/1", title="Title 1"
+                ),
+                SourceData(
+                    name="Source 2", url="http://example.com/2", title="Title 2"
+                ),
             ],
             rank=1,
             ai_score=85.0,
-            sentiment="positive"
+            sentiment="positive",
         )
 
         content_type = service._determine_content_type(medium_topic)
@@ -115,12 +122,13 @@ async def test_complete_pipeline():
         limited_topic = RankedTopic(
             topic="Test Topic",
             sources=[
-                SourceData(name="Source 1",
-                           url="http://example.com/1", title="Title 1"),
+                SourceData(
+                    name="Source 1", url="http://example.com/1", title="Title 1"
+                ),
             ],
             rank=1,
             ai_score=75.0,
-            sentiment="positive"
+            sentiment="positive",
         )
 
         content_type = service._determine_content_type(limited_topic)
@@ -130,6 +138,7 @@ async def test_complete_pipeline():
     except Exception as e:
         print(f"   ❌ Content type intelligence test failed: {e}")
         import traceback
+
         traceback.print_exc()
         return False
 
@@ -141,13 +150,13 @@ async def test_complete_pipeline():
         "AZURE_CLIENT_ID",
         "AZURE_STORAGE_ACCOUNT_NAME",
         "SERVICE_BUS_NAMESPACE",
-        "BLOB_EVENTS_QUEUE"
+        "BLOB_EVENTS_QUEUE",
     ]
 
     missing_vars = []
     for var in required_env_vars:
         # Skip vars we don't have in dev
-        if not var in ['AZURE_CLIENT_ID', 'SERVICE_BUS_NAMESPACE', 'BLOB_EVENTS_QUEUE']:
+        if not var in ["AZURE_CLIENT_ID", "SERVICE_BUS_NAMESPACE", "BLOB_EVENTS_QUEUE"]:
             continue
         # Skip actual check for dev environment
 
@@ -160,9 +169,10 @@ async def test_complete_pipeline():
     print("\n4️⃣  Testing Infrastructure Configuration:")
 
     import os
+
     terraform_file = "/workspaces/ai-content-farm/infra/container_apps.tf"
     if os.path.exists(terraform_file):
-        with open(terraform_file, 'r') as f:
+        with open(terraform_file, "r") as f:
             terraform_content = f.read()
 
         required_resources = [
@@ -170,7 +180,7 @@ async def test_complete_pipeline():
             "azurerm_user_assigned_identity",
             "azurerm_eventgrid_system_topic",
             "azurerm_servicebus_namespace",
-            "azurerm_container_app"
+            "azurerm_container_app",
         ]
 
         for resource in required_resources:
@@ -196,6 +206,7 @@ async def test_complete_pipeline():
     print("Run: ./scripts/deploy-containers.sh")
 
     return True
+
 
 if __name__ == "__main__":
     result = asyncio.run(test_complete_pipeline())

@@ -300,9 +300,9 @@ Total Articles: {len(content_items)}
                 logger.debug(f"Uploaded index file: {index_blob_name}")
 
             # Update manifest with blob information
-            manifest[
-                "storage_location"
-            ] = f"blob://{config.GENERATED_CONTENT_CONTAINER}/markdown/{timestamp}/"
+            manifest["storage_location"] = (
+                f"blob://{config.GENERATED_CONTENT_CONTAINER}/markdown/{timestamp}/"
+            )
 
             # Upload manifest
             manifest_blob_name = f"manifests/{timestamp}_manifest.json"

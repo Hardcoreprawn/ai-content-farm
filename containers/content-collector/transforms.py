@@ -3,6 +3,7 @@ Pure transform functions for content normalization, filtering and deduplication.
 
 These are kept side-effect free so they are easy to unit test and compose.
 """
+
 import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List
