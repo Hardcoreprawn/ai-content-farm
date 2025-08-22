@@ -58,7 +58,7 @@ runs:
 
         # Detect container changes
         containers_changed=""
-        
+
         # Force build all containers if requested
         if [[ "${{ inputs.force-build-all }}" == "true" ]]; then
           echo "Force build enabled - marking all containers as changed"

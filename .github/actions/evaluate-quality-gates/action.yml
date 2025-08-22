@@ -70,7 +70,7 @@ runs:
           scan_name="${scan%%:*}"
           scan_result="${scan##*:}"
           total_gates=$((total_gates + 1))
-          
+
           if [[ "$scan_result" == "success" ]]; then
             passed_gates=$((passed_gates + 1))
             echo "[PASS] Security $scan_name: PASSED"

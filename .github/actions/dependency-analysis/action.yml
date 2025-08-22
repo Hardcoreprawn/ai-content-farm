@@ -1,0 +1,120 @@
+name: 'Dependency Security Analysis'
+description: 'Analyzes project dependencies for security vulnerabilities'
+inputs:
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.11'
+  requirements-pattern:
+    description: 'Pattern to find requirements files'
+    required: false
+    default: 'containers/*/requirements.txt'
+  upload-results:
+    description: 'Upload security results as artifacts'
+    required: false
+    default: 'true'
+  continue-on-error:
+    description: 'Continue pipeline even if vulnerabilities are found'
+    required: false
+    default: 'true'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: Install Safety
+      shell: bash
+      run: |
+        echo "Installing Safety dependency checker..."
+        pip install safety
+
+    - name: Create Results Directory
+      shell: bash
+      run: mkdir -p security-results
+
+    - name: Find Requirements Files
+      id: find-requirements
+      shell: bash
+      run: |
+        echo "Searching for requirements files..."
+        requirements_files=$(find containers/ -name "requirements.txt" -type f 2>/dev/null || true)
+
+        if [ -z "$requirements_files" ]; then
+          echo "No requirements.txt files found"
+          echo "has-requirements=false" >> $GITHUB_OUTPUT
+        else
+          echo "Found requirements files:"
+          echo "$requirements_files"
+          echo "has-requirements=true" >> $GITHUB_OUTPUT
+          echo "$requirements_files" > security-results/requirements-files.txt
+        fi
+
+    - name: Run Safety Check
+      if: steps.find-requirements.outputs.has-requirements == 'true'
+      shell: bash
+      continue-on-error: ${{ inputs.continue-on-error == 'true' }}
+      run: |
+        echo "Running Safety security checks..."
+
+        overall_status=0
+
+        while IFS= read -r req_file; do
+          if [ -f "$req_file" ]; then
+            container_name=$(basename "$(dirname "$req_file")")
+            echo "Checking dependencies for $container_name..."
+
+            # Run safety check and save results
+            if safety check --file "$req_file" --json > "security-results/safety-${container_name}.json" 2>/dev/null; then
+              echo "[PASS] No vulnerabilities found in $container_name"
+            else
+              echo "[WARN] Vulnerabilities found in $container_name"
+              overall_status=1
+            fi
+
+            # Also generate human-readable report
+            safety check --file "$req_file" > "security-results/safety-${container_name}.txt" 2>/dev/null || true
+          fi
+        done < security-results/requirements-files.txt
+
+        if [ $overall_status -eq 0 ]; then
+          echo "All dependency checks passed"
+        else
+          echo "Some dependencies have vulnerabilities - check security-results/"
+          if [ "${{ inputs.continue-on-error }}" != "true" ]; then
+            exit 1
+          fi
+        fi
+
+    - name: Generate Summary
+      if: always() && steps.find-requirements.outputs.has-requirements == 'true'
+      shell: bash
+      run: |
+        echo "# Dependency Security Analysis Summary" > security-results/dependency-summary.md
+        echo "Generated on: $(date)" >> security-results/dependency-summary.md
+        echo "" >> security-results/dependency-summary.md
+
+        if [ -f security-results/requirements-files.txt ]; then
+          file_count=$(wc -l < security-results/requirements-files.txt)
+          echo "Analyzed $file_count requirements files:" >> security-results/dependency-summary.md
+          echo "" >> security-results/dependency-summary.md
+
+          while IFS= read -r req_file; do
+            container_name=$(basename "$(dirname "$req_file")")
+            echo "- $container_name: $req_file" >> security-results/dependency-summary.md
+          done < security-results/requirements-files.txt
+        fi
+
+    - name: Upload Dependency Results
+      if: always() && inputs.upload-results == 'true' && steps.find-requirements.outputs.has-requirements == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-results-dependencies
+        path: |
+          security-results/safety-*.json
+          security-results/safety-*.txt
+          security-results/dependency-summary.md
+        retention-days: 30

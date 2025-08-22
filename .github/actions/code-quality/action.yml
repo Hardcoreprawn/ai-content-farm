@@ -1,0 +1,81 @@
+name: 'Code Quality Checks'
+description: 'Runs comprehensive code quality checks including formatting, linting, and type checking'
+inputs:
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.11'
+  check-formatting:
+    description: 'Run Black formatting checks'
+    required: false
+    default: 'true'
+  check-imports:
+    description: 'Run isort import sorting checks'
+    required: false
+    default: 'true'
+  check-linting:
+    description: 'Run flake8 linting checks'
+    required: false
+    default: 'true'
+  check-types:
+    description: 'Run mypy type checking'
+    required: false
+    default: 'false'
+  check-complexity:
+    description: 'Run pylint complexity analysis'
+    required: false
+    default: 'false'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: 'pip'
+
+    - name: Install Code Quality Tools
+      shell: bash
+      run: |
+        echo "Installing code quality tools..."
+        pip install flake8 black isort mypy pylint
+
+    - name: Run Black Formatting Check
+      if: inputs.check-formatting == 'true'
+      shell: bash
+      run: |
+        echo "Running Black formatting check..."
+        black --check --diff .
+
+    - name: Run isort Import Check
+      if: inputs.check-imports == 'true'
+      shell: bash
+      run: |
+        echo "Running isort import sorting check..."
+        isort --check-only --diff .
+
+    - name: Run Flake8 Linting
+      if: inputs.check-linting == 'true'
+      shell: bash
+      run: |
+        echo "Running flake8 linting..."
+        flake8 .
+
+    - name: Run MyPy Type Checking
+      if: inputs.check-types == 'true'
+      shell: bash
+      continue-on-error: true
+      run: |
+        echo "Running MyPy type checking..."
+        mypy . || echo "Type checking completed with warnings"
+
+    - name: Run Pylint Analysis
+      if: inputs.check-complexity == 'true'
+      shell: bash
+      continue-on-error: true
+      run: |
+        echo "Running Pylint complexity analysis..."
+        find . -name "*.py" -not -path "./.git/*" -not -path "./venv/*" \
+          | head -20 | xargs pylint --disable=all --enable=complexity \
+          || echo "Complexity analysis completed with warnings"

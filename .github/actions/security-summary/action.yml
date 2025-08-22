@@ -34,54 +34,54 @@ runs:
         echo "# Security Scan Summary" > security-summary.md
         echo "Generated on: $(date)" >> security-summary.md
         echo "" >> security-summary.md
-        
+
         echo "## Trivy Results" >> security-summary.md
         if [ "${{ inputs.trivy-result }}" == "success" ]; then
-          echo "✅ Completed successfully" >> security-summary.md
+          echo "[PASS] Completed successfully" >> security-summary.md
         elif [ "${{ inputs.trivy-result }}" == "failure" ]; then
-          echo "❌ Failed with issues" >> security-summary.md
+          echo "[FAIL] Failed with issues" >> security-summary.md
         else
-          echo "⚠️  Skipped or cancelled" >> security-summary.md
+          echo "[WARN] Skipped or cancelled" >> security-summary.md
         fi
         echo "" >> security-summary.md
-        
+
         echo "## Semgrep Results" >> security-summary.md
         if [ "${{ inputs.semgrep-result }}" == "success" ]; then
-          echo "✅ Completed successfully" >> security-summary.md
+          echo "[PASS] Completed successfully" >> security-summary.md
         elif [ "${{ inputs.semgrep-result }}" == "failure" ]; then
-          echo "❌ Failed with issues" >> security-summary.md
+          echo "[FAIL] Failed with issues" >> security-summary.md
         else
-          echo "⚠️  Skipped or cancelled" >> security-summary.md
+          echo "[WARN] Skipped or cancelled" >> security-summary.md
         fi
         echo "" >> security-summary.md
-        
+
         echo "## Python Security Results" >> security-summary.md
         if [ "${{ inputs.python-result }}" == "success" ]; then
-          echo "✅ Completed successfully" >> security-summary.md
+          echo "[PASS] Completed successfully" >> security-summary.md
         elif [ "${{ inputs.python-result }}" == "failure" ]; then
-          echo "❌ Failed with issues" >> security-summary.md
+          echo "[FAIL] Failed with issues" >> security-summary.md
         else
-          echo "⚠️  Skipped or cancelled" >> security-summary.md
+          echo "[WARN] Skipped or cancelled" >> security-summary.md
         fi
         echo "" >> security-summary.md
-        
+
         echo "## SBOM Results" >> security-summary.md
         if [ "${{ inputs.sbom-result }}" == "success" ]; then
-          echo "✅ Completed successfully" >> security-summary.md
+          echo "[PASS] Completed successfully" >> security-summary.md
         elif [ "${{ inputs.sbom-result }}" == "failure" ]; then
-          echo "❌ Failed with issues" >> security-summary.md
+          echo "[FAIL] Failed with issues" >> security-summary.md
         else
-          echo "⚠️  Skipped or cancelled" >> security-summary.md
+          echo "[WARN] Skipped or cancelled" >> security-summary.md
         fi
         echo "" >> security-summary.md
-        
+
         echo "## Checkov Results" >> security-summary.md
         if [ "${{ inputs.checkov-result }}" == "success" ]; then
-          echo "✅ Completed successfully" >> security-summary.md
+          echo "[PASS] Completed successfully" >> security-summary.md
         elif [ "${{ inputs.checkov-result }}" == "failure" ]; then
-          echo "❌ Failed with issues" >> security-summary.md
+          echo "[FAIL] Failed with issues" >> security-summary.md
         else
-          echo "⚠️  Skipped or cancelled" >> security-summary.md
+          echo "[WARN] Skipped or cancelled" >> security-summary.md
         fi
 
     - name: Upload Security Results
