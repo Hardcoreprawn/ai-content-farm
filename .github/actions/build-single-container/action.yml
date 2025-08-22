@@ -12,6 +12,10 @@ inputs:
     description: 'Enable Docker layer caching'
     required: false
     default: 'true'
+  dependency-results-path:
+    description: 'Path to dependency analysis results from previous job'
+    required: false
+    default: ''
 outputs:
   build-result:
     description: 'Build result: success or failure'
@@ -47,6 +51,32 @@ runs:
           echo "[ERROR] Dockerfile not found: $dockerfile_path"
           echo "result=failure" >> $GITHUB_OUTPUT
           exit 1
+        fi
+
+        # Check for existing dependency analysis results
+        dependency_results_path="${{ inputs.dependency-results-path }}"
+        if [ -n "$dependency_results_path" ] && [ -d "$dependency_results_path" ]; then
+          safety_result_file="$dependency_results_path/safety-${CONTAINER_NAME}.json"
+          if [ -f "$safety_result_file" ]; then
+            echo "[DEPENDENCY] Using cached dependency analysis for $CONTAINER_NAME"
+
+            # Check if vulnerabilities were found
+            if [ -s "$safety_result_file" ] && grep -q '"vulnerabilities"' "$safety_result_file" 2>/dev/null; then
+              vuln_count=$(jq -r '.vulnerabilities | length' "$safety_result_file" 2>/dev/null || echo "unknown")
+              if [ "$vuln_count" != "0" ] && [ "$vuln_count" != "null" ]; then
+                echo "[WARN] $vuln_count vulnerabilities found in dependencies for $CONTAINER_NAME"
+                cat "$dependency_results_path/safety-${CONTAINER_NAME}.txt" || true
+              else
+                echo "[PASS] No dependency vulnerabilities found for $CONTAINER_NAME"
+              fi
+            else
+              echo "[PASS] No dependency vulnerabilities found for $CONTAINER_NAME"
+            fi
+          else
+            echo "[INFO] No cached dependency analysis found for $CONTAINER_NAME, proceeding with build"
+          fi
+        else
+          echo "[INFO] No dependency results path provided, proceeding with build"
         fi
 
         # Build image with optimized caching
