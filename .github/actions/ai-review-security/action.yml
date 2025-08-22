@@ -348,7 +348,7 @@ runs:
     - name: Generate Security Report
       shell: bash
       run: |
-        echo "📄 Generating security review report..."
+        echo "[FILE] Generating security review report..."
 
         cd ai-reviews/security
 

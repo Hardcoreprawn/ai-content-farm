@@ -29,7 +29,7 @@ runs:
         FAIL_FAST: ${{ inputs.fail-fast }}
       run: |
         set +e  # Disable exit on error for better control
-        echo "🐳 Validating container builds..."
+        echo "[CONTAINER] Validating container builds..."
 
         # Determine which containers to test
         if [ -n "$CONTAINERS_CHANGED" ]; then
@@ -49,16 +49,16 @@ runs:
 
         for container_path in "${CONTAINERS[@]}"; do
           container_name=$(basename "$container_path")
-          echo "🔍 Testing container: $container_name"
+          echo "[SCAN] Testing container: $container_name"
 
           if [ -f "$container_path/Dockerfile" ]; then
             # Quick syntax and build context validation (no actual build)
             echo "Running: docker build --check '$container_path'"
             if docker build --check "$container_path" > /dev/null 2>&1; then
-              echo "✅ $container_name: Build validation passed"
+              echo "[PASS] $container_name: Build validation passed"
               passed_containers=$((passed_containers + 1)) || true
             else
-              echo "❌ $container_name: Build validation failed"
+              echo "[FAIL] $container_name: Build validation failed"
               echo "Error details for $container_name:"
               docker build --check "$container_path" 2>&1 || true
               failed_containers+=("$container_name")
@@ -70,16 +70,16 @@ runs:
               fi
             fi
           else
-            echo "⚠️  $container_name: No Dockerfile found, skipping"
+            echo "[WARN]  $container_name: No Dockerfile found, skipping"
           fi
         done
 
-        echo "📊 Results: $passed_containers/$total_containers containers passed validation"
+        echo "[STATS] Results: $passed_containers/$total_containers containers passed validation"
 
         if [ ${#failed_containers[@]} -eq 0 ]; then
           echo "validation-passed=true" >> "$GITHUB_OUTPUT"
-          echo "✅ All container validations passed"
+          echo "[PASS] All container validations passed"
         else
           echo "validation-passed=false" >> "$GITHUB_OUTPUT"
-          echo "❌ Failed containers: ${failed_containers[*]}"
+          echo "[FAIL] Failed containers: ${failed_containers[*]}"
         fi

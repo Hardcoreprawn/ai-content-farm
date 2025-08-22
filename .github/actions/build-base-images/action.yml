@@ -24,7 +24,7 @@ runs:
         REGISTRY: ${{ inputs.registry }}
         ENABLE_CACHE: ${{ inputs.enable-cache }}
       run: |
-        echo "🏗️ Building multi-tier base images..."
+        echo "[BUILD] Building multi-tier base images..."
 
         # Track built images
         built_images=""
@@ -32,7 +32,7 @@ runs:
         # Configure Docker cache if enabled
         cache_args=""
         if [ "$ENABLE_CACHE" = "true" ]; then
-          echo "🚀 Docker layer caching enabled"
+          echo "[DEPLOY] Docker layer caching enabled"
           cache_args="--cache-from=type=gha --cache-to=type=gha,mode=max"
         fi
 
@@ -60,7 +60,7 @@ runs:
           build_cmd="$build_cmd ."
 
           if eval "$build_cmd"; then
-            echo "✅ $tier base image built successfully"
+            echo "[PASS] $tier base image built successfully"
 
             # Add to built images list
             if [ -z "$built_images" ]; then
@@ -75,10 +75,10 @@ runs:
               echo "Tagged for registry: $REGISTRY/ai-content-farm-base:$tier"
             fi
           else
-            echo "❌ $tier base image build failed"
+            echo "[FAIL] $tier base image build failed"
             exit 1
           fi
         done
 
-        echo "✅ All base images built successfully: $built_images"
+        echo "[PASS] All base images built successfully: $built_images"
         echo "images=$built_images" >> $GITHUB_OUTPUT

@@ -67,7 +67,7 @@ runs:
           container_list="$CONTAINERS"
         fi
 
-        echo "📋 Containers to build: $container_list"
+        echo "[REPORT] Containers to build: $container_list"
 
         # Convert comma-separated list to array
         IFS=',' read -ra CONTAINERS <<< "$container_list"
@@ -91,7 +91,7 @@ runs:
 
             # Build from repo root with correct context
             if docker build -f "$dockerfile_path" -t "$container_name:latest" .; then
-              echo "✅ $container_name builds successfully"
+              echo "[PASS] $container_name builds successfully"
 
               # Add to built containers list
               if [ -z "$built_containers" ]; then
@@ -111,11 +111,11 @@ runs:
                 docker rmi "$container_name:latest" || true
               fi
             else
-              echo "❌ $container_name build failed"
+              echo "[FAIL] $container_name build failed"
               build_failures=$((build_failures + 1))
             fi
           else
-            echo "⚠️ Skipping $container_name - no Dockerfile found at $container_dir"
+            echo "[WARN] Skipping $container_name - no Dockerfile found at $container_dir"
           fi
         done
 
@@ -127,14 +127,14 @@ runs:
 
         summary="Containers tested: $containers_tested, Build failures: $build_failures, Success rate: $success_rate%"
 
-        echo "📊 Build Summary:"
+        echo "[STATS] Build Summary:"
         echo "- $summary"
 
         if [ "$build_failures" -gt 0 ]; then
-          echo "❌ $build_failures container(s) failed to build"
+          echo "[FAIL] $build_failures container(s) failed to build"
           exit 1
         else
-          echo "✅ All containers build successfully"
+          echo "[PASS] All containers build successfully"
         fi
 
         echo "containers=$built_containers" >> $GITHUB_OUTPUT

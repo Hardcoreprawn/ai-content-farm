@@ -81,7 +81,7 @@ jobs:
 
       - name: Simulate File Changes
         run: |
-          echo "🔄 Simulating ${{ matrix.test-scenario.name }} scenario"
+          echo "Simulating ${{ matrix.test-scenario.name }} scenario"
           echo "# Test change - $(date)" >> ${{ matrix.test-scenario.trigger }}
           git add ${{ matrix.test-scenario.trigger }}
 
@@ -159,7 +159,7 @@ jobs:
           }
           EOF
 
-          echo "📊 Performance benchmark completed"
+          echo "Performance benchmark completed"
           cat performance-results/benchmark-results.json
 
       - name: Upload Performance Results
@@ -187,7 +187,7 @@ jobs:
         env:
           GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
-          echo "📋 Generating comprehensive test report..."
+          echo "Generating comprehensive test report..."
           mkdir -p final-report
 
           # Create main report
@@ -199,14 +199,14 @@ jobs:
           **Branch**: ${{ github.ref }}
 
           ## Executive Summary
-          
+
           The AI Content Farm pipeline has undergone comprehensive testing and validation:
 
           ### Test Coverage:
-          1. **🏗️ Infrastructure**: Terraform validation, security scanning, and cost analysis
-          2. **🐳 Containers**: Multi-stage builds, security scanning, and dependency management  
-          3. **🔄 Workflows**: GitHub Actions validation and pipeline orchestration
-          4. **🧪 Testing**: Comprehensive validation framework established
+          1. **Infrastructure**: Terraform validation, security scanning, and cost analysis
+          2. **Containers**: Multi-stage builds, security scanning, and dependency management
+          3. **Workflows**: GitHub Actions validation and pipeline orchestration
+          4. **Testing**: Comprehensive validation framework established
 
           ### Next Steps:
           1. Deploy to staging environment for full integration testing
@@ -219,7 +219,7 @@ jobs:
           *GitHub Run: $GITHUB_RUN_ID*
           EOF
 
-          echo "📄 Test report generated successfully"
+          echo "Test report generated successfully"
 
       - name: Upload Final Report
         uses: actions/upload-artifact@v4
@@ -243,6 +243,6 @@ jobs:
                 issue_number: context.issue.number,
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                body: `## 🧪 Pipeline Test Results\n\n${report.substring(0, 30000)}${report.length > 30000 ? '\n\n... (truncated)' : ''}`
+                body: `## Pipeline Test Results\n\n${report.substring(0, 30000)}${report.length > 30000 ? '\n\n... (truncated)' : ''}`
               });
             }

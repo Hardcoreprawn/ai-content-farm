@@ -32,7 +32,7 @@ runs:
         TEST_TYPE: ${{ inputs.test-type }}
         CONTAINERS_TO_TEST: ${{ inputs.containers-to-test }}
       run: |
-        echo "🧪 Setting up test environment for $TEST_TYPE testing"
+        echo "Setting up test environment for $TEST_TYPE testing"
         mkdir -p test-results pipeline-validation
 
         # Create test plan
@@ -48,26 +48,26 @@ runs:
     - name: Validate Pipeline Structure
       shell: bash
       run: |
-        echo "🔍 Validating pipeline structure..."
+        echo "Validating pipeline structure..."
 
         validation_results=""
         score=100
 
         # Check main workflow exists and is properly structured
         if [ ! -f ".github/workflows/cicd-pipeline.yml" ]; then
-          validation_results="$validation_results- ❌ Main CI/CD pipeline not found\n"
+          validation_results="$validation_results- [FAIL] Main CI/CD pipeline not found\n"
           score=$((score - 30))
         else
-          validation_results="$validation_results- ✅ Main CI/CD pipeline found\n"
+          validation_results="$validation_results- [PASS] Main CI/CD pipeline found\n"
         fi
 
         # Check required actions exist
         required_actions="detect-changes evaluate-quality-gates setup-container-tests"
         for action in $required_actions; do
           if [ -d ".github/actions/$action" ]; then
-            validation_results="$validation_results- ✅ Action $action found\n"
+            validation_results="$validation_results- [PASS] Action $action found\n"
           else
-            validation_results="$validation_results- ❌ Action $action missing\n"
+            validation_results="$validation_results- [FAIL] Action $action missing\n"
             score=$((score - 10))
           fi
         done
@@ -75,9 +75,9 @@ runs:
         # Check workflow syntax
         if command -v actionlint >/dev/null 2>&1; then
           if actionlint .github/workflows/cicd-pipeline.yml; then
-            validation_results="$validation_results- ✅ Workflow syntax valid\n"
+            validation_results="$validation_results- [PASS] Workflow syntax valid\n"
           else
-            validation_results="$validation_results- ❌ Workflow syntax issues found\n"
+            validation_results="$validation_results- [FAIL] Workflow syntax issues found\n"
             score=$((score - 20))
           fi
         fi
@@ -89,7 +89,7 @@ runs:
     - name: Test Change Detection
       shell: bash
       run: |
-        echo "🔄 Testing change detection logic..."
+        echo "Testing change detection logic..."
 
         # Test change detection with sample changes
         test_results=""
@@ -101,16 +101,16 @@ runs:
 
         # Test the detect-changes action (dry run)
         if [ -f ".github/actions/detect-changes/action.yml" ]; then
-          test_results="$test_results- ✅ Change detection action available\n"
+          test_results="$test_results- [PASS] Change detection action available\n"
 
           # Validate action structure
           if grep -q "outputs:" ".github/actions/detect-changes/action.yml"; then
-            test_results="$test_results- ✅ Change detection has outputs defined\n"
+            test_results="$test_results- [PASS] Change detection has outputs defined\n"
           else
-            test_results="$test_results- ❌ Change detection missing outputs\n"
+            test_results="$test_results- [FAIL] Change detection missing outputs\n"
           fi
         else
-          test_results="$test_results- ❌ Change detection action not found\n"
+          test_results="$test_results- [FAIL] Change detection action not found\n"
         fi
 
         echo -e "$test_results" > pipeline-validation/change-detection-test.txt
@@ -124,19 +124,19 @@ runs:
 
         # Test quality gate action
         if [ -f ".github/actions/evaluate-quality-gates/action.yml" ]; then
-          gate_results="$gate_results- ✅ Quality gates action found\n"
+          gate_results="$gate_results- [PASS] Quality gates action found\n"
 
           # Check for required inputs
           required_inputs="security-result code-quality-result infrastructure-result dependency-result"
           for input in $required_inputs; do
             if grep -q "$input:" ".github/actions/evaluate-quality-gates/action.yml"; then
-              gate_results="$gate_results- ✅ Input $input defined\n"
+              gate_results="$gate_results- [PASS] Input $input defined\n"
             else
-              gate_results="$gate_results- ❌ Input $input missing\n"
+              gate_results="$gate_results- [FAIL] Input $input missing\n"
             fi
           done
         else
-          gate_results="$gate_results- ❌ Quality gates action not found\n"
+          gate_results="$gate_results- [FAIL] Quality gates action not found\n"
         fi
 
         echo -e "$gate_results" > pipeline-validation/quality-gates-test.txt
@@ -200,7 +200,7 @@ runs:
       env:
         TEST_TYPE: ${{ inputs.test-type }}
       run: |
-        echo "📋 Generating comprehensive test summary..."
+        echo "Generating comprehensive test summary..."
 
         # Aggregate all test results
         overall_score=100

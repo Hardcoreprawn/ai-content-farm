@@ -126,7 +126,7 @@ runs:
         FAIL_ON_CRITICAL: ${{ inputs.fail-on-critical }}
         ENVIRONMENT: ${{ inputs.environment }}
       run: |
-        echo "📊 Evaluating security scan results..."
+        echo "[STATS] Evaluating security scan results..."
 
         # Initialize counters for each scan type
         trivy_infra_critical=0
@@ -145,11 +145,11 @@ runs:
         if [ -f "security-results/trivy-infra.sarif" ]; then
           trivy_infra_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/trivy-infra.sarif 2>/dev/null | wc -l)" || trivy_infra_critical="0"
           trivy_infra_high="$(jq -r '.runs[0].results[] | select(.level == "warning") | .ruleId' security-results/trivy-infra.sarif 2>/dev/null | wc -l)" || trivy_infra_high="0"
-          echo "🔍 Trivy Infrastructure: $trivy_infra_critical critical, $trivy_infra_high high"
+          echo "[SCAN] Trivy Infrastructure: $trivy_infra_critical critical, $trivy_infra_high high"
           total_critical=$((total_critical + trivy_infra_critical))
           total_high=$((total_high + trivy_infra_high))
         else
-          echo "🔍 Trivy Infrastructure: scan file not found"
+          echo "[SCAN] Trivy Infrastructure: scan file not found"
         fi
 
         # 2. Trivy Container Scans
@@ -161,12 +161,12 @@ runs:
               container_high="$(jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH") | .VulnerabilityID' "$trivy_file" 2>/dev/null | wc -l)" || container_high="0"
               trivy_container_critical=$((trivy_container_critical + container_critical))
               container_name=$(basename "$trivy_file" .json | sed 's/trivy-//')
-              echo "🐳 Trivy Container ($container_name): $container_critical critical, $container_high high"
+              echo "[CONTAINER] Trivy Container ($container_name): $container_critical critical, $container_high high"
             fi
           done
           total_critical=$((total_critical + trivy_container_critical))
         else
-          echo "🐳 Trivy Container: no valid scan files found"
+          echo "[CONTAINER] Trivy Container: no valid scan files found"
         fi
 
         # 3. Semgrep SAST Scan
@@ -191,14 +191,14 @@ runs:
 
           total_critical=$((total_critical + semgrep_critical))
 
-          echo "🔎 Semgrep SAST: $total_semgrep total findings ($semgrep_error_findings error, $semgrep_warning_findings warning), $((acceptable_bypass + acceptable_queue)) acceptable exceptions, $semgrep_critical critical"
+          echo "[SEARCH] Semgrep SAST: $total_semgrep total findings ($semgrep_error_findings error, $semgrep_warning_findings warning), $((acceptable_bypass + acceptable_queue)) acceptable exceptions, $semgrep_critical critical"
         elif [ -f "security-results/semgrep.sarif" ]; then
           # Fallback to SARIF format if JSON not available
           semgrep_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/semgrep.sarif 2>/dev/null | wc -l)" || semgrep_critical="0"
           total_critical=$((total_critical + semgrep_critical))
-          echo "🔎 Semgrep SAST: $semgrep_critical critical (from SARIF fallback)"
+          echo "[SEARCH] Semgrep SAST: $semgrep_critical critical (from SARIF fallback)"
         else
-          echo "🔎 Semgrep SAST: scan file not found"
+          echo "[SEARCH] Semgrep SAST: scan file not found"
         fi
 
         # 4. Safety Python Dependency Scan
@@ -210,16 +210,16 @@ runs:
               safety_critical=$((safety_critical + container_safety))
               container_name=$(basename "$safety_file" .json | sed 's/safety-//')
               if [ "$container_safety" -gt 0 ]; then
-                echo "🐍 Safety ($container_name): $container_safety high/critical vulnerabilities"
+                echo "[PYTHON] Safety ($container_name): $container_safety high/critical vulnerabilities"
               fi
             fi
           done
           total_critical=$((total_critical + safety_critical))
           if [ "$safety_critical" -eq 0 ]; then
-            echo "🐍 Safety Python Dependencies: no high/critical vulnerabilities found"
+            echo "[PYTHON] Safety Python Dependencies: no high/critical vulnerabilities found"
           fi
         else
-          echo "🐍 Safety Python Dependencies: no scan files found"
+          echo "[PYTHON] Safety Python Dependencies: no scan files found"
         fi
 
         # 5. Checkov Infrastructure as Code
@@ -228,9 +228,9 @@ runs:
           checkov_high="$(jq -r '.runs[0].results[] | select(.level == "warning") | .ruleId' security-results/checkov.sarif 2>/dev/null | wc -l)" || checkov_high="0"
           total_critical=$((total_critical + checkov_critical))
           total_high=$((total_high + checkov_high))
-          echo "📋 Checkov Infrastructure: $checkov_critical critical, $checkov_high high"
+          echo "[REPORT] Checkov Infrastructure: $checkov_critical critical, $checkov_high high"
         else
-          echo "📋 Checkov Infrastructure: scan file not found"
+          echo "[REPORT] Checkov Infrastructure: scan file not found"
         fi
 
         echo ""
@@ -244,20 +244,20 @@ runs:
         # Determine if scan passed
         if [ "$total_critical" -eq 0 ] || [ "$FAIL_ON_CRITICAL" != "true" ]; then
           echo "passed=true" >> "$GITHUB_OUTPUT"
-          echo "✅ Security scan PASSED - No critical blocking issues found"
+          echo "[PASS] Security scan PASSED - No critical blocking issues found"
         else
           echo "passed=false" >> "$GITHUB_OUTPUT"
-          echo "❌ Security scan FAILED - $total_critical critical issues require attention"
+          echo "[FAIL] Security scan FAILED - $total_critical critical issues require attention"
         fi
 
         # Generate comprehensive summary report
         report_timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"
         if [ "$total_critical" -eq 0 ]; then
           status_message="**PASSED** - No critical vulnerabilities found"
-          status_emoji="✅"
+          status_emoji="[PASS]"
         else
           status_message="**FAILED** - Critical vulnerabilities require attention"
-          status_emoji="❌"
+          status_emoji="[FAIL]"
         fi
 
         cat > security-results/summary.md << EOF
@@ -296,9 +296,9 @@ runs:
 
         ## Action Required
         $(if [ "$total_critical" -eq 0 ]; then
-          echo "✅ **No action required** - All scans passed"
+          echo "[PASS] **No action required** - All scans passed"
         else
-          echo "⚠️  **Review Required** - Please review the $total_critical critical findings above"
+          echo "[WARN]  **Review Required** - Please review the $total_critical critical findings above"
           echo ""
           echo "**Next Steps:**"
           echo "1. Review detailed scan results in the artifacts"
@@ -307,11 +307,11 @@ runs:
         fi)
 
         ## Scans Performed
-        - ✅ **Trivy** - Infrastructure & Container security scanning
-        - ✅ **Semgrep** - Static Application Security Testing (includes Python security)
-        - ✅ **Safety** - Python dependency vulnerability detection
-        - ✅ **Checkov** - Infrastructure as Code compliance & best practices
-        - ✅ **SBOM Analysis** - Software Bill of Materials generation
+        - [PASS] **Trivy** - Infrastructure & Container security scanning
+        - [PASS] **Semgrep** - Static Application Security Testing (includes Python security)
+        - [PASS] **Safety** - Python dependency vulnerability detection
+        - [PASS] **Checkov** - Infrastructure as Code compliance & best practices
+        - [PASS] **SBOM Analysis** - Software Bill of Materials generation
 
         *Note: Bandit removed in favor of Semgrep's superior Python security coverage*
         EOF
@@ -343,12 +343,12 @@ runs:
         PASSED: ${{ steps.evaluate.outputs.passed }}
       run: |
         if [ "$PASSED" = "true" ]; then
-          echo "✅ Security scan completed successfully"
-          echo "📊 Found $CRITICAL_COUNT critical issues (all acceptable or resolved)"
-          echo "📋 Review security-results/summary.md for detailed breakdown"
+          echo "[PASS] Security scan completed successfully"
+          echo "[STATS] Found $CRITICAL_COUNT critical issues (all acceptable or resolved)"
+          echo "[REPORT] Review security-results/summary.md for detailed breakdown"
         else
-          echo "❌ Security scan failed with $CRITICAL_COUNT critical issues requiring attention"
-          echo "📋 Please review security-results/ for detailed findings"
+          echo "[FAIL] Security scan failed with $CRITICAL_COUNT critical issues requiring attention"
+          echo "[REPORT] Please review security-results/ for detailed findings"
           echo "📖 See docs/SECURITY_EXCEPTIONS.md for guidance on acceptable exceptions"
           exit 1
         fi

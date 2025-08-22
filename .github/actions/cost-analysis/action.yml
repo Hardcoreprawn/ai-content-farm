@@ -35,7 +35,7 @@ runs:
       env:
         INFRACOST_API_KEY: ${{ inputs.infracost-api-key }}
       run: |
-        echo "📊 Generating cost baseline..."
+        echo "[STATS] Generating cost baseline..."
 
         # Generate cost breakdown for current infrastructure
         docker run --rm \
@@ -55,7 +55,7 @@ runs:
         INPUT_BASELINE_BRANCH: ${{ inputs.baseline-branch }}
         WORKSPACE_PATH: ${{ github.workspace }}
       run: |
-        echo "📊 Generating baseline cost for comparison..."
+        echo "[STATS] Generating baseline cost for comparison..."
 
         # Checkout baseline branch
         git fetch origin "${INPUT_BASELINE_BRANCH}"
@@ -96,7 +96,7 @@ runs:
       id: analyze
       shell: bash
       run: |
-        echo "📈 Analyzing cost impact..."
+        echo "[METRIC] Analyzing cost impact..."
 
         current_monthly=0
         baseline_monthly=0
@@ -223,7 +223,7 @@ runs:
           ${summary}
 
           <details>
-          <summary>📊 View detailed cost breakdown</summary>
+          <summary>[STATS] View detailed cost breakdown</summary>
 
           Cost analysis artifacts have been uploaded and are available in the workflow run.
 

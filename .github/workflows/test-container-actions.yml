@@ -42,7 +42,7 @@ jobs:
         run: |
           echo "🎉 Action Testing Complete!"
           echo ""
-          echo "🏗️ Base Images Built:"
+          echo "[BUILD] Base Images Built:"
           echo "${{ steps.build-bases.outputs.base-images-built }}"
           echo ""
           echo "🔨 Service Containers Built:"
@@ -69,7 +69,7 @@ jobs:
         run: |
           echo "🚀 Would deploy using ./.github/actions/deploy-to-azure"
           echo "📦 Containers from previous job: ${{ needs.test-actions.outputs.service-containers }}"
-          echo "🏗️ Base images from previous job: ${{ needs.test-actions.outputs.base-images }}"
+          echo "[BUILD] Base images from previous job: ${{ needs.test-actions.outputs.base-images }}"
           echo ""
           echo "✅ Deployment action structure validated"
           echo "Note: Set skip-deployment=false and configure Azure credentials for actual deployment testing"

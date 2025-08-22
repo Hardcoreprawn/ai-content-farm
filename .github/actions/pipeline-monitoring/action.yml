@@ -47,7 +47,7 @@ runs:
         GITHUB_EVENT_NAME: ${{ github.event_name }}
         GITHUB_ACTOR: ${{ github.actor }}
       run: |
-        echo "📊 Initializing pipeline monitoring for stage: $STAGE_NAME"
+        echo "[STATS] Initializing pipeline monitoring for stage: $STAGE_NAME"
         mkdir -p pipeline-metrics
 
         # Create stage metrics file
@@ -77,7 +77,7 @@ runs:
         STAGE_NAME: ${{ inputs.stage-name }}
         STAGE_RESULT: ${{ inputs.stage-result }}
       run: |
-        echo "🔍 Collecting performance metrics for $STAGE_NAME..."
+        echo "[SCAN] Collecting performance metrics for $STAGE_NAME..."
 
         # System metrics
         cpu_usage=$(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | awk -F'%' '{print $1}' || echo "0")
@@ -173,7 +173,7 @@ runs:
         STAGE_NAME: ${{ inputs.stage-name }}
         GITHUB_RUN_ID: ${{ github.run_id }}
       run: |
-        echo "📈 Creating dashboard data..."
+        echo "[METRIC] Creating dashboard data..."
 
         # Aggregate metrics for dashboard
         if [ ! -f "pipeline-metrics/dashboard.json" ]; then

@@ -28,14 +28,14 @@ runs:
     - name: Set up Python environment
       shell: bash
       run: |
-        echo "🐍 Setting up Python test environment..."
+        echo "[PYTHON] Setting up Python test environment..."
         python -m pip install --upgrade pip
         pip install pytest pytest-cov pytest-asyncio pytest-xdist
 
     - name: Install container dependencies
       shell: bash
       run: |
-        echo "📦 Installing container dependencies..."
+        echo "[PACKAGE] Installing container dependencies..."
 
         # Install each container's dependencies
         for container in content-collector content-processor content-ranker content-enricher content-generator site-generator markdown-generator collector-scheduler; do
@@ -62,7 +62,7 @@ runs:
       env:
         INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
       run: |
-        echo "🧪 Running unit tests across all containers..."
+        echo "[TEST] Running unit tests across all containers..."
 
         pytest_args=""
         if [ "${INPUT_FAIL_FAST}" = "true" ]; then
@@ -152,7 +152,7 @@ runs:
         INPUT_TEST_TYPE: ${{ inputs.test-type }}
         INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
       run: |
-        echo "📊 Evaluating test results..."
+        echo "[STATS] Evaluating test results..."
 
         overall_success=true
 
@@ -212,7 +212,7 @@ runs:
       if: inputs.upload-coverage == 'true'
       shell: bash
       run: |
-        echo "📈 Generating coverage report..."
+        echo "[METRIC] Generating coverage report..."
 
         # Combine coverage reports if multiple exist
         if [ -f "coverage-unit.xml" ] && [ -f "coverage-integration.xml" ]; then
@@ -228,7 +228,7 @@ runs:
         if [ -f "coverage-percentage.txt" ]; then
           coverage_pct=$(cat coverage-percentage.txt | grep -o '[0-9]\+%' | head -1)
           echo "percentage=${coverage_pct:-0%}" >> $GITHUB_OUTPUT
-          echo "📊 Overall test coverage: ${coverage_pct:-0%}"
+          echo "[STATS] Overall test coverage: ${coverage_pct:-0%}"
         else
           echo "percentage=0%" >> $GITHUB_OUTPUT
         fi
