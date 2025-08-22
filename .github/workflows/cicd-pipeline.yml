@@ -186,6 +186,8 @@ jobs:
     outputs:
       passed: ${{ steps.evaluate.outputs.passed }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
       - name: Evaluate Quality Gates
         id: evaluate
         uses: ./.github/actions/evaluate-quality-gates
