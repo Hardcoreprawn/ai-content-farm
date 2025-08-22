@@ -39,13 +39,13 @@ runs:
 
         # Generate cost breakdown for current infrastructure
         docker run --rm \
-          -v "${{ github.workspace }}/infra":/workspace \
+          -v "${{ github.workspace }}":/workspace \
           -e "INFRACOST_API_KEY=$INFRACOST_API_KEY" \
           infracost/infracost:latest \
           breakdown \
-          --path /workspace \
+          --path /workspace/infra \
           --format json \
-          --out-file /workspace/../cost-analysis/current.json
+          --out-file /workspace/cost-analysis/current.json
 
     - name: Generate Baseline Cost (if PR)
       if: github.event_name == 'pull_request'
@@ -63,13 +63,13 @@ runs:
 
         # Generate baseline cost
         docker run --rm \
-          -v "${WORKSPACE_PATH}/infra":/workspace \
+          -v "${WORKSPACE_PATH}":/workspace \
           -e "INFRACOST_API_KEY=$INFRACOST_API_KEY" \
           infracost/infracost:latest \
           breakdown \
-          --path /workspace \
+          --path /workspace/infra \
           --format json \
-          --out-file /workspace/../cost-analysis/baseline.json
+          --out-file /workspace/cost-analysis/baseline.json
 
         # Restore current branch files
         git checkout HEAD -- infra/
