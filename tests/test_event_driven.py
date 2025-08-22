@@ -3,9 +3,9 @@
 Test the event-driven blob watching functionality
 """
 
-import os
-import json
 import asyncio
+import json
+import os
 import sys
 from datetime import datetime
 

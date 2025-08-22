@@ -6,9 +6,10 @@ Tests the complete content pipeline: Collection → Processing → Enrichment �
 """
 
 import json
-import requests
 import time
-from typing import Dict, Any, List
+from typing import Any, Dict, List
+
+import requests
 
 
 def test_pipeline_integration():

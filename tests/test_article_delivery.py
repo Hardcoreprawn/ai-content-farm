@@ -4,11 +4,13 @@ End-to-end test script for article delivery pipeline.
 Tests the complete flow from ranked content to markdown generation.
 """
 
-from libs.blob_storage import BlobStorageClient, BlobContainers
-from service_logic import MarkdownGenerator, ContentWatcher
-import sys
 import os
+import sys
 from pathlib import Path
+
+from service_logic import ContentWatcher, MarkdownGenerator
+
+from libs.blob_storage import BlobContainers, BlobStorageClient
 
 # Add container paths for imports
 sys.path.insert(0, "/workspaces/ai-content-farm/containers/markdown-generator")

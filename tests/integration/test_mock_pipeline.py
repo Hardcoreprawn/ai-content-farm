@@ -5,10 +5,11 @@ Simplified pipeline test using mock data.
 Tests the pipeline connections with known good data.
 """
 
-import json
-import requests
 import datetime
-from typing import Dict, Any, List
+import json
+from typing import Any, Dict, List
+
+import requests
 
 
 def create_mock_collected_items() -> List[Dict[str, Any]]:

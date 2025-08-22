@@ -11,10 +11,11 @@ This script tests the complete containerized, event-driven pipeline:
 """
 
 import asyncio
-import httpx
 import json
 import time
 from datetime import datetime, timezone
+
+import httpx
 
 
 async def test_event_driven_pipeline():

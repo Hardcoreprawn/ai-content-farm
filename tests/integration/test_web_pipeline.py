@@ -5,9 +5,10 @@ Test Web Content Pipeline
 Creates sample web content and runs it through the processing pipeline.
 """
 
-import requests
 import json
 from datetime import datetime, timezone
+
+import requests
 
 
 def create_sample_web_content():

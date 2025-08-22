@@ -5,10 +5,10 @@ Test Azure Key Vault Integration
 Tests the Key Vault client functionality and credential retrieval.
 """
 
-import sys
-import os
 import json
-from typing import Dict, Any
+import os
+import sys
+from typing import Any, Dict
 
 # Add the current directory to Python path for imports
 sys.path.insert(0, "/workspaces/ai-content-farm/containers/content-collector")
