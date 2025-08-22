@@ -2,16 +2,17 @@
 # This configuration stores state remotely in Azure Storage for team collaboration.
 # Only the production environment persists - staging environments are ephemeral.
 # OIDC authentication configured and ready for production deployment.
+# Cost analysis action fixed for proper docker mounting.
 
 terraform {
   backend "azurerm" {
     # Storage account and container for state storage
     storage_account_name = "aicontentstagingstv33ppo"
     container_name       = "terraform-state"
-
+    
     # Production state file (only persistent environment)
     key = "terraform-production.tfstate"
-
+    
     # Authentication using Azure CLI credentials locally
     # and managed identity/OIDC in GitHub Actions
     use_azuread_auth = true
