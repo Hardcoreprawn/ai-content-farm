@@ -1,0 +1,101 @@
+name: 'Build Single Container'
+description: 'Builds a single service container using multi-tier base images'
+inputs:
+  container-name:
+    description: 'Name of the container to build'
+    required: true
+  registry:
+    description: 'Container registry to tag images for (optional)'
+    required: false
+    default: ''
+  use-production-dockerfiles:
+    description: 'Use production Dockerfiles instead of multi-tier base images'
+    required: false
+    default: 'false'
+  enable-cache:
+    description: 'Enable Docker layer caching'
+    required: false
+    default: 'false'
+outputs:
+  build-result:
+    description: 'Build result: success or failure'
+    value: ${{ steps.build.outputs.result }}
+  image-tag:
+    description: 'Full image tag that was built'
+    value: ${{ steps.build.outputs.image-tag }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build Container
+      id: build
+      shell: bash
+      env:
+        CONTAINER_NAME: ${{ inputs.container-name }}
+        USE_PRODUCTION_DOCKERFILES: ${{ inputs.use-production-dockerfiles }}
+        ENABLE_CACHE: ${{ inputs.enable-cache }}
+        REGISTRY: ${{ inputs.registry }}
+      run: |
+        echo "[BUILD] Building container: $CONTAINER_NAME"
+
+        container_dir="containers/$CONTAINER_NAME"
+
+        # Determine which Dockerfile to use
+        if [ "$USE_PRODUCTION_DOCKERFILES" = "true" ]; then
+          dockerfile_path="$container_dir/Dockerfile.production"
+          build_strategy="production (self-contained)"
+        else
+          dockerfile_path="$container_dir/Dockerfile"
+          build_strategy="multi-tier"
+        fi
+
+        echo "[INFO] Build strategy: $build_strategy"
+        echo "[INFO] Dockerfile: $dockerfile_path"
+
+        # Verify files exist
+        if [ ! -d "$container_dir" ]; then
+          echo "[ERROR] Container directory not found: $container_dir"
+          echo "result=failure" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+        if [ ! -f "$dockerfile_path" ]; then
+          echo "[ERROR] Dockerfile not found: $dockerfile_path"
+          echo "result=failure" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+        # Build image
+        image_tag="$CONTAINER_NAME:latest"
+        echo "[BUILD] Building image: $image_tag"
+
+        build_args=""
+        if [ "$ENABLE_CACHE" = "true" ]; then
+          build_args="--cache-from=type=gha --cache-to=type=gha,mode=max"
+        fi
+
+        if docker build $build_args -f "$dockerfile_path" -t "$image_tag" .; then
+          echo "[PASS] $CONTAINER_NAME built successfully"
+
+          # Tag for registry if provided
+          if [ -n "$REGISTRY" ]; then
+            registry_tag="$REGISTRY/$image_tag"
+            docker tag "$image_tag" "$registry_tag"
+            echo "[INFO] Tagged for registry: $registry_tag"
+            echo "image-tag=$registry_tag" >> $GITHUB_OUTPUT
+          else
+            echo "image-tag=$image_tag" >> $GITHUB_OUTPUT
+          fi
+
+          # Clean up local image (keep if registry provided for potential push)
+          if [ -z "$REGISTRY" ]; then
+            docker rmi "$image_tag" || true
+            echo "[CLEANUP] Removed local image to save space"
+          fi
+
+          echo "result=success" >> $GITHUB_OUTPUT
+        else
+          echo "[FAIL] $CONTAINER_NAME build failed"
+          echo "result=failure" >> $GITHUB_OUTPUT
+          exit 1
+        fi

@@ -30,6 +30,12 @@ outputs:
   all-containers:
     description: 'Complete list of all containers in the project'
     value: ${{ steps.inventory.outputs.containers }}
+  containers-json:
+    description: 'JSON array of containers that changed (for matrix builds)'
+    value: ${{ steps.inventory.outputs.containers-json }}
+  build-matrix-json:
+    description: 'JSON array of containers to build in matrix (changed containers or all if libs changed)'
+    value: ${{ steps.inventory.outputs.build-matrix-json }}
 
 runs:
   using: 'composite'
@@ -112,9 +118,14 @@ runs:
     - name: Container Inventory
       id: inventory
       shell: bash
+      env:
+        CONTAINERS_CHANGED: ${{ steps.detect.outputs.containers }}
+        LIBS_CHANGED: ${{ steps.detect.outputs.libs }}
       run: |
         echo "[PACKAGE] Building complete container inventory..."
         all_containers=""
+        containers_json="["
+        first=true
         for container_dir in containers/*/; do
           container_name=$(basename "$container_dir")
           if [ "$container_name" != "base" ]; then  # Exclude base directory
@@ -123,7 +134,48 @@ runs:
             else
               all_containers="$all_containers,$container_name"
             fi
+
+            # Build JSON array
+            if [ "$first" = true ]; then
+              containers_json="$containers_json\"$container_name\""
+              first=false
+            else
+              containers_json="$containers_json,\"$container_name\""
+            fi
           fi
         done
+        containers_json="$containers_json]"
+
+        # Determine build matrix (changed containers or all if libs changed)
+        build_matrix_json=""
+        if [ "$LIBS_CHANGED" = "true" ]; then
+          # Build all containers if libs changed
+          build_matrix_json="$containers_json"
+          echo "[MATRIX] Building all containers due to libs change"
+        elif [ -n "$CONTAINERS_CHANGED" ]; then
+          # Build only changed containers
+          build_matrix_json="["
+          first=true
+          IFS=',' read -ra CHANGED_CONTAINERS <<< "$CONTAINERS_CHANGED"
+          for container in "${CHANGED_CONTAINERS[@]}"; do
+            if [ "$first" = true ]; then
+              build_matrix_json="$build_matrix_json\"$container\""
+              first=false
+            else
+              build_matrix_json="$build_matrix_json,\"$container\""
+            fi
+          done
+          build_matrix_json="$build_matrix_json]"
+          echo "[MATRIX] Building changed containers: $CONTAINERS_CHANGED"
+        else
+          # No containers to build
+          build_matrix_json="[]"
+          echo "[MATRIX] No containers to build"
+        fi
+
         echo "containers=$all_containers" >> "$GITHUB_OUTPUT"
+        echo "containers-json=$containers_json" >> "$GITHUB_OUTPUT"
+        echo "build-matrix-json=$build_matrix_json" >> "$GITHUB_OUTPUT"
         echo "All containers: $all_containers"
+        echo "Containers JSON: $containers_json"
+        echo "Build matrix JSON: $build_matrix_json"

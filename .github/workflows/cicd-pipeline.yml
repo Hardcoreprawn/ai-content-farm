@@ -85,15 +85,12 @@ jobs:
           force-build-all: ${{ github.ref == 'refs/heads/main' && 'true' || 'false' }}
 
   # Stage 3: Container Build
-  container-build:
-    name: Build Containers
+  # Build base images first (required dependency for all service containers)
+  build-base:
+    name: Build Base Images
     runs-on: ubuntu-latest
-    needs: [workflow-validation, change-detection]
+    needs: [change-detection]
     if: needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true'
-    outputs:
-      service-containers: ${{ steps.build-services.outputs.containers-built }}
-      containers-to-test: ${{ steps.test-setup.outputs.containers-to-test }}
-      containers-json: ${{ steps.test-setup.outputs.containers-json }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -103,13 +100,48 @@ jobs:
         uses: ./.github/actions/build-base-images
         with:
           enable-cache: 'true'
-      - name: Build Service Containers
-        id: build-services
-        uses: ./.github/actions/build-service-containers
+
+  # Build service containers in parallel (after base images)
+  build-containers:
+    name: Build ${{ matrix.container }}
+    runs-on: ubuntu-latest
+    needs: [change-detection, build-base]
+    if: needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true'
+    strategy:
+      matrix:
+        container: ${{ fromJson(needs.change-detection.outputs.build-matrix-json) }}
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Container
+        uses: ./.github/actions/build-single-container
         with:
-          containers: ${{ needs.change-detection.outputs.containers-changed }}
-          force-rebuild-on-libs-change: ${{ needs.change-detection.outputs.libs-changed }}
+          container-name: ${{ matrix.container }}
           enable-cache: 'true'
+
+  # Collect build results and setup tests
+  container-build-summary:
+    name: Container Build Summary
+    runs-on: ubuntu-latest
+    needs: [change-detection, build-containers]
+    if: always() && (needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true')
+    outputs:
+      containers-built: ${{ steps.summary.outputs.containers-built }}
+      containers-to-test: ${{ steps.test-setup.outputs.containers-to-test }}
+      containers-json: ${{ steps.test-setup.outputs.containers-json }}
+      build-result: ${{ steps.summary.outputs.build-result }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Collect Build Results
+        id: summary
+        uses: ./.github/actions/collect-build-results
+        with:
+          container-jobs: ${{ toJson(needs.build-containers) }}
+          all-containers: ${{ needs.change-detection.outputs.all-containers }}
       - name: Setup Container Tests
         id: test-setup
         uses: ./.github/actions/setup-container-tests
@@ -223,11 +255,11 @@ jobs:
   container-tests:
     name: Test ${{ matrix.container }} (${{ matrix.test-type }})
     runs-on: ubuntu-latest
-    needs: [container-build]
-    if: needs.container-build.outputs.containers-to-test != '' && needs.container-build.outputs.containers-json != '[]'
+    needs: [container-build-summary]
+    if: needs.container-build-summary.outputs.containers-to-test != '' && needs.container-build-summary.outputs.containers-json != '[]'
     strategy:
       matrix:
-        container: ${{ fromJson(needs.container-build.outputs.containers-json) }}
+        container: ${{ fromJson(needs.container-build-summary.outputs.containers-json) }}
         test-type: [unit, integration]
         exclude:
           - container: collector-scheduler
@@ -254,7 +286,7 @@ jobs:
   build-report:
     name: Build Report
     runs-on: ubuntu-latest
-    needs: [security-trivy, security-semgrep, security-python, security-sbom, security-checkov, code-quality, infrastructure-quality, dependency-analysis, cost-analysis, container-build, container-tests]
+    needs: [security-trivy, security-semgrep, security-python, security-sbom, security-checkov, code-quality, infrastructure-quality, dependency-analysis, cost-analysis, container-build-summary, container-tests]
     if: always() && !cancelled()
     outputs:
       build-passed: ${{ steps.report.outputs.build-passed }}
@@ -277,22 +309,22 @@ jobs:
           infrastructure-result: ${{ needs.infrastructure-quality.result }}
           dependency-result: ${{ needs.dependency-analysis.result }}
           cost-analysis-result: ${{ needs.cost-analysis.result }}
-          containers-to-test: ${{ needs.container-build.outputs.containers-to-test }}
-          containers-json: ${{ needs.container-build.outputs.containers-json }}
+          containers-to-test: ${{ needs.container-build-summary.outputs.containers-to-test }}
+          containers-json: ${{ needs.container-build-summary.outputs.containers-json }}
           container-tests-result: ${{ needs.container-tests.result }}
-          container-build-result: ${{ needs.container-build.result }}
+          container-build-result: ${{ needs.container-build-summary.outputs.build-result }}
 
   # Stage 7: Deployment (Production Only)
   deployment:
     name: Deploy to Production
     runs-on: ubuntu-latest
-    needs: [build-report, cost-analysis, container-build]
+    needs: [build-report, cost-analysis, container-build-summary]
     if: |
       github.ref == 'refs/heads/main' &&
       always() &&
       needs.build-report.outputs.build-passed == 'true' &&
       (needs.cost-analysis.result == 'success' || needs.cost-analysis.result == 'skipped') &&
-      needs.container-build.result == 'success'
+      needs.container-build-summary.outputs.build-result == 'success'
     environment: production
     outputs:
       deployment-url: ${{ steps.deploy.outputs.deployment-url }}
@@ -314,7 +346,7 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           resource-group: ai-content-farm-core-rg
           environment: production
-          containers: ${{ needs.container-build.outputs.service-containers || 'all' }}
+          containers: ${{ needs.container-build-summary.outputs.containers-built || 'all' }}
 
   # Stage 8: Post-Deployment Tests
   post-deployment:
