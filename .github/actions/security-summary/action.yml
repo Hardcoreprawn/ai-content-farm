@@ -1,0 +1,94 @@
+name: 'Security Results Summary'
+description: 'Collect and summarize all security scan results'
+inputs:
+  trivy-result:
+    description: 'Result of Trivy scan'
+    required: true
+  semgrep-result:
+    description: 'Result of Semgrep scan'
+    required: true
+  python-result:
+    description: 'Result of Python security scan'
+    required: true
+  sbom-result:
+    description: 'Result of SBOM generation'
+    required: true
+  checkov-result:
+    description: 'Result of Checkov scan'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Download all security results
+      uses: actions/download-artifact@v4
+      with:
+        pattern: security-results-*
+        path: security-results
+        merge-multiple: true
+      continue-on-error: true
+
+    - name: Generate Security Summary
+      shell: bash
+      run: |
+        echo "# Security Scan Summary" > security-summary.md
+        echo "Generated on: $(date)" >> security-summary.md
+        echo "" >> security-summary.md
+        
+        echo "## Trivy Results" >> security-summary.md
+        if [ "${{ inputs.trivy-result }}" == "success" ]; then
+          echo "✅ Completed successfully" >> security-summary.md
+        elif [ "${{ inputs.trivy-result }}" == "failure" ]; then
+          echo "❌ Failed with issues" >> security-summary.md
+        else
+          echo "⚠️  Skipped or cancelled" >> security-summary.md
+        fi
+        echo "" >> security-summary.md
+        
+        echo "## Semgrep Results" >> security-summary.md
+        if [ "${{ inputs.semgrep-result }}" == "success" ]; then
+          echo "✅ Completed successfully" >> security-summary.md
+        elif [ "${{ inputs.semgrep-result }}" == "failure" ]; then
+          echo "❌ Failed with issues" >> security-summary.md
+        else
+          echo "⚠️  Skipped or cancelled" >> security-summary.md
+        fi
+        echo "" >> security-summary.md
+        
+        echo "## Python Security Results" >> security-summary.md
+        if [ "${{ inputs.python-result }}" == "success" ]; then
+          echo "✅ Completed successfully" >> security-summary.md
+        elif [ "${{ inputs.python-result }}" == "failure" ]; then
+          echo "❌ Failed with issues" >> security-summary.md
+        else
+          echo "⚠️  Skipped or cancelled" >> security-summary.md
+        fi
+        echo "" >> security-summary.md
+        
+        echo "## SBOM Results" >> security-summary.md
+        if [ "${{ inputs.sbom-result }}" == "success" ]; then
+          echo "✅ Completed successfully" >> security-summary.md
+        elif [ "${{ inputs.sbom-result }}" == "failure" ]; then
+          echo "❌ Failed with issues" >> security-summary.md
+        else
+          echo "⚠️  Skipped or cancelled" >> security-summary.md
+        fi
+        echo "" >> security-summary.md
+        
+        echo "## Checkov Results" >> security-summary.md
+        if [ "${{ inputs.checkov-result }}" == "success" ]; then
+          echo "✅ Completed successfully" >> security-summary.md
+        elif [ "${{ inputs.checkov-result }}" == "failure" ]; then
+          echo "❌ Failed with issues" >> security-summary.md
+        else
+          echo "⚠️  Skipped or cancelled" >> security-summary.md
+        fi
+
+    - name: Upload Security Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-results
+        path: |
+          security-results/
+          security-summary.md
+        retention-days: 30

@@ -1,0 +1,47 @@
+name: 'Python Security Scan'
+description: 'Run Python security scanning with Safety'
+inputs:
+  workspace-path:
+    description: 'Path to the workspace'
+    required: true
+    default: ${{ github.workspace }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Create Security Results Directory
+      shell: bash
+      run: mkdir -p security-results
+
+    - name: Check for Python Requirements
+      id: check-requirements
+      shell: bash
+      run: |
+        if find . -name "requirements.txt" -type f | grep -q .; then
+          echo "found=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "found=false" >> "$GITHUB_OUTPUT"
+          echo "No requirements.txt files found, skipping Python security scan"
+        fi
+
+    - name: Run Python Security Scan
+      if: steps.check-requirements.outputs.found == 'true'
+      shell: bash
+      run: |
+        echo "Running Python security scans..."
+        find . -name "requirements.txt" -type f | while read -r req_file; do
+          req_file_dir="$(dirname "$req_file")"
+          container_name="$(basename "$req_file_dir")"
+          echo "Safety scan for $container_name..."
+          docker run --rm -v "${{ inputs.workspace-path }}":/workspace \
+            pyupio/safety:latest check --json --file "/workspace/$req_file" \
+            > "security-results/safety-${container_name}.json" 2>/dev/null || true
+        done
+
+    - name: Upload Python Security Results
+      if: steps.check-requirements.outputs.found == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-results-python
+        path: security-results/safety-*.json
+        retention-days: 30

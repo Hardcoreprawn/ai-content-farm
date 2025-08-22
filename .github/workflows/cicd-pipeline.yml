@@ -21,8 +21,30 @@ permissions:
   pull-requests: write
   issues: write
   actions: read
-  checks: write
-  id-token: write
+  checks: wr  # Stage 5: Quality Gate Summary
+  quality-gate-summary:
+    name: Quality Gate Summary
+    runs-on: ubuntu-latest
+    needs: [security-trivy, security-semgrep, security-python, security-sbom, security-checkov, infrastructure-quality, cost-analysis, code-quality, dependency-analysis]
+    if: always() && !cancelled()
+    outputs:
+      passed: ${{ steps.evaluate.outputs.passed }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Evaluate Quality Gates
+        id: evaluate
+        uses: ./.github/actions/evaluate-quality-gates
+        with:
+          security-trivy-result: ${{ needs.security-trivy.result }}
+          security-semgrep-result: ${{ needs.security-semgrep.result }}
+          security-python-result: ${{ needs.security-python.result }}
+          security-sbom-result: ${{ needs.security-sbom.result }}
+          security-checkov-result: ${{ needs.security-checkov.result }}
+          infrastructure-result: ${{ needs.infrastructure-quality.result }}
+          cost-analysis-result: ${{ needs.cost-analysis.result }}
+          code-quality-result: ${{ needs.code-quality.result }}
+          dependency-result: ${{ needs.dependency-analysis.result }}e
 
 env:
   DOCKER_BUILDKIT: 1
@@ -81,6 +103,8 @@ jobs:
       - name: Detect Changes
         id: changes
         uses: ./.github/actions/detect-changes
+        with:
+          force-build-all: ${{ github.ref == 'refs/heads/main' && 'true' || 'false' }}
 
   # Stage 3: Container Build
   container-build:
@@ -116,19 +140,244 @@ jobs:
           libs-changed: ${{ needs.change-detection.outputs.libs-changed }}
           all-containers: ${{ needs.change-detection.outputs.all-containers }}
 
-  # Stage 4: Quality Gates (Parallel)
-  security-scanning:
-    name: Security Scanning
+    # Stage 4: Quality Gates (Parallel)
+  security-trivy:
+    name: Trivy Security Scan
     runs-on: ubuntu-latest
     needs: workflow-validation
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-      - name: Run Security Scan
-        uses: ./.github/actions/security-scan
+      - name: Run Trivy Scan
+        uses: ./.github/actions/security-trivy
+
+  security-semgrep:
+    name: Semgrep SAST Scan
+    runs-on: ubuntu-latest
+    needs: workflow-validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Run Semgrep Scan
+        uses: ./.github/actions/security-semgrep
+
+  security-python:
+    name: Python Security Scan
+    runs-on: ubuntu-latest
+    needs: workflow-validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Run Python Security Scan
+        uses: ./.github/actions/security-python
+
+  security-sbom:
+    name: SBOM Generation
+    runs-on: ubuntu-latest
+    needs: workflow-validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Generate SBOM
+        uses: ./.github/actions/security-sbom
+
+  security-checkov:
+    name: Checkov Infrastructure Scan
+    runs-on: ubuntu-latest
+    needs: workflow-validation
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Run Checkov Scan
+        uses: ./.github/actions/security-checkov
+
+  infrastructure-quality:
+    name: Infrastructure Quality
+    runs-on: ubuntu-latest
+    needs: [workflow-validation, change-detection]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Run Infrastructure Quality Checks
+        uses: ./.github/actions/infrastructure-quality
         with:
-          upload-sarif: 'true'
-          environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
+          infra-changed: ${{ needs.change-detection.outputs.infra-changed }}
+
+  cost-analysis:
+    name: Cost Analysis
+    runs-on: ubuntu-latest
+    needs: [workflow-validation, change-detection]
+    if: needs.change-detection.outputs.infra-changed == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Run Cost Analysis
+        uses: ./.github/actions/cost-analysis
+        with:
+          infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
+          upload-results: 'true'
+
+  security-semgrep:
+    name: Semgrep SAST Scan
+    runs-on: ubuntu-latest
+    needs: [workflow-validation, change-detection]
+    if: needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Create Security Results Directory
+        run: mkdir -p security-results
+      - name: Run Semgrep SAST Scan
+        shell: bash
+        continue-on-error: true
+        run: |
+          echo "Running standardized Semgrep SAST scan..."
+          chmod +x ./scripts/run-semgrep.sh
+          ./scripts/run-semgrep.sh "${{ github.workspace }}" security-results semgrep/semgrep:latest || echo "Semgrep scan completed with warnings"
+      - name: Upload Semgrep Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-results-semgrep
+          path: security-results/semgrep-*.json
+          retention-days: 30
+        if: always()
+
+  security-python:
+    name: Python Security Scan
+    runs-on: ubuntu-latest
+    needs: [workflow-validation, change-detection]
+    if: needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Create Security Results Directory
+        run: mkdir -p security-results
+      - name: Check for Python Requirements
+        id: check-python
+        run: |
+          if find . -name "requirements.txt" -type f | grep -q .; then
+            echo "has-requirements=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-requirements=false" >> $GITHUB_OUTPUT
+          fi
+      - name: Run Python Security Scan
+        if: steps.check-python.outputs.has-requirements == 'true'
+        shell: bash
+        continue-on-error: true
+        run: |
+          echo "Running Python security scans..."
+          find . -name "requirements.txt" -type f | while read -r req_file; do
+            req_file_dir="$(dirname "$req_file")"
+            container_name="$(basename "$req_file_dir")"
+            echo "Safety scan for $container_name..."
+            docker run --rm -v "${{ github.workspace }}":/workspace \
+              pyupio/safety:latest check --json --file "/workspace/$req_file" \
+              > "security-results/safety-${container_name}.json" 2>/dev/null || true
+          done
+      - name: Upload Python Security Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-results-python
+          path: security-results/safety-*.json
+          retention-days: 30
+        if: always() && steps.check-python.outputs.has-requirements == 'true'
+
+  security-sbom:
+    name: SBOM Generation
+    runs-on: ubuntu-latest
+    needs: [workflow-validation, change-detection]
+    if: needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Create Security Results Directory
+        run: mkdir -p security-results
+      - name: Generate SBOM and Check Dependencies
+        shell: bash
+        continue-on-error: true
+        run: |
+          echo "Generating SBOM..."
+          docker run --rm -v "${{ github.workspace }}":/workspace \
+            anchore/syft:latest /workspace \
+            -o spdx-json=/workspace/security-results/sbom.json || true
+      - name: Upload SBOM Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-results-sbom
+          path: security-results/sbom.json
+          retention-days: 30
+        if: always()
+
+  security-checkov:
+    name: Checkov Infrastructure Scan
+    runs-on: ubuntu-latest
+    needs: [workflow-validation, change-detection]
+    if: needs.change-detection.outputs.infra-changed == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Create Security Results Directory
+        run: mkdir -p security-results
+      - name: Run Checkov Infrastructure Security Scan
+        shell: bash
+        continue-on-error: true
+        run: |
+          echo "Running Checkov infrastructure security scan..."
+          docker run --rm -v "${{ github.workspace }}":/workspace \
+            bridgecrew/checkov:latest -d /workspace/infra \
+            --framework terraform \
+            --output json \
+            --output-file-path /workspace/security-results \
+            --file checkov-results.json || true
+      - name: Upload Checkov Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-results-checkov
+          path: security-results/checkov-results.json
+          retention-days: 30
+        if: always()
+
+  infrastructure-quality:
+    name: Infrastructure Quality
+    runs-on: ubuntu-latest
+    needs: [workflow-validation, change-detection]
+    if: needs.change-detection.outputs.infra-changed == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Run Infrastructure Checks
+        run: |
+          docker run --rm -v "$(pwd)/infra:/workspace" -w /workspace hashicorp/terraform:latest fmt -check -recursive .
+
+  cost-analysis:
+    name: Cost Analysis
+    runs-on: ubuntu-latest
+    needs: [workflow-validation, change-detection]
+    if: needs.change-detection.outputs.infra-changed == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Run Cost Analysis
+        uses: ./.github/actions/cost-analysis
+        with:
+          infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+  security-scanning:
+    name: Security Results Summary
+    runs-on: ubuntu-latest
+    needs: [security-trivy, security-semgrep, security-python, security-sbom, security-checkov]
+    if: always()
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Generate Security Summary
+        uses: ./.github/actions/security-summary
+        with:
+          trivy-result: ${{ needs.security-trivy.result }}
+          semgrep-result: ${{ needs.security-semgrep.result }}
+          python-result: ${{ needs.security-python.result }}
+          sbom-result: ${{ needs.security-sbom.result }}
+          checkov-result: ${{ needs.security-checkov.result }}
 
   code-quality:
     name: Code Quality
@@ -148,18 +397,6 @@ jobs:
           black --check --diff .
           isort --check-only --diff .
           flake8 .
-
-  infrastructure-quality:
-    name: Infrastructure Quality
-    runs-on: ubuntu-latest
-    needs: [workflow-validation, change-detection]
-    if: needs.change-detection.outputs.infra-changed == 'true'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Run Infrastructure Checks
-        run: |
-          docker run --rm -v "$(pwd)/infra:/workspace" -w /workspace hashicorp/terraform:latest fmt -check -recursive .
 
   dependency-analysis:
     name: Dependency Analysis
@@ -181,7 +418,7 @@ jobs:
   quality-gate-summary:
     name: Quality Gate Summary
     runs-on: ubuntu-latest
-    needs: [security-scanning, code-quality, infrastructure-quality, dependency-analysis]
+    needs: [security-scanning, code-quality, infrastructure-quality, dependency-analysis, cost-analysis]
     if: always() && !cancelled()
     outputs:
       passed: ${{ steps.evaluate.outputs.passed }}
@@ -196,6 +433,7 @@ jobs:
           code-quality-result: ${{ needs.code-quality.result }}
           infrastructure-result: ${{ needs.infrastructure-quality.result }}
           dependency-result: ${{ needs.dependency-analysis.result }}
+          cost-analysis-result: ${{ needs.cost-analysis.result }}
 
   # Stage 6: Container Tests
   container-tests:

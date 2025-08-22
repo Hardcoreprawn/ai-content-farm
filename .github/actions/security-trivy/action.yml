@@ -1,0 +1,51 @@
+name: 'Trivy Security Scan'
+description: 'Run Trivy container security scanning'
+inputs:
+  workspace-path:
+    description: 'Path to the workspace'
+    required: true
+    default: ${{ github.workspace }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Create Security Results Directory
+      shell: bash
+      run: mkdir -p security-results
+
+    - name: Check for Dockerfiles
+      id: check-dockerfiles
+      shell: bash
+      run: |
+        if find . -name "Dockerfile" -type f | grep -q .; then
+          echo "found=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "found=false" >> "$GITHUB_OUTPUT"
+          echo "No Dockerfiles found, skipping Trivy scan"
+        fi
+
+    - name: Run Trivy Container Scan
+      if: steps.check-dockerfiles.outputs.found == 'true'
+      shell: bash
+      run: |
+        echo "Running Trivy container scan..."
+        find . -name "Dockerfile" -type f | while read -r dockerfile; do
+          dockerfile_dir="$(dirname "$dockerfile")"
+          container_name="$(basename "$dockerfile_dir")"
+          echo "Scanning $container_name..."
+          if [ -d "$dockerfile_dir" ]; then
+            docker run --rm -v "${{ inputs.workspace-path }}":/workspace \
+              aquasec/trivy:latest config "/workspace/$dockerfile_dir" \
+              --format json \
+              --output "/workspace/security-results/trivy-${container_name}.json" \
+              --severity HIGH,CRITICAL || true
+          fi
+        done
+
+    - name: Upload Trivy Results
+      if: steps.check-dockerfiles.outputs.found == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-results-trivy
+        path: security-results/trivy-*.json
+        retention-days: 30

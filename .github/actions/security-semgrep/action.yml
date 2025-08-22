@@ -1,0 +1,42 @@
+name: 'Semgrep SAST Scan'
+description: 'Run Semgrep static analysis security testing'
+inputs:
+  workspace-path:
+    description: 'Path to the workspace'
+    required: true
+    default: ${{ github.workspace }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Create Security Results Directory
+      shell: bash
+      run: mkdir -p security-results
+
+    - name: Check for Code Files
+      id: check-code
+      shell: bash
+      run: |
+        # Check for common code file extensions
+        if find . \( -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.java" -o -name "*.go" -o -name "*.rb" \) -type f | grep -q .; then
+          echo "found=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "found=false" >> "$GITHUB_OUTPUT"
+          echo "No supported code files found, skipping Semgrep scan"
+        fi
+
+    - name: Run Semgrep SAST Scan
+      if: steps.check-code.outputs.found == 'true'
+      shell: bash
+      run: |
+        echo "Running standardized Semgrep SAST scan..."
+        chmod +x ./scripts/run-semgrep.sh
+        ./scripts/run-semgrep.sh "${{ inputs.workspace-path }}" security-results semgrep/semgrep:latest || echo "Semgrep scan completed with warnings"
+
+    - name: Upload Semgrep Results
+      if: steps.check-code.outputs.found == 'true'
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-results-semgrep
+        path: security-results/semgrep-*.json
+        retention-days: 30

@@ -1,0 +1,23 @@
+name: 'Infrastructure Quality Check'
+description: 'Run infrastructure quality checks including Terraform formatting'
+inputs:
+  infra-changed:
+    description: 'Whether infrastructure files changed'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check Infrastructure Changes
+      if: inputs.infra-changed != 'true'
+      shell: bash
+      run: |
+        echo "No infrastructure changes detected, skipping infrastructure quality checks"
+        exit 0
+
+    - name: Run Infrastructure Checks
+      if: inputs.infra-changed == 'true'
+      shell: bash
+      run: |
+        echo "Running Terraform format check..."
+        docker run --rm -v "$(pwd)/infra:/workspace" -w /workspace hashicorp/terraform:latest fmt -check -recursive .

@@ -1,8 +1,20 @@
 name: 'Evaluate Quality Gates'
 description: 'Aggregate results from all quality gate checks and determine overall pass/fail'
 inputs:
-  security-result:
-    description: 'Result of security scanning job'
+  security-trivy-result:
+    description: 'Result of Trivy security scan'
+    required: true
+  security-semgrep-result:
+    description: 'Result of Semgrep SAST scan'
+    required: true
+  security-python-result:
+    description: 'Result of Python security scan'
+    required: true
+  security-sbom-result:
+    description: 'Result of SBOM generation'
+    required: true
+  security-checkov-result:
+    description: 'Result of Checkov infrastructure scan'
     required: true
   code-quality-result:
     description: 'Result of code quality job'
@@ -13,6 +25,10 @@ inputs:
   dependency-result:
     description: 'Result of dependency analysis job'
     required: true
+  cost-analysis-result:
+    description: 'Result of cost analysis job'
+    required: false
+    default: 'skipped'
 
 outputs:
   passed:
@@ -32,10 +48,15 @@ runs:
       id: evaluate
       shell: bash
       env:
-        SECURITY_RESULT: ${{ inputs.security-result }}
+        SECURITY_TRIVY_RESULT: ${{ inputs.security-trivy-result }}
+        SECURITY_SEMGREP_RESULT: ${{ inputs.security-semgrep-result }}
+        SECURITY_PYTHON_RESULT: ${{ inputs.security-python-result }}
+        SECURITY_SBOM_RESULT: ${{ inputs.security-sbom-result }}
+        SECURITY_CHECKOV_RESULT: ${{ inputs.security-checkov-result }}
         QUALITY_RESULT: ${{ inputs.code-quality-result }}
         INFRA_RESULT: ${{ inputs.infrastructure-result }}
         DEPS_RESULT: ${{ inputs.dependency-result }}
+        COST_RESULT: ${{ inputs.cost-analysis-result }}
       run: |
         echo "[STATS] Evaluating quality gate results..."
 
@@ -44,15 +65,24 @@ runs:
         total_gates=0
         passed_gates=0
 
-        # Security scanning (always runs)
-        total_gates=$((total_gates + 1))
-        if [[ "$SECURITY_RESULT" == "success" ]]; then
-          passed_gates=$((passed_gates + 1))
-          echo "[PASS] Security scanning: PASSED"
-        else
-          failed_gates="security-scanning"
-          echo "[FAIL] Security scanning: FAILED"
-        fi
+        # Security scans
+        for scan in "trivy:$SECURITY_TRIVY_RESULT" "semgrep:$SECURITY_SEMGREP_RESULT" "python:$SECURITY_PYTHON_RESULT" "sbom:$SECURITY_SBOM_RESULT" "checkov:$SECURITY_CHECKOV_RESULT"; do
+          scan_name="${scan%%:*}"
+          scan_result="${scan##*:}"
+          total_gates=$((total_gates + 1))
+          
+          if [[ "$scan_result" == "success" ]]; then
+            passed_gates=$((passed_gates + 1))
+            echo "[PASS] Security $scan_name: PASSED"
+          else
+            if [ -n "$failed_gates" ]; then
+              failed_gates="$failed_gates,security-$scan_name"
+            else
+              failed_gates="security-$scan_name"
+            fi
+            echo "[FAIL] Security $scan_name: FAILED"
+          fi
+        done
 
         # Code quality (always runs)
         total_gates=$((total_gates + 1))
@@ -98,6 +128,24 @@ runs:
             failed_gates="dependency-analysis"
           fi
           echo "[FAIL] Dependency analysis: FAILED"
+        fi
+
+        # Cost analysis (conditional)
+        if [[ "$COST_RESULT" != "skipped" ]]; then
+          total_gates=$((total_gates + 1))
+          if [[ "$COST_RESULT" == "success" ]]; then
+            passed_gates=$((passed_gates + 1))
+            echo "[PASS] Cost analysis: PASSED"
+          else
+            if [ -n "$failed_gates" ]; then
+              failed_gates="$failed_gates,cost-analysis"
+            else
+              failed_gates="cost-analysis"
+            fi
+            echo "[FAIL] Cost analysis: FAILED"
+          fi
+        else
+          echo "⏭️ Cost analysis: SKIPPED (no infra changes)"
         fi
 
         # Overall result

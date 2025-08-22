@@ -1,0 +1,30 @@
+name: 'SBOM Generation'
+description: 'Generate Software Bill of Materials using Syft'
+inputs:
+  workspace-path:
+    description: 'Path to the workspace'
+    required: true
+    default: ${{ github.workspace }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Create Security Results Directory
+      shell: bash
+      run: mkdir -p security-results
+
+    - name: Generate SBOM
+      shell: bash
+      run: |
+        echo "Generating SBOM..."
+        docker run --rm -v "${{ inputs.workspace-path }}":/workspace \
+          anchore/syft:latest /workspace \
+          -o spdx-json=/workspace/security-results/sbom.json || true
+
+    - name: Upload SBOM Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: security-results-sbom
+        path: security-results/sbom.json
+        retention-days: 30
+      if: always()

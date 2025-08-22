@@ -9,6 +9,10 @@ inputs:
     description: 'Head reference for change detection'
     required: false
     default: 'HEAD'
+  force-build-all:
+    description: 'Force build all containers regardless of changes'
+    required: false
+    default: 'false'
 
 outputs:
   containers-changed:
@@ -54,16 +58,33 @@ runs:
 
         # Detect container changes
         containers_changed=""
-        for container_dir in containers/*/; do
-          container_name=$(basename "$container_dir")
-          if echo "$changed_files" | grep -q "^containers/$container_name/"; then
-            if [ -z "$containers_changed" ]; then
-              containers_changed="$container_name"
-            else
-              containers_changed="$containers_changed,$container_name"
+        
+        # Force build all containers if requested
+        if [[ "${{ inputs.force-build-all }}" == "true" ]]; then
+          echo "Force build enabled - marking all containers as changed"
+          for container_dir in containers/*/; do
+            container_name=$(basename "$container_dir")
+            if [ "$container_name" != "base" ]; then  # Exclude base directory
+              if [ -z "$containers_changed" ]; then
+                containers_changed="$container_name"
+              else
+                containers_changed="$containers_changed,$container_name"
+              fi
             fi
-          fi
-        done
+          done
+        else
+          # Normal change detection
+          for container_dir in containers/*/; do
+            container_name=$(basename "$container_dir")
+            if echo "$changed_files" | grep -q "^containers/$container_name/"; then
+              if [ -z "$containers_changed" ]; then
+                containers_changed="$container_name"
+              else
+                containers_changed="$containers_changed,$container_name"
+              fi
+            fi
+          done
+        fi
 
         # Detect other changes
         infra_changed="false"
