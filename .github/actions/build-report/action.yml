@@ -87,50 +87,51 @@ runs:
     - name: Evaluate Container Tests
       id: evaluate-tests
       shell: bash
+      env:
+        CONTAINERS_TO_TEST: ${{ inputs.containers-to-test }}
+        CONTAINERS_JSON: ${{ inputs.containers-json }}
+        TESTS_RESULT: ${{ inputs.container-tests-result }}
+        CONTAINER_BUILD_RESULT: ${{ inputs.container-build-result }}
       run: |
-        containers_to_test="${{ inputs.containers-to-test }}"
-        containers_json="${{ inputs.containers-json }}"
-        tests_result="${{ inputs.container-tests-result }}"
+        echo "Containers to test: '$CONTAINERS_TO_TEST'"
+        echo "Containers JSON: '$CONTAINERS_JSON'"
+        echo "Container tests result: '$TESTS_RESULT'"
+        echo "Container-build result: '$CONTAINER_BUILD_RESULT'"
 
-        echo "Containers to test: '$containers_to_test'"
-        echo "Containers JSON: '$containers_json'"
-        echo "Container tests result: '$tests_result'"
-        echo "Container-build result: '${{ inputs.container-build-result }}'"
-
-        if [[ -z "$containers_to_test" ]]; then
+        if [[ -z "$CONTAINERS_TO_TEST" ]]; then
           echo "passed=true" >> "$GITHUB_OUTPUT"
           echo "[PASS] No containers required testing"
         elif [[ "$tests_result" == "success" ]]; then
           echo "passed=true" >> "$GITHUB_OUTPUT"
           echo "[PASS] All container tests passed"
-        elif [[ "$tests_result" == "skipped" ]]; then
+        elif [[ "$TESTS_RESULT" == "skipped" ]]; then
           echo "passed=true" >> "$GITHUB_OUTPUT"
           echo "[SKIP] Container tests were skipped"
-          echo "[DEBUG] containers-to-test='$containers_to_test', containers-json='$containers_json'"
+          echo "[DEBUG] containers-to-test='$CONTAINERS_TO_TEST', containers-json='$CONTAINERS_JSON'"
         else
           echo "passed=false" >> "$GITHUB_OUTPUT"
-          echo "[FAIL] Some container tests failed (result: $tests_result)"
+          echo "[FAIL] Some container tests failed (result: $TESTS_RESULT)"
         fi
 
     - name: Final Build Evaluation
       id: final-evaluation
       shell: bash
+      env:
+        QUALITY_PASSED: ${{ steps.evaluate-quality.outputs.passed }}
+        TESTS_PASSED: ${{ steps.evaluate-tests.outputs.passed }}
       run: |
-        quality_passed="${{ steps.evaluate-quality.outputs.passed }}"
-        tests_passed="${{ steps.evaluate-tests.outputs.passed }}"
+        echo "Quality gates passed: $QUALITY_PASSED"
+        echo "Container tests passed: $TESTS_PASSED"
 
-        echo "Quality gates passed: $quality_passed"
-        echo "Container tests passed: $tests_passed"
-
-        if [[ "$quality_passed" == "true" && "$tests_passed" == "true" ]]; then
+        if [[ "$QUALITY_PASSED" == "true" && "$TESTS_PASSED" == "true" ]]; then
           echo "passed=true" >> "$GITHUB_OUTPUT"
           echo "summary=[PASS] Build passed - Quality gates and container tests successful" >> "$GITHUB_OUTPUT"
           echo "[SUCCESS] Build Report: All checks passed!"
         else
           echo "passed=false" >> "$GITHUB_OUTPUT"
-          if [[ "$quality_passed" != "true" ]]; then
+          if [[ "$QUALITY_PASSED" != "true" ]]; then
             echo "summary=[FAIL] Build failed - Quality gates failed" >> "$GITHUB_OUTPUT"
-          elif [[ "$tests_passed" != "true" ]]; then
+          elif [[ "$TESTS_PASSED" != "true" ]]; then
             echo "summary=[FAIL] Build failed - Container tests failed" >> "$GITHUB_OUTPUT"
           fi
           echo "[FAIL] Build Report: Some checks failed"

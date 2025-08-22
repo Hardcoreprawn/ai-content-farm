@@ -15,9 +15,11 @@ runs:
 
     - name: Generate SBOM
       shell: bash
+      env:
+        WORKSPACE_PATH: ${{ inputs.workspace-path }}
       run: |
         echo "Generating SBOM..."
-        docker run --rm -v "${{ inputs.workspace-path }}":/workspace \
+        docker run --rm -v "$WORKSPACE_PATH":/workspace \
           anchore/syft:latest /workspace \
           -o spdx-json=/workspace/security-results/sbom.json || true
 

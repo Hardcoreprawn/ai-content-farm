@@ -22,45 +22,45 @@ runs:
   steps:
     - name: Health Check
       shell: bash
+      env:
+        DEPLOYMENT_URL: ${{ inputs.deployment-url }}
+        MAX_ATTEMPTS: ${{ inputs.max-attempts }}
+        RETRY_DELAY: ${{ inputs.retry-delay }}
+        TIMEOUT: ${{ inputs.timeout }}
       run: |
-        deployment_url="${{ inputs.deployment-url }}"
-        max_attempts="${{ inputs.max-attempts }}"
-        retry_delay="${{ inputs.retry-delay }}"
-        timeout="${{ inputs.timeout }}"
-
-        if [ -z "$deployment_url" ]; then
+        if [ -z "$DEPLOYMENT_URL" ]; then
           echo "No deployment URL provided, skipping health check"
           exit 0
         fi
 
-        echo "Starting health check for: $deployment_url"
-        echo "Max attempts: $max_attempts"
-        echo "Retry delay: $retry_delay seconds"
-        echo "Timeout per attempt: $timeout seconds"
+        echo "Starting health check for: $DEPLOYMENT_URL"
+        echo "Max attempts: $MAX_ATTEMPTS"
+        echo "Retry delay: $RETRY_DELAY seconds"
+        echo "Timeout per attempt: $TIMEOUT seconds"
 
-        for attempt in $(seq 1 $max_attempts); do
-          echo "Health check attempt $attempt of $max_attempts..."
+        for attempt in $(seq 1 $MAX_ATTEMPTS); do
+          echo "Health check attempt $attempt of $MAX_ATTEMPTS..."
 
-          if curl -f --max-time "$timeout" "$deployment_url/health"; then
+          if curl -f --max-time "$TIMEOUT" "$DEPLOYMENT_URL/health"; then
             echo "Health check passed on attempt $attempt"
             exit 0
           fi
 
-          if [ $attempt -lt $max_attempts ]; then
-            echo "Attempt $attempt failed, waiting $retry_delay seconds before retry..."
-            sleep "$retry_delay"
+          if [ $attempt -lt $MAX_ATTEMPTS ]; then
+            echo "Attempt $attempt failed, waiting $RETRY_DELAY seconds before retry..."
+            sleep "$RETRY_DELAY"
           fi
         done
 
-        echo "Health check failed after $max_attempts attempts"
+        echo "Health check failed after $MAX_ATTEMPTS attempts"
         exit 1
 
     - name: Additional Validation
       shell: bash
+      env:
+        DEPLOYMENT_URL: ${{ inputs.deployment-url }}
       run: |
-        deployment_url="${{ inputs.deployment-url }}"
-
-        if [ -z "$deployment_url" ]; then
+        if [ -z "$DEPLOYMENT_URL" ]; then
           echo "No deployment URL provided, skipping additional validation"
           exit 0
         fi
@@ -69,7 +69,7 @@ runs:
 
         # Check if the application returns a valid response
         echo "Checking application response..."
-        if curl -s --max-time 30 "$deployment_url" | grep -q "html\|json\|xml"; then
+        if curl -s --max-time 30 "$DEPLOYMENT_URL" | grep -q "html\|json\|xml"; then
           echo "Application is responding with valid content"
         else
           echo "Warning: Application response does not contain expected content"
@@ -77,7 +77,7 @@ runs:
 
         # Check basic connectivity
         echo "Checking basic connectivity..."
-        if curl -s --max-time 10 --head "$deployment_url" > /dev/null; then
+        if curl -s --max-time 10 --head "$DEPLOYMENT_URL" > /dev/null; then
           echo "Basic connectivity test passed"
         else
           echo "Warning: Basic connectivity test failed"
@@ -87,17 +87,17 @@ runs:
 
     - name: Generate Deployment Summary
       shell: bash
+      env:
+        DEPLOYMENT_URL: ${{ inputs.deployment-url }}
       run: |
-        deployment_url="${{ inputs.deployment-url }}"
-
         {
           echo "## [DEPLOY] Deployment Successful!"
           echo ""
-          if [ -n "$deployment_url" ]; then
+          if [ -n "$DEPLOYMENT_URL" ]; then
             echo "### Live Website URL:"
-            echo "**$deployment_url**"
+            echo "**$DEPLOYMENT_URL**"
             echo ""
-            echo "[Visit the Website]($deployment_url)"
+            echo "[Visit the Website]($DEPLOYMENT_URL)"
             echo ""
             echo "### Deployment Details:"
             echo "- **Status**: Healthy"

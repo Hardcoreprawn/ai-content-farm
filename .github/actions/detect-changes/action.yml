@@ -49,6 +49,7 @@ runs:
         GITHUB_EVENT_NAME: ${{ github.event_name }}
         GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
         GITHUB_SHA: ${{ github.sha }}
+        FORCE_BUILD_ALL: ${{ inputs.force-build-all }}
       run: |
         echo "[SCAN] Detecting changes between $BASE_REF and $HEAD_REF..."
 
@@ -66,7 +67,7 @@ runs:
         containers_changed=""
 
         # Force build all containers if requested
-        if [[ "${{ inputs.force-build-all }}" == "true" ]]; then
+        if [[ "$FORCE_BUILD_ALL" == "true" ]]; then
           echo "Force build enabled - marking all containers as changed"
           for container_dir in containers/*/; do
             container_name=$(basename "$container_dir")
@@ -150,7 +151,20 @@ runs:
         build_matrix_json=""
         if [ "$LIBS_CHANGED" = "true" ]; then
           # Build all containers if libs changed
-          build_matrix_json="$containers_json"
+          build_matrix_json="["
+          first=true
+          for container_dir in containers/*/; do
+            container_name=$(basename "$container_dir")
+            if [ "$container_name" != "base" ]; then
+              if [ "$first" = true ]; then
+                build_matrix_json="$build_matrix_json{\"container\":\"$container_name\"}"
+                first=false
+              else
+                build_matrix_json="$build_matrix_json,{\"container\":\"$container_name\"}"
+              fi
+            fi
+          done
+          build_matrix_json="$build_matrix_json]"
           echo "[MATRIX] Building all containers due to libs change"
         elif [ -n "$CONTAINERS_CHANGED" ]; then
           # Build only changed containers
@@ -159,10 +173,10 @@ runs:
           IFS=',' read -ra CHANGED_CONTAINERS <<< "$CONTAINERS_CHANGED"
           for container in "${CHANGED_CONTAINERS[@]}"; do
             if [ "$first" = true ]; then
-              build_matrix_json="$build_matrix_json\"$container\""
+              build_matrix_json="$build_matrix_json{\"container\":\"$container\"}"
               first=false
             else
-              build_matrix_json="$build_matrix_json,\"$container\""
+              build_matrix_json="$build_matrix_json,{\"container\":\"$container\"}"
             fi
           done
           build_matrix_json="$build_matrix_json]"

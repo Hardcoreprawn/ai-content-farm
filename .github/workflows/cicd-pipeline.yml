@@ -49,7 +49,12 @@ jobs:
         if: always()
         run: |
           end_time=$(date +%s)
-          start_time=${{ steps.start-time.outputs.start-time }}
+          start_time="${{ steps.start-time.outputs.start-time }}"
+          # Validate start_time is numeric
+          if ! [[ "$start_time" =~ ^[0-9]+$ ]]; then
+            echo "Invalid start time: $start_time"
+            exit 1
+          fi
           duration=$((end_time - start_time))
           echo "duration=$duration" >> "$GITHUB_OUTPUT"
 
@@ -101,15 +106,63 @@ jobs:
         with:
           enable-cache: 'true'
 
+  # Generate build matrix for parallel container builds
+  build-matrix:
+    name: Generate Build Matrix
+    runs-on: ubuntu-latest
+    needs: [change-detection]
+    if: needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true'
+    outputs:
+      matrix: ${{ steps.generate.outputs.matrix }}
+    steps:
+      - name: Generate Container Build Matrix
+        id: generate
+        run: |
+          # Generate matrix based on what changed
+          libs_changed="${{ needs.change-detection.outputs.libs-changed }}"
+          all_containers="${{ needs.change-detection.outputs.all-containers }}"
+          containers_changed="${{ needs.change-detection.outputs.containers-changed }}"
+
+          # Validate inputs - only allow expected values
+          if [[ "$libs_changed" != "true" && "$libs_changed" != "false" ]]; then
+            echo "Invalid libs-changed value: $libs_changed"
+            exit 1
+          fi
+
+          if [ "$libs_changed" = "true" ]; then
+            # Build all containers if libs changed
+            echo "Building all containers due to libs change"
+            matrix="$all_containers"
+          else
+            # Build only changed containers
+            echo "Building changed containers only"
+            matrix="$containers_changed"
+          fi
+
+          # Validate matrix contains only allowed characters (alphanumeric, commas, hyphens)
+          if [[ ! "$matrix" =~ ^[a-zA-Z0-9,-]*$ ]]; then
+            echo "Invalid characters in matrix: $matrix"
+            exit 1
+          fi
+
+          # Convert comma-separated to JSON array safely
+          if [ -n "$matrix" ]; then
+            containers_array=$(echo "$matrix" | sed 's/,/","/g' | sed 's/^/["/' | sed 's/$/"]/')
+          else
+            containers_array='[]'
+          fi
+
+          echo "Generated matrix: $containers_array"
+          echo "matrix=$containers_array" >> "$GITHUB_OUTPUT"
+
   # Build service containers in parallel (after base images)
   build-containers:
     name: Build ${{ matrix.container }}
     runs-on: ubuntu-latest
-    needs: [change-detection, build-base]
-    if: needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true'
+    needs: [build-matrix, build-base]
     strategy:
       matrix:
-        container: ${{ fromJson(needs.change-detection.outputs.build-matrix-json) }}
+        container: ${{ fromJson(needs.build-matrix.outputs.matrix) }}
       fail-fast: false
     steps:
       - name: Checkout code
@@ -126,7 +179,7 @@ jobs:
   container-build-summary:
     name: Container Build Summary
     runs-on: ubuntu-latest
-    needs: [change-detection, build-containers]
+    needs: [change-detection, build-matrix, build-containers]
     if: always() && (needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true')
     outputs:
       containers-built: ${{ steps.summary.outputs.containers-built }}

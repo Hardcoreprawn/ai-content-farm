@@ -28,10 +28,12 @@ runs:
     - name: Run Semgrep SAST Scan
       if: steps.check-code.outputs.found == 'true'
       shell: bash
+      env:
+        WORKSPACE_PATH: ${{ inputs.workspace-path }}
       run: |
         echo "Running standardized Semgrep SAST scan..."
         chmod +x ./scripts/run-semgrep.sh
-        ./scripts/run-semgrep.sh "${{ inputs.workspace-path }}" security-results semgrep/semgrep:latest || echo "Semgrep scan completed with warnings"
+        ./scripts/run-semgrep.sh "$WORKSPACE_PATH" security-results semgrep/semgrep:latest || echo "Semgrep scan completed with warnings"
 
     - name: Upload Semgrep Results
       if: steps.check-code.outputs.found == 'true'

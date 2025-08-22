@@ -27,6 +27,8 @@ runs:
     - name: Run Trivy Container Scan
       if: steps.check-dockerfiles.outputs.found == 'true'
       shell: bash
+      env:
+        WORKSPACE_PATH: ${{ inputs.workspace-path }}
       run: |
         echo "Running Trivy container scan..."
         find . -name "Dockerfile" -type f | while read -r dockerfile; do
@@ -34,7 +36,7 @@ runs:
           container_name="$(basename "$dockerfile_dir")"
           echo "Scanning $container_name..."
           if [ -d "$dockerfile_dir" ]; then
-            docker run --rm -v "${{ inputs.workspace-path }}":/workspace \
+            docker run --rm -v "$WORKSPACE_PATH":/workspace \
               aquasec/trivy:latest config "/workspace/$dockerfile_dir" \
               --format json \
               --output "/workspace/security-results/trivy-${container_name}.json" \

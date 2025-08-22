@@ -57,6 +57,8 @@ runs:
       if: steps.find-requirements.outputs.has-requirements == 'true'
       shell: bash
       continue-on-error: ${{ inputs.continue-on-error == 'true' }}
+      env:
+        CONTINUE_ON_ERROR: ${{ inputs.continue-on-error }}
       run: |
         echo "Running Safety security checks..."
 
@@ -84,7 +86,7 @@ runs:
           echo "All dependency checks passed"
         else
           echo "Some dependencies have vulnerabilities - check security-results/"
-          if [ "${{ inputs.continue-on-error }}" != "true" ]; then
+          if [ "$CONTINUE_ON_ERROR" != "true" ]; then
             exit 1
           fi
         fi

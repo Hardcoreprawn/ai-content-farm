@@ -30,15 +30,21 @@ runs:
 
     - name: Generate Security Summary
       shell: bash
+      env:
+        TRIVY_RESULT: ${{ inputs.trivy-result }}
+        SEMGREP_RESULT: ${{ inputs.semgrep-result }}
+        CHECKOV_RESULT: ${{ inputs.checkov-result }}
+        PYTHON_RESULT: ${{ inputs.python-result }}
+        SBOM_RESULT: ${{ inputs.sbom-result }}
       run: |
         echo "# Security Scan Summary" > security-summary.md
         echo "Generated on: $(date)" >> security-summary.md
         echo "" >> security-summary.md
 
         echo "## Trivy Results" >> security-summary.md
-        if [ "${{ inputs.trivy-result }}" == "success" ]; then
+        if [ "$TRIVY_RESULT" == "success" ]; then
           echo "[PASS] Completed successfully" >> security-summary.md
-        elif [ "${{ inputs.trivy-result }}" == "failure" ]; then
+        elif [ "$TRIVY_RESULT" == "failure" ]; then
           echo "[FAIL] Failed with issues" >> security-summary.md
         else
           echo "[WARN] Skipped or cancelled" >> security-summary.md
@@ -46,9 +52,9 @@ runs:
         echo "" >> security-summary.md
 
         echo "## Semgrep Results" >> security-summary.md
-        if [ "${{ inputs.semgrep-result }}" == "success" ]; then
+        if [ "$SEMGREP_RESULT" == "success" ]; then
           echo "[PASS] Completed successfully" >> security-summary.md
-        elif [ "${{ inputs.semgrep-result }}" == "failure" ]; then
+        elif [ "$SEMGREP_RESULT" == "failure" ]; then
           echo "[FAIL] Failed with issues" >> security-summary.md
         else
           echo "[WARN] Skipped or cancelled" >> security-summary.md
@@ -56,9 +62,9 @@ runs:
         echo "" >> security-summary.md
 
         echo "## Python Security Results" >> security-summary.md
-        if [ "${{ inputs.python-result }}" == "success" ]; then
+        if [ "$PYTHON_RESULT" == "success" ]; then
           echo "[PASS] Completed successfully" >> security-summary.md
-        elif [ "${{ inputs.python-result }}" == "failure" ]; then
+        elif [ "$PYTHON_RESULT" == "failure" ]; then
           echo "[FAIL] Failed with issues" >> security-summary.md
         else
           echo "[WARN] Skipped or cancelled" >> security-summary.md
@@ -66,9 +72,9 @@ runs:
         echo "" >> security-summary.md
 
         echo "## SBOM Results" >> security-summary.md
-        if [ "${{ inputs.sbom-result }}" == "success" ]; then
+        if [ "$SBOM_RESULT" == "success" ]; then
           echo "[PASS] Completed successfully" >> security-summary.md
-        elif [ "${{ inputs.sbom-result }}" == "failure" ]; then
+        elif [ "$SBOM_RESULT" == "failure" ]; then
           echo "[FAIL] Failed with issues" >> security-summary.md
         else
           echo "[WARN] Skipped or cancelled" >> security-summary.md
@@ -76,9 +82,9 @@ runs:
         echo "" >> security-summary.md
 
         echo "## Checkov Results" >> security-summary.md
-        if [ "${{ inputs.checkov-result }}" == "success" ]; then
+        if [ "$CHECKOV_RESULT" == "success" ]; then
           echo "[PASS] Completed successfully" >> security-summary.md
-        elif [ "${{ inputs.checkov-result }}" == "failure" ]; then
+        elif [ "$CHECKOV_RESULT" == "failure" ]; then
           echo "[FAIL] Failed with issues" >> security-summary.md
         else
           echo "[WARN] Skipped or cancelled" >> security-summary.md
