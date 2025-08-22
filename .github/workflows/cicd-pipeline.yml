@@ -29,7 +29,7 @@ env:
   BUILDKIT_PROGRESS: plain
 
 jobs:
-  # Stage 1: Workflow Validation
+  # Stage 1: Workflow Validation (with pre-commit hook validation)
   workflow-validation:
     name: Validate Workflows
     runs-on: ubuntu-latest

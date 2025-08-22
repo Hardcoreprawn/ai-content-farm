@@ -20,6 +20,27 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Detect Workflow Changes
+      shell: bash
+      run: |
+        echo "[SCAN] Checking for workflow and action file changes..."
+
+        # Check if this is a push event and show changed files
+        if [ "${{ github.event_name }}" = "push" ]; then
+          workflow_files=$(git diff --name-only ${{ github.event.before }}..${{ github.sha }} | grep -E '\.github/(workflows|actions)/' || true)
+          if [ -n "$workflow_files" ]; then
+            echo "[INFO] Changed workflow/action files:"
+            echo "$workflow_files" | sed 's/^/  - /'
+          else
+            echo "[INFO] No workflow files changed, but running validation anyway"
+          fi
+        else
+          echo "[INFO] Running workflow validation for ${{ github.event_name }} event"
+        fi
+
+        echo ""
+        echo "[VALIDATE] Running comprehensive workflow validation..."
+
     - name: Install linting tools
       shell: bash
       run: |
