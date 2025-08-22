@@ -64,7 +64,7 @@ runs:
               failed_containers+=("$container_name")
 
               if [ "$FAIL_FAST" = "true" ]; then
-                echo "💥 Failing fast due to container build failure"
+                echo "[CRASH] Failing fast due to container build failure"
                 echo "validation-passed=false" >> "$GITHUB_OUTPUT"
                 exit 1
               fi

@@ -42,7 +42,7 @@ runs:
         ENABLE_CACHE: ${{ inputs.enable-cache }}
         REGISTRY: ${{ inputs.registry }}
       run: |
-        echo "🔨 Building service containers with smart build strategy..."
+        echo "[BUILD] Building service containers with smart build strategy..."
 
         build_failures=0
         containers_tested=0
@@ -87,7 +87,7 @@ runs:
 
           if [ -d "$container_dir" ] && [ -f "$dockerfile_path" ]; then
             containers_tested=$((containers_tested + 1))
-            echo "🔨 Building $container_name using $build_strategy..."
+            echo "[BUILD] Building $container_name using $build_strategy..."
 
             # Build from repo root with correct context
             if docker build -f "$dockerfile_path" -t "$container_name:latest" .; then

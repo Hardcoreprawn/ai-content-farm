@@ -118,7 +118,7 @@ runs:
     - name: Test Quality Gates
       shell: bash
       run: |
-        echo "🚪 Testing quality gate evaluation..."
+        echo "[GATE] Testing quality gate evaluation..."
 
         gate_results=""
 
@@ -145,7 +145,7 @@ runs:
       if: inputs.collect-performance-data == 'true'
       shell: bash
       run: |
-        echo "⚡ Running performance baseline tests..."
+        echo "[PERF] Running performance baseline tests..."
 
         start_time=$(date +%s)
 

@@ -78,7 +78,7 @@ runs:
         RESOURCE_GROUP: ${{ inputs.resource-group }}
         CONTAINERS: ${{ inputs.containers }}
       run: |
-        echo "🔨 Building and pushing service containers..."
+        echo "[BUILD] Building and pushing service containers..."
 
         ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" --query loginServer -o tsv)
 
@@ -165,7 +165,7 @@ runs:
           --query "properties.configuration.ingress.fqdn" \
           -o tsv)
 
-        echo "🌐 Deployment URL: https://$DEPLOYMENT_URL"
+        echo "[URL] Deployment URL: https://$DEPLOYMENT_URL"
         echo "[STATS] Deployed containers: $deployed_containers"
 
         echo "url=https://$DEPLOYMENT_URL" >> $GITHUB_OUTPUT

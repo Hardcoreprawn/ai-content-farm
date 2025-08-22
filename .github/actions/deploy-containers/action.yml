@@ -122,7 +122,7 @@ runs:
             --query "properties.configuration.ingress.fqdn" \
             -o tsv)
           echo "url=https://$URL" >> $GITHUB_OUTPUT
-          echo "🌐 Deployment URL: https://$URL"
+          echo "[URL] Deployment URL: https://$URL"
         else
           echo "url=not-available" >> $GITHUB_OUTPUT
           echo "[WARN] Deployment URL not available"

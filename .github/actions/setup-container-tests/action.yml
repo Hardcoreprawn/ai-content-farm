@@ -38,7 +38,7 @@ runs:
         # If libs changed, test all containers
         if [[ "$LIBS_CHANGED" == "true" ]]; then
           containers_to_test="$ALL_CONTAINERS"
-          echo "📚 Libs changed - testing all containers"
+          echo "[LIBS] Libs changed - testing all containers"
           strategy="all (libs changed)"
         elif [[ -n "$CONTAINERS_CHANGED" ]]; then
           containers_to_test="$CONTAINERS_CHANGED"

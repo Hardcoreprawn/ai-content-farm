@@ -95,7 +95,7 @@ runs:
         CONTAINER_NAME: ${{ inputs.container-name }}
         INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
       run: |
-        echo "🔗 Running integration tests for ${CONTAINER_NAME}..."
+        echo "[LINK] Running integration tests for ${CONTAINER_NAME}..."
 
         pytest_args=""
         if [ "${INPUT_FAIL_FAST}" = "true" ]; then
@@ -119,7 +119,7 @@ runs:
       env:
         CONTAINER_NAME: ${{ inputs.container-name }}
       run: |
-        echo "💨 Running smoke tests for ${CONTAINER_NAME}..."
+        echo "[SMOKE] Running smoke tests for ${CONTAINER_NAME}..."
 
         # Run quick health check tests
         python -m pytest \

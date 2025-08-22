@@ -27,7 +27,7 @@ runs:
     - name: Setup Infracost
       shell: bash
       run: |
-        echo "💰 Setting up Infracost for cost analysis..."
+        echo "[COST] Setting up Infracost for cost analysis..."
         mkdir -p cost-analysis
 
     - name: Generate Current Cost Baseline
@@ -218,7 +218,7 @@ runs:
             console.log('Could not read summary file:', error.message);
           }
 
-          const comment = `## 💰 Cost Analysis
+          const comment = `## [COST] Cost Analysis
 
           ${summary}
 

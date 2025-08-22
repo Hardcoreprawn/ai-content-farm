@@ -40,15 +40,15 @@ jobs:
 
       - name: Display Results
         run: |
-          echo "🎉 Action Testing Complete!"
+          echo "[SUCCESS] Action Testing Complete!"
           echo ""
           echo "[BUILD] Base Images Built:"
           echo "${{ steps.build-bases.outputs.base-images-built }}"
           echo ""
-          echo "🔨 Service Containers Built:"
+          echo "[BUILD] Service Containers Built:"
           echo "${{ steps.build-services.outputs.containers-built }}"
           echo ""
-          echo "📊 Build Summary:"
+          echo "[STATS] Build Summary:"
           echo "${{ steps.build-services.outputs.build-summary }}"
 
   test-deployment-action:
@@ -62,14 +62,14 @@ jobs:
 
       - name: Simulate Azure Login
         run: |
-          echo "🔑 Would login to Azure with service principal..."
+          echo "[KEY] Would login to Azure with service principal..."
           echo "Note: This is a dry run - actual deployment skipped"
 
       - name: Test Deploy Action (Validation Only)
         run: |
-          echo "🚀 Would deploy using ./.github/actions/deploy-to-azure"
-          echo "📦 Containers from previous job: ${{ needs.test-actions.outputs.service-containers }}"
+          echo "[DEPLOY] Would deploy using ./.github/actions/deploy-to-azure"
+          echo "[PACKAGE] Containers from previous job: ${{ needs.test-actions.outputs.service-containers }}"
           echo "[BUILD] Base images from previous job: ${{ needs.test-actions.outputs.base-images }}"
           echo ""
-          echo "✅ Deployment action structure validated"
+          echo "[PASS] Deployment action structure validated"
           echo "Note: Set skip-deployment=false and configure Azure credentials for actual deployment testing"

@@ -1,6 +1,6 @@
 # Makefile for AI Content Farm Project
 
-.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles scan-containers yamllint actionlint lint-workflows lint-actions
+.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles scan-containers yamllint actionlint lint-workflows lint-actions check-emojis
 
 help:
 	@echo "Available targets:"
@@ -92,7 +92,11 @@ actionlint:
 	fi
 	@./actionlint -color
 
-lint-workflows: yamllint actionlint
+check-emojis:
+	@echo "Checking YAML files for emojis..."
+	@./scripts/check-emojis.sh
+
+lint-workflows: yamllint actionlint check-emojis
 
 lint-actions: actionlint
 	@echo "Running comprehensive GitHub Actions linting..."

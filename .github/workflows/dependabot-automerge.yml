@@ -43,11 +43,11 @@ jobs:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
         run: |
-          echo "🤖 Checking Dependabot PR readiness..."
+          echo "[AI] Checking Dependabot PR readiness..."
 
           # Check for security updates (higher priority)
           if echo "$PR_TITLE" | grep -i "security\|vulnerability\|cve"; then
-            echo "🚨 Security update detected - prioritizing auto-merge"
+            echo "[ALERT] Security update detected - prioritizing auto-merge"
             echo "is-security=true" >> "$GITHUB_OUTPUT"
             echo "should-auto-merge=true" >> "$GITHUB_OUTPUT"
           # Check for patch/minor updates (safe to auto-merge)
@@ -77,9 +77,9 @@ jobs:
 
           # Add informative comment
           if [ "$IS_SECURITY" = "true" ]; then
-            comment="🚨 **Security Update Auto-merge** - This PR contains security fixes and will be auto-merged after CI validation."
+            comment="[ALERT] **Security Update Auto-merge** - This PR contains security fixes and will be auto-merged after CI validation."
           else
-            comment="🤖 **Dependabot Auto-merge** - This PR will be auto-merged after successful CI validation."
+            comment="[AI] **Dependabot Auto-merge** - This PR will be auto-merged after successful CI validation."
           fi
 
           gh pr comment "$PR_NUMBER" --body "$comment"

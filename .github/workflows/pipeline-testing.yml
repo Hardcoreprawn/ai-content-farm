@@ -110,7 +110,7 @@ jobs:
 
       - name: Setup Performance Testing
         run: |
-          echo "⚡ Setting up performance benchmarking..."
+          echo "[PERF] Setting up performance benchmarking..."
           mkdir -p performance-results
 
           # Install performance monitoring tools
@@ -119,7 +119,7 @@ jobs:
 
       - name: Benchmark Action Execution Times
         run: |
-          echo "🕒 Benchmarking individual actions..."
+          echo "[TIME] Benchmarking individual actions..."
 
           # Benchmark detect-changes action
           start_time=$(date +%s.%N)

@@ -133,7 +133,7 @@ runs:
         STAGE_RESULT: ${{ inputs.stage-result }}
         STAGE_DURATION: ${{ inputs.stage-duration }}
       run: |
-        echo "💡 Generating optimization recommendations..."
+        echo "[TIP] Generating optimization recommendations..."
 
         recommendations=""
 

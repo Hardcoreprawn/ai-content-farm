@@ -33,7 +33,7 @@ runs:
         GITHUB_EVENT_NAME: ${{ github.event_name }}
         GITHUB_BASE_REF: ${{ github.base_ref }}
       run: |
-        echo "💰 Preparing cost review context..."
+        echo "[COST] Preparing cost review context..."
         mkdir -p ai-reviews/cost
 
         # Collect cost-relevant file changes
@@ -112,7 +112,7 @@ runs:
       env:
         OPENAI_API_KEY: ${{ inputs.openai-api-key }}
       run: |
-        echo "🤖 Checking AI cost review configuration..."
+        echo "[AI] Checking AI cost review configuration..."
 
         # Check if OpenAI API key is provided
         if [ -z "${OPENAI_API_KEY}" ]; then
@@ -364,7 +364,7 @@ runs:
 
         # Create markdown report
         cat > cost-review.md << EOF
-        # 💰 AI Cost Optimization Review Report
+        # [COST] AI Cost Optimization Review Report
 
         **Analysis Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
         **Cost Score**: $([ -f "cost-analysis-ai.json" ] && jq -r '.cost_score // "N/A"' cost-analysis-ai.json || echo "N/A")/10

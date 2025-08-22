@@ -142,7 +142,7 @@ runs:
       env:
         OPENAI_API_KEY: ${{ inputs.openai-api-key }}
       run: |
-        echo "🤖 Checking AI operations review configuration..."
+        echo "[AI] Checking AI operations review configuration..."
 
         # Check if OpenAI API key is provided
         if [ -z "${OPENAI_API_KEY}" ]; then

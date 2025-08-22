@@ -13,6 +13,9 @@ outputs:
   actionlint-passed:
     description: 'Whether actionlint validation passed'
     value: ${{ steps.set-actionlint-output.outputs.passed }}
+  emoji-check-passed:
+    description: 'Whether emoji check passed'
+    value: ${{ steps.emoji-check.outputs.passed }}
 
 runs:
   using: 'composite'
@@ -70,6 +73,27 @@ runs:
           fi
         fi
 
+    - name: Check for emojis in YAML files
+      id: emoji-check
+      shell: bash
+      env:
+        INPUT_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+      run: |
+        echo "Running emoji check on YAML files..."
+
+        # Run the emoji check script
+        if ./scripts/check-emojis.sh; then
+          echo "emoji-check passed"
+          echo "passed=true" >> $GITHUB_OUTPUT
+        else
+          echo "emoji-check failed"
+          echo "passed=false" >> $GITHUB_OUTPUT
+
+          if [ "${INPUT_FAIL_ON_ERROR}" = "true" ]; then
+            exit 1
+          fi
+        fi
+
     - name: Set actionlint output
       id: set-actionlint-output
       shell: bash
@@ -91,6 +115,7 @@ runs:
 
         yamllint_status="${{ steps.yamllint.outputs.passed }}"
         actionlint_status="${{ steps.set-actionlint-output.outputs.passed }}"
+        emoji_check_status="${{ steps.emoji-check.outputs.passed }}"
 
         cat > workflow-lint-report.md << EOF
         # Workflow Lint Report
@@ -100,9 +125,13 @@ runs:
         ## Results
         - **yamllint**: $([ "$yamllint_status" = "true" ] && echo "Passed" || echo "Failed")
         - **actionlint**: $([ "$actionlint_status" = "true" ] && echo "Passed" || echo "Failed")
+        - **emoji-check**: $([ "$emoji_check_status" = "true" ] && echo "Passed" || echo "Failed")
 
         ## Summary
-        $([ "$yamllint_status" = "true" ] && [ "$actionlint_status" = "true" ] && echo "All workflow linting checks passed!" || echo "Some linting issues were found - check the logs above for details.")
+        $([ "$yamllint_status" = "true" ] && [ "$actionlint_status" = "true" ] && [ "$emoji_check_status" = "true" ] && echo "All workflow linting checks passed!" || echo "Some linting issues were found - check the logs above for details.")
+
+        ### Emoji Check
+        The emoji check ensures that no emojis are used in YAML files, as they can cause encoding issues in CI/CD pipelines and complicate automation scripts.
 
         EOF
 

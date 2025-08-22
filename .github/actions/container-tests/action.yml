@@ -87,7 +87,7 @@ runs:
       env:
         INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
       run: |
-        echo "🔗 Running integration tests across all containers..."
+        echo "[LINK] Running integration tests across all containers..."
 
         pytest_args=""
         if [ "${INPUT_FAIL_FAST}" = "true" ]; then
@@ -111,7 +111,7 @@ runs:
       if: inputs.test-type == 'smoke' || inputs.test-type == 'all'
       shell: bash
       run: |
-        echo "💨 Running smoke tests (basic health checks)..."
+        echo "[SMOKE] Running smoke tests (basic health checks)..."
 
         # Run basic smoke tests using pytest with quick markers
         python -m pytest \
@@ -129,7 +129,7 @@ runs:
       env:
         INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
       run: |
-        echo "⚡ Running performance tests..."
+        echo "[PERF] Running performance tests..."
 
         pytest_args=""
         if [ "${INPUT_FAIL_FAST}" = "true" ]; then
@@ -240,7 +240,7 @@ runs:
         INPUT_TEST_TYPE: ${{ inputs.test-type }}
         INPUT_FAIL_FAST: ${{ inputs.fail-fast }}
       run: |
-        echo "📤 Test results summary:"
+        echo "[OUTPUT] Test results summary:"
 
         # Create simple test summary without heredoc to avoid YAML issues
         echo "# Container Test Results" > test-summary.md

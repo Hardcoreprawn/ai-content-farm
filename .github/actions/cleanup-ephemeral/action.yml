@@ -76,7 +76,7 @@ runs:
         AZURE_CREDENTIALS: ${{ inputs.azure-credentials }}
         WORKSPACE_PATH: ${{ github.workspace }}
       run: |
-        echo "🔐 Logging into Azure..."
+        echo "[AUTH] Logging into Azure..."
 
         # Parse Azure credentials
         CLIENT_ID=$(echo $AZURE_CREDENTIALS | jq -r '.clientId')
@@ -178,7 +178,7 @@ runs:
         GITHUB_EVENT_NUMBER: ${{ github.event.number }}
         GITHUB_HEAD_REF: ${{ github.head_ref }}
       run: |
-        echo "🧹 Starting cleanup of ephemeral resources..."
+        echo "[CLEAN] Starting cleanup of ephemeral resources..."
 
         cleaned_up=false
         resources_deleted=0
@@ -314,7 +314,7 @@ runs:
           const cleanedUp = '${{ steps.cleanup.outputs.cleaned-up }}' === 'true';
           const resourcesDeleted = '${{ steps.cleanup.outputs.resources-deleted }}';
 
-          const comment = `## 🧹 Ephemeral Environment Cleanup
+          const comment = `## [CLEAN] Ephemeral Environment Cleanup
 
           ${summary}
 

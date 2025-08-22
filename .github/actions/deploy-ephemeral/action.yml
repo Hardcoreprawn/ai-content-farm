@@ -78,7 +78,7 @@ runs:
         AZURE_CREDENTIALS: ${{ inputs.azure-credentials }}
         WORKSPACE_PATH: ${{ github.workspace }}
       run: |
-        echo "🔐 Logging into Azure..."
+        echo "[AUTH] Logging into Azure..."
 
         # Parse Azure credentials
         CLIENT_ID=$(echo $AZURE_CREDENTIALS | jq -r '.clientId')
@@ -353,7 +353,7 @@ runs:
       env:
         ENVIRONMENT_URL: ${{ steps.deploy.outputs.environment-url }}
       run: |
-        echo "🏥 Running health checks on ephemeral environment..."
+        echo "[HEALTH] Running health checks on ephemeral environment..."
 
         # Create health check script
         cat > health_check.sh << 'EOF'

@@ -349,7 +349,7 @@ runs:
         else
           echo "[FAIL] Security scan failed with $CRITICAL_COUNT critical issues requiring attention"
           echo "[REPORT] Please review security-results/ for detailed findings"
-          echo "📖 See docs/SECURITY_EXCEPTIONS.md for guidance on acceptable exceptions"
+          echo "[DOCS] See docs/SECURITY_EXCEPTIONS.md for guidance on acceptable exceptions"
           exit 1
         fi
       if: steps.evaluate.outputs.passed == 'false'

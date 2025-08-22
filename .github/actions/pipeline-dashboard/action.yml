@@ -111,7 +111,7 @@ runs:
     - name: Create Pipeline Visualization
       shell: bash
       run: |
-        echo "🎨 Creating pipeline visualization..."
+        echo "[UI] Creating pipeline visualization..."
 
         # Create Mermaid diagram for pipeline flow
         cat > dashboard/assets/pipeline-flow.mmd << 'EOF'
@@ -148,7 +148,7 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_RUN_ID: ${{ github.run_id }}
       run: |
-        echo "🖥️ Generating HTML dashboard..."
+        echo "[DISPLAY] Generating HTML dashboard..."
 
         # Read metrics data
         pipeline_metrics=$(cat dashboard/data/pipeline-metrics.json 2>/dev/null || echo '{}')
