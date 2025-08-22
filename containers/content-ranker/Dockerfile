@@ -15,9 +15,8 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 # Expose port
 EXPOSE 8000
 
-# Create non-root user
-RUN useradd --create-home --shell /bin/bash app
-USER app
+# Use existing appuser from base image
+USER appuser
 
 # Run the application
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -239,67 +239,18 @@ runs:
         echo "summary=$summary" >> "$GITHUB_OUTPUT"
         echo "failed-gates=$failed_gates" >> "$GITHUB_OUTPUT"
         echo "warning-gates=$warning_gates" >> "$GITHUB_OUTPUT"
-            echo "[FAIL] Infrastructure quality: FAILED"
-          fi
-        else
-          echo "⏭️ Infrastructure quality: SKIPPED (no infra changes)"
-        fi
 
-        # Dependency analysis (always runs)
-        total_gates=$((total_gates + 1))
-        if [[ "$DEPS_RESULT" == "success" ]]; then
-          passed_gates=$((passed_gates + 1))
-          echo "[PASS] Dependency analysis: PASSED"
-        else
-          if [ -n "$failed_gates" ]; then
-            failed_gates="$failed_gates,dependency-analysis"
-          else
-            failed_gates="dependency-analysis"
-          fi
-          echo "[FAIL] Dependency analysis: FAILED"
-        fi
-
-        # Cost analysis (conditional)
-        if [[ "$COST_RESULT" != "skipped" ]]; then
-          total_gates=$((total_gates + 1))
-          if [[ "$COST_RESULT" == "success" ]]; then
-            passed_gates=$((passed_gates + 1))
-            echo "[PASS] Cost analysis: PASSED"
-          else
-            if [ -n "$failed_gates" ]; then
-              failed_gates="$failed_gates,cost-analysis"
-            else
-              failed_gates="cost-analysis"
-            fi
-            echo "[FAIL] Cost analysis: FAILED"
-          fi
-        else
-          echo "⏭️ Cost analysis: SKIPPED (no infra changes)"
-        fi
-
-        # Overall result
-        if [[ -z "$failed_gates" ]]; then
-          echo "[PASS] All quality gates passed ($passed_gates/$total_gates)"
-          echo "passed=true" >> "$GITHUB_OUTPUT"
-          summary="[PASS] **Quality Gate**: PASSED ($passed_gates/$total_gates gates)"
-        else
-          echo "[FAIL] Quality gate failed - failed gates: $failed_gates"
-          echo "passed=false" >> "$GITHUB_OUTPUT"
-          summary="[FAIL] **Quality Gate**: FAILED ($passed_gates/$total_gates gates) - Failed: $failed_gates"
-        fi
-
-        echo "summary=$summary" >> "$GITHUB_OUTPUT"
-        echo "failed-gates=$failed_gates" >> "$GITHUB_OUTPUT"
-
+        # Generate step summary
         {
           echo "## Quality Gate Summary"
           echo "$summary"
           echo ""
           echo "### Gate Results:"
-          echo "- Security Scanning: $SECURITY_RESULT"
+          echo "- Security Scanning: Passed $security_passed/$security_gates"
           echo "- Code Quality: $QUALITY_RESULT"
           echo "- Infrastructure Quality: $INFRA_RESULT"
           echo "- Dependency Analysis: $DEPS_RESULT"
+          echo "- Cost Analysis: $COST_RESULT"
         } >> "$GITHUB_STEP_SUMMARY"
 
         # Exit with error if any gates failed
