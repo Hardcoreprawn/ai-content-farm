@@ -1,6 +1,7 @@
 # Remote backend configuration for Terraform state
 # This configuration stores state remotely in Azure Storage for team collaboration.
 # Only the production environment persists - staging environments are ephemeral.
+# OIDC authentication configured and ready for production deployment.
 
 terraform {
   backend "azurerm" {
