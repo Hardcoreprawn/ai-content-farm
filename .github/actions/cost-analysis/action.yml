@@ -132,8 +132,13 @@ runs:
         EOF
         )
 
-        echo "impact=$impact_json" >> "$GITHUB_OUTPUT"
-        echo "monthly-diff=$diff_monthly" >> "$GITHUB_OUTPUT"
+        # Set outputs (escape multi-line JSON for GitHub Actions)
+        {
+          echo "impact<<EOF"
+          echo "$impact_json"
+          echo "EOF"
+          echo "monthly-diff=$diff_monthly"
+        } >> "$GITHUB_OUTPUT"
 
         # Generate detailed report
         report_timestamp="$(date -u +"%Y-%m-%d %H:%M:%S UTC")"

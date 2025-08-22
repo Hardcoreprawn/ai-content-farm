@@ -9,10 +9,10 @@ terraform {
     # Storage account and container for state storage
     storage_account_name = "aicontentstagingstv33ppo"
     container_name       = "terraform-state"
-    
+
     # Production state file (only persistent environment)
     key = "terraform-production.tfstate"
-    
+
     # Authentication using Azure CLI credentials locally
     # and managed identity/OIDC in GitHub Actions
     use_azuread_auth = true
