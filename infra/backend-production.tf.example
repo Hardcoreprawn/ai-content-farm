@@ -1,0 +1,18 @@
+# Production backend configuration
+# This would be used when deploying to production environment
+# Copy this to backend.tf when deploying production
+
+terraform {
+  backend "azurerm" {
+    storage_account_name = "aicontentstagingstv33ppo"  # Same account for now
+    container_name       = "terraform-state"
+    key                 = "terraform-production.tfstate"  # Different state file
+    use_azuread_auth    = true
+  }
+}
+
+# For complete production isolation, you would:
+# 1. Create a separate production storage account
+# 2. Update storage_account_name above
+# 3. Configure production-specific network rules
+# 4. Set up separate managed identity for production (optional)

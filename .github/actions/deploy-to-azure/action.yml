@@ -1,8 +1,14 @@
 name: 'Deploy to Azure Container Apps'
 description: 'Deploys service containers to Azure Container Apps using multi-tier strategy'
 inputs:
-  azure-credentials:
-    description: 'Azure service principal credentials'
+  client-id:
+    description: 'Azure service principal client ID'
+    required: true
+  tenant-id:
+    description: 'Azure tenant ID'
+    required: true
+  subscription-id:
+    description: 'Azure subscription ID'
     required: true
   resource-group:
     description: 'Azure resource group name'
@@ -32,9 +38,11 @@ runs:
   using: 'composite'
   steps:
     - name: Azure Login
-      uses: azure/login@v1
+      uses: azure/login@v2
       with:
-        creds: ${{ inputs.azure-credentials }}
+        client-id: ${{ inputs.client-id }}
+        tenant-id: ${{ inputs.tenant-id }}
+        subscription-id: ${{ inputs.subscription-id }}
 
     - name: Build and Push Base Images
       shell: bash
@@ -108,19 +116,18 @@ runs:
       shell: bash
       env:
         ENVIRONMENT: ${{ inputs.environment }}
+        STORAGE_ACCOUNT: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT || 'aicontentstagingstv33ppo' }}
       run: |
         echo "[PACKAGE] Deploying infrastructure with Terraform..."
         cd infra
 
-        # Initialize Terraform if needed
-        if [ ! -d ".terraform" ]; then
-          terraform init
-        fi
+        # Initialize Terraform with environment-specific state file
+        echo "[CONFIG] Using state file: terraform-${ENVIRONMENT}.tfstate"
+        terraform init -reconfigure \
+          -backend-config="key=terraform-${ENVIRONMENT}.tfstate" \
+          -backend-config="storage_account_name=${STORAGE_ACCOUNT}"
 
-        # Select workspace
-        terraform workspace select "$ENVIRONMENT" || terraform workspace new "$ENVIRONMENT"
-
-        # Plan and apply
+        # Plan and apply (no workspace needed with separate state files)
         terraform plan -var="environment=$ENVIRONMENT" -out=tfplan
         terraform apply tfplan
 

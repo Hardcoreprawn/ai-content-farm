@@ -35,20 +35,20 @@ resource "azurerm_container_registry" "main" {
   # Enable public network access restrictions
   public_network_access_enabled = false
 
-  # Enable dedicated data endpoints
-  data_endpoint_enabled = true
+  # Enable dedicated data endpoints (requires Premium SKU)
+  data_endpoint_enabled = false # Would need Premium SKU
 
   # Zone redundancy (requires Premium SKU in production)
   zone_redundancy_enabled = false # Would need Premium SKU
 
-  # Retention policy for untagged manifests
-  retention_policy_in_days = 7
+  # Retention policy for untagged manifests (requires Premium SKU)
+  # retention_policy_in_days = 7 # Requires Premium SKU
 
-  # Trust policy for content trust
-  trust_policy_enabled = true
+  # Trust policy for content trust (requires Premium SKU)
+  trust_policy_enabled = false # Would need Premium SKU
 
   # Enable vulnerability scanning (requires Standard or Premium)
-  quarantine_policy_enabled = true
+  # quarantine_policy_enabled = true # Requires Premium SKU
 
   tags = local.common_tags
 }
@@ -68,6 +68,47 @@ resource "azurerm_user_assigned_identity" "containers" {
   resource_group_name = azurerm_resource_group.main.name
 
   tags = local.common_tags
+}
+
+# Managed Identity for GitHub Actions CI/CD
+resource "azurerm_user_assigned_identity" "github_actions" {
+  name                = "${var.resource_prefix}-github-actions"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+
+  tags = merge(local.common_tags, {
+    Purpose = "github-actions-oidc"
+  })
+}
+
+# Federated Identity Credential for GitHub Actions (main branch)
+resource "azurerm_federated_identity_credential" "github_main" {
+  name                = "github-main-branch"
+  resource_group_name = azurerm_resource_group.main.name
+  audience            = ["api://AzureADTokenExchange"]
+  issuer              = "https://token.actions.githubusercontent.com"
+  parent_id           = azurerm_user_assigned_identity.github_actions.id
+  subject             = "repo:Hardcoreprawn/ai-content-farm:ref:refs/heads/main"
+}
+
+# Federated Identity Credential for GitHub Actions (develop branch)
+resource "azurerm_federated_identity_credential" "github_develop" {
+  name                = "github-develop-branch"
+  resource_group_name = azurerm_resource_group.main.name
+  audience            = ["api://AzureADTokenExchange"]
+  issuer              = "https://token.actions.githubusercontent.com"
+  parent_id           = azurerm_user_assigned_identity.github_actions.id
+  subject             = "repo:Hardcoreprawn/ai-content-farm:ref:refs/heads/develop"
+}
+
+# Federated Identity Credential for GitHub Actions (pull requests)
+resource "azurerm_federated_identity_credential" "github_pr" {
+  name                = "github-pull-requests"
+  resource_group_name = azurerm_resource_group.main.name
+  audience            = ["api://AzureADTokenExchange"]
+  issuer              = "https://token.actions.githubusercontent.com"
+  parent_id           = azurerm_user_assigned_identity.github_actions.id
+  subject             = "repo:Hardcoreprawn/ai-content-farm:pull_request"
 }
 
 # Managed Identity for Service Bus encryption
@@ -111,6 +152,42 @@ resource "azurerm_role_assignment" "containers_acr_pull" {
   depends_on = [azurerm_user_assigned_identity.containers]
 }
 
+# Grant GitHub Actions identity access to subscription (for deployments)
+resource "azurerm_role_assignment" "github_actions_contributor" {
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
+  role_definition_name = "Contributor"
+  principal_id         = azurerm_user_assigned_identity.github_actions.principal_id
+
+  depends_on = [azurerm_user_assigned_identity.github_actions]
+}
+
+# Grant GitHub Actions identity access to Container Registry
+resource "azurerm_role_assignment" "github_actions_acr_push" {
+  scope                = azurerm_container_registry.main.id
+  role_definition_name = "AcrPush"
+  principal_id         = azurerm_user_assigned_identity.github_actions.principal_id
+
+  depends_on = [azurerm_user_assigned_identity.github_actions]
+}
+
+# Grant GitHub Actions identity access to Key Vault
+resource "azurerm_key_vault_access_policy" "github_actions" {
+  key_vault_id = azurerm_key_vault.main.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = azurerm_user_assigned_identity.github_actions.principal_id
+
+  secret_permissions = [
+    "Get",
+    "List",
+    "Set",
+    "Delete",
+    "Purge",
+    "Recover"
+  ]
+
+  depends_on = [azurerm_user_assigned_identity.github_actions]
+}
+
 # Event Grid System Topic for Storage Account
 resource "azurerm_eventgrid_system_topic" "storage" {
   name                   = "${var.resource_prefix}-storage-events"
@@ -128,7 +205,7 @@ resource "azurerm_eventgrid_system_topic" "storage" {
 resource "azurerm_servicebus_namespace" "main" {
   # checkov:skip=CKV_AZURE_201: Customer-managed encryption requires complex setup - using Azure-managed encryption for development
   # checkov:skip=CKV_AZURE_199: Double encryption requires complex configuration - single encryption sufficient for development
-  name                = "${var.resource_prefix}-sb"
+  name                = "${var.resource_prefix}-servicebus"
   location            = var.location
   resource_group_name = azurerm_resource_group.main.name
   sku                 = "Premium" # Upgraded for security features
@@ -176,7 +253,7 @@ resource "azurerm_eventgrid_event_subscription" "blob_created" {
 
 # Content Generator Container App
 resource "azurerm_container_app" "content_generator" {
-  name                         = "${var.resource_prefix}-content-generator"
+  name                         = "${var.resource_prefix}-content-gen"
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"

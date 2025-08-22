@@ -29,3 +29,24 @@ output "application_insights_app_id" {
 output "log_analytics_workspace_name" {
   value = azurerm_log_analytics_workspace.main.name
 }
+
+# GitHub Actions OIDC Identity outputs
+output "github_actions_client_id" {
+  description = "Client ID for GitHub Actions managed identity (use for OIDC authentication)"
+  value       = azurerm_user_assigned_identity.github_actions.client_id
+}
+
+output "github_actions_principal_id" {
+  description = "Principal ID for GitHub Actions managed identity"
+  value       = azurerm_user_assigned_identity.github_actions.principal_id
+}
+
+output "tenant_id" {
+  description = "Azure tenant ID for OIDC authentication"
+  value       = data.azurerm_client_config.current.tenant_id
+}
+
+output "subscription_id" {
+  description = "Azure subscription ID for OIDC authentication"
+  value       = data.azurerm_client_config.current.subscription_id
+}
