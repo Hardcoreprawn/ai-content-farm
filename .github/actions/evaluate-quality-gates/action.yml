@@ -36,7 +36,6 @@ inputs:
     description: 'Allow cost analysis failures as warnings'
     required: false
     default: 'true'
-    default: 'skipped'
 
 outputs:
   passed:
@@ -86,13 +85,13 @@ runs:
         for scan in "trivy:$SECURITY_TRIVY_RESULT" "semgrep:$SECURITY_SEMGREP_RESULT" "python:$SECURITY_PYTHON_RESULT" "sbom:$SECURITY_SBOM_RESULT" "checkov:$SECURITY_CHECKOV_RESULT"; do
           scan_name="${scan%%:*}"
           scan_result="${scan##*:}"
-          
+
           # Skip skipped scans for security count
           if [[ "$scan_result" == "skipped" ]]; then
             echo "[SKIP] Security $scan_name: SKIPPED (conditional)"
             continue
           fi
-          
+
           security_gates=$((security_gates + 1))
           total_gates=$((total_gates + 1))
 
@@ -130,7 +129,7 @@ runs:
 
         echo ""
         echo "=== Quality Gate Results ==="
-        
+
         # Code quality (always runs - strict)
         total_gates=$((total_gates + 1))
         if [[ "$QUALITY_RESULT" == "success" ]]; then
