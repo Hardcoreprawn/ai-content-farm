@@ -18,7 +18,7 @@ from models import (
     RankedTopic,
     StatusResponse,
 )
-from service_logic import content_generator, ContentGeneratorService
+from service_logic import ContentGeneratorService, content_generator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -69,7 +69,7 @@ app = FastAPI(
     title="Content Generator Service",
     description="AI-powered content generation service for the AI Content Farm pipeline",
     version=config.VERSION,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Global stats
@@ -155,7 +155,9 @@ async def get_status():
 
         # Check AI services
         ai_services = {
-            "azure_openai": "configured" if config.AZURE_OPENAI_ENDPOINT else "not configured",
+            "azure_openai": (
+                "configured" if config.AZURE_OPENAI_ENDPOINT else "not configured"
+            ),
             "openai": "configured" if config.OPENAI_API_KEY else "not configured",
             "claude": "configured" if config.CLAUDE_API_KEY else "not configured",
         }

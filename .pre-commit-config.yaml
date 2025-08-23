@@ -1,0 +1,64 @@
+# Pre-commit hooks configuration
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+repos:
+  # Pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '^(.*\.md|.*\.txt)$'
+      - id: end-of-file-fixer
+        exclude: '^(.*\.md|.*\.txt)$'
+      - id: check-yaml
+        args: ['--allow-multiple-documents']
+        exclude: '^(.github/.*|.*\.template\.yml)$'
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-merge-conflict
+      - id: debug-statements
+      - id: check-executables-have-shebangs
+
+  # Python code quality using our shared script
+  - repo: local
+    hooks:
+      - id: python-code-quality
+        name: Python Code Quality (Black + isort + flake8)
+        entry: ./scripts/code-quality.sh
+        language: system
+        types: [python]
+        pass_filenames: false
+        always_run: true
+        stages: [commit]
+
+  # GitHub Actions linting
+  - repo: local
+    hooks:
+      - id: actionlint
+        name: Lint GitHub Actions workflows
+        entry: actionlint
+        language: system
+        files: '^\.github/workflows/.*\.ya?ml$'
+        pass_filenames: true
+
+  # YAML linting (excluding GitHub Actions which are handled above)
+  - repo: https://github.com/adrienverge/yamllint
+    rev: v1.32.0
+    hooks:
+      - id: yamllint
+        exclude: '^\.github/workflows/.*\.ya?ml$'
+        args: ['-d', 'relaxed']
+
+  # Security scanning
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: ['--baseline', '.secrets.baseline']
+        exclude: '^(tests/.*|.*\.lock|.*\.log)$'
+
+# Configuration for ci (optional, for pre-commit.ci service)
+ci:
+  autoupdate_schedule: weekly
+  skip: [python-code-quality, actionlint]  # Skip local hooks on CI

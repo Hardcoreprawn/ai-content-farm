@@ -1,6 +1,6 @@
 # Makefile for AI Content Farm Project
 
-.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles scan-containers yamllint actionlint lint-workflows lint-actions check-emojis
+.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles scan-containers yamllint actionlint lint-workflows lint-actions check-emojis lint-python lint-python-all flake8 black-check black-format isort-check isort-format mypy pylint format-python lint-container lint-all quality-check
 
 help:
 	@echo "Available targets:"
@@ -46,6 +46,22 @@ help:
 	@echo "  setup-infracost  - Store Infracost API key in bootstrap/environment Key Vault"
 	@echo "  get-secrets      - Retrieve secrets from Key Vault for local development"
 	@echo "  validate-secrets - Validate Key Vault secret configuration"
+	@echo ""
+	@echo "Code Quality & Linting:"
+	@echo "  quality-check    - Run quality checks matching GitHub Actions (smart file detection)"
+	@echo "  lint-all         - Run all linting checks (workflows + Python)"
+	@echo "  lint-workflows   - Lint GitHub Actions YAML files (yamllint + actionlint)"
+	@echo "  lint-python      - Run Python linting (flake8 + black + isort) [shared with CI]"
+	@echo "  lint-python-all  - Run all Python checks including types and complexity"
+	@echo "  flake8           - Python code style and error checking"
+	@echo "  black-check      - Check Python code formatting (no changes)"
+	@echo "  black-format     - Auto-format Python code with black"
+	@echo "  isort-check      - Check import sorting (no changes)"
+	@echo "  isort-format     - Auto-sort Python imports"
+	@echo "  mypy             - Python type checking"
+	@echo "  pylint           - Python code analysis (complexity)"
+	@echo "  format-python    - Auto-format Python code (black + isort)"
+	@echo "  lint-container   - Lint specific container: make lint-container CONTAINER=content-generator"
 	@echo ""
 	@echo "Content processing:"
 	@echo "  collect-topics   - Run content wombles to collect topics"
@@ -104,6 +120,81 @@ lint-actions: actionlint
 	@echo "Running shellcheck on embedded shell scripts..."
 	@# Note: actionlint already runs shellcheck on embedded scripts in YAML
 	@echo "✅ All GitHub Actions linting completed"
+
+# Python linting targets (using shared script for CI/CD consistency)
+lint-python: ## Run all Python linting (flake8 + black + isort)
+	@./scripts/code-quality.sh
+
+lint-python-all: ## Run all Python linting including types and complexity
+	@./scripts/code-quality.sh --all
+
+flake8: ## Python code style and error checking
+	@./scripts/code-quality.sh --linting
+
+black-check: ## Check Python code formatting (no changes)
+	@./scripts/code-quality.sh --formatting
+
+black-format: ## Auto-format Python code with black
+	@./scripts/code-quality.sh --formatting --fix
+
+isort-check: ## Check import sorting (no changes)
+	@./scripts/code-quality.sh --imports
+
+isort-format: ## Auto-sort Python imports
+	@./scripts/code-quality.sh --imports --fix
+
+mypy: ## Python type checking
+	@./scripts/code-quality.sh --types
+
+pylint: ## Python code analysis (complexity)
+	@./scripts/code-quality.sh --complexity
+
+# Python formatting (auto-fix)
+format-python: ## Auto-format Python code (black + isort)
+	@./scripts/code-quality.sh --fix
+
+# Container-specific linting (using shared script)
+lint-container: ## Lint specific container: make lint-container CONTAINER=content-generator
+	@if [ -z "$(CONTAINER)" ]; then \
+		echo "❌ Usage: make lint-container CONTAINER=container-name"; \
+		echo "Available containers: content-collector, content-processor, content-enricher, content-ranker, content-generator, markdown-generator, site-generator"; \
+		exit 1; \
+	fi
+	@if [ ! -d "containers/$(CONTAINER)" ]; then \
+		echo "❌ Container 'containers/$(CONTAINER)' not found"; \
+		exit 1; \
+	fi
+	@echo "Linting container: $(CONTAINER)"
+	@cd containers/$(CONTAINER) && ../../scripts/code-quality.sh
+
+# Quality checks matching GitHub Actions
+quality-check: ## Run the same quality checks as GitHub Actions
+	@echo "🔍 Running quality checks (same as GitHub Actions)..."
+	@echo "📁 Checking for Python file changes..."
+	@if [ -d .git ] && [ -n "$$(git status --porcelain | grep -E '\.(py)$$|requirements.*\.txt$$|pyproject\.toml$$|\.flake8$$|scripts/code-quality\.sh$$')" ]; then \
+		echo "🐍 Running Python quality checks..."; \
+		./scripts/code-quality.sh; \
+	elif [ ! -d .git ]; then \
+		echo "🐍 No git repo detected, running Python quality checks..."; \
+		./scripts/code-quality.sh; \
+	else \
+		echo "⏭️  No Python files changed, skipping Python checks"; \
+	fi
+	@echo "📁 Checking for workflow file changes..."
+	@if [ -d .git ] && [ -n "$$(git status --porcelain | grep -E '\.github/(workflows|actions)/.*\.(yml|yaml)$$')" ]; then \
+		echo "⚙️  Running workflow quality checks..."; \
+		$(MAKE) lint-workflows; \
+	elif [ ! -d .git ]; then \
+		echo "⚙️  No git repo detected, running workflow quality checks..."; \
+		$(MAKE) lint-workflows; \
+	else \
+		echo "⏭️  No workflow files changed, skipping workflow checks"; \
+	fi
+	@echo "✅ Quality checks completed (GitHub Actions compatible)"
+
+# Comprehensive linting (always runs everything)
+lint-all: lint-workflows lint-python
+	@echo "✅ All linting checks completed"
 
 checkov:
 	@echo "Running Checkov security scan..."

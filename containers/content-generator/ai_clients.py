@@ -21,7 +21,7 @@ class AIClientManager:
         azure_openai_client: Optional[openai.AsyncAzureOpenAI] = None,
         openai_client: Optional[openai.AsyncOpenAI] = None,
         claude_client: Optional[anthropic.AsyncAnthropic] = None,
-        http_client: Optional[httpx.AsyncClient] = None
+        http_client: Optional[httpx.AsyncClient] = None,
     ):
         """Initialize AI clients with dependency injection support"""
 
@@ -30,6 +30,7 @@ class AIClientManager:
             self.azure_openai_client = azure_openai_client
         elif os.getenv("PYTEST_CURRENT_TEST"):
             from tests.mocks import MockAzureOpenAI
+
             self.azure_openai_client = MockAzureOpenAI()
         elif config.AZURE_OPENAI_ENDPOINT and config.AZURE_OPENAI_API_KEY:
             self.azure_openai_client = openai.AsyncAzureOpenAI(
@@ -46,6 +47,7 @@ class AIClientManager:
             self.openai_client = openai_client
         elif os.getenv("PYTEST_CURRENT_TEST"):
             from tests.mocks import MockOpenAI
+
             self.openai_client = MockOpenAI()
         elif config.OPENAI_API_KEY:
             self.openai_client = openai.AsyncOpenAI(api_key=config.OPENAI_API_KEY)
@@ -57,6 +59,7 @@ class AIClientManager:
             self.claude_client = claude_client
         elif os.getenv("PYTEST_CURRENT_TEST"):
             from tests.mocks import MockClaude
+
             self.claude_client = MockClaude()
         elif config.CLAUDE_API_KEY:
             self.claude_client = anthropic.AsyncAnthropic(api_key=config.CLAUDE_API_KEY)
@@ -68,6 +71,7 @@ class AIClientManager:
             self.http_client = http_client
         elif os.getenv("PYTEST_CURRENT_TEST"):
             from tests.mocks import MockHTTPClient
+
             self.http_client = MockHTTPClient()
         else:
             self.http_client = httpx.AsyncClient(timeout=config.VERIFICATION_TIMEOUT)
@@ -167,5 +171,5 @@ class AIClientManager:
 
     async def cleanup(self):
         """Clean up HTTP client resources"""
-        if hasattr(self.http_client, 'aclose'):
+        if hasattr(self.http_client, "aclose"):
             await self.http_client.aclose()

@@ -1,10 +1,10 @@
 """API tests for content generator FastAPI endpoints"""
 
-import pytest
 from datetime import datetime
-from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, patch
 
+import pytest
+from fastapi.testclient import TestClient
 from main import app
 from models import GeneratedContent, GenerationRequest, RankedTopic
 from service_logic import ContentGeneratorService
@@ -30,7 +30,7 @@ def mock_generated_content(sample_ranked_topic):
         writer_personality="professional",
         generation_time=datetime.utcnow(),
         ai_model="azure-openai",
-        metadata={"generation_time": 2.5, "model_used": "azure-openai"}
+        metadata={"generation_time": 2.5, "model_used": "azure-openai"},
     )
 
 
@@ -73,8 +73,10 @@ class TestContentGeneratorAPI:
         assert "active_generations" in data
         assert "total_generated" in data
 
-    @patch.object(ContentGeneratorService, 'generate_content')
-    def test_generate_tldr_endpoint(self, mock_generate, test_client, sample_ranked_topic, mock_generated_content):
+    @patch.object(ContentGeneratorService, "generate_content")
+    def test_generate_tldr_endpoint(
+        self, mock_generate, test_client, sample_ranked_topic, mock_generated_content
+    ):
         """Test TLDR generation endpoint"""
         # Arrange
         mock_generate.return_value = mock_generated_content
@@ -84,7 +86,7 @@ class TestContentGeneratorAPI:
             "rank": sample_ranked_topic.rank,
             "ai_score": sample_ranked_topic.ai_score,
             "sentiment": sample_ranked_topic.sentiment,
-            "tags": sample_ranked_topic.tags
+            "tags": sample_ranked_topic.tags,
         }
 
         # Act
@@ -98,8 +100,10 @@ class TestContentGeneratorAPI:
         assert "content" in data
         assert "word_count" in data
 
-    @patch.object(ContentGeneratorService, 'generate_content')
-    def test_generate_blog_endpoint(self, mock_generate, test_client, sample_ranked_topic, mock_generated_content):
+    @patch.object(ContentGeneratorService, "generate_content")
+    def test_generate_blog_endpoint(
+        self, mock_generate, test_client, sample_ranked_topic, mock_generated_content
+    ):
         """Test blog generation endpoint"""
         # Arrange
         blog_content = GeneratedContent(
@@ -113,7 +117,7 @@ class TestContentGeneratorAPI:
             writer_personality="professional",
             generation_time=datetime.utcnow(),
             ai_model="azure-openai",
-            metadata={"generation_time": 5.2, "model_used": "azure-openai"}
+            metadata={"generation_time": 5.2, "model_used": "azure-openai"},
         )
         mock_generate.return_value = blog_content
         request_data = {
@@ -122,7 +126,7 @@ class TestContentGeneratorAPI:
             "rank": sample_ranked_topic.rank,
             "ai_score": sample_ranked_topic.ai_score,
             "sentiment": sample_ranked_topic.sentiment,
-            "tags": sample_ranked_topic.tags
+            "tags": sample_ranked_topic.tags,
         }
 
         # Act
@@ -134,8 +138,10 @@ class TestContentGeneratorAPI:
         assert data["content_type"] == "blog"
         assert data["word_count"] > 100
 
-    @patch.object(ContentGeneratorService, 'generate_content')
-    def test_generate_deepdive_endpoint(self, mock_generate, test_client, sample_ranked_topic):
+    @patch.object(ContentGeneratorService, "generate_content")
+    def test_generate_deepdive_endpoint(
+        self, mock_generate, test_client, sample_ranked_topic
+    ):
         """Test deep dive generation endpoint"""
         # Arrange
         deepdive_content = GeneratedContent(
@@ -149,7 +155,7 @@ class TestContentGeneratorAPI:
             writer_personality="professional",
             generation_time=datetime.utcnow(),
             ai_model="claude",
-            metadata={"generation_time": 12.8, "model_used": "claude"}
+            metadata={"generation_time": 12.8, "model_used": "claude"},
         )
         mock_generate.return_value = deepdive_content
         request_data = {
@@ -158,7 +164,7 @@ class TestContentGeneratorAPI:
             "rank": sample_ranked_topic.rank,
             "ai_score": sample_ranked_topic.ai_score,
             "sentiment": sample_ranked_topic.sentiment,
-            "tags": sample_ranked_topic.tags
+            "tags": sample_ranked_topic.tags,
         }
 
         # Act
@@ -185,7 +191,7 @@ class TestContentGeneratorAPI:
             "sources": [],
             "rank": 1,
             "ai_score": 0.8,
-            "sentiment": "positive"
+            "sentiment": "positive",
             # Missing 'topic'
         }
 
@@ -195,8 +201,10 @@ class TestContentGeneratorAPI:
         # Assert
         assert response.status_code == 422
 
-    @patch.object(ContentGeneratorService, 'generate_content')
-    def test_generation_error_handling(self, mock_generate, test_client, sample_ranked_topic):
+    @patch.object(ContentGeneratorService, "generate_content")
+    def test_generation_error_handling(
+        self, mock_generate, test_client, sample_ranked_topic
+    ):
         """Test error handling when generation fails"""
         # Arrange
         mock_generate.side_effect = ValueError("Insufficient source material")
@@ -206,7 +214,7 @@ class TestContentGeneratorAPI:
             "rank": sample_ranked_topic.rank,
             "ai_score": sample_ranked_topic.ai_score,
             "sentiment": sample_ranked_topic.sentiment,
-            "tags": sample_ranked_topic.tags
+            "tags": sample_ranked_topic.tags,
         }
 
         # Act

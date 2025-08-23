@@ -1,9 +1,9 @@
 """Unit tests for content generator service logic"""
 
-import pytest
 from unittest.mock import AsyncMock, Mock
 
-from models import RankedTopic, SourceData, GeneratedContent
+import pytest
+from models import GeneratedContent, RankedTopic, SourceData
 from service_logic import ContentGeneratorService
 
 
@@ -11,13 +11,15 @@ class TestContentGeneratorService:
     """Test content generation service functionality"""
 
     @pytest.mark.asyncio
-    async def test_generate_tldr_content(self, content_generator_service, sample_ranked_topic):
+    async def test_generate_tldr_content(
+        self, content_generator_service, sample_ranked_topic
+    ):
         """Test TLDR content generation"""
         # Act
         result = await content_generator_service.generate_content(
             topic=sample_ranked_topic,
             content_type="tldr",
-            writer_personality="professional"
+            writer_personality="professional",
         )
 
         # Assert
@@ -30,29 +32,34 @@ class TestContentGeneratorService:
         assert len(result.tags) > 0
 
     @pytest.mark.asyncio
-    async def test_generate_blog_content(self, content_generator_service, sample_ranked_topic):
+    async def test_generate_blog_content(
+        self, content_generator_service, sample_ranked_topic
+    ):
         """Test blog content generation"""
         # Act
         result = await content_generator_service.generate_content(
-            topic=sample_ranked_topic,
-            content_type="blog",
-            writer_personality="casual"
+            topic=sample_ranked_topic, content_type="blog", writer_personality="casual"
         )
 
         # Assert
         assert isinstance(result, GeneratedContent)
         assert result.content_type == "blog"
         assert result.word_count > 0
-        assert "blog" in result.content.lower() or "comprehensive" in result.content.lower()
+        assert (
+            "blog" in result.content.lower()
+            or "comprehensive" in result.content.lower()
+        )
 
     @pytest.mark.asyncio
-    async def test_generate_deepdive_content(self, content_generator_service, sample_ranked_topic):
+    async def test_generate_deepdive_content(
+        self, content_generator_service, sample_ranked_topic
+    ):
         """Test deep dive content generation"""
         # Act
         result = await content_generator_service.generate_content(
             topic=sample_ranked_topic,
             content_type="deepdive",
-            writer_personality="expert"
+            writer_personality="expert",
         )
 
         # Assert
@@ -72,10 +79,14 @@ class TestContentGeneratorService:
         assert service.content_generators is not None
         assert isinstance(service.active_generations, dict)
 
-    def test_has_sufficient_content_with_adequate_sources(self, content_generator_service, sample_ranked_topic):
+    def test_has_sufficient_content_with_adequate_sources(
+        self, content_generator_service, sample_ranked_topic
+    ):
         """Test content sufficiency check with adequate sources"""
         # Act
-        result = content_generator_service._has_sufficient_content(sample_ranked_topic, "tldr")
+        result = content_generator_service._has_sufficient_content(
+            sample_ranked_topic, "tldr"
+        )
 
         # Assert
         assert result is True
@@ -84,11 +95,7 @@ class TestContentGeneratorService:
         """Test content sufficiency check with empty sources"""
         # Arrange
         empty_topic = RankedTopic(
-            topic="Empty Topic",
-            sources=[],
-            rank=1,
-            ai_score=0.5,
-            sentiment="neutral"
+            topic="Empty Topic", sources=[], rank=1, ai_score=0.5, sentiment="neutral"
         )
 
         # Act
@@ -112,30 +119,30 @@ class TestContentGeneratorService:
         assert "deep" in str(deepdive_messages).lower()
 
     @pytest.mark.asyncio
-    async def test_content_generation_with_invalid_type(self, content_generator_service, sample_ranked_topic):
+    async def test_content_generation_with_invalid_type(
+        self, content_generator_service, sample_ranked_topic
+    ):
         """Test content generation with invalid content type"""
         # Act & Assert - The system checks sufficiency first, then content type
-        with pytest.raises(ValueError, match="Insufficient source material|Unknown content type"):
+        with pytest.raises(
+            ValueError, match="Insufficient source material|Unknown content type"
+        ):
             await content_generator_service.generate_content(
-                topic=sample_ranked_topic,
-                content_type="invalid_type"
+                topic=sample_ranked_topic, content_type="invalid_type"
             )
 
     @pytest.mark.asyncio
-    async def test_content_generation_with_insufficient_sources(self, content_generator_service):
+    async def test_content_generation_with_insufficient_sources(
+        self, content_generator_service
+    ):
         """Test content generation with insufficient source material"""
         # Arrange
         minimal_topic = RankedTopic(
-            topic="Minimal Topic",
-            sources=[],
-            rank=1,
-            ai_score=0.5,
-            sentiment="neutral"
+            topic="Minimal Topic", sources=[], rank=1, ai_score=0.5, sentiment="neutral"
         )
 
         # Act & Assert
         with pytest.raises(ValueError, match="Insufficient source material"):
             await content_generator_service.generate_content(
-                topic=minimal_topic,
-                content_type="deepdive"
+                topic=minimal_topic, content_type="deepdive"
             )

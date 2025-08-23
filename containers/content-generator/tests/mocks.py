@@ -1,13 +1,14 @@
 """Mock classes for content-generator testing"""
 
 import asyncio
-from typing import Any, Dict, List, Optional
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
 class MockResponse:
     """Mock response structure for AI services"""
+
     content: str
     usage: Dict[str, int] = None
 
@@ -37,7 +38,7 @@ class MockBlobStorageClient:
         """Mock blob listing"""
         return [
             {"name": f"{prefix}test-blob-1.json"},
-            {"name": f"{prefix}test-blob-2.json"}
+            {"name": f"{prefix}test-blob-2.json"},
         ]
 
     def health_check(self) -> Dict[str, str]:
@@ -125,10 +126,9 @@ The long-term impact of AI in healthcare will reshape medical practice, improve 
 
 CONTENT: This is generated content based on the provided topic and requirements. The content includes relevant information and analysis suitable for the requested format."""
 
-        mock_response = type('MockResponse', (), {
-            'choices': [MockChoice(content)],
-            'usage': MockUsage()
-        })()
+        mock_response = type(
+            "MockResponse", (), {"choices": [MockChoice(content)], "usage": MockUsage()}
+        )()
 
         return mock_response
 
@@ -210,10 +210,11 @@ Projections indicate continued growth in AI adoption across healthcare sectors, 
 
 CONTENT: Generated content using Claude with focus on accuracy and depth. This content addresses the key aspects of the requested topic with comprehensive analysis and detailed information. The response includes thorough investigation of relevant factors, comprehensive review of applicable methodologies, and extensive discussion of important considerations for practical implementation and effective utilization."""
 
-        mock_response = type('MockResponse', (), {
-            'content': [MockClaudeContent(text)],
-            'usage': MockClaudeUsage()
-        })()
+        mock_response = type(
+            "MockResponse",
+            (),
+            {"content": [MockClaudeContent(text)], "usage": MockClaudeUsage()},
+        )()
 
         return mock_response
 
@@ -237,20 +238,25 @@ class MockHTTPClient:
 
     async def get(self, url: str, **kwargs) -> Any:
         """Mock HTTP GET request"""
-        mock_response = type('MockResponse', (), {
-            'status_code': 200,
-            'text': 'Mock webpage content',
-            'headers': {'content-type': 'text/html'}
-        })()
+        mock_response = type(
+            "MockResponse",
+            (),
+            {
+                "status_code": 200,
+                "text": "Mock webpage content",
+                "headers": {"content-type": "text/html"},
+            },
+        )()
 
         return mock_response
 
     async def head(self, url: str, **kwargs) -> Any:
         """Mock HTTP HEAD request for source verification"""
-        mock_response = type('MockResponse', (), {
-            'status_code': 200,
-            'headers': {'content-type': 'text/html'}
-        })()
+        mock_response = type(
+            "MockResponse",
+            (),
+            {"status_code": 200, "headers": {"content-type": "text/html"}},
+        )()
 
         return mock_response
 

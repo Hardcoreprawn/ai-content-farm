@@ -1,10 +1,10 @@
 """Integration tests for content generator service"""
 
-import pytest
 from unittest.mock import patch
-import httpx
 
-from models import RankedTopic, SourceData, GeneratedContent
+import httpx
+import pytest
+from models import GeneratedContent, RankedTopic, SourceData
 from service_logic import ContentGeneratorService
 
 
@@ -22,7 +22,7 @@ class TestContentGeneratorIntegration:
         result = await service.generate_content(
             topic=sample_ranked_topic,
             content_type="tldr",
-            writer_personality="professional"
+            writer_personality="professional",
         )
 
         # Assert
@@ -46,7 +46,7 @@ class TestContentGeneratorIntegration:
                 rank=i,
                 ai_score=0.8 + (i * 0.02),
                 sentiment="positive",
-                tags=["AI", "technology"]
+                tags=["AI", "technology"],
             )
             for i in range(1, 4)
         ]
@@ -54,10 +54,7 @@ class TestContentGeneratorIntegration:
         # Act
         results = []
         for topic in topics:
-            result = await service.generate_content(
-                topic=topic,
-                content_type="tldr"
-            )
+            result = await service.generate_content(topic=topic, content_type="tldr")
             results.append(result)
 
         # Assert
@@ -76,8 +73,7 @@ class TestContentGeneratorIntegration:
         # Act & Assert
         for content_type in content_types:
             result = await service.generate_content(
-                topic=sample_ranked_topic,
-                content_type=content_type
+                topic=sample_ranked_topic, content_type=content_type
             )
             assert result.content_type == content_type
             assert len(result.content) > 0
@@ -103,7 +99,7 @@ class TestContentGeneratorIntegration:
             result = await service.generate_content(
                 topic=sample_ranked_topic,
                 content_type="tldr",
-                writer_personality=personality
+                writer_personality=personality,
             )
             results[personality] = result
 
@@ -121,8 +117,7 @@ class TestContentGeneratorIntegration:
 
         # Act
         result = await service.generate_content(
-            topic=sample_ranked_topic,
-            content_type="tldr"
+            topic=sample_ranked_topic, content_type="tldr"
         )
 
         # Assert
@@ -138,11 +133,7 @@ class TestContentGeneratorIntegration:
 
         # Test with empty topic
         empty_topic = RankedTopic(
-            topic="",
-            sources=[],
-            rank=1,
-            ai_score=0.5,
-            sentiment="neutral"
+            topic="", sources=[], rank=1, ai_score=0.5, sentiment="neutral"
         )
 
         # Act & Assert
@@ -157,10 +148,7 @@ class TestContentGeneratorIntegration:
         initial_count = len(service.active_generations)
 
         # Act
-        await service.generate_content(
-            topic=sample_ranked_topic,
-            content_type="tldr"
-        )
+        await service.generate_content(topic=sample_ranked_topic, content_type="tldr")
 
         # Assert
         # Active generations should be managed properly
@@ -174,12 +162,11 @@ class TestContentGeneratorIntegration:
 
         # Act
         result = await service.generate_content(
-            topic=sample_ranked_topic,
-            content_type="tldr"
+            topic=sample_ranked_topic, content_type="tldr"
         )
 
         # Assert
         # Verify blob client is functional (using mock)
         assert service.blob_client is not None
-        assert hasattr(service.blob_client, 'upload_text')
-        assert hasattr(service.blob_client, 'download_text')
+        assert hasattr(service.blob_client, "upload_text")
+        assert hasattr(service.blob_client, "download_text")

@@ -51,22 +51,20 @@ class ContentGenerators:
 
     def build_tldr_prompt(self, topic: RankedTopic, writer_personality: str) -> str:
         """Build prompt for TLDR content generation"""
-        sources_text = "\n".join([
-            f"- {source.title}: {source.summary}"
-            for source in topic.sources[:3]
-        ])
+        sources_text = "\n".join(
+            [f"- {source.title}: {source.summary}" for source in topic.sources[:3]]
+        )
 
         personality_instructions = {
             "professional": "Use professional, clear language suitable for business contexts.",
             "casual": "Use conversational, accessible language that's easy to understand.",
             "expert": "Use technical depth and industry-specific terminology.",
             "skeptical": "Approach with healthy skepticism and critical analysis.",
-            "enthusiast": "Show excitement and passion for the topic."
+            "enthusiast": "Show excitement and passion for the topic.",
         }
 
         personality_instruction = personality_instructions.get(
-            writer_personality,
-            "Use clear, informative language."
+            writer_personality, "Use clear, informative language."
         )
 
         return f"""TITLE: Create a compelling title for this topic
@@ -81,22 +79,20 @@ Create a concise, informative summary that captures the key insights. Focus on w
 
     def build_blog_prompt(self, topic: RankedTopic, writer_personality: str) -> str:
         """Build prompt for blog content generation"""
-        sources_text = "\n".join([
-            f"- {source.title}: {source.summary}"
-            for source in topic.sources
-        ])
+        sources_text = "\n".join(
+            [f"- {source.title}: {source.summary}" for source in topic.sources]
+        )
 
         personality_instructions = {
             "professional": "Write in a professional, authoritative tone suitable for industry publications.",
             "casual": "Use a conversational, friendly tone that engages readers personally.",
             "expert": "Demonstrate deep technical knowledge and industry expertise.",
             "skeptical": "Present balanced analysis with critical evaluation of claims.",
-            "enthusiast": "Show passion and excitement while maintaining credibility."
+            "enthusiast": "Show passion and excitement while maintaining credibility.",
         }
 
         personality_instruction = personality_instructions.get(
-            writer_personality,
-            "Write in a clear, engaging style."
+            writer_personality, "Write in a clear, engaging style."
         )
 
         return f"""TITLE: Create an engaging title for this comprehensive article
@@ -117,10 +113,12 @@ Focus on providing value through analysis, context, and actionable insights."""
 
     def build_deepdive_prompt(self, topic: RankedTopic, writer_personality: str) -> str:
         """Build prompt for deep dive content generation"""
-        sources_text = "\n".join([
-            f"- {source.title}: {source.summary or source.content[:200] + '...'}"
-            for source in topic.sources
-        ])
+        sources_text = "\n".join(
+            [
+                f"- {source.title}: {source.summary or source.content[:200] + '...'}"
+                for source in topic.sources
+            ]
+        )
 
         return f"""TITLE: Create a comprehensive title for this in-depth analysis
 CONTENT: Write a comprehensive deep-dive analysis (1000+ words) about: {topic.topic}
@@ -225,7 +223,9 @@ Focus on depth, accuracy, and providing expert-level insights that go beyond sur
     ) -> GeneratedContent:
         """Generate deep dive analysis (1000+ words) - requires substantial content"""
         if not self.has_sufficient_content(topic, "deepdive"):
-            raise ValueError(f"Insufficient content for deepdive article on {topic.topic}")
+            raise ValueError(
+                f"Insufficient content for deepdive article on {topic.topic}"
+            )
 
         prompt = self.build_deepdive_prompt(topic, writer_personality)
 

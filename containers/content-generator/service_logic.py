@@ -34,7 +34,7 @@ class ContentGeneratorService:
         azure_openai_client: Optional[Any] = None,
         openai_client: Optional[Any] = None,
         claude_client: Optional[Any] = None,
-        http_client: Optional[Any] = None
+        http_client: Optional[Any] = None,
     ):
         """Initialize the content generator service.
 
@@ -50,6 +50,7 @@ class ContentGeneratorService:
             self.blob_client = blob_client
         elif os.getenv("PYTEST_CURRENT_TEST"):  # Running in pytest
             from tests.mocks import MockBlobStorageClient
+
             self.blob_client = MockBlobStorageClient()
         else:
             self.blob_client = get_blob_client()
@@ -63,7 +64,7 @@ class ContentGeneratorService:
             azure_openai_client=azure_openai_client,
             openai_client=openai_client,
             claude_client=claude_client,
-            http_client=http_client
+            http_client=http_client,
         )
 
         # Initialize content generators
@@ -95,17 +96,23 @@ class ContentGeneratorService:
             fact_check_notes = []
 
             if config.ENABLE_SOURCE_VERIFICATION:
-                verification_status, fact_check_notes = await self.ai_clients.verify_sources(
-                    topic.sources
+                verification_status, fact_check_notes = (
+                    await self.ai_clients.verify_sources(topic.sources)
                 )
 
             # Generate the content
             if content_type == "tldr":
-                content = await self.content_generators.generate_tldr(topic, writer_personality)
+                content = await self.content_generators.generate_tldr(
+                    topic, writer_personality
+                )
             elif content_type == "blog":
-                content = await self.content_generators.generate_blog(topic, writer_personality)
+                content = await self.content_generators.generate_blog(
+                    topic, writer_personality
+                )
             elif content_type == "deepdive":
-                content = await self.content_generators.generate_deepdive(topic, writer_personality)
+                content = await self.content_generators.generate_deepdive(
+                    topic, writer_personality
+                )
             else:
                 raise ValueError(f"Unknown content type: {content_type}")
 
@@ -130,7 +137,9 @@ class ContentGeneratorService:
         Returns:
             BatchGenerationResponse with all generated content
         """
-        logger.info(f"Processing batch generation for {len(request.ranked_topics)} topics")
+        logger.info(
+            f"Processing batch generation for {len(request.ranked_topics)} topics"
+        )
 
         batch_id = request.batch_id
 
@@ -139,7 +148,7 @@ class ContentGeneratorService:
             batch_id=batch_id,
             status="processing",
             total_topics=len(request.ranked_topics),
-            started_at=datetime.utcnow()
+            started_at=datetime.utcnow(),
         )
 
         generated_content = []
@@ -153,19 +162,24 @@ class ContentGeneratorService:
                 async with semaphore:
                     try:
                         # Extract generation parameters from config
-                        content_type = request.generation_config.get("content_type", "tldr")
+                        content_type = request.generation_config.get(
+                            "content_type", "tldr"
+                        )
                         writer_personality = request.generation_config.get(
-                            "writer_personality", "professional")
+                            "writer_personality", "professional"
+                        )
 
                         content = await self.generate_content(
                             topic,
                             content_type=content_type,
-                            writer_personality=writer_personality
+                            writer_personality=writer_personality,
                         )
                         self.active_generations[batch_id].completed_topics += 1
                         return content
                     except Exception as e:
-                        logger.error(f"Failed to generate content for {topic.topic}: {str(e)}")
+                        logger.error(
+                            f"Failed to generate content for {topic.topic}: {str(e)}"
+                        )
                         failed_topics.append(topic.topic)
                         return None
 
@@ -175,14 +189,16 @@ class ContentGeneratorService:
 
             # Filter out None results and exceptions
             generated_content = [
-                result for result in results if isinstance(result, GeneratedContent)]
+                result for result in results if isinstance(result, GeneratedContent)
+            ]
 
             # Update final status
             self.active_generations[batch_id].status = "completed"
             self.active_generations[batch_id].completed_at = datetime.utcnow()
 
             logger.info(
-                f"Batch {batch_id} completed: {len(generated_content)} succeeded, {len(failed_topics)} failed")
+                f"Batch {batch_id} completed: {len(generated_content)} succeeded, {len(failed_topics)} failed"
+            )
 
             return BatchGenerationResponse(
                 batch_id=batch_id,
@@ -193,8 +209,8 @@ class ContentGeneratorService:
                     "success_count": len(generated_content),
                     "failure_count": len(failed_topics),
                     "total_count": len(request.ranked_topics),
-                    "failed_topics": failed_topics
-                }
+                    "failed_topics": failed_topics,
+                },
             )
 
         except Exception as e:
@@ -224,7 +240,9 @@ class ContentGeneratorService:
         return False
 
     # Legacy method aliases for backward compatibility
-    async def _call_openai(self, prompt: str, model: str = "gpt-3.5-turbo", max_tokens: int = 1500) -> str:
+    async def _call_openai(
+        self, prompt: str, model: str = "gpt-3.5-turbo", max_tokens: int = 1500
+    ) -> str:
         """Legacy method - use ai_clients.call_openai instead"""
         return await self.ai_clients.call_openai(prompt, model, max_tokens)
 
@@ -240,17 +258,25 @@ class ContentGeneratorService:
         """Legacy method - use content_generators.parse_ai_response instead"""
         return self.content_generators.parse_ai_response(response)
 
-    async def _generate_tldr(self, topic: RankedTopic, writer_personality: str) -> GeneratedContent:
+    async def _generate_tldr(
+        self, topic: RankedTopic, writer_personality: str
+    ) -> GeneratedContent:
         """Legacy method - use content_generators.generate_tldr instead"""
         return await self.content_generators.generate_tldr(topic, writer_personality)
 
-    async def _generate_blog(self, topic: RankedTopic, writer_personality: str) -> GeneratedContent:
+    async def _generate_blog(
+        self, topic: RankedTopic, writer_personality: str
+    ) -> GeneratedContent:
         """Legacy method - use content_generators.generate_blog instead"""
         return await self.content_generators.generate_blog(topic, writer_personality)
 
-    async def _generate_deepdive(self, topic: RankedTopic, writer_personality: str) -> GeneratedContent:
+    async def _generate_deepdive(
+        self, topic: RankedTopic, writer_personality: str
+    ) -> GeneratedContent:
         """Legacy method - use content_generators.generate_deepdive instead"""
-        return await self.content_generators.generate_deepdive(topic, writer_personality)
+        return await self.content_generators.generate_deepdive(
+            topic, writer_personality
+        )
 
     async def cleanup(self):
         """Clean up resources"""
@@ -262,7 +288,7 @@ class ContentGeneratorService:
 def get_content_generator():
     """Get or create the global content generator instance."""
     global _content_generator
-    if '_content_generator' not in globals():
+    if "_content_generator" not in globals():
         _content_generator = ContentGeneratorService()
     return _content_generator
 
