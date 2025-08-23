@@ -5,9 +5,9 @@ This ensures our mocks behave exactly like OpenAI API, including
 response formats, error conditions, and rate limiting behavior.
 """
 
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -40,7 +40,9 @@ class OpenAIChoiceContract:
     logprobs: Optional[Dict[str, Any]] = None
 
     @classmethod
-    def create_mock(cls, text: str = "Mock response", **overrides) -> "OpenAIChoiceContract":
+    def create_mock(
+        cls, text: str = "Mock response", **overrides
+    ) -> "OpenAIChoiceContract":
         """Create mock choice data."""
         defaults = {
             "text": text,
@@ -64,15 +66,19 @@ class OpenAICompletionContract:
     usage: OpenAIUsageContract
 
     @classmethod
-    def create_mock_sentiment_response(cls, sentiment: str = "positive") -> "OpenAICompletionContract":
+    def create_mock_sentiment_response(
+        cls, sentiment: str = "positive"
+    ) -> "OpenAICompletionContract":
         """Create realistic sentiment analysis response."""
         sentiment_responses = {
             "positive": '{"sentiment": "positive", "confidence": 0.85, "scores": {"positive": 0.85, "neutral": 0.10, "negative": 0.05}}',
             "negative": '{"sentiment": "negative", "confidence": 0.90, "scores": {"positive": 0.05, "neutral": 0.05, "negative": 0.90}}',
-            "neutral": '{"sentiment": "neutral", "confidence": 0.75, "scores": {"positive": 0.30, "neutral": 0.50, "negative": 0.20}}'
+            "neutral": '{"sentiment": "neutral", "confidence": 0.75, "scores": {"positive": 0.30, "neutral": 0.50, "negative": 0.20}}',
         }
 
-        response_text = sentiment_responses.get(sentiment, sentiment_responses["neutral"])
+        response_text = sentiment_responses.get(
+            sentiment, sentiment_responses["neutral"]
+        )
 
         return cls(
             id="cmpl-mock-sentiment-123",
@@ -80,21 +86,25 @@ class OpenAICompletionContract:
             created=1629800000,
             model="text-davinci-003",
             choices=[OpenAIChoiceContract.create_mock(text=response_text)],
-            usage=OpenAIUsageContract.create_mock()
+            usage=OpenAIUsageContract.create_mock(),
         )
 
     @classmethod
-    def create_mock_topic_response(cls, topics: Optional[List[str]] = None) -> "OpenAICompletionContract":
+    def create_mock_topic_response(
+        cls, topics: Optional[List[str]] = None
+    ) -> "OpenAICompletionContract":
         """Create realistic topic classification response."""
         if topics is None:
             topics = ["technology", "artificial intelligence"]
 
-        response_text = json.dumps({
-            "primary_topic": topics[0] if topics else "general",
-            "confidence": 0.88,
-            "topics": topics,
-            "categories": topics[:3]  # Limit to top 3
-        })
+        response_text = json.dumps(
+            {
+                "primary_topic": topics[0] if topics else "general",
+                "confidence": 0.88,
+                "topics": topics,
+                "categories": topics[:3],  # Limit to top 3
+            }
+        )
 
         return cls(
             id="cmpl-mock-topic-456",
@@ -102,24 +112,30 @@ class OpenAICompletionContract:
             created=1629800100,
             model="text-davinci-003",
             choices=[OpenAIChoiceContract.create_mock(text=response_text)],
-            usage=OpenAIUsageContract.create_mock(prompt_tokens=75, completion_tokens=30)
+            usage=OpenAIUsageContract.create_mock(
+                prompt_tokens=75, completion_tokens=30
+            ),
         )
 
     @classmethod
-    def create_mock_summary_response(cls, summary: Optional[str] = None) -> "OpenAICompletionContract":
+    def create_mock_summary_response(
+        cls, summary: Optional[str] = None
+    ) -> "OpenAICompletionContract":
         """Create realistic content summarization response."""
         if summary is None:
             summary = "This article discusses recent advances in artificial intelligence technology, focusing on machine learning applications and their potential impact on various industries."
 
-        response_text = json.dumps({
-            "summary": summary,
-            "word_count": len(summary.split()),
-            "key_points": [
-                "AI technology advances",
-                "Machine learning applications",
-                "Industry impact"
-            ]
-        })
+        response_text = json.dumps(
+            {
+                "summary": summary,
+                "word_count": len(summary.split()),
+                "key_points": [
+                    "AI technology advances",
+                    "Machine learning applications",
+                    "Industry impact",
+                ],
+            }
+        )
 
         return cls(
             id="cmpl-mock-summary-789",
@@ -127,7 +143,9 @@ class OpenAICompletionContract:
             created=1629800200,
             model="text-davinci-003",
             choices=[OpenAIChoiceContract.create_mock(text=response_text)],
-            usage=OpenAIUsageContract.create_mock(prompt_tokens=200, completion_tokens=75)
+            usage=OpenAIUsageContract.create_mock(
+                prompt_tokens=200, completion_tokens=75
+            ),
         )
 
     def to_dict(self) -> Dict[str, Any]:
@@ -142,15 +160,15 @@ class OpenAICompletionContract:
                     "text": choice.text,
                     "index": choice.index,
                     "finish_reason": choice.finish_reason,
-                    "logprobs": choice.logprobs
+                    "logprobs": choice.logprobs,
                 }
                 for choice in self.choices
             ],
             "usage": {
                 "prompt_tokens": self.usage.prompt_tokens,
                 "completion_tokens": self.usage.completion_tokens,
-                "total_tokens": self.usage.total_tokens
-            }
+                "total_tokens": self.usage.total_tokens,
+            },
         }
 
 
@@ -171,23 +189,37 @@ class MockOpenAIClient:
         # Route to appropriate response based on prompt content
         if "sentiment" in prompt or "feeling" in prompt or "emotion" in prompt:
             if "amazing" in prompt or "fantastic" in prompt or "great" in prompt:
-                return OpenAICompletionContract.create_mock_sentiment_response("positive").to_dict()
+                return OpenAICompletionContract.create_mock_sentiment_response(
+                    "positive"
+                ).to_dict()
             elif "terrible" in prompt or "awful" in prompt or "bad" in prompt:
-                return OpenAICompletionContract.create_mock_sentiment_response("negative").to_dict()
+                return OpenAICompletionContract.create_mock_sentiment_response(
+                    "negative"
+                ).to_dict()
             else:
-                return OpenAICompletionContract.create_mock_sentiment_response("neutral").to_dict()
+                return OpenAICompletionContract.create_mock_sentiment_response(
+                    "neutral"
+                ).to_dict()
 
         elif "topic" in prompt or "classify" in prompt or "category" in prompt:
             if "science" in prompt or "climate" in prompt:
-                return OpenAICompletionContract.create_mock_topic_response(["science", "environment"]).to_dict()
+                return OpenAICompletionContract.create_mock_topic_response(
+                    ["science", "environment"]
+                ).to_dict()
             elif "technology" in prompt or "ai" in prompt:
-                return OpenAICompletionContract.create_mock_topic_response(["technology", "artificial intelligence"]).to_dict()
+                return OpenAICompletionContract.create_mock_topic_response(
+                    ["technology", "artificial intelligence"]
+                ).to_dict()
             else:
-                return OpenAICompletionContract.create_mock_topic_response(["general"]).to_dict()
+                return OpenAICompletionContract.create_mock_topic_response(
+                    ["general"]
+                ).to_dict()
 
         elif "summarize" in prompt or "summary" in prompt:
             return OpenAICompletionContract.create_mock_summary_response().to_dict()
 
         else:
             # Default response for unrecognized prompts
-            return OpenAICompletionContract.create_mock_sentiment_response("neutral").to_dict()
+            return OpenAICompletionContract.create_mock_sentiment_response(
+                "neutral"
+            ).to_dict()

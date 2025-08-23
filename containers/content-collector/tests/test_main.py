@@ -437,8 +437,16 @@ class TestContractValidation:
 
         # Required fields Reddit API always provides
         required_fields = [
-            'id', 'title', 'selftext', 'url', 'score', 'num_comments',
-            'created_utc', 'subreddit', 'author', 'permalink'
+            "id",
+            "title",
+            "selftext",
+            "url",
+            "score",
+            "num_comments",
+            "created_utc",
+            "subreddit",
+            "author",
+            "permalink",
         ]
 
         for field in required_fields:

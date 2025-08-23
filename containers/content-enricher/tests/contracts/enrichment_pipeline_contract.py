@@ -5,9 +5,9 @@ This ensures consistent data formats across all enrichment functions and
 provides realistic test data for pipeline testing.
 """
 
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -19,12 +19,23 @@ class SentimentAnalysisContract:
     scores: Dict[str, float]
 
     @classmethod
-    def create_mock(cls, sentiment: str = "positive", **overrides) -> "SentimentAnalysisContract":
+    def create_mock(
+        cls, sentiment: str = "positive", **overrides
+    ) -> "SentimentAnalysisContract":
         """Create mock sentiment analysis result."""
         sentiment_configs = {
-            "positive": {"confidence": 0.85, "scores": {"positive": 0.85, "neutral": 0.10, "negative": 0.05}},
-            "negative": {"confidence": 0.90, "scores": {"positive": 0.05, "neutral": 0.05, "negative": 0.90}},
-            "neutral": {"confidence": 0.75, "scores": {"positive": 0.30, "neutral": 0.50, "negative": 0.20}}
+            "positive": {
+                "confidence": 0.85,
+                "scores": {"positive": 0.85, "neutral": 0.10, "negative": 0.05},
+            },
+            "negative": {
+                "confidence": 0.90,
+                "scores": {"positive": 0.05, "neutral": 0.05, "negative": 0.90},
+            },
+            "neutral": {
+                "confidence": 0.75,
+                "scores": {"positive": 0.30, "neutral": 0.50, "negative": 0.20},
+            },
         }
 
         config = sentiment_configs.get(sentiment, sentiment_configs["neutral"])
@@ -43,13 +54,27 @@ class TopicClassificationContract:
     categories: Optional[List[str]] = None
 
     @classmethod
-    def create_mock(cls, primary_topic: str = "technology", **overrides) -> "TopicClassificationContract":
+    def create_mock(
+        cls, primary_topic: str = "technology", **overrides
+    ) -> "TopicClassificationContract":
         """Create mock topic classification result."""
         topic_configs = {
-            "technology": {"confidence": 0.88, "topics": ["technology", "artificial intelligence", "software"]},
-            "science": {"confidence": 0.92, "topics": ["science", "research", "environment"]},
-            "business": {"confidence": 0.78, "topics": ["business", "finance", "economy"]},
-            "health": {"confidence": 0.85, "topics": ["health", "medicine", "wellness"]}
+            "technology": {
+                "confidence": 0.88,
+                "topics": ["technology", "artificial intelligence", "software"],
+            },
+            "science": {
+                "confidence": 0.92,
+                "topics": ["science", "research", "environment"],
+            },
+            "business": {
+                "confidence": 0.78,
+                "topics": ["business", "finance", "economy"],
+            },
+            "health": {
+                "confidence": 0.85,
+                "topics": ["health", "medicine", "wellness"],
+            },
         }
 
         config = topic_configs.get(primary_topic, topic_configs["technology"])
@@ -67,28 +92,39 @@ class ContentSummaryContract:
     key_points: Optional[List[str]] = None
 
     @classmethod
-    def create_mock(cls, content_type: str = "technology", **overrides) -> "ContentSummaryContract":
+    def create_mock(
+        cls, content_type: str = "technology", **overrides
+    ) -> "ContentSummaryContract":
         """Create mock content summary."""
         summaries = {
             "technology": {
                 "summary": "This article discusses recent advances in artificial intelligence technology, focusing on machine learning applications and their potential impact on various industries.",
-                "key_points": ["AI technology advances", "Machine learning applications", "Industry impact"]
+                "key_points": [
+                    "AI technology advances",
+                    "Machine learning applications",
+                    "Industry impact",
+                ],
             },
             "science": {
                 "summary": "A comprehensive study on climate change reveals new insights into environmental patterns and their effects on global ecosystems.",
-                "key_points": ["Climate change research", "Environmental patterns", "Global ecosystem effects"]
+                "key_points": [
+                    "Climate change research",
+                    "Environmental patterns",
+                    "Global ecosystem effects",
+                ],
             },
             "business": {
                 "summary": "Market analysis shows significant growth in renewable energy investments, with major corporations shifting towards sustainable practices.",
-                "key_points": ["Renewable energy growth", "Corporate sustainability", "Market investment trends"]
-            }
+                "key_points": [
+                    "Renewable energy growth",
+                    "Corporate sustainability",
+                    "Market investment trends",
+                ],
+            },
         }
 
         config = summaries.get(content_type, summaries["technology"])
-        defaults = {
-            "word_count": len(config["summary"].split()),
-            **config
-        }
+        defaults = {"word_count": len(config["summary"].split()), **config}
         defaults.update(overrides)
         return cls(**defaults)
 
@@ -101,12 +137,23 @@ class TrendScoreContract:
     factors: Dict[str, float]
 
     @classmethod
-    def create_mock(cls, engagement_level: str = "medium", **overrides) -> "TrendScoreContract":
+    def create_mock(
+        cls, engagement_level: str = "medium", **overrides
+    ) -> "TrendScoreContract":
         """Create mock trend score."""
         engagement_configs = {
-            "high": {"trend_score": 0.85, "factors": {"normalized": 0.8, "engagement": 0.9, "decay": 1.0}},
-            "medium": {"trend_score": 0.65, "factors": {"normalized": 0.6, "engagement": 0.7, "decay": 0.9}},
-            "low": {"trend_score": 0.35, "factors": {"normalized": 0.4, "engagement": 0.3, "decay": 0.8}}
+            "high": {
+                "trend_score": 0.85,
+                "factors": {"normalized": 0.8, "engagement": 0.9, "decay": 1.0},
+            },
+            "medium": {
+                "trend_score": 0.65,
+                "factors": {"normalized": 0.6, "engagement": 0.7, "decay": 0.9},
+            },
+            "low": {
+                "trend_score": 0.35,
+                "factors": {"normalized": 0.4, "engagement": 0.3, "decay": 0.8},
+            },
         }
 
         config = engagement_configs.get(engagement_level, engagement_configs["medium"])
@@ -126,7 +173,9 @@ class EnrichmentResultContract:
     metadata: Dict[str, Any]
 
     @classmethod
-    def create_mock(cls, content_id: str = "test_123", **overrides) -> "EnrichmentResultContract":
+    def create_mock(
+        cls, content_id: str = "test_123", **overrides
+    ) -> "EnrichmentResultContract":
         """Create mock enrichment result."""
         sentiment = SentimentAnalysisContract.create_mock()
         topics = TopicClassificationContract.create_mock()
@@ -141,29 +190,26 @@ class EnrichmentResultContract:
                 "sentiment": {
                     "sentiment": sentiment.sentiment,
                     "confidence": sentiment.confidence,
-                    "scores": sentiment.scores
+                    "scores": sentiment.scores,
                 },
                 "topics": {
                     "primary_topic": topics.primary_topic,
                     "confidence": topics.confidence,
-                    "topics": topics.topics
+                    "topics": topics.topics,
                 },
                 "summary": {
                     "summary": summary.summary,
                     "word_count": summary.word_count,
-                    "key_points": summary.key_points
+                    "key_points": summary.key_points,
                 },
-                "trend": {
-                    "trend_score": trend.trend_score,
-                    "factors": trend.factors
-                }
+                "trend": {"trend_score": trend.trend_score, "factors": trend.factors},
             },
             "metadata": {
                 "enriched_at": datetime.now(timezone.utc).isoformat(),
                 "enrichment_version": "1.0.0",
                 "processing_time": 2.5,
-                "ai_model_used": "text-davinci-003"
-            }
+                "ai_model_used": "text-davinci-003",
+            },
         }
         defaults.update(overrides)
         return cls(**defaults)
@@ -184,16 +230,22 @@ class MockEnrichmentPipeline:
         content_text = content_item.get("content", "") + content_item.get("title", "")
 
         # Determine content characteristics
-        if any(word in content_text.lower() for word in ["amazing", "fantastic", "great"]):
+        if any(
+            word in content_text.lower() for word in ["amazing", "fantastic", "great"]
+        ):
             sentiment_type = "positive"
         elif any(word in content_text.lower() for word in ["terrible", "awful", "bad"]):
             sentiment_type = "negative"
         else:
             sentiment_type = "neutral"
 
-        if any(word in content_text.lower() for word in ["science", "climate", "research"]):
+        if any(
+            word in content_text.lower() for word in ["science", "climate", "research"]
+        ):
             topic_type = "science"
-        elif any(word in content_text.lower() for word in ["business", "market", "finance"]):
+        elif any(
+            word in content_text.lower() for word in ["business", "market", "finance"]
+        ):
             topic_type = "business"
         else:
             topic_type = "technology"
@@ -205,9 +257,14 @@ class MockEnrichmentPipeline:
 
         # Customize based on content analysis
         result.enrichment["sentiment"] = SentimentAnalysisContract.create_mock(
-            sentiment_type).__dict__
-        result.enrichment["topics"] = TopicClassificationContract.create_mock(topic_type).__dict__
-        result.enrichment["summary"] = ContentSummaryContract.create_mock(topic_type).__dict__
+            sentiment_type
+        ).__dict__
+        result.enrichment["topics"] = TopicClassificationContract.create_mock(
+            topic_type
+        ).__dict__
+        result.enrichment["summary"] = ContentSummaryContract.create_mock(
+            topic_type
+        ).__dict__
 
         self.last_enrichment = result
         return result.__dict__

@@ -24,7 +24,7 @@ from models import (
     EnrichmentOptions,
     EnrichmentRequest,
     EnrichmentResponse,
-    HealthResponse
+    HealthResponse,
 )
 from pydantic import BaseModel, Field, ValidationError
 from service_logic import ContentEnricherService
@@ -193,7 +193,9 @@ async def enrich_processed_content(processed_data: Dict[str, Any]):
 async def enrich_batch():
     """Enrich a batch of unenriched processed content."""
     try:
-        unenriched = await get_enricher_service().find_unenriched_processed_content(limit=5)
+        unenriched = await get_enricher_service().find_unenriched_processed_content(
+            limit=5
+        )
 
         if not unenriched:
             return {
@@ -245,7 +247,9 @@ async def get_status():
         stats = get_enricher_service().get_service_stats()
 
         # Get unenriched count
-        unenriched = await get_enricher_service().find_unenriched_processed_content(limit=100)
+        unenriched = await get_enricher_service().find_unenriched_processed_content(
+            limit=100
+        )
         unenriched_count = len(unenriched)
 
         return {

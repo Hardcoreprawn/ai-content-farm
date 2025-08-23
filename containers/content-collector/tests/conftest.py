@@ -5,6 +5,7 @@ Provides mocks and fixtures for isolated unit testing.
 """
 
 from unittest.mock import AsyncMock, Mock, patch
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -53,8 +54,9 @@ def mock_reddit_api():
 def setup_test_environment(mock_blob_storage, mock_reddit_api):
     """Set up test environment with mocked dependencies."""
     # Patch external dependencies
-    with patch("collector.fetch_from_subreddit", return_value=mock_reddit_api), \
-            patch("main.collector_service") as mock_service:
+    with patch("collector.fetch_from_subreddit", return_value=mock_reddit_api), patch(
+        "main.collector_service"
+    ) as mock_service:
 
         # Mock the service methods with smarter responses
         mock_service.storage = mock_blob_storage
@@ -65,8 +67,8 @@ def setup_test_environment(mock_blob_storage, mock_reddit_api):
             sources_data = []
             if args and len(args) > 0:
                 sources_data = args[0]
-            elif 'sources_data' in kwargs:
-                sources_data = kwargs['sources_data']
+            elif "sources_data" in kwargs:
+                sources_data = kwargs["sources_data"]
 
             # Handle empty sources
             if not sources_data or len(sources_data) == 0:
@@ -77,10 +79,10 @@ def setup_test_environment(mock_blob_storage, mock_reddit_api):
                         "total_collected": 0,
                         "total_sources": 0,
                         "processing_time": 0.1,
-                        "timestamp": "2025-08-23T12:00:00Z"
+                        "timestamp": "2025-08-23T12:00:00Z",
                     },
                     "timestamp": "2025-08-23T12:00:00Z",
-                    "storage_location": None
+                    "storage_location": None,
                 }
 
             # Handle invalid source types
@@ -96,10 +98,10 @@ def setup_test_environment(mock_blob_storage, mock_reddit_api):
                         "total_sources": len(sources_data),
                         "processing_time": 0.1,
                         "timestamp": "2025-08-23T12:00:00Z",
-                        "errors": 1
+                        "errors": 1,
                     },
                     "timestamp": "2025-08-23T12:00:00Z",
-                    "storage_location": None
+                    "storage_location": None,
                 }
 
             # Default successful response
@@ -112,7 +114,7 @@ def setup_test_environment(mock_blob_storage, mock_reddit_api):
                         "url": "https://reddit.com/r/test/test1",
                         "score": 100,
                         "source": "reddit",
-                        "metadata": {"comments": 10, "created_utc": 1629800000}
+                        "metadata": {"comments": 10, "created_utc": 1629800000},
                     },
                     {
                         "id": "test_id_2",
@@ -120,25 +122,29 @@ def setup_test_environment(mock_blob_storage, mock_reddit_api):
                         "url": "https://reddit.com/r/test/test2",
                         "score": 50,
                         "source": "reddit",
-                        "metadata": {"comments": 5, "created_utc": 1629800100}
-                    }
+                        "metadata": {"comments": 5, "created_utc": 1629800100},
+                    },
                 ],
                 "metadata": {
                     "total_collected": 2,
                     "total_sources": 1,
                     "processing_time": 1.5,
-                    "timestamp": "2025-08-23T12:00:00Z"
+                    "timestamp": "2025-08-23T12:00:00Z",
                 },
                 "timestamp": "2025-08-23T12:00:00Z",
-                "storage_location": "mock://blob/collection_test_123.json"
+                "storage_location": "mock://blob/collection_test_123.json",
             }
 
-        mock_service.collect_and_store_content = AsyncMock(side_effect=smart_collect_response)
-        mock_service.get_stats = Mock(return_value={
-            "total_collections": 1,
-            "successful_collections": 1,
-            "failed_collections": 0,
-            "last_collection": "test_collection_123",
-        })
+        mock_service.collect_and_store_content = AsyncMock(
+            side_effect=smart_collect_response
+        )
+        mock_service.get_stats = Mock(
+            return_value={
+                "total_collections": 1,
+                "successful_collections": 1,
+                "failed_collections": 0,
+                "last_collection": "test_collection_123",
+            }
+        )
 
         yield

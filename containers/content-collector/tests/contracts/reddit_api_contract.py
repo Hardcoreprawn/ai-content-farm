@@ -5,9 +5,9 @@ This serves as both documentation and a testing contract to ensure our mocks
 match the real Reddit API responses.
 """
 
-from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -48,7 +48,7 @@ class RedditPostContract:
             "permalink": "/r/technology/comments/mock_post_123/mock_reddit_post_title/",
             "thumbnail": "self",
             "is_self": True,
-            "stickied": False
+            "stickied": False,
         }
         defaults.update(overrides)
         return cls(**defaults)
@@ -62,11 +62,11 @@ class RedditListingContract:
     data: Optional[Dict[str, Any]] = None
 
     @classmethod
-    def create_mock(cls, posts: List[RedditPostContract], after: Optional[str] = None) -> "RedditListingContract":
+    def create_mock(
+        cls, posts: List[RedditPostContract], after: Optional[str] = None
+    ) -> "RedditListingContract":
         """Create a mock Reddit listing response."""
-        children = [
-            {"kind": "t3", "data": post.__dict__} for post in posts
-        ]
+        children = [{"kind": "t3", "data": post.__dict__} for post in posts]
 
         data = {
             "after": after,
@@ -79,7 +79,9 @@ class RedditListingContract:
         return cls(kind="Listing", data=data)
 
 
-def create_realistic_reddit_posts(count: int = 3, subreddit: str = "technology") -> List[RedditPostContract]:
+def create_realistic_reddit_posts(
+    count: int = 3, subreddit: str = "technology"
+) -> List[RedditPostContract]:
     """Create realistic Reddit posts for testing."""
     posts = []
 
@@ -102,27 +104,31 @@ def create_realistic_reddit_posts(count: int = 3, subreddit: str = "technology")
             "selftext": "Apple's latest silicon includes specialized neural processing units...",
             "score": 2156,
             "num_comments": 421,
-        }
+        },
     ]
 
     for i in range(min(count, len(sample_data))):
         data = sample_data[i].copy()
-        data.update({
-            "id": f"mock_{subreddit}_{i+1}",
-            "subreddit": subreddit,
-            "url": f"https://www.reddit.com/r/{subreddit}/comments/mock_{i+1}/",
-            "permalink": f"/r/{subreddit}/comments/mock_{i+1}/",
-        })
+        data.update(
+            {
+                "id": f"mock_{subreddit}_{i+1}",
+                "subreddit": subreddit,
+                "url": f"https://www.reddit.com/r/{subreddit}/comments/mock_{i+1}/",
+                "permalink": f"/r/{subreddit}/comments/mock_{i+1}/",
+            }
+        )
         posts.append(RedditPostContract.create_mock(**data))
 
     # If we need more posts than sample data, create generic ones
     for i in range(len(sample_data), count):
-        posts.append(RedditPostContract.create_mock(
-            id=f"mock_{subreddit}_{i+1}",
-            title=f"Mock Post {i+1} from r/{subreddit}",
-            subreddit=subreddit,
-            score=100 + i * 50,
-            num_comments=10 + i * 5,
-        ))
+        posts.append(
+            RedditPostContract.create_mock(
+                id=f"mock_{subreddit}_{i+1}",
+                title=f"Mock Post {i+1} from r/{subreddit}",
+                subreddit=subreddit,
+                score=100 + i * 50,
+                num_comments=10 + i * 5,
+            )
+        )
 
     return posts

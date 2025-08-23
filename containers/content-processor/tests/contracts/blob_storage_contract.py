@@ -5,10 +5,10 @@ This ensures our mocks behave exactly like Azure Blob Storage, including
 error conditions, response formats, and edge cases.
 """
 
-from typing import Dict, List, Any, Optional
+import json
 from dataclasses import dataclass
 from datetime import datetime
-import json
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -31,7 +31,7 @@ class BlobPropertiesContract:
             "last_modified": datetime.now(),
             "etag": f'"0x8D{name.replace("/", "").replace(".", "")}"',
             "content_type": "application/json",
-            "metadata": {}
+            "metadata": {},
         }
         defaults.update(overrides)
         return cls(**defaults)
@@ -45,7 +45,9 @@ class MockBlobStorageClient:
         self._containers: Dict[str, Dict[str, str]] = {}
         self._blob_properties: Dict[str, BlobPropertiesContract] = {}
 
-    def upload_text(self, container_name: str, blob_name: str, content: str) -> Dict[str, Any]:
+    def upload_text(
+        self, container_name: str, blob_name: str, content: str
+    ) -> Dict[str, Any]:
         """Upload text content to blob storage.
 
         Mimics Azure Blob Storage upload_blob response format.
@@ -60,8 +62,7 @@ class MockBlobStorageClient:
         # Create blob properties
         blob_key = f"{container_name}/{blob_name}"
         self._blob_properties[blob_key] = BlobPropertiesContract.create_mock(
-            name=blob_name,
-            size=len(content.encode('utf-8'))
+            name=blob_name, size=len(content.encode("utf-8"))
         )
 
         # Return Azure-style response
@@ -70,7 +71,7 @@ class MockBlobStorageClient:
             "last_modified": self._blob_properties[blob_key].last_modified,
             "version_id": None,
             "encryption_scope": None,
-            "request_server_encrypted": True
+            "request_server_encrypted": True,
         }
 
     def download_text(self, container_name: str, blob_name: str) -> str:
@@ -82,7 +83,9 @@ class MockBlobStorageClient:
             raise Exception(f"Container '{container_name}' not found")
 
         if blob_name not in self._containers[container_name]:
-            raise Exception(f"Blob '{blob_name}' not found in container '{container_name}'")
+            raise Exception(
+                f"Blob '{blob_name}' not found in container '{container_name}'"
+            )
 
         return self._containers[container_name][blob_name]
 
@@ -100,13 +103,21 @@ class MockBlobStorageClient:
                 blob_key = f"{container_name}/{blob_name}"
                 properties = self._blob_properties.get(blob_key)
 
-                blobs.append({
-                    "name": blob_name,
-                    "size": len(content.encode('utf-8')) if content else 0,
-                    "last_modified": properties.last_modified if properties else datetime.now(),
-                    "etag": properties.etag if properties else f'"mock_etag_{blob_name}"',
-                    "content_type": "application/json"
-                })
+                blobs.append(
+                    {
+                        "name": blob_name,
+                        "size": len(content.encode("utf-8")) if content else 0,
+                        "last_modified": (
+                            properties.last_modified if properties else datetime.now()
+                        ),
+                        "etag": (
+                            properties.etag
+                            if properties
+                            else f'"mock_etag_{blob_name}"'
+                        ),
+                        "content_type": "application/json",
+                    }
+                )
 
         return sorted(blobs, key=lambda x: x["name"])
 
@@ -128,7 +139,9 @@ class BlobStorageContract:
     """Contract defining expected blob storage data formats."""
 
     @staticmethod
-    def create_realistic_collection_data(collection_id: str, items: List[Dict[str, Any]]) -> str:
+    def create_realistic_collection_data(
+        collection_id: str, items: List[Dict[str, Any]]
+    ) -> str:
         """Create realistic content collection data that matches production format."""
         collection_data = {
             "collection_id": collection_id,
@@ -140,15 +153,19 @@ class BlobStorageContract:
                     "sources_processed": 1,
                     "items_collected": len(items),
                     "deduplication_enabled": True,
-                    "quality_filtering_applied": True
-                }
+                    "quality_filtering_applied": True,
+                },
             },
             "items": items,
             "provenance": {
                 "collector_version": "1.2.0",
                 "collection_method": "reddit_api_v1",
-                "quality_checks": ["content_length", "score_threshold", "spam_detection"]
-            }
+                "quality_checks": [
+                    "content_length",
+                    "score_threshold",
+                    "spam_detection",
+                ],
+            },
         }
 
         return json.dumps(collection_data, indent=2)

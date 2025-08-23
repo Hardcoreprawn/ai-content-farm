@@ -5,11 +5,12 @@ Provides shared test fixtures and configuration for pytest.
 Includes Azurite integration for blob storage testing.
 """
 
-from fastapi.testclient import TestClient
-import pytest
 import os
 import sys
 from pathlib import Path
+
+import pytest
+from fastapi.testclient import TestClient
 
 # Ensure this container directory is first on sys.path so tests importing
 # top-level modules like `main` and `enricher` resolve to the local files.
@@ -52,10 +53,7 @@ def sample_content():
         "published_at": "2024-01-15T10:30:00Z",
         "source": "test_source",
         "author": "Test Author",
-        "metadata": {
-            "word_count": 100,
-            "estimated_read_time": "1 min"
-        }
+        "metadata": {"word_count": 100, "estimated_read_time": "1 min"},
     }
 
 
@@ -64,4 +62,5 @@ def test_client():
     """Create a FastAPI test client."""
     # Import here to avoid circular imports
     from main import app
+
     return TestClient(app)

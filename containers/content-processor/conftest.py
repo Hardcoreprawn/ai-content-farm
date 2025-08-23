@@ -1,8 +1,9 @@
 import os
 import sys
 from pathlib import Path
+from typing import Any, Dict
+
 import pytest
-from typing import Dict, Any
 
 root = Path(__file__).parent
 # Ensure this container directory is first on sys.path so tests importing
@@ -38,7 +39,7 @@ def sample_reddit_post():
         "subreddit": "technology",
         "author": "tech_researcher",
         "url": "https://example.com/ai-breakthrough",
-        "upvote_ratio": 0.94
+        "upvote_ratio": 0.94,
     }
 
 
@@ -50,9 +51,9 @@ def sample_collection_data(sample_reddit_post):
         "metadata": {
             "total_collected": 1,
             "timestamp": "2025-08-23T10:00:00Z",
-            "collection_version": "1.0.0"
+            "collection_version": "1.0.0",
         },
-        "items": [sample_reddit_post]
+        "items": [sample_reddit_post],
     }
 
 
@@ -60,6 +61,7 @@ def sample_collection_data(sample_reddit_post):
 def mock_blob_storage():
     """Mock blob storage client for fast unit tests."""
     from tests.contracts.blob_storage_contract import MockBlobStorageClient
+
     return MockBlobStorageClient()
 
 
@@ -67,4 +69,5 @@ def mock_blob_storage():
 def mock_openai_client():
     """Mock OpenAI client for fast unit tests."""
     from tests.contracts.openai_api_contract import MockOpenAIClient
+
     return MockOpenAIClient()

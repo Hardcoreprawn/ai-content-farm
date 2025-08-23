@@ -8,6 +8,7 @@ and follows standardized patterns across the pipeline.
 import pytest
 from fastapi.testclient import TestClient
 from main import app
+
 from libs.blob_storage import BlobContainers, BlobStorageClient
 
 
@@ -94,7 +95,12 @@ class TestStandardization:
         data = response.json()
 
         # Verify standardized response structure
-        required_top_level = ["collection_id", "collected_items", "metadata", "timestamp"]
+        required_top_level = [
+            "collection_id",
+            "collected_items",
+            "metadata",
+            "timestamp",
+        ]
         for field in required_top_level:
             assert field in data, f"Missing required field: {field}"
 
@@ -121,15 +127,18 @@ class TestStandardization:
     def test_pipeline_readiness(self, client):
         """Test that collector is ready for pipeline integration."""
         # Test collection
-        response = client.post("/collect", json={
-            "sources": [
-                {
-                    "type": "reddit",
-                    "subreddits": ["test"],
-                    "limit": 1,
-                }
-            ]
-        })
+        response = client.post(
+            "/collect",
+            json={
+                "sources": [
+                    {
+                        "type": "reddit",
+                        "subreddits": ["test"],
+                        "limit": 1,
+                    }
+                ]
+            },
+        )
 
         assert response.status_code == 200
         data = response.json()
@@ -144,7 +153,9 @@ class TestStandardization:
         # Processing time helps with pipeline monitoring
         processing_time_fields = ["processing_time_seconds", "processing_time"]
         has_processing_time = any(field in metadata for field in processing_time_fields)
-        assert has_processing_time, "Must include processing time for pipeline monitoring"
+        assert (
+            has_processing_time
+        ), "Must include processing time for pipeline monitoring"
 
 
 class TestExternalDependencyHandling:

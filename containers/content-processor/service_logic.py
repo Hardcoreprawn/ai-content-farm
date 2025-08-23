@@ -29,6 +29,7 @@ class ContentProcessorService:
         elif os.getenv("PYTEST_CURRENT_TEST"):
             # Use mock during tests
             from tests.contracts.blob_storage_contract import MockBlobStorageClient
+
             self.storage = MockBlobStorageClient()
         else:
             self.storage = BlobStorageClient()

@@ -5,9 +5,9 @@ This ensures our mocks behave exactly like OpenAI, including
 response formats, token usage, and error conditions.
 """
 
-from typing import Dict, List, Any, Optional
-from dataclasses import dataclass
 import json
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 
 @dataclass
@@ -22,25 +22,26 @@ class OpenAIResponseContract:
     object: str = "chat.completion"
 
     @classmethod
-    def create_mock_processing_response(cls, processed_content: str, **overrides) -> "OpenAIResponseContract":
+    def create_mock_processing_response(
+        cls, processed_content: str, **overrides
+    ) -> "OpenAIResponseContract":
         """Create mock OpenAI response for content processing."""
         defaults = {
             "id": "chatcmpl-mock123456",
             "model": "gpt-4o-mini",
-            "choices": [{
-                "index": 0,
-                "message": {
-                    "role": "assistant",
-                    "content": processed_content
-                },
-                "finish_reason": "stop"
-            }],
+            "choices": [
+                {
+                    "index": 0,
+                    "message": {"role": "assistant", "content": processed_content},
+                    "finish_reason": "stop",
+                }
+            ],
             "usage": {
                 "prompt_tokens": 150,
                 "completion_tokens": 200,
-                "total_tokens": 350
+                "total_tokens": 350,
             },
-            "created": 1692800000
+            "created": 1692800000,
         }
         defaults.update(overrides)
         return cls(**defaults)
@@ -54,12 +55,16 @@ class MockOpenAIClient:
         self.request_count = 0
         self.total_tokens_used = 0
 
-    async def chat_completions_create(self, model: str, messages: List[Dict[str, str]], **kwargs) -> OpenAIResponseContract:
+    async def chat_completions_create(
+        self, model: str, messages: List[Dict[str, str]], **kwargs
+    ) -> OpenAIResponseContract:
         """Mock chat completion that processes content realistically."""
         self.request_count += 1
 
         # Extract the content to process from messages
-        user_message = next((msg["content"] for msg in messages if msg["role"] == "user"), "")
+        user_message = next(
+            (msg["content"] for msg in messages if msg["role"] == "user"), ""
+        )
 
         # Simulate AI processing based on the prompt
         if "title" in user_message.lower():
@@ -82,9 +87,9 @@ class MockOpenAIClient:
             usage={
                 "prompt_tokens": int(prompt_tokens),
                 "completion_tokens": int(completion_tokens),
-                "total_tokens": total_tokens
+                "total_tokens": total_tokens,
             },
-            model=model
+            model=model,
         )
 
     def _process_title(self, content: str) -> str:
@@ -97,16 +102,18 @@ class MockOpenAIClient:
 
     def _extract_insights(self, content: str) -> str:
         """Simulate AI insight extraction."""
-        return json.dumps({
-            "key_insights": [
-                "Technology advancement accelerating",
-                "Practical applications emerging",
-                "Industry transformation expected"
-            ],
-            "sentiment": "positive",
-            "complexity_score": 7.5,
-            "readability_grade": "college"
-        })
+        return json.dumps(
+            {
+                "key_insights": [
+                    "Technology advancement accelerating",
+                    "Practical applications emerging",
+                    "Industry transformation expected",
+                ],
+                "sentiment": "positive",
+                "complexity_score": 7.5,
+                "readability_grade": "college",
+            }
+        )
 
 
 # Helper functions for creating realistic test data
@@ -122,7 +129,7 @@ def create_realistic_reddit_post() -> Dict[str, Any]:
         "subreddit": "technology",
         "author": "tech_researcher",
         "url": "https://example.com/ai-breakthrough",
-        "upvote_ratio": 0.94
+        "upvote_ratio": 0.94,
     }
 
 
