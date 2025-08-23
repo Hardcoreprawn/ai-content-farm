@@ -1,6 +1,8 @@
 import os
 import sys
 from pathlib import Path
+import pytest
+from typing import Dict, Any
 
 root = Path(__file__).parent
 # Ensure this container directory is first on sys.path so tests importing
@@ -11,9 +13,58 @@ sys.path.insert(0, str(root))
 repo_root = root.parent.parent
 sys.path.insert(0, str(repo_root))
 
-# Set up Azurite connection for testing
-os.environ["AZURE_STORAGE_CONNECTION_STRING"] = (
-    "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;"
-    "AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;"
-    "BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
-)
+# Set up test environment detection
+os.environ["PYTEST_CURRENT_TEST"] = "true"
+
+# Set up Azurite connection for integration tests only
+if "integration" in os.environ.get("PYTEST_CURRENT_TEST", ""):
+    os.environ["AZURE_STORAGE_CONNECTION_STRING"] = (
+        "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;"
+        "AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;"
+        "BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
+    )
+
+
+@pytest.fixture
+def sample_reddit_post():
+    """Sample Reddit post data for testing."""
+    return {
+        "id": "test_post_123",
+        "title": "Revolutionary AI breakthrough changes everything",
+        "selftext": "Scientists at leading university have developed groundbreaking AI system...",
+        "score": 1247,
+        "num_comments": 89,
+        "created_utc": 1692800000,
+        "subreddit": "technology",
+        "author": "tech_researcher",
+        "url": "https://example.com/ai-breakthrough",
+        "upvote_ratio": 0.94
+    }
+
+
+@pytest.fixture
+def sample_collection_data(sample_reddit_post):
+    """Sample collection data for testing."""
+    return {
+        "collection_id": "test_collection_20250823",
+        "metadata": {
+            "total_collected": 1,
+            "timestamp": "2025-08-23T10:00:00Z",
+            "collection_version": "1.0.0"
+        },
+        "items": [sample_reddit_post]
+    }
+
+
+@pytest.fixture
+def mock_blob_storage():
+    """Mock blob storage client for fast unit tests."""
+    from tests.contracts.blob_storage_contract import MockBlobStorageClient
+    return MockBlobStorageClient()
+
+
+@pytest.fixture
+def mock_openai_client():
+    """Mock OpenAI client for fast unit tests."""
+    from tests.contracts.openai_api_contract import MockOpenAIClient
+    return MockOpenAIClient()

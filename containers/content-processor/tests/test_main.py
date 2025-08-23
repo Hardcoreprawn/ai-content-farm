@@ -2,13 +2,11 @@
 """
 API Contract Tests for Content Processor
 
-Test-first development: Define the API behavior before implementation.
-These tests will fail initially - that's the point!
+Test FastAPI endpoints with contract-based mocks for fast, reliable testing.
 """
 
 import json
-from unittest.mock import patch
-
+from unittest.mock import patch, AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
@@ -24,14 +22,16 @@ except ImportError:
 class TestHealthEndpoint:
     """Test health check endpoint - must work for container orchestration"""
 
-    def test_health_endpoint_exists(self):
+    @patch('config.check_azure_connectivity', return_value=True)
+    def test_health_endpoint_exists(self, mock_azure_check):
         """Health endpoint must return 200 OK"""
         if client is None:
             pytest.skip("main.py not implemented yet")
         response = client.get("/health")
         assert response.status_code == 200
 
-    def test_health_endpoint_format(self):
+    @patch('config.check_azure_connectivity', return_value=True)
+    def test_health_endpoint_format(self, mock_azure_check):
         """Health endpoint must return service status"""
         if client is None:
             pytest.skip("main.py not implemented yet")
@@ -65,18 +65,36 @@ class TestProcessEndpoint:
             "options": {"format": "structured"},
         }
 
-    def test_process_endpoint_exists(self, sample_reddit_data):
+    @patch('service_logic.ContentProcessorService')
+    def test_process_endpoint_exists(self, mock_service_class, sample_reddit_data):
         """Process endpoint must exist and accept POST requests"""
         if client is None:
             pytest.skip("main.py not implemented yet")
+
+        # Mock the service to return quickly
+        mock_service = mock_service_class.return_value
+        mock_service.process_collected_content = AsyncMock(return_value={
+            "processed_items": [{"title": "Processed: Amazing AI breakthrough"}],
+            "metadata": {"total_processed": 1}
+        })
+
         response = client.post("/process", json=sample_reddit_data)
         # Should not be 404 - endpoint must exist
         assert response.status_code != 404
 
-    def test_process_valid_reddit_data(self, sample_reddit_data):
+    @patch('service_logic.ContentProcessorService')
+    def test_process_valid_reddit_data(self, mock_service_class, sample_reddit_data):
         """Process endpoint must handle valid Reddit data"""
         if client is None:
             pytest.skip("main.py not implemented yet")
+
+        # Mock the service to return realistic data fast
+        mock_service = mock_service_class.return_value
+        mock_service.process_collected_content = AsyncMock(return_value={
+            "processed_items": [{"title": "Processed: Amazing AI breakthrough"}],
+            "metadata": {"total_processed": 1}
+        })
+
         response = client.post("/process", json=sample_reddit_data)
         assert response.status_code == 200
 
@@ -100,10 +118,25 @@ class TestProcessEndpoint:
         response = client.post("/process", json=invalid_data)
         assert response.status_code == 422
 
-    def test_processed_item_structure(self, sample_reddit_data):
+    @patch('service_logic.ContentProcessorService')
+    def test_processed_item_structure(self, mock_service_class, sample_reddit_data):
         """Processed items must have required fields"""
         if client is None:
             pytest.skip("main.py not implemented yet")
+
+        # Mock service with realistic response structure
+        mock_service = mock_service_class.return_value
+        mock_service.process_collected_content = AsyncMock(return_value={
+            "processed_items": [{
+                "id": "test_post_123",
+                "title": "Processed: Amazing AI breakthrough",
+                "score": 1250,
+                "engagement_score": 0.85,
+                "content_type": "text"
+            }],
+            "metadata": {"total_processed": 1}
+        })
+
         response = client.post("/process", json=sample_reddit_data)
         assert response.status_code == 200
 
@@ -136,10 +169,19 @@ class TestErrorHandling:
         )
         assert response.status_code == 422
 
-    def test_large_payload_handling(self):
+    @patch('service_logic.ContentProcessorService')
+    def test_large_payload_handling(self, mock_service_class):
         """Must handle reasonably large payloads"""
         if client is None:
             pytest.skip("main.py not implemented yet")
+
+        # Mock service to handle large payload quickly
+        mock_service = mock_service_class.return_value
+        mock_service.process_collected_content = AsyncMock(return_value={
+            "processed_items": [{"title": f"Processed item {i}"} for i in range(100)],
+            "metadata": {"total_processed": 100}
+        })
+
         # Create large but reasonable payload (100 items)
         large_data = {
             "source": "reddit",

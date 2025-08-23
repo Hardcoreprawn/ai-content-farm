@@ -2,6 +2,7 @@
 minversion = "6.0"
 testpaths = ["tests"]
 markers = [
+    "unit: marks tests as unit tests (fast, no external dependencies)",
     "integration: marks tests as integration tests (require Azure services)",
     "slow: marks tests as slow running (performance tests)",
 ]

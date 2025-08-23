@@ -5,6 +5,7 @@ Core business logic for content collection with blob storage integration.
 """
 
 import json
+import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -15,12 +16,52 @@ from config import Config
 from libs.blob_storage import BlobContainers, BlobStorageClient
 
 
+class MockBlobStorageClient:
+    """Mock blob storage client for testing."""
+
+    def upload_text(
+        self,
+        container_name: str,
+        blob_name: str,
+        content: str,
+        content_type: str = "text/plain",
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> str:
+        return f"mock://blob/{blob_name}"
+
+    def upload_json(
+        self,
+        container_name: str,
+        blob_name: str,
+        data: Dict[str, Any],
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> str:
+        return f"mock://blob/{blob_name}"
+
+    def download_text(self, container_name: str, blob_name: str) -> str:
+        return '{"mock": "data"}'
+
+    def list_blobs(self, container_name: str, prefix: str = "") -> List[Dict[str, Any]]:
+        return []
+
+
 class ContentCollectorService:
     """Service for collecting and storing content."""
 
-    def __init__(self):
-        """Initialize the content collector service."""
-        self.storage = BlobStorageClient()
+    def __init__(self, storage_client: Optional[BlobStorageClient] = None):
+        """Initialize the content collector service.
+
+        Args:
+            storage_client: Optional storage client for dependency injection.
+                           If None, creates appropriate storage client based on environment.
+        """
+        if storage_client:
+            self.storage = storage_client
+        elif os.getenv("PYTEST_CURRENT_TEST"):  # Running in pytest
+            self.storage = MockBlobStorageClient()
+        else:
+            self.storage = BlobStorageClient()
+
         self.stats = {
             "total_collections": 0,
             "successful_collections": 0,

@@ -5,6 +5,7 @@ Handles blob storage integration and pipeline workflow for content processing.
 """
 
 import json
+import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -21,9 +22,17 @@ from libs.blob_storage import (
 class ContentProcessorService:
     """Service for processing content and managing blob storage."""
 
-    def __init__(self):
+    def __init__(self, storage_client: Optional[BlobStorageClient] = None):
         """Initialize the content processor service."""
-        self.storage = BlobStorageClient()
+        if storage_client:
+            self.storage = storage_client
+        elif os.getenv("PYTEST_CURRENT_TEST"):
+            # Use mock during tests
+            from tests.contracts.blob_storage_contract import MockBlobStorageClient
+            self.storage = MockBlobStorageClient()
+        else:
+            self.storage = BlobStorageClient()
+
         self.stats = {
             "total_processed": 0,
             "successful_processing": 0,

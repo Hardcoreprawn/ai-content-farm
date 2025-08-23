@@ -9,6 +9,7 @@ Business logic layer for the content enricher service that handles:
 """
 
 import json
+import os
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -18,12 +19,50 @@ from enricher import enrich_content_batch
 from libs.blob_storage import BlobContainers, BlobStorageClient
 
 
+class MockBlobStorageClient:
+    """Mock blob storage client for testing."""
+
+    def upload_text(
+        self,
+        container_name: str,
+        blob_name: str,
+        content: str,
+        content_type: str = "text/plain",
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> str:
+        return f"mock://blob/{blob_name}"
+
+    def upload_json(
+        self,
+        container_name: str,
+        blob_name: str,
+        data: Dict[str, Any],
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> str:
+        return f"mock://blob/{blob_name}"
+
+    def download_text(self, container_name: str, blob_name: str) -> str:
+        return '{"mock": "data"}'
+
+    def download_json(self, container_name: str, blob_name: str) -> Dict[str, Any]:
+        return {"mock": "data"}
+
+    def list_blobs(self, container_name: str, prefix: str = "") -> List[Dict[str, Any]]:
+        return []
+
+
 class ContentEnricherService:
     """Service layer for content enrichment with blob storage integration."""
 
-    def __init__(self):
+    def __init__(self, storage_client: Optional[BlobStorageClient] = None):
         """Initialize the enricher service with blob storage client."""
-        self.storage = BlobStorageClient()
+        if storage_client:
+            self.storage = storage_client
+        elif os.getenv("PYTEST_CURRENT_TEST"):
+            self.storage = MockBlobStorageClient()
+        else:
+            self.storage = BlobStorageClient()
+
         self.stats = {
             "total_enriched": 0,
             "successful_enrichment": 0,

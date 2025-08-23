@@ -19,6 +19,13 @@ from enricher import enrich_content_batch
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from models import (
+    ContentItem,
+    EnrichmentOptions,
+    EnrichmentRequest,
+    EnrichmentResponse,
+    HealthResponse
+)
 from pydantic import BaseModel, Field, ValidationError
 from service_logic import ContentEnricherService
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -27,9 +34,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize service
-enricher_service = ContentEnricherService()
-
 # Create FastAPI app
 app = FastAPI(
     title="Content Enricher",
@@ -37,81 +41,19 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Store service start time for uptime calculation
+service_start_time = datetime.now(timezone.utc)
 
-# Pydantic models for request/response validation
-class ContentItem(BaseModel):
-    """Content item to be enriched."""
-
-    id: str = Field(
-        ..., description="Unique identifier for the content item", min_length=1
-    )
-    title: str = Field(..., description="Original title of the content", min_length=1)
-    clean_title: str = Field(
-        ..., description="Cleaned title without special characters", min_length=1
-    )
-    normalized_score: Optional[float] = Field(
-        0.0, ge=0.0, le=1.0, description="Normalized score (0-1)"
-    )
-    engagement_score: Optional[float] = Field(
-        0.0, ge=0.0, le=1.0, description="Engagement score (0-1)"
-    )
-    source_url: Optional[str] = Field(None, description="URL to the original content")
-    published_at: Optional[str] = Field(
-        None, description="Publication timestamp in ISO format"
-    )
-    content_type: Optional[str] = Field(
-        "text", description="Type of content (text, link, image)"
-    )
-    source_metadata: Optional[Dict[str, Any]] = Field(
-        default_factory=dict, description="Source-specific metadata"
-    )
+# Initialize service lazily to avoid import-time dependencies
+enricher_service = None
 
 
-class EnrichmentOptions(BaseModel):
-    """Options for content enrichment."""
-
-    include_summary: bool = Field(
-        True, description="Whether to generate content summaries"
-    )
-    max_summary_length: int = Field(
-        200, ge=50, le=1000, description="Maximum length of generated summaries"
-    )
-    classify_topics: bool = Field(
-        True, description="Whether to classify content topics"
-    )
-    analyze_sentiment: bool = Field(
-        True, description="Whether to analyze content sentiment"
-    )
-    calculate_trends: bool = Field(
-        True, description="Whether to calculate trend scores"
-    )
-
-
-class EnrichmentRequest(BaseModel):
-    """Request to enrich content items."""
-
-    items: List[ContentItem] = Field(..., description="List of content items to enrich")
-    options: Optional[EnrichmentOptions] = Field(
-        default=None, description="Enrichment options"
-    )
-
-
-class EnrichmentResponse(BaseModel):
-    """Response from content enrichment."""
-
-    enriched_items: List[Dict[str, Any]] = Field(
-        ..., description="List of enriched content items"
-    )
-    metadata: Dict[str, Any] = Field(..., description="Processing metadata")
-
-
-class HealthResponse(BaseModel):
-    """Health check response."""
-
-    status: str = Field(..., description="Health status")
-    service: str = Field(..., description="Service name")
-    azure_connectivity: bool = Field(..., description="Azure connectivity status")
-    openai_available: bool = Field(..., description="OpenAI API availability")
+def get_enricher_service() -> ContentEnricherService:
+    """Get or create the enricher service instance."""
+    global enricher_service
+    if enricher_service is None:
+        enricher_service = ContentEnricherService()
+    return enricher_service
 
 
 # Global exception handlers
@@ -238,7 +180,7 @@ async def enrich_content(request: EnrichmentRequest) -> Dict[str, Any]:
 async def enrich_processed_content(processed_data: Dict[str, Any]):
     """Enrich processed content from the content-processor."""
     try:
-        result = await enricher_service.enrich_processed_content(
+        result = await get_enricher_service().enrich_processed_content(
             processed_data=processed_data, save_to_storage=True
         )
         return result
@@ -251,7 +193,7 @@ async def enrich_processed_content(processed_data: Dict[str, Any]):
 async def enrich_batch():
     """Enrich a batch of unenriched processed content."""
     try:
-        unenriched = await enricher_service.find_unenriched_processed_content(limit=5)
+        unenriched = await get_enricher_service().find_unenriched_processed_content(limit=5)
 
         if not unenriched:
             return {
@@ -263,7 +205,7 @@ async def enrich_batch():
         results = []
         for processed_info in unenriched:
             try:
-                result = await enricher_service.enrich_processed_content(
+                result = await get_enricher_service().enrich_processed_content(
                     processed_data=processed_info["processed_data"],
                     save_to_storage=True,
                 )
@@ -300,10 +242,10 @@ async def get_status():
     """Get enricher service status and pipeline information."""
     try:
         # Get service statistics
-        stats = enricher_service.get_service_stats()
+        stats = get_enricher_service().get_service_stats()
 
         # Get unenriched count
-        unenriched = await enricher_service.find_unenriched_processed_content(limit=100)
+        unenriched = await get_enricher_service().find_unenriched_processed_content(limit=100)
         unenriched_count = len(unenriched)
 
         return {
