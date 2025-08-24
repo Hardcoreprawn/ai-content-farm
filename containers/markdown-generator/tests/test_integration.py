@@ -1,4 +1,4 @@
-"""Integration tests for blob storage operations."""
+"""Integration tests for markdown generator service operations."""
 
 import json
 from datetime import datetime, timezone
@@ -6,43 +6,34 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-# Create a mock AzureError that inherits from Exception for testing
+from libs.blob_storage import BlobContainers, BlobStorageClient
+from service_logic import ContentWatcher, MarkdownGenerator
 
 
-class MockAzureError(Exception):
-    pass
-
-
-# Mock Azure dependencies with proper exception types
-with patch("azure.storage.blob.BlobServiceClient"), patch(
-    "azure.core.exceptions.ResourceNotFoundError"
-), patch("azure.core.exceptions.AzureError", MockAzureError):
-    from libs.blob_storage import BlobStorageClient
-
-
-class TestBlobStorageIntegration:
-    """Test blob storage integration functionality."""
+class TestMarkdownGeneratorIntegration:
+    """Test markdown generator integration functionality."""
 
     def setup_method(self):
         """Set up test fixtures."""
-        with patch("config.config.AZURE_STORAGE_CONNECTION_STRING", "test_connection"):
+        # Create mock blob client that can be used in mock mode
+        with patch.dict("os.environ", {"BLOB_STORAGE_MOCK": "true"}):
             self.blob_client = BlobStorageClient()
+        self.markdown_generator = MarkdownGenerator(self.blob_client)
+        self.content_watcher = ContentWatcher(self.blob_client, self.markdown_generator)
 
-    @patch("blob_storage.BlobStorageClient._ensure_containers_exist")
-    def test_blob_client_initialization(self, mock_ensure):
+    def test_blob_client_initialization(self):
         """Test blob storage client initialization."""
-        with patch("config.config.AZURE_STORAGE_CONNECTION_STRING", "test_connection"):
+        with patch.dict("os.environ", {"BLOB_STORAGE_MOCK": "true"}):
             client = BlobStorageClient()
             assert client is not None
-            mock_ensure.assert_called_once()
+            assert client._mock is True
 
     @pytest.mark.asyncio
-    @pytest.mark.asyncio
-    async def test_get_latest_ranked_content_success(self):
-        """Test successful retrieval of latest ranked content."""
+    async def test_content_watcher_get_latest_ranked_content_success(self):
+        """Test successful retrieval of latest ranked content via ContentWatcher."""
         # Mock blob data
         mock_content = {
-            "items": [
+            "content": [
                 {
                     "title": "Test Article",
                     "final_score": 0.8,
@@ -51,225 +42,197 @@ class TestBlobStorageIntegration:
             ]
         }
 
-        # Mock blob operations
-        mock_blob = MagicMock()
-        mock_blob.name = "ranked_20240101_120000.json"
-        mock_blob.last_modified = datetime.now(timezone.utc)
-
-        mock_container_client = MagicMock()
-        mock_container_client.list_blobs.return_value = [mock_blob]
-
-        mock_blob_client = MagicMock()
-        mock_blob_client.download_blob.return_value.readall.return_value = json.dumps(
-            mock_content
-        ).encode()
-        mock_container_client.get_blob_client.return_value = mock_blob_client
-
-        self.blob_client.client.get_container_client.return_value = (
-            mock_container_client
-        )
-
-        # Test the method
-        result = await self.blob_client.get_latest_ranked_content()
-
-        # Assertions
-        assert result is not None
-        content_items, blob_name = result
-        assert len(content_items) == 1
-        assert content_items[0]["title"] == "Test Article"
-        assert blob_name == "ranked_20240101_120000.json"
-
-    @pytest.mark.asyncio
-    async def test_get_latest_ranked_content_no_blobs(self):
-        """Test retrieval when no blobs exist."""
-        mock_container_client = MagicMock()
-        mock_container_client.list_blobs.return_value = []
-        self.blob_client.client.get_container_client.return_value = (
-            mock_container_client
-        )
-
-        result = await self.blob_client.get_latest_ranked_content()
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_save_generated_markdown_success(self):
-        """Test successful saving of generated markdown."""
-        # Test data
-        markdown_files = [
+        # Mock the blob client methods
+        mock_blobs = [
             {
-                "slug": "test-article",
-                "title": "Test Article",
-                "score": 0.8,
-                "content": "# Test Article\n\nContent here",
+                "name": "ranked-content/ranked_20240101_120000.json",
+                "last_modified": datetime.now(timezone.utc).isoformat(),
             }
         ]
 
-        manifest = {
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "total_posts": 1,
-            "index_content": "# Index\n\nIndex content",
-        }
+        with patch.object(self.blob_client, "list_blobs", return_value=mock_blobs):
+            with patch.object(
+                self.blob_client, "download_json", return_value=mock_content
+            ):
+                result = await self.content_watcher._get_latest_ranked_content()
 
-        timestamp = "20240101_120000"
-
-        # Mock container client
-        mock_container_client = MagicMock()
-        mock_blob_client = MagicMock()
-        mock_container_client.get_blob_client.return_value = mock_blob_client
-        self.blob_client.client.get_container_client.return_value = (
-            mock_container_client
-        )
-
-        # Test the method
-        result = await self.blob_client.save_generated_markdown(
-            markdown_files, manifest, timestamp
-        )
-
-        # Assertions
-        assert result == f"manifests/{timestamp}_manifest.json"
-
-        # Verify blob uploads were called
-        assert (
-            mock_blob_client.upload_blob.call_count >= 3
-        )  # markdown + index + manifest
+                # Assertions
+                assert result is not None
+                content_items, blob_name = result
+                assert len(content_items) == 1
+                assert content_items[0]["title"] == "Test Article"
+                assert blob_name == "ranked-content/ranked_20240101_120000.json"
 
     @pytest.mark.asyncio
-    async def test_check_blob_health_success(self):
-        """Test successful blob health check."""
-        # Mock containers
-        mock_container1 = MagicMock()
-        mock_container1.name = "ranked-content"
-        mock_container2 = MagicMock()
-        mock_container2.name = "generated-content"
+    async def test_content_watcher_get_latest_ranked_content_no_blobs(self):
+        """Test retrieval when no blobs exist."""
+        with patch.object(self.blob_client, "list_blobs", return_value=[]):
+            result = await self.content_watcher._get_latest_ranked_content()
+            assert result is None
 
-        self.blob_client.client.list_containers.return_value = [
-            mock_container1,
-            mock_container2,
+    @pytest.mark.asyncio
+    async def test_markdown_generator_generate_from_content(self):
+        """Test markdown generation from content items."""
+        content_items = [
+            {
+                "title": "Test Article",
+                "link": "https://example.com/test",
+                "description": "Test description",
+                "ai_summary": "Test summary",
+                "final_score": 0.8,
+                "published_date": "2024-01-01T12:00:00Z",
+            }
         ]
 
-        result = await self.blob_client.check_blob_health()
-        assert result is True
+        # Mock the upload operations
+        with patch.object(self.blob_client, "upload_json", return_value=True):
+            with patch.object(self.blob_client, "upload_text", return_value=True):
+                result = await self.markdown_generator.generate_markdown_from_ranked_content(
+                    content_items
+                )
+
+                # Assertions
+                assert result is not None
+                assert result["status"] == "success"
+                assert result["files_generated"] == 2  # 1 markdown + 1 index
+                assert "blob_manifest" in result
+                assert "timestamp" in result
 
     @pytest.mark.asyncio
-    async def test_check_blob_health_missing_containers(self):
-        """Test blob health check with missing containers."""
-        # Mock containers - missing required ones
-        mock_container = MagicMock()
-        mock_container.name = "other-container"
+    async def test_content_watcher_check_for_new_content(self):
+        """Test checking for new ranked content and triggering generation."""
+        # Mock content data
+        mock_content = {
+            "content": [
+                {
+                    "title": "Test Article",
+                    "link": "https://example.com/test",
+                    "description": "Test description",
+                    "ai_summary": "Test summary",
+                    "final_score": 0.8,
+                    "published_date": "2024-01-01T12:00:00Z",
+                }
+            ]
+        }
 
-        self.blob_client.client.list_containers.return_value = [mock_container]
+        mock_blobs = [
+            {
+                "name": "ranked-content/ranked_20240101_120000.json",
+                "last_modified": datetime.now(timezone.utc).isoformat(),
+            }
+        ]
 
-        result = await self.blob_client.check_blob_health()
-        assert result is False
+        # Mock all the required operations
+        with patch.object(self.blob_client, "list_blobs", return_value=mock_blobs):
+            with patch.object(
+                self.blob_client, "download_json", return_value=mock_content
+            ):
+                with patch.object(self.blob_client, "upload_json", return_value=True):
+                    with patch.object(
+                        self.blob_client, "upload_text", return_value=True
+                    ):
+                        result = await self.content_watcher.check_for_new_ranked_content()
 
-    @pytest.mark.asyncio
-    async def test_get_generation_statistics_success(self):
-        """Test successful retrieval of generation statistics."""
-        # Mock blobs with name attribute
-        mock_blob1 = MagicMock()
-        mock_blob1.name = "markdown/20240101/article1.md"
-        mock_blob2 = MagicMock()
-        mock_blob2.name = "markdown/20240101/article2.md"
-        mock_blob3 = MagicMock()
-        mock_blob3.name = "manifests/20240101_manifest.json"
-        mock_blob4 = MagicMock()
-        mock_blob4.name = "other/file.txt"
+                        # Assertions
+                        assert result is not None
+                        assert result["status"] == "success"
+                        assert result["files_generated"] == 2
 
-        mock_blobs = [mock_blob1, mock_blob2, mock_blob3, mock_blob4]
+    def test_blob_client_health_check(self):
+        """Test blob storage health check."""
+        # Test health check with mock client
+        health_result = self.blob_client.health_check()
 
-        mock_container_client = MagicMock()
-        mock_container_client.list_blobs.return_value = mock_blobs
-        self.blob_client.client.get_container_client.return_value = (
-            mock_container_client
-        )
+        assert health_result is not None
+        assert "status" in health_result
+        assert "environment" in health_result
+        assert "connection_type" in health_result
 
-        result = await self.blob_client.get_generation_statistics()
+    def test_content_watcher_status(self):
+        """Test content watcher status."""
+        status = self.content_watcher.get_watcher_status()
 
-        assert result["markdown_files"] == 2
-        assert result["manifests"] == 1
-        assert "container" in result
+        assert status is not None
+        assert "watching" in status
+        assert "processed_blobs" in status
+        assert "last_check" in status
+        assert status["watching"] is True
 
 
-class TestBlobStorageErrorHandling:
-    """Test blob storage error handling scenarios."""
+class TestMarkdownGeneratorErrorHandling:
+    """Test error handling in markdown generator operations."""
 
     def setup_method(self):
         """Set up test fixtures."""
-        with patch("config.config.AZURE_STORAGE_CONNECTION_STRING", "test_connection"):
+        with patch.dict("os.environ", {"BLOB_STORAGE_MOCK": "true"}):
             self.blob_client = BlobStorageClient()
+        self.markdown_generator = MarkdownGenerator(self.blob_client)
+        self.content_watcher = ContentWatcher(self.blob_client, self.markdown_generator)
 
     @pytest.mark.asyncio
-    async def test_get_latest_ranked_content_json_error(self):
+    async def test_content_watcher_handles_json_decode_error(self):
         """Test handling of JSON decode errors."""
-        # Mock blob with invalid JSON
-        mock_blob = MagicMock()
-        mock_blob.name = "test.json"
-        mock_blob.last_modified = datetime.now(timezone.utc)
+        mock_blobs = [
+            {
+                "name": "ranked-content/invalid.json",
+                "last_modified": datetime.now(timezone.utc).isoformat(),
+            }
+        ]
 
-        mock_container_client = MagicMock()
-        mock_container_client.list_blobs.return_value = [mock_blob]
+        with patch.object(self.blob_client, "list_blobs", return_value=mock_blobs):
+            with patch.object(
+                self.blob_client, "download_json", side_effect=Exception("JSON decode error")
+            ):
+                result = await self.content_watcher._get_latest_ranked_content()
+                assert result is None
 
-        mock_blob_client = MagicMock()
-        mock_blob_client.download_blob.return_value.readall.return_value = (
-            b"invalid json"
-        )
-        mock_container_client.get_blob_client.return_value = mock_blob_client
+    @pytest.mark.asyncio
+    async def test_markdown_generator_handles_upload_error(self):
+        """Test error handling during markdown upload."""
+        content_items = [
+            {
+                "title": "Test Article",
+                "link": "https://example.com/test",
+                "description": "Test description",
+                "ai_summary": "Test summary",
+                "final_score": 0.8,
+            }
+        ]
 
-        self.blob_client.client.get_container_client.return_value = (
-            mock_container_client
-        )
+        with patch.object(
+            self.blob_client, "upload_json", side_effect=Exception("Upload error")
+        ):
+            result = await self.markdown_generator.generate_markdown_from_ranked_content(
+                content_items
+            )
+            assert result is None
 
-        result = await self.blob_client.get_latest_ranked_content()
+    @pytest.mark.asyncio
+    async def test_markdown_generator_empty_content_items(self):
+        """Test handling of empty content items."""
+        result = await self.markdown_generator.generate_markdown_from_ranked_content([])
+        # Should return None on error, not raise exception
         assert result is None
 
-    @pytest.mark.asyncio
-    async def test_save_generated_markdown_error(self):
-        """Test error handling during markdown save."""
-        # Mock container client that raises exception
-        mock_container_client = MagicMock()
-        mock_container_client.get_blob_client.side_effect = Exception("Storage error")
-        self.blob_client.client.get_container_client.return_value = (
-            mock_container_client
-        )
 
-        markdown_files = [
-            {"slug": "test", "title": "Test", "score": 0.8, "content": "test"}
-        ]
-        manifest = {"total_posts": 1}
-        timestamp = "20240101_120000"
+class TestMarkdownGeneratorConfiguration:
+    """Test markdown generator configuration handling."""
 
-        # Should raise generic exception instead of AzureError in tests
-        with pytest.raises(Exception):
-            await self.blob_client.save_generated_markdown(
-                markdown_files, manifest, timestamp
-            )
-
-    @pytest.mark.asyncio
-    async def test_check_blob_health_exception(self):
-        """Test blob health check when exception occurs."""
-        self.blob_client.client.list_containers.side_effect = Exception(
-            "Connection error"
-        )
-
-        result = await self.blob_client.check_blob_health()
-        assert result is False
-
-
-class TestBlobStorageConfiguration:
-    """Test blob storage configuration scenarios."""
-
-    def test_initialization_without_connection_string(self):
-        """Test initialization without connection string raises error."""
-        with patch("config.config.AZURE_STORAGE_CONNECTION_STRING", None):
-            with pytest.raises(
-                ValueError, match="Azure storage connection string is required"
-            ):
-                BlobStorageClient()
-
-    @patch("blob_storage.BlobStorageClient._ensure_containers_exist")
-    def test_initialization_with_connection_string(self, mock_ensure):
-        """Test successful initialization with connection string."""
-        with patch("config.config.AZURE_STORAGE_CONNECTION_STRING", "test_connection"):
+    def test_blob_client_mock_mode_initialization(self):
+        """Test blob client initialization in mock mode."""
+        with patch.dict("os.environ", {"BLOB_STORAGE_MOCK": "true", "ENVIRONMENT": "development"}):
             client = BlobStorageClient()
-            assert client is not None
-            mock_ensure.assert_called_once()
+            assert client._mock is True
+            assert client.environment == "development"
+
+    def test_blob_client_development_mode_initialization(self):
+        """Test blob client initialization in development mode."""
+        with patch.dict("os.environ", {
+            "BLOB_STORAGE_MOCK": "false",
+            "ENVIRONMENT": "development",
+            "AZURE_STORAGE_CONNECTION_STRING": "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=testkey;EndpointSuffix=core.windows.net"
+        }):
+            client = BlobStorageClient()
+            assert client._mock is False
+            assert client.environment == "development"
+            assert hasattr(client, "blob_service_client")

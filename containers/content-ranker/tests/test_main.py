@@ -15,24 +15,21 @@ from fastapi.testclient import TestClient
 # Import the FastAPI app
 from main import app
 
-# Create test client
-client = TestClient(app)
-
 
 class TestContentRankerAPI:
     """Test cases for Content Ranker API endpoints."""
 
-    def test_root_endpoint(self):
+    def test_root_endpoint(self, test_client):
         """Test the root endpoint returns service information."""
-        response = client.get("/")
+        response = test_client.get("/")
         assert response.status_code == 200
         data = response.json()
         assert "service" in data
         assert data["service"] == "content-ranker"
 
-    def test_health_endpoint(self):
+    def test_health_endpoint(self, test_client):
         """Test the health check endpoint."""
-        response = client.get("/health")
+        response = test_client.get("/health")
         assert response.status_code == 200
         data = response.json()
         assert "status" in data
@@ -40,7 +37,7 @@ class TestContentRankerAPI:
         assert data["service"] == "content-ranker"
 
     @patch("main.ranker_service")
-    def test_status_endpoint(self, mock_service):
+    def test_status_endpoint(self, mock_service, test_client):
         """Test the status endpoint with service information."""
         # Mock service status as async
         mock_service.get_ranking_status = AsyncMock(
@@ -52,14 +49,14 @@ class TestContentRankerAPI:
             }
         )
 
-        response = client.get("/status")
+        response = test_client.get("/status")
         assert response.status_code == 200
         data = response.json()
         assert data["service"] == "content-ranker"
         assert data["status"] == "healthy"
 
     @patch("main.ranker_service")
-    def test_rank_enriched_endpoint_success(self, mock_service):
+    def test_rank_enriched_endpoint_success(self, mock_service, test_client):
         """Test successful enriched content ranking."""
         # Mock successful ranking
         mock_service.rank_content_batch = AsyncMock(
@@ -86,7 +83,7 @@ class TestContentRankerAPI:
             "limit": 10,
         }
 
-        response = client.post("/rank/enriched", json=request_data)
+        response = test_client.post("/rank/enriched", json=request_data)
         assert response.status_code == 200
         data = response.json()
         assert "ranked_items" in data
@@ -94,7 +91,7 @@ class TestContentRankerAPI:
         assert len(data["ranked_items"]) == 2
 
     @patch("main.ranker_service")
-    def test_rank_batch_endpoint_success(self, mock_service):
+    def test_rank_batch_endpoint_success(self, mock_service, test_client):
         """Test successful batch ranking."""
         # Mock successful batch ranking
         mock_service.rank_content_batch = AsyncMock(
@@ -109,13 +106,13 @@ class TestContentRankerAPI:
 
         request_data = {"weights": {"engagement": 0.6, "recency": 0.4}}
 
-        response = client.post("/rank/batch", json=request_data)
+        response = test_client.post("/rank/batch", json=request_data)
         assert response.status_code == 200
         data = response.json()
         assert "ranked_items" in data
         assert "total_processed" in data
 
-    def test_rank_specific_content_success(self):
+    def test_rank_specific_content_success(self, test_client):
         """Test ranking specific content items."""
         test_content = [
             {
@@ -136,14 +133,14 @@ class TestContentRankerAPI:
             "weights": {"engagement": 0.5, "recency": 0.5},
         }
 
-        response = client.post("/rank", json=request_data)
+        response = test_client.post("/rank", json=request_data)
         assert response.status_code == 200
         data = response.json()
         assert "ranked_items" in data
         assert len(data["ranked_items"]) > 0
 
     @patch("main.ranker_service")
-    def test_rank_enriched_endpoint_error(self, mock_service):
+    def test_rank_enriched_endpoint_error(self, mock_service, test_client):
         """Test error handling in enriched content ranking."""
         # Mock service error
         mock_service.rank_content_batch = AsyncMock(
@@ -152,10 +149,10 @@ class TestContentRankerAPI:
 
         request_data = {"weights": {"engagement": 0.5, "recency": 0.5}}
 
-        response = client.post("/rank/enriched", json=request_data)
+        response = test_client.post("/rank/enriched", json=request_data)
         assert response.status_code == 500
 
-    def test_rank_specific_content_validation_error(self):
+    def test_rank_specific_content_validation_error(self, test_client):
         """Test that invalid data is handled gracefully."""
         # Invalid request data (missing required fields)
         request_data = {
@@ -163,29 +160,29 @@ class TestContentRankerAPI:
             "weights": {"engagement": 0.5},
         }
 
-        response = client.post("/rank", json=request_data)
+        response = test_client.post("/rank", json=request_data)
         # The service handles invalid data gracefully, returning empty results
         assert response.status_code == 200
         data = response.json()
         assert "ranked_items" in data
 
-    def test_rank_specific_content_empty_list(self):
+    def test_rank_specific_content_empty_list(self, test_client):
         """Test ranking with empty content list."""
         request_data = {
             "content_items": [],
             "weights": {"engagement": 0.5, "recency": 0.5},
         }
 
-        response = client.post("/rank", json=request_data)
+        response = test_client.post("/rank", json=request_data)
         assert response.status_code == 200
         data = response.json()
         assert data["ranked_items"] == []
 
     @patch("main.ranker_service")
-    def test_status_endpoint_error(self, mock_service):
+    def test_status_endpoint_error(self, mock_service, test_client):
         """Test status endpoint when service has issues."""
         # Mock service error
         mock_service.get_status.side_effect = Exception("Service unavailable")
 
-        response = client.get("/status")
+        response = test_client.get("/status")
         assert response.status_code == 500

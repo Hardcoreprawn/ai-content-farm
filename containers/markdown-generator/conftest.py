@@ -151,14 +151,3 @@ def sample_generation_manifest():
         "index_content": "# AI Curated Content Index\n\nGenerated content index.",
         "generation_settings": {"max_content_items": 50, "template_style": "jekyll"},
     }
-
-
-# Configure asyncio for tests
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create an instance of the default event loop for the test session."""
-    import asyncio
-
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()

@@ -251,6 +251,143 @@ resource "azurerm_eventgrid_event_subscription" "blob_created" {
   depends_on = [azurerm_eventgrid_system_topic.storage]
 }
 
+# Site Generator Container App (Customer-facing website)
+resource "azurerm_container_app" "site_generator" {
+  name                         = "${var.resource_prefix}-site-gen"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 8000
+    transport        = "http"
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
+  template {
+    container {
+      name   = "site-generator"
+      image  = "${azurerm_container_registry.main.login_server}/site-generator:latest"
+      cpu    = 0.5
+      memory = "1Gi"
+
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.containers.client_id
+      }
+
+      env {
+        name  = "AZURE_STORAGE_ACCOUNT_NAME"
+        value = azurerm_storage_account.main.name
+      }
+
+      env {
+        name  = "ENVIRONMENT"
+        value = "production"
+      }
+    }
+
+    min_replicas = 1
+    max_replicas = 3
+  }
+
+  tags = local.common_tags
+}
+
+# Content Collector Container App
+resource "azurerm_container_app" "content_collector" {
+  name                         = "${var.resource_prefix}-collector"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  template {
+    container {
+      name   = "content-collector"
+      image  = "${azurerm_container_registry.main.login_server}/content-collector:latest"
+      cpu    = 0.5
+      memory = "1Gi"
+
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.containers.client_id
+      }
+
+      env {
+        name  = "AZURE_STORAGE_ACCOUNT_NAME"
+        value = azurerm_storage_account.main.name
+      }
+
+      env {
+        name        = "REDDIT_CLIENT_ID"
+        secret_name = "reddit-client-id"
+      }
+
+      env {
+        name        = "REDDIT_CLIENT_SECRET"
+        secret_name = "reddit-client-secret"
+      }
+    }
+
+    min_replicas = 0
+    max_replicas = 2
+  }
+
+  tags = local.common_tags
+}
+
+# Content Ranker Container App 
+resource "azurerm_container_app" "content_ranker" {
+  name                         = "${var.resource_prefix}-ranker"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  template {
+    container {
+      name   = "content-ranker"
+      image  = "${azurerm_container_registry.main.login_server}/content-ranker:latest"
+      cpu    = 0.5
+      memory = "1Gi"
+
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.containers.client_id
+      }
+
+      env {
+        name  = "AZURE_STORAGE_ACCOUNT_NAME"
+        value = azurerm_storage_account.main.name
+      }
+    }
+
+    min_replicas = 0
+    max_replicas = 2
+  }
+
+  tags = local.common_tags
+}
+
 # Content Generator Container App
 resource "azurerm_container_app" "content_generator" {
   name                         = "${var.resource_prefix}-content-gen"

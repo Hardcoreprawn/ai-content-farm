@@ -162,7 +162,7 @@ class TestSiteGeneratorAPI:
         # Test with invalid content type
         response = client.post(
             "/api/sites/generate",
-            data="invalid-data",
+            content="invalid-data",
             headers={"Content-Type": "text/plain"},
         )
 

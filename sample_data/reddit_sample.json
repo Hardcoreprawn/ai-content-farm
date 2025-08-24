@@ -1,0 +1,74 @@
+{
+  "collection_id": "bootstrap_demo",
+  "collected_items": [
+    {
+      "id": "item1",
+      "title": "The Future of AI in Startups: 10 Game-Changing Trends",
+      "url": "https://example.com/ai-startups-trends",
+      "content": "Artificial intelligence is revolutionizing how startups operate, from automating customer service to predicting market trends. Here are the top 10 ways AI is changing the startup landscape...",
+      "author": "tech_enthusiast_2024",
+      "source": "r/startups",
+      "source_type": "reddit",
+      "created_utc": "2025-08-24T15:30:00Z",
+      "score": 245,
+      "num_comments": 42,
+      "tags": ["AI", "startups", "technology", "automation"]
+    },
+    {
+      "id": "item2", 
+      "title": "Why Your SaaS Startup Needs a Content Strategy (Before You Build the Product)",
+      "url": "https://example.com/saas-content-strategy",
+      "content": "Most SaaS founders make the same mistake: they build first, then think about content marketing. Here's why you should flip that approach and start with content...",
+      "author": "growth_hacker_pro",
+      "source": "r/SaaS",
+      "source_type": "reddit",
+      "created_utc": "2025-08-24T14:15:00Z",
+      "score": 189,
+      "num_comments": 28,
+      "tags": ["SaaS", "content marketing", "strategy", "growth"]
+    },
+    {
+      "id": "item3",
+      "title": "I Built a $10k MRR Tool in 3 Months - Here's My Tech Stack",
+      "url": "https://example.com/10k-mrr-tech-stack",
+      "content": "After failing with my first two startups, I finally built something that works. Here's the exact tech stack I used and why each choice mattered...",
+      "author": "indie_maker_wins",
+      "source": "r/Entrepreneur", 
+      "source_type": "reddit",
+      "created_utc": "2025-08-24T13:45:00Z",
+      "score": 412,
+      "num_comments": 67,
+      "tags": ["tech stack", "MRR", "indie maker", "revenue"]
+    },
+    {
+      "id": "item4",
+      "title": "The Psychology Behind Viral Content: What Makes People Share",
+      "url": "https://example.com/viral-content-psychology",
+      "content": "After analyzing 10,000 viral posts, we discovered 7 psychological triggers that make content spread like wildfire. Here's what we learned...",
+      "author": "content_researcher",
+      "source": "r/marketing",
+      "source_type": "reddit", 
+      "created_utc": "2025-08-24T12:20:00Z",
+      "score": 156,
+      "num_comments": 34,
+      "tags": ["viral content", "psychology", "marketing", "social media"]
+    },
+    {
+      "id": "item5",
+      "title": "Open Source Tools That Every Startup Should Use (2025 Edition)",
+      "url": "https://example.com/open-source-startup-tools",
+      "content": "Running a startup on a budget? These 15 open source tools can replace expensive enterprise software and save you thousands each month...",
+      "author": "budget_startup_guru",
+      "source": "r/programming",
+      "source_type": "reddit",
+      "created_utc": "2025-08-24T11:10:00Z", 
+      "score": 324,
+      "num_comments": 89,
+      "tags": ["open source", "tools", "startup", "budget"]
+    }
+  ],
+  "metadata": {
+    "total_collected": 5,
+    "timestamp": "2025-08-24T21:56:42.869774+00:00"
+  }
+}

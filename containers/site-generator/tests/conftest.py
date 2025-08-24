@@ -215,3 +215,10 @@ def temp_templates_dir(tmp_path) -> str:
     )
 
     return str(base)
+
+
+@pytest.fixture
+def test_client():
+    """Create a test client for the FastAPI app."""
+    from main import app
+    return TestClient(app)

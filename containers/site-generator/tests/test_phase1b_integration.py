@@ -182,7 +182,7 @@ class TestPhase1BIntegrationSlow:
     @pytest.fixture
     def real_ranked_content(self):
         """Load real ranked content from test file."""
-        content_file = Path("/workspaces/ai-content-farm/test_ranked_content.json")
+        content_file = Path("/workspaces/ai-content-farm/tests/test_ranked_content.json")
         with open(content_file, "r") as f:
             real_content = json.load(f)
 

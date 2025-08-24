@@ -145,38 +145,43 @@ runs:
         ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" --query loginServer -o tsv)
         deployed_containers=""
 
-        # For now, just update content-generator (expand this as more container apps are defined)
-        containers_to_update=("content-generator")
+        # Deploy customer-facing services first, then content pipeline
+        declare -A container_apps=(
+          ["site-generator"]="ai-content-dev-site-gen"
+          ["content-generator"]="ai-content-dev-content-gen"
+          ["content-collector"]="ai-content-dev-collector"
+          ["content-ranker"]="ai-content-dev-ranker"
+        )
 
-        for container in "${containers_to_update[@]}"; do
-          echo "Updating $container container app..."
+        for container in "${!container_apps[@]}"; do
+          app_name="${container_apps[$container]}"
+          echo "Updating $container -> $app_name..."
 
-          # Use correct naming convention from Terraform
-          app_name="ai-content-dev-content-gen"
-          if [ "$container" = "content-generator" ]; then
-            app_name="ai-content-dev-content-gen"
-          fi
+          # Check if container app exists
+          if az containerapp show --name "$app_name" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+            az containerapp update \
+              --name "$app_name" \
+              --resource-group "$RESOURCE_GROUP" \
+              --image $ACR_LOGIN_SERVER/$container:latest
 
-          az containerapp update \
-            --name "$app_name" \
-            --resource-group "$RESOURCE_GROUP" \
-            --image $ACR_LOGIN_SERVER/$container:latest
+            echo "[PASS] $container container app updated"
 
-          echo "[PASS] $container container app updated"
-
-          if [ -z "$deployed_containers" ]; then
-            deployed_containers="$container"
+            if [ -z "$deployed_containers" ]; then
+              deployed_containers="$container"
+            else
+              deployed_containers="$deployed_containers,$container"
+            fi
           else
-            deployed_containers="$deployed_containers,$container"
+            echo "[WARNING] Container app $app_name does not exist - skipping $container"
           fi
         done
 
-        # Get deployment URL using correct container app name
+        # Get deployment URL from site-generator (customer-facing)
         DEPLOYMENT_URL=$(az containerapp show \
-          --name "ai-content-dev-content-gen" \
+          --name "ai-content-dev-site-gen" \
           --resource-group "$RESOURCE_GROUP" \
           --query "properties.configuration.ingress.fqdn" \
-          -o tsv)
+          -o tsv 2>/dev/null)
 
         if [ -n "$DEPLOYMENT_URL" ]; then
           echo "[SUCCESS] Website URL: https://$DEPLOYMENT_URL"
