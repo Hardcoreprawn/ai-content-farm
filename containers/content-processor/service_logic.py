@@ -26,12 +26,10 @@ class ContentProcessorService:
         """Initialize the content processor service."""
         if storage_client:
             self.storage = storage_client
-        elif os.getenv("PYTEST_CURRENT_TEST"):
-            # Use mock during tests
-            from tests.contracts.blob_storage_contract import MockBlobStorageClient
-
-            self.storage = MockBlobStorageClient()
         else:
+            # Use the unified BlobStorageClient which supports in-memory mock mode
+            # when BLOB_STORAGE_MOCK=true. This ensures shared state between app
+            # code and tests and consistent API surface across environments.
             self.storage = BlobStorageClient()
 
         self.stats = {

@@ -229,3 +229,62 @@ docker-compose -f docker-compose.test.yml up  # Integration environment
 ## Examples
 
 See `containers/content-collector/tests/` for reference implementations of all patterns.
+
+## Test-time Storage and API Compatibility Addendum
+
+### Mock Blob Storage (In-Memory) Mode
+
+To keep unit and API tests fast and hermetic across containers that use Azure Blob Storage, we support a built-in in-memory mock mode in `libs/blob_storage.BlobStorageClient`.
+
+- Enable via environment variable: `BLOB_STORAGE_MOCK=true`
+- Behavior: all blob operations (ensure_container, upload_text/json, download_text/json, list_blobs, delete_blob, get_blob_url, health_check) operate on an in-memory store shared across instances within the same Python process.
+- Isolation: clear state between tests to avoid cross-test contamination.
+
+Example pytest setup (autouse):
+
+```python
+# conftest.py
+import os
+import pytest
+
+@pytest.fixture(scope="session", autouse=True)
+def _enable_blob_mock():
+        os.environ["BLOB_STORAGE_MOCK"] = "true"
+        os.environ["ENVIRONMENT"] = "local"
+        yield
+
+@pytest.fixture(autouse=True)
+def _isolate_mock_blob_storage():
+        if os.getenv("BLOB_STORAGE_MOCK", "false").lower() == "true":
+                import libs.blob_storage as _bs
+                if hasattr(_bs, "_MOCK_BLOBS"):
+                        _bs._MOCK_BLOBS.clear()
+                if hasattr(_bs, "_MOCK_CONTAINERS"):
+                        _bs._MOCK_CONTAINERS.clear()
+        yield
+```
+
+Notes:
+- Use mock mode for unit and API tests; prefer real Azurite/Azure only in slower integration tests.
+- When mixing, scope environment and clearing appropriately to avoid state leakage.
+
+### API Compatibility Endpoints for Fast Tests
+
+Some services expose simplified endpoints specifically for API tests to validate request/response contracts with minimal overhead. For example, the site generator includes:
+
+- `POST /api/sites/generate`:
+    - Request: JSON with fields `content_source`, `theme`, `max_articles`, `site_title`, `site_description`.
+    - Response (200): `{ "status": "success", "message": "Site generation started", "site_id": "..." }`.
+    - Validation: returns 422 on invalid/missing fields or wrong content-type.
+    - Tests may run generation synchronously when `PYTEST_CURRENT_TEST` is set.
+
+- `GET /api/sites/{site_id}/status`:
+    - Response (200): `{ "site_id": "...", "status": "completed" | "in_progress" | "not_found", "started_at"?: string, "progress"?: string }`.
+    - Unknown IDs return 200 with `{ "status": "not_found" }`.
+
+- `GET /api/sites`:
+    - Response (200): `{ "sites": [ { "site_id": "...", ... } ] }` reflecting in-memory status when tests patch `processor.generation_status`.
+
+Guidelines:
+- Keep compatibility endpoints simple and deterministic; avoid external calls in unit/API tests.
+- Prefer dependency injection or module-level aliases (e.g., `processor = site_processor`) to facilitate patching in tests.

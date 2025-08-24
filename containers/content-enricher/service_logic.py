@@ -19,49 +19,13 @@ from enricher import enrich_content_batch
 from libs.blob_storage import BlobContainers, BlobStorageClient
 
 
-class MockBlobStorageClient:
-    """Mock blob storage client for testing."""
-
-    def upload_text(
-        self,
-        container_name: str,
-        blob_name: str,
-        content: str,
-        content_type: str = "text/plain",
-        metadata: Optional[Dict[str, str]] = None,
-    ) -> str:
-        return f"mock://blob/{blob_name}"
-
-    def upload_json(
-        self,
-        container_name: str,
-        blob_name: str,
-        data: Dict[str, Any],
-        metadata: Optional[Dict[str, str]] = None,
-    ) -> str:
-        return f"mock://blob/{blob_name}"
-
-    def download_text(self, container_name: str, blob_name: str) -> str:
-        return '{"mock": "data"}'
-
-    def download_json(self, container_name: str, blob_name: str) -> Dict[str, Any]:
-        return {"mock": "data"}
-
-    def list_blobs(self, container_name: str, prefix: str = "") -> List[Dict[str, Any]]:
-        return []
-
-
 class ContentEnricherService:
     """Service layer for content enrichment with blob storage integration."""
 
     def __init__(self, storage_client: Optional[BlobStorageClient] = None):
         """Initialize the enricher service with blob storage client."""
-        if storage_client:
-            self.storage = storage_client
-        elif os.getenv("PYTEST_CURRENT_TEST"):
-            self.storage = MockBlobStorageClient()
-        else:
-            self.storage = BlobStorageClient()
+        # Always use the shared BlobStorageClient; for tests, enable BLOB_STORAGE_MOCK=true
+        self.storage = storage_client if storage_client else BlobStorageClient()
 
         self.stats = {
             "total_enriched": 0,
@@ -104,7 +68,18 @@ class ContentEnricherService:
                 }
             else:
                 # Enrich the content using existing business logic
-                enriched_items = enrich_content_batch(processed_items)
+                batch_result = enrich_content_batch(processed_items)
+                # Extract enriched items from batch result
+                enriched_items = batch_result.get("enriched_items", [])
+
+                # Normalize enrichment keys for pipeline contracts
+                for item in enriched_items:
+                    en = item.get("enrichment", {})
+                    if "sentiment_analysis" in en and "sentiment" not in en:
+                        en["sentiment"] = en["sentiment_analysis"]
+                    if "topic_classification" in en and "topics" not in en:
+                        en["topics"] = en["topic_classification"]
+                    item["enrichment"] = en
 
                 enrichment_metadata = {
                     "total_items": len(processed_items),

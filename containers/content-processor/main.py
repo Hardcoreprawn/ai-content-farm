@@ -16,10 +16,13 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import uvicorn
+from config import get_config, health_check
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from processor import process_reddit_batch, transform_reddit_post
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from service_logic import ContentProcessorService
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -27,21 +30,22 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../libs"))
 )
 
-from config import get_config, health_check
 
 # Import our business logic
-from processor import process_reddit_batch, transform_reddit_post
-from service_logic import ContentProcessorService
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Centralized service metadata for consistency
+SERVICE_NAME = "content-processor"
+SERVICE_VERSION = "1.1.0"
+
 # Create FastAPI app
 app = FastAPI(
     title="Content Processor",
     description="Transforms raw Reddit data into structured content",
-    version="1.0.0",
+    version=SERVICE_VERSION,
 )
 
 # Initialize processor service
@@ -238,7 +242,7 @@ async def health():
         # If the check_azure_connectivity was not patched and we're running
         # in local/development, prefer to report healthy to avoid external
         # network dependency failures in unit tests/environment.
-        if not is_patched and status.get("service") == "content-processor":
+        if not is_patched and status.get("service") == SERVICE_NAME:
             # health_check() returns 'status' key already; if it's 'unhealthy'
             # due to missing azurite, override to 'healthy' in local by default
             cfg_env = status.get("environment")
@@ -249,7 +253,7 @@ async def health():
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         return HealthResponse(
-            status="unhealthy", service="content-processor", azure_connectivity=False
+            status="unhealthy", service=SERVICE_NAME, azure_connectivity=False
         )
 
 
@@ -300,7 +304,7 @@ async def process_content(request: ProcessRequest):
             "items_received": len(items),
             "items_skipped": len(items) - len(processed_items),
             "options": request.options or {},
-            "processing_version": "1.0.0",
+            "processing_version": SERVICE_VERSION,
         }
 
         return ProcessResponse(processed_items=processed_items, metadata=metadata)
@@ -319,8 +323,8 @@ async def process_content(request: ProcessRequest):
 async def root():
     """Root endpoint with service information"""
     return {
-        "service": "content-processor",
-        "version": "1.0.0",
+        "service": SERVICE_NAME,
+        "version": SERVICE_VERSION,
         "status": "running",
         "endpoints": [
             "/health",
@@ -328,6 +332,10 @@ async def root():
             "/process/collection",
             "/process/batch",
             "/status",
+            "/api/content-processor/health",
+            "/api/content-processor/status",
+            "/api/content-processor/process",
+            "/api/content-processor/docs",
         ],
     }
 
@@ -404,11 +412,82 @@ async def get_status():
     )
 
     return {
-        "service": "content-processor",
+        "service": SERVICE_NAME,
         "status": "running",
         "stats": stats,
         "pipeline": {"unprocessed_collections": unprocessed_count},
         "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+# --- API compatibility endpoints (standardized envelope) ---
+
+
+@app.get("/api/content-processor/health")
+async def api_health():
+    """Standardized health endpoint with envelope."""
+    try:
+        h = await health()  # reuse existing
+        return {
+            "status": "success" if h.status == "healthy" else "error",
+            "data": h.model_dump(),
+        }
+    except Exception as e:
+        return {"status": "error", "errors": [str(e)]}
+
+
+@app.get("/api/content-processor/status")
+async def api_status():
+    """Standardized status endpoint with envelope."""
+    try:
+        s = await get_status()
+        return {"status": "success", "data": s}
+    except Exception as e:
+        return {"status": "error", "errors": [str(e)]}
+
+
+@app.post("/api/content-processor/process")
+async def api_process(payload: Dict[str, Any]):
+    """Standardized process endpoint that wraps the core route.
+
+    Accepts same payload as `/process` (supports legacy and new formats) and returns
+    a standardized response envelope.
+    """
+    try:
+        req = ProcessRequest(**payload)
+        res = await process_content(req)
+        return {"status": "success", "data": res.model_dump()}
+    except HTTPException as he:
+        # Ensure standardized error envelope with original status code
+        return JSONResponse(
+            status_code=he.status_code,
+            content={"status": "error", "errors": [str(he.detail)]},
+        )
+    except Exception as e:
+        return JSONResponse(
+            status_code=500, content={"status": "error", "errors": [str(e)]}
+        )
+
+
+@app.get("/api/content-processor/docs")
+async def api_docs():
+    """Lightweight API documentation for manual testing and discovery."""
+    return {
+        "service": "content-processor",
+        "endpoints": {
+            "health": {"method": "GET", "path": "/api/content-processor/health"},
+            "status": {"method": "GET", "path": "/api/content-processor/status"},
+            "process": {
+                "method": "POST",
+                "path": "/api/content-processor/process",
+                "body": {
+                    "items|data": "list",
+                    "source": "reddit|unknown",
+                    "options": "object (optional)",
+                },
+            },
+        },
+        "notes": "These endpoints wrap the core routes with a standardized response envelope for tooling and cross-function consistency.",
     }
 
 

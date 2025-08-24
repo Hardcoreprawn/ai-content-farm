@@ -36,10 +36,28 @@ def setup_test_environment():
     # Set environment variables for testing
     os.environ["AZURE_STORAGE_CONNECTION_STRING"] = azurite_connection
     os.environ["ENVIRONMENT"] = "local"
+    # Enable in-memory mock blob storage to avoid network dependency in tests
+    os.environ["BLOB_STORAGE_MOCK"] = "true"
 
     yield
 
     # Cleanup is handled automatically by Azurite
+
+
+@pytest.fixture(autouse=True)
+def _isolate_mock_blob_storage():
+    """Ensure mock blob storage state is isolated per test when in mock mode."""
+    if os.getenv("BLOB_STORAGE_MOCK", "false").lower() == "true":
+        try:
+            import libs.blob_storage as _bs
+
+            if hasattr(_bs, "_MOCK_BLOBS"):
+                _bs._MOCK_BLOBS.clear()
+            if hasattr(_bs, "_MOCK_CONTAINERS"):
+                _bs._MOCK_CONTAINERS.clear()
+        except Exception:
+            pass
+    yield
 
 
 @pytest.fixture

@@ -17,6 +17,10 @@ sys.path.insert(0, str(repo_root))
 # Set up test environment detection
 os.environ["PYTEST_CURRENT_TEST"] = "true"
 
+# Standardized fast-test environment flags
+os.environ.setdefault("ENVIRONMENT", "local")
+os.environ.setdefault("BLOB_STORAGE_MOCK", "true")
+
 # Set up Azurite connection for integration tests only
 if "integration" in os.environ.get("PYTEST_CURRENT_TEST", ""):
     os.environ["AZURE_STORAGE_CONNECTION_STRING"] = (
@@ -24,6 +28,22 @@ if "integration" in os.environ.get("PYTEST_CURRENT_TEST", ""):
         "AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;"
         "BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;"
     )
+
+
+@pytest.fixture(autouse=True)
+def _isolate_mock_blob_storage():
+    """Ensure mock blob storage state is isolated per test when in mock mode."""
+    if os.getenv("BLOB_STORAGE_MOCK", "false").lower() == "true":
+        try:
+            import libs.blob_storage as _bs
+
+            if hasattr(_bs, "_MOCK_BLOBS"):
+                _bs._MOCK_BLOBS.clear()
+            if hasattr(_bs, "_MOCK_CONTAINERS"):
+                _bs._MOCK_CONTAINERS.clear()
+        except Exception:
+            pass
+    yield
 
 
 @pytest.fixture

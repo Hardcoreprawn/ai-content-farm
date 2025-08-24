@@ -20,15 +20,27 @@ from azure.storage.blob import BlobClient, BlobServiceClient, ContainerClient
 logger = logging.getLogger(__name__)
 
 
+# Module-level stores for mock mode so all instances share state
+_MOCK_CONTAINERS: Dict[str, Dict[str, Any]] = {}
+_MOCK_BLOBS: Dict[str, Dict[str, Any]] = {}
+
+
 class BlobStorageClient:
     """Unified blob storage client for all environments with secure authentication."""
 
     def __init__(self):
         self.environment = os.getenv("ENVIRONMENT", "development").lower()
+        self._mock = os.getenv("BLOB_STORAGE_MOCK", "false").lower() == "true"
         self.storage_account_name = os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
         self.connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
 
         try:
+            if self._mock:
+                # In-memory mock mode for fast tests without Azurite/Azure
+                # Use module-level dictionaries to share state across instances
+                logger.info("Blob storage client initialized in MOCK mode")
+                return
+
             if self.environment == "development" and self.connection_string:
                 # Local development with Azurite or connection string
                 self.blob_service_client = BlobServiceClient.from_connection_string(
@@ -70,9 +82,14 @@ class BlobStorageClient:
             logger.error(f"Failed to initialize blob storage client: {e}")
             raise
 
-    def ensure_container(self, container_name: str) -> ContainerClient:
+    def ensure_container(self, container_name: str) -> Optional[ContainerClient]:
         """Ensure container exists and return container client."""
         try:
+            if self._mock:
+                # Create container namespace if missing
+                _MOCK_CONTAINERS.setdefault(container_name, {})
+                return None  # Not used by mock methods
+
             container_client = self.blob_service_client.get_container_client(
                 container_name
             )
@@ -101,6 +118,17 @@ class BlobStorageClient:
     ) -> str:
         """Upload JSON data to blob storage."""
         try:
+            if self._mock:
+                self.ensure_container(container_name)
+                key = f"{container_name}/{blob_name}"
+                _MOCK_BLOBS[key] = {
+                    "content": json.dumps(data, indent=2, default=str),
+                    "content_type": "application/json",
+                    "metadata": metadata or {},
+                    "last_modified": datetime.now(timezone.utc),
+                }
+                return f"mock://{key}"
+
             container_client = self.ensure_container(container_name)
 
             # Convert data to JSON string
@@ -142,6 +170,17 @@ class BlobStorageClient:
     ) -> str:
         """Upload text content to blob storage."""
         try:
+            if self._mock:
+                self.ensure_container(container_name)
+                key = f"{container_name}/{blob_name}"
+                _MOCK_BLOBS[key] = {
+                    "content": content,
+                    "content_type": content_type,
+                    "metadata": metadata or {},
+                    "last_modified": datetime.now(timezone.utc),
+                }
+                return f"mock://{key}"
+
             container_client = self.ensure_container(container_name)
 
             # Prepare metadata
@@ -178,6 +217,26 @@ class BlobStorageClient:
     ) -> Dict[str, str]:
         """Upload an entire HTML site to blob storage."""
         try:
+            if self._mock:
+                self.ensure_container(container_name)
+                base_metadata = {
+                    "site_generated_at": datetime.now(timezone.utc).isoformat(),
+                    "service": "ai-content-farm-ssg",
+                }
+                if metadata:
+                    base_metadata.update(metadata)
+                uploaded = {}
+                for file_path, content in site_files.items():
+                    key = f"{container_name}/{file_path}"
+                    _MOCK_BLOBS[key] = {
+                        "content": content,
+                        "content_type": self._get_content_type(file_path),
+                        "metadata": {**base_metadata, "file_path": file_path},
+                        "last_modified": datetime.now(timezone.utc),
+                    }
+                    uploaded[file_path] = f"mock://{key}"
+                return uploaded
+
             container_client = self.ensure_container(container_name)
 
             # Prepare base metadata
@@ -222,6 +281,18 @@ class BlobStorageClient:
     def download_json(self, container_name: str, blob_name: str) -> Dict[str, Any]:
         """Download and parse JSON data from blob storage."""
         try:
+            if self._mock:
+                key = f"{container_name}/{blob_name}"
+                blob = _MOCK_BLOBS.get(key)
+                if not blob:
+                    logger.warning(f"Blob not found: {key}")
+                    return {}
+                return (
+                    json.loads(blob["content"])
+                    if isinstance(blob.get("content"), str)
+                    else blob.get("content", {})
+                )
+
             container_client = self.ensure_container(container_name)
             blob_client = container_client.get_blob_client(blob_name)
 
@@ -243,6 +314,15 @@ class BlobStorageClient:
     def download_text(self, container_name: str, blob_name: str) -> str:
         """Download text content from blob storage."""
         try:
+            if self._mock:
+                key = f"{container_name}/{blob_name}"
+                blob = _MOCK_BLOBS.get(key)
+                if not blob:
+                    logger.warning(f"Blob not found: {key}")
+                    return ""
+                content = blob.get("content", "")
+                return content if isinstance(content, str) else json.dumps(content)
+
             container_client = self.ensure_container(container_name)
             blob_client = container_client.get_blob_client(blob_name)
 
@@ -264,6 +344,33 @@ class BlobStorageClient:
     def list_blobs(self, container_name: str, prefix: str = "") -> List[Dict[str, Any]]:
         """List blobs in a container with optional prefix filter."""
         try:
+            if self._mock:
+                results = []
+                for key, blob in _MOCK_BLOBS.items():
+                    if not key.startswith(f"{container_name}/"):
+                        continue
+                    name = key.split(f"{container_name}/", 1)[1]
+                    if prefix and not name.startswith(prefix):
+                        continue
+                    results.append(
+                        {
+                            "name": name,
+                            "size": (
+                                len(blob.get("content", ""))
+                                if isinstance(blob.get("content", ""), str)
+                                else 0
+                            ),
+                            "last_modified": (
+                                blob.get("last_modified").isoformat()
+                                if blob.get("last_modified")
+                                else None
+                            ),
+                            "content_type": blob.get("content_type"),
+                            "metadata": blob.get("metadata", {}),
+                        }
+                    )
+                return results
+
             container_client = self.ensure_container(container_name)
 
             blobs = []
@@ -298,6 +405,13 @@ class BlobStorageClient:
     def delete_blob(self, container_name: str, blob_name: str) -> bool:
         """Delete a blob from storage."""
         try:
+            if self._mock:
+                key = f"{container_name}/{blob_name}"
+                if key in _MOCK_BLOBS:
+                    del _MOCK_BLOBS[key]
+                    return True
+                return False
+
             container_client = self.ensure_container(container_name)
             blob_client = container_client.get_blob_client(blob_name)
 
@@ -315,6 +429,9 @@ class BlobStorageClient:
     def get_blob_url(self, container_name: str, blob_name: str) -> str:
         """Get the URL for a blob."""
         try:
+            if self._mock:
+                return f"mock://{container_name}/{blob_name}"
+
             container_client = self.ensure_container(container_name)
             blob_client = container_client.get_blob_client(blob_name)
             return blob_client.url
@@ -350,6 +467,16 @@ class BlobStorageClient:
     def health_check(self) -> Dict[str, Any]:
         """Perform health check on blob storage connectivity."""
         try:
+            if self._mock:
+                return {
+                    "status": "healthy",
+                    "connection_type": "mock",
+                    "environment": self.environment,
+                    "containers_accessible": len(
+                        set(k.split("/", 1)[0] for k in _MOCK_BLOBS.keys())
+                    ),
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
             # Try to list containers to verify connectivity
             containers = list(self.blob_service_client.list_containers())
 

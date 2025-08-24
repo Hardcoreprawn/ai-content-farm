@@ -34,6 +34,7 @@ runs:
         CONTAINER_NAME: ${{ inputs.container-name }}
         ENABLE_CACHE: ${{ inputs.enable-cache }}
         REGISTRY: ${{ inputs.registry }}
+        DEPENDENCY_RESULTS_PATH: ${{ inputs.dependency-results-path }}
       run: |
         echo "[BUILD] Building container: $CONTAINER_NAME (optimized for speed)"
 
@@ -54,7 +55,7 @@ runs:
         fi
 
         # Check for existing dependency analysis results
-        dependency_results_path="${{ inputs.dependency-results-path }}"
+        dependency_results_path="$DEPENDENCY_RESULTS_PATH"
         if [ -n "$dependency_results_path" ] && [ -d "$dependency_results_path" ]; then
           safety_result_file="$dependency_results_path/safety-${CONTAINER_NAME}.json"
           if [ -f "$safety_result_file" ]; then

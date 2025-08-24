@@ -207,12 +207,15 @@ def rank_content_items(
         # Create ranked item with original content + scores
         ranked_item = item.copy()
         ranked_item["ranking_scores"] = scores
+        # Use rank_score for test compatibility
+        ranked_item["rank_score"] = scores["composite_score"]
+        # Keep for backward compatibility
         ranked_item["final_rank_score"] = scores["composite_score"]
 
         ranked_items.append(ranked_item)
 
     # Sort by composite score (highest first)
-    ranked_items.sort(key=lambda x: x["final_rank_score"], reverse=True)
+    ranked_items.sort(key=lambda x: x["rank_score"], reverse=True)
 
     # Apply limit if specified
     if limit and limit > 0:

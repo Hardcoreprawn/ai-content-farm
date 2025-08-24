@@ -2,15 +2,25 @@
 
 import os
 import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-# Add the parent directory to the Python path so we can import our modules
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Ensure this container directory is first on sys.path so tests importing
+# top-level modules resolve to the local files.
+root = Path(__file__).parent
+sys.path.insert(0, str(root))
 
-# Configure pytest for async tests
-pytest_plugins = ["pytest_asyncio"]
+# Also add repo root so shared `libs` package is importable during tests
+repo_root = root.parent.parent
+sys.path.insert(0, str(repo_root))
+
+# Set up environment for testing
+os.environ["ENVIRONMENT"] = "local"
+os.environ["BLOB_STORAGE_MOCK"] = "true"
+
+# Note: Do not set pytest_plugins here; it's deprecated to define in non-top-level conftest.
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -19,14 +29,29 @@ def mock_environment():
     with patch.dict(
         os.environ,
         {
-            "AZURE_STORAGE_CONNECTION_STRING": "DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=testkey;EndpointSuffix=core.windows.net",
+            "AZURE_STORAGE_CONNECTION_STRING": "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://127.0.0.1:10000/devstoreaccount1;",
             "RANKED_CONTENT_CONTAINER": "ranked-content",
             "GENERATED_CONTENT_CONTAINER": "generated-content",
             "WATCH_INTERVAL": "30",
             "MAX_CONTENT_ITEMS": "50",
+            "ENVIRONMENT": "local",
+            "BLOB_STORAGE_MOCK": "true",
         },
     ):
         yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_mock_blob_storage():
+    """Isolate mock blob storage between tests."""
+    if os.getenv("BLOB_STORAGE_MOCK", "false").lower() == "true":
+        import libs.blob_storage as _bs
+
+        if hasattr(_bs, "_MOCK_BLOBS"):
+            _bs._MOCK_BLOBS.clear()
+        if hasattr(_bs, "_MOCK_CONTAINERS"):
+            _bs._MOCK_CONTAINERS.clear()
+    yield
 
 
 @pytest.fixture

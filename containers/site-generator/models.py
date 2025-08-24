@@ -15,8 +15,10 @@ class GenerationStatus(str, Enum):
 
     PENDING = "pending"
     PROCESSING = "processing"
+    IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     FAILED = "failed"
+    NOT_FOUND = "not_found"
 
 
 class SiteTheme(str, Enum):
@@ -82,12 +84,22 @@ class GenerationStatusResponse(BaseModel):
 
     site_id: str = Field(..., description="Site identifier")
     status: GenerationStatus = Field(..., description="Current status")
-    progress_percentage: int = Field(..., description="Completion percentage")
-    current_step: str = Field(..., description="Current processing step")
+    # Make these optional to support simplified status in tests/mocks
+    progress_percentage: Optional[int] = Field(
+        default=None, description="Completion percentage"
+    )
+    current_step: Optional[str] = Field(
+        default=None, description="Current processing step"
+    )
     error_message: Optional[str] = Field(None, description="Error message if failed")
     completion_time: Optional[datetime] = Field(
         None, description="When generation completed"
     )
+    # Fields used by API tests for simpler status reporting
+    started_at: Optional[str] = Field(
+        None, description="When generation started (RFC3339)"
+    )
+    progress: Optional[str] = Field(None, description="Freeform progress message")
 
 
 class ContentItem(BaseModel):

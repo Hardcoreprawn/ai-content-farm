@@ -1,35 +1,55 @@
 import os
 import sys
+from pathlib import Path
 from typing import Dict, List
 
 import pytest
+from contracts.azure_openai_contract import AzureOpenAIResponseContract
+from contracts.claude_contract import ClaudeResponseContract
+from contracts.openai_contract import OpenAIResponseContract
 from models import RankedTopic, SourceData
 from service_logic import ContentGeneratorService
 
-from tests.contracts.azure_openai_contract import AzureOpenAIResponseContract
-from tests.contracts.claude_contract import ClaudeResponseContract
-from tests.contracts.openai_contract import OpenAIResponseContract
+# Ensure container dir and repo root are importable BEFORE local imports
+container_dir = Path(__file__).parent.parent
+repo_root = container_dir.parent.parent
+if str(container_dir) not in sys.path:
+    sys.path.insert(0, str(container_dir))
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Now import local modules after path setup
+
+# Now safe to import local modules and shared test contracts
 
 
-# Add the parent directory to the path to allow imports
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-# Add the project root to the path for libs module
-sys.path.insert(
-    0,
-    os.path.join(
-        os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    ),
-)
+# ...paths already configured above...
 
 # Mock environment variables for testing
 os.environ["OPENAI_API_KEY"] = "test-openai-key"
 os.environ["CLAUDE_API_KEY"] = "test-claude-key"
 os.environ["AZURE_OPENAI_ENDPOINT"] = "https://test.openai.azure.com/"
 os.environ["AZURE_OPENAI_API_KEY"] = "test-azure-openai-key"
-os.environ["AZURE_STORAGE_CONNECTION_STRING"] = "UseDevelopmentStorage=true"
-os.environ["AZURE_STORAGE_ACCOUNT_NAME"] = "testaccount"
+os.environ.setdefault("AZURE_STORAGE_CONNECTION_STRING", "UseDevelopmentStorage=true")
+os.environ.setdefault("AZURE_STORAGE_ACCOUNT_NAME", "testaccount")
+os.environ.setdefault("ENVIRONMENT", "local")
+os.environ.setdefault("BLOB_STORAGE_MOCK", "true")
+
+
+@pytest.fixture(autouse=True)
+def _isolate_mock_blob_storage():
+    """Ensure mock blob storage state is isolated per test when in mock mode."""
+    if os.getenv("BLOB_STORAGE_MOCK", "false").lower() == "true":
+        try:
+            import libs.blob_storage as _bs
+
+            if hasattr(_bs, "_MOCK_BLOBS"):
+                _bs._MOCK_BLOBS.clear()
+            if hasattr(_bs, "_MOCK_CONTAINERS"):
+                _bs._MOCK_CONTAINERS.clear()
+        except Exception:
+            pass
+    yield
 
 
 @pytest.fixture

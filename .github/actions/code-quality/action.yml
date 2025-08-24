@@ -43,6 +43,12 @@ runs:
 
     - name: Run Code Quality Checks
       shell: bash
+      env:
+        CHECK_FORMATTING: ${{ inputs.check-formatting }}
+        CHECK_IMPORTS: ${{ inputs.check-imports }}
+        CHECK_LINTING: ${{ inputs.check-linting }}
+        CHECK_TYPES: ${{ inputs.check-types }}
+        CHECK_COMPLEXITY: ${{ inputs.check-complexity }}
       run: |
         echo "Running code quality checks using shared script..."
         chmod +x ./scripts/code-quality.sh
@@ -50,32 +56,32 @@ runs:
         # Build the command based on inputs
         SCRIPT_ARGS=""
 
-        if [[ "${{ inputs.check-formatting }}" == "true" && "${{ inputs.check-imports }}" == "true" && "${{ inputs.check-linting }}" == "true" ]]; then
+        if [[ "$CHECK_FORMATTING" == "true" && "$CHECK_IMPORTS" == "true" && "$CHECK_LINTING" == "true" ]]; then
           # Default case - run standard checks
           SCRIPT_ARGS=""
         else
           # Individual checks
-          if [[ "${{ inputs.check-formatting }}" == "true" ]]; then
+          if [[ "$CHECK_FORMATTING" == "true" ]]; then
             SCRIPT_ARGS="$SCRIPT_ARGS --formatting"
           fi
-          if [[ "${{ inputs.check-imports }}" == "true" ]]; then
+          if [[ "$CHECK_IMPORTS" == "true" ]]; then
             SCRIPT_ARGS="$SCRIPT_ARGS --imports"
           fi
-          if [[ "${{ inputs.check-linting }}" == "true" ]]; then
+          if [[ "$CHECK_LINTING" == "true" ]]; then
             SCRIPT_ARGS="$SCRIPT_ARGS --linting"
           fi
         fi
 
-        if [[ "${{ inputs.check-types }}" == "true" ]]; then
+        if [[ "$CHECK_TYPES" == "true" ]]; then
           SCRIPT_ARGS="$SCRIPT_ARGS --types"
         fi
 
-        if [[ "${{ inputs.check-complexity }}" == "true" ]]; then
+        if [[ "$CHECK_COMPLEXITY" == "true" ]]; then
           SCRIPT_ARGS="$SCRIPT_ARGS --complexity"
         fi
 
         # If all checks are enabled, use --all flag
-        if [[ "${{ inputs.check-formatting }}" == "true" && "${{ inputs.check-imports }}" == "true" && "${{ inputs.check-linting }}" == "true" && "${{ inputs.check-types }}" == "true" && "${{ inputs.check-complexity }}" == "true" ]]; then
+        if [[ "$CHECK_FORMATTING" == "true" && "$CHECK_IMPORTS" == "true" && "$CHECK_LINTING" == "true" && "$CHECK_TYPES" == "true" && "$CHECK_COMPLEXITY" == "true" ]]; then
           SCRIPT_ARGS="--all"
         fi
 

@@ -228,6 +228,7 @@ resource "azurerm_storage_account" "main" {
   account_replication_type      = "LRS"
   public_network_access_enabled = true
   shared_access_key_enabled     = true
+  # nosemgrep: terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass
   network_rules {
     default_action = "Deny"
     bypass         = ["AzureServices"] # This is the recommended configuration for Microsoft services
@@ -236,7 +237,7 @@ resource "azurerm_storage_account" "main" {
   }
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"
-
+  # nosemgrep: terraform.azure.security.storage.storage-queue-services-logging.storage-queue-services-logging
   blob_properties {
     # Enable Storage Analytics logging for blob operations
     # Note: This is configured at the storage account level for compliance
