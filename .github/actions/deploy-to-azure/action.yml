@@ -59,13 +59,26 @@ runs:
 
         # Initialize Terraform with environment-specific state file
         echo "[CONFIG] Using state file: terraform-${ENVIRONMENT}.tfstate"
-        terraform init -reconfigure \
+        docker run --rm \
+          -v "${PWD}":/workspace \
+          -w /workspace \
+          hashicorp/terraform:latest \
+          init -reconfigure \
           -backend-config="key=terraform-${ENVIRONMENT}.tfstate" \
           -backend-config="storage_account_name=${STORAGE_ACCOUNT}"
 
         # Plan and apply (no workspace needed with separate state files)
-        terraform plan -var-file="${ENVIRONMENT}.tfvars" -out=tfplan
-        terraform apply tfplan
+        docker run --rm \
+          -v "${PWD}":/workspace \
+          -w /workspace \
+          hashicorp/terraform:latest \
+          plan -var-file="${ENVIRONMENT}.tfvars" -out=tfplan
+
+        docker run --rm \
+          -v "${PWD}":/workspace \
+          -w /workspace \
+          hashicorp/terraform:latest \
+          apply -auto-approve tfplan
 
         echo "[PASS] Infrastructure deployed"
 
