@@ -52,14 +52,14 @@ output "subscription_id" {
   value       = data.azurerm_client_config.current.subscription_id
 }
 
-# Container Registry outputs
+# Shared Container Registry outputs (consolidated across all environments)
 output "container_registry_name" {
-  description = "Name of the Azure Container Registry"
+  description = "Name of the shared Azure Container Registry (use image tags for environment separation)"
   value       = azurerm_container_registry.main.name
 }
 
 output "container_registry_login_server" {
-  description = "Login server URL for the Azure Container Registry"
+  description = "Login server URL for the shared Azure Container Registry"
   value       = azurerm_container_registry.main.login_server
 }
 

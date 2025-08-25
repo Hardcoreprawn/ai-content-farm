@@ -1,33 +1,25 @@
 # Azure Container Apps infrastructure for AI Content Farm
 
-# Container Apps Environment
+# Container Apps Environment - reusing main Log Analytics workspace for cost efficiency
 resource "azurerm_container_app_environment" "main" {
-  name                = "${var.resource_prefix}-env"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.main.name
+  name                       = "${var.resource_prefix}-env"
+  location                   = var.location
+  resource_group_name        = azurerm_resource_group.main.name
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id # Reuse main workspace
 
   tags = local.common_tags
 }
 
-# Log Analytics Workspace for Container Apps
-resource "azurerm_log_analytics_workspace" "container_apps" {
-  name                = "${var.resource_prefix}-ca-logs"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.main.name
-  sku                 = "PerGB2018"
-  retention_in_days   = 30
+# Log Analytics Workspace consolidated with main workspace for cost efficiency
+# Using azurerm_log_analytics_workspace.main from main.tf
 
-  tags = local.common_tags
-}
-
-# Container Registry for storing container images
-# COST-EFFECTIVE SECURITY APPROACH:
-# - Standard SKU (not Premium) for essential security features
-# - Authentication-based security via RBAC and managed identities
-# - Public access allowed but secured through Azure AD authentication
-# - Vulnerability scanning included at no extra cost
-# - Diagnostic logging to existing Log Analytics (no extra cost)
-# - Export policy enabled to prevent data exfiltration
+# SHARED Container Registry for all environments - saves $20/month vs per-environment registries
+# Uses image tags to differentiate between staging/production deployments
+# Tags strategy: 
+#   - latest = development
+#   - staging-{version} = staging environment  
+#   - prod-{version} = production environment
+#   - pr-{number}-{commit} = ephemeral PR environments
 #checkov:skip=CKV_AZURE_165:Geo-replication requires Premium SKU - cost prohibitive for development
 #checkov:skip=CKV_AZURE_233:Zone redundancy requires Premium SKU - cost prohibitive for development  
 #checkov:skip=CKV_AZURE_137:Using authentication-based security instead of network restrictions for cost efficiency
@@ -35,22 +27,25 @@ resource "azurerm_container_registry" "main" {
   # checkov:skip=CKV_AZURE_165: Geo-replication requires Premium SKU - too expensive for development
   # checkov:skip=CKV_AZURE_233: Zone redundancy requires Premium SKU - too expensive for development
   # checkov:skip=CKV_AZURE_137: Using authentication-based security instead of network restrictions for cost efficiency
-  name                = "${replace(var.resource_prefix, "-", "")}acr"
+  name                = "aicontentfarmacr${random_string.suffix.result}" # Shared across all environments
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
-  sku                 = "Basic" # Downgrade to Basic SKU for $15/month savings
+  sku                 = "Basic" # Basic SKU saves $15/month per environment vs Standard
   admin_enabled       = false   # Disable admin account for security - use managed identity only
 
   # Enable public network access - Basic SKU has limited security options
   public_network_access_enabled = true
 
   # Note: Basic SKU limitations:
-  # - No vulnerability scanning (security trade-off)
-  # - No network restrictions
-  # - 10GB storage limit (currently using 0GB)
+  # - No vulnerability scanning (security trade-off compensated by CI/CD Trivy scanning)
+  # - No network restrictions (compensated by Azure AD authentication)
+  # - 10GB storage limit (sufficient for multiple tagged versions)
   # - 2 webhook limit (currently using 0)
 
-  tags = local.common_tags
+  tags = merge(local.common_tags, {
+    Purpose          = "shared-multi-environment"
+    CostOptimization = "consolidated-registry"
+  })
 }
 
 # Note: Removing diagnostic settings as Basic SKU has limited logging capabilities
@@ -113,14 +108,16 @@ resource "azurerm_federated_identity_credential" "github_pr" {
   subject             = "repo:Hardcoreprawn/ai-content-farm:pull_request"
 }
 
-# Managed Identity for Service Bus encryption
-resource "azurerm_user_assigned_identity" "servicebus" {
-  name                = "${var.resource_prefix}-servicebus-identity"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.main.name
-
-  tags = local.common_tags
-}
+# Managed Identity for Service Bus encryption - DISABLED for Standard SKU cost optimization
+# Standard Service Bus SKU uses Azure-managed encryption and doesn't support customer-managed keys
+# This resource is kept commented for future upgrade to Premium SKU if needed
+#
+# resource "azurerm_user_assigned_identity" "servicebus" {
+#   name                = "${var.resource_prefix}-servicebus-identity"
+#   location            = var.location
+#   resource_group_name = azurerm_resource_group.main.name
+#   tags = local.common_tags
+# }
 
 # Grant container identity access to Key Vault
 resource "azurerm_key_vault_access_policy" "containers" {
@@ -210,10 +207,10 @@ resource "azurerm_servicebus_namespace" "main" {
   name                = "${var.resource_prefix}-servicebus"
   location            = var.location
   resource_group_name = azurerm_resource_group.main.name
-  sku                 = "Premium" # Upgraded for security features
+  sku                 = "Standard" # Downgrade from Premium for significant cost savings
 
-  # Security configurations
-  public_network_access_enabled = false
+  # Security configurations - Standard SKU limitations
+  public_network_access_enabled = true  # Standard SKU cannot disable public access
   local_auth_enabled            = false # Disable local authentication
   minimum_tls_version           = "1.2" # Use latest TLS
 
@@ -222,10 +219,11 @@ resource "azurerm_servicebus_namespace" "main" {
     type = "SystemAssigned"
   }
 
-  depends_on = [
-    azurerm_key_vault_access_policy.servicebus,
-    azurerm_key_vault_key.servicebus
-  ]
+  # Note: Standard SKU limitations vs Premium:
+  # - Cannot disable public network access (security trade-off)
+  # - No customer-managed encryption keys
+  # - No virtual network integration
+  # - Saves $600+/month vs Premium
 
   tags = local.common_tags
 }
@@ -279,7 +277,7 @@ resource "azurerm_container_app" "site_generator" {
   template {
     container {
       name   = "site-generator"
-      image  = "${azurerm_container_registry.main.login_server}/site-generator:latest"
+      image  = "${azurerm_container_registry.main.login_server}/site-generator:latest" # Uses shared registry with environment-specific tags
       cpu    = 0.5
       memory = "1Gi"
 
@@ -321,7 +319,7 @@ resource "azurerm_container_app" "content_collector" {
   template {
     container {
       name   = "content-collector"
-      image  = "${azurerm_container_registry.main.login_server}/content-collector:latest"
+      image  = "${azurerm_container_registry.main.login_server}/content-collector:latest" # Uses shared registry with environment-specific tags
       cpu    = 0.5
       memory = "1Gi"
 

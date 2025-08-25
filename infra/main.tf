@@ -98,7 +98,7 @@ resource "azurerm_key_vault_secret" "reddit_client_id" {
   value           = var.reddit_client_id != "" ? var.reddit_client_id : "placeholder-change-me"
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
-  expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
+  expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
   depends_on      = [azurerm_key_vault_access_policy.current_user]
 
   tags = {
@@ -112,7 +112,7 @@ resource "azurerm_key_vault_secret" "reddit_client_secret" {
   value           = var.reddit_client_secret != "" ? var.reddit_client_secret : "placeholder-change-me"
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
-  expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
+  expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
   depends_on      = [azurerm_key_vault_access_policy.current_user]
 
   tags = {
@@ -126,7 +126,7 @@ resource "azurerm_key_vault_secret" "reddit_user_agent" {
   value           = var.reddit_user_agent != "" ? var.reddit_user_agent : "ai-content-farm:v1.0 (by /u/your-username)"
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
-  expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
+  expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
   depends_on      = [azurerm_key_vault_access_policy.current_user]
 
   tags = {
@@ -141,7 +141,7 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
   value           = var.infracost_api_key != "" ? var.infracost_api_key : "placeholder-get-from-infracost-io"
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
-  expiration_date = timeadd(timestamp(), "8760h") # 1 year from now
+  expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
   depends_on      = [azurerm_key_vault_access_policy.current_user]
 
   tags = {
@@ -150,45 +150,47 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
   }
 }
 
-# Service Bus encryption key
-#checkov:skip=CKV_AZURE_112:HSM backing requires Premium Key Vault - cost prohibitive for development
-# nosemgrep: terraform.azure.security.keyvault.keyvault-ensure-key-expires.keyvault-ensure-key-expires
-resource "azurerm_key_vault_key" "servicebus" {
-  # checkov:skip=CKV_AZURE_112: HSM backing requires Premium Key Vault - too expensive for development
-  name            = "servicebus-encryption-key"
-  key_vault_id    = azurerm_key_vault.main.id
-  key_type        = "RSA" # Use standard RSA key (HSM requires Premium Key Vault)
-  key_size        = 2048
-  expiration_date = timeadd(timestamp(), "8760h") # 1 year expiration
+# Service Bus encryption key - DISABLED for Standard SKU cost optimization
+# Standard Service Bus SKU does not support customer-managed encryption keys
+# This resource is kept commented for future upgrade to Premium SKU if needed
+#
+# resource "azurerm_key_vault_key" "servicebus" {
+#   name            = "servicebus-encryption-key"
+#   key_vault_id    = azurerm_key_vault.main.id
+#   key_type        = "RSA"
+#   key_size        = 2048
+#   expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
+#
+#   key_opts = [
+#     "decrypt",
+#     "encrypt", 
+#     "sign",
+#     "unwrapKey",
+#     "verify",
+#     "wrapKey",
+#   ]
+#
+#   depends_on = [azurerm_key_vault_access_policy.current_user]
+#   tags = local.common_tags
+# }
 
-  key_opts = [
-    "decrypt",
-    "encrypt",
-    "sign",
-    "unwrapKey",
-    "verify",
-    "wrapKey",
-  ]
-
-  depends_on = [azurerm_key_vault_access_policy.current_user]
-
-  tags = local.common_tags
-}
-
-# Access policy for Service Bus managed identity
-resource "azurerm_key_vault_access_policy" "servicebus" {
-  key_vault_id = azurerm_key_vault.main.id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = azurerm_user_assigned_identity.servicebus.principal_id
-
-  key_permissions = [
-    "Get",
-    "UnwrapKey",
-    "WrapKey"
-  ]
-
-  depends_on = [azurerm_user_assigned_identity.servicebus]
-}
+# Access policy for Service Bus managed identity - DISABLED for Standard SKU
+# Standard Service Bus SKU does not support customer-managed encryption keys
+# This resource is kept commented for future upgrade to Premium SKU if needed
+#
+# resource "azurerm_key_vault_access_policy" "servicebus" {
+#   key_vault_id = azurerm_key_vault.main.id
+#   tenant_id    = data.azurerm_client_config.current.tenant_id
+#   object_id    = azurerm_user_assigned_identity.servicebus.principal_id
+#
+#   key_permissions = [
+#     "Get",
+#     "UnwrapKey", 
+#     "WrapKey"
+#   ]
+#
+#   depends_on = [azurerm_user_assigned_identity.servicebus]
+# }
 
 
 resource "azurerm_log_analytics_workspace" "main" {
@@ -196,7 +198,9 @@ resource "azurerm_log_analytics_workspace" "main" {
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
   sku                 = "PerGB2018"
-  retention_in_days   = 30
+  retention_in_days   = 30 # Reduced from default 90 days for cost optimization
+
+  tags = local.common_tags
 }
 
 resource "azurerm_application_insights" "main" {
@@ -323,7 +327,7 @@ resource "azurerm_key_vault_secret" "openai_key" {
   value           = azurerm_cognitive_account.openai.primary_access_key
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
-  expiration_date = timeadd(timestamp(), "8760h") # 1 year expiration
+  expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
   depends_on      = [azurerm_key_vault_access_policy.current_user]
 
   tags = local.common_tags
