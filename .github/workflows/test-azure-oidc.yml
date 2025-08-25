@@ -1,0 +1,92 @@
+name: Test Azure OIDC Authentication
+on:
+  workflow_dispatch:
+    inputs:
+      test-environment:
+        description: 'Environment to test authentication against'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+permissions:
+  contents: read
+  id-token: write  # Required for Azure OIDC authentication
+
+jobs:
+  test-azure-auth:
+    name: Test Azure Authentication
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.test-environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Test Azure CLI Authentication
+        run: |
+          echo "[SCAN] Testing Azure CLI authentication..."
+
+          echo "[INFO] Current account:"
+          az account show --query "{name:name, id:id, tenantId:tenantId}" -o table
+
+          echo ""
+          echo "[LIST] Accessible resource groups:"
+          az group list --query "[].{Name:name, Location:location}" -o table
+
+          echo ""
+          echo "[TEST] Testing Key Vault access..."
+          az keyvault list --query "[].{Name:name, ResourceGroup:resourceGroup}" -o table
+
+          echo ""
+          echo "[TEST] Testing Container Registry access..."
+          az acr list --query "[].{Name:name, ResourceGroup:resourceGroup}" -o table
+
+          echo ""
+          echo "[TEST] Testing Storage Account access..."
+          az storage account list --query "[].{Name:name, ResourceGroup:resourceGroup}" -o table
+
+          echo ""
+          echo "[PASS] Azure OIDC authentication test completed successfully!"
+
+      - name: Test Specific Permissions
+        run: |
+          echo "[TEST] Testing specific permissions..."
+
+          echo "[INFO] Checking role assignments:"
+          CLIENT_ID="${{ vars.AZURE_CLIENT_ID }}"
+          SP_OBJECT_ID=$(az ad sp show --id "$CLIENT_ID" --query id -o tsv)
+          echo "Service Principal Object ID: $SP_OBJECT_ID"
+
+          echo ""
+          echo "[LIST] Current role assignments:"
+          az role assignment list --assignee "$SP_OBJECT_ID" --all \
+            --query "[].{Role:roleDefinitionName, Scope:scope}" -o table || \
+            echo "Note: Role assignment listing might be limited based on permissions"
+
+          echo ""
+          echo "[PASS] Permission test completed!"
+
+      - name: Test Environment-Specific Access
+        run: |
+          echo "[TEST] Testing environment-specific access for: ${{ inputs.test-environment }}"
+
+          if [ "${{ inputs.test-environment }}" = "production" ]; then
+            echo "[PROD] Testing production resource access..."
+            az resource list --resource-group ai-content-farm-core-rg \
+              --query "[].{Name:name, Type:type}" -o table
+          else
+            echo "[STAGE] Testing staging resource access..."
+            az resource list --resource-group ai-content-staging-rg \
+              --query "[].{Name:name, Type:type}" -o table
+          fi
+
+          echo "[PASS] Environment access test completed!"
