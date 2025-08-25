@@ -76,10 +76,12 @@ jobs:
           echo "[PASS] Permission test completed!"
 
       - name: Test Environment-Specific Access
+        env:
+          TEST_ENVIRONMENT: ${{ inputs.test-environment }}
         run: |
-          echo "[TEST] Testing environment-specific access for: ${{ inputs.test-environment }}"
+          echo "[TEST] Testing environment-specific access for: $TEST_ENVIRONMENT"
 
-          if [ "${{ inputs.test-environment }}" = "production" ]; then
+          if [ "$TEST_ENVIRONMENT" = "production" ]; then
             echo "[PROD] Testing production resource access..."
             az resource list --resource-group ai-content-farm-core-rg \
               --query "[].{Name:name, Type:type}" -o table
