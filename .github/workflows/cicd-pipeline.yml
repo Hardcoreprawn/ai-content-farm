@@ -396,7 +396,7 @@ jobs:
           acr-name: aicontentprodacr
           environment: production
           containers: ${{ needs.container-build-summary.outputs.containers-built || 'all' }}
-          terraform-storage-account: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT || 'aicontentstagingstv33ppo' }}
+          terraform-storage-account: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT_PROD || 'aicontentfarmtfstate' }}
 
   # Stage 8: Post-Deployment Tests
   post-deployment:
