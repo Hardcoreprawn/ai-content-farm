@@ -1,4 +1,5 @@
 # Outputs
+# Trivial change to trigger infrastructure change detection - 2025-08-25
 
 # Function App outputs removed - container services don't need these
 
