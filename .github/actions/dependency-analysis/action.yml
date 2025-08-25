@@ -102,8 +102,8 @@ runs:
         done
 
         # Check overall status from temp files
-        for status_file in security-results/.* 2>/dev/null; do
-          if [[ "$status_file" == *"_status" ]] && [ -f "$status_file" ]; then
+        for status_file in security-results/.*_status; do
+          if [ -f "$status_file" ]; then
             status=$(cat "$status_file")
             if [ "$status" -eq 1 ]; then
               overall_status=1
