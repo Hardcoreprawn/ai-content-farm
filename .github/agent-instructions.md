@@ -23,7 +23,7 @@ This is a **personal content aggregation and curation platform** that collects i
 
 ## AI Agent Working Principles
 - **Code Quality First**: Always consider linting, formatting, and best practices
-- **Test Integrity**: Never skip or remove tests - fix them to work properly. Tests prove code works.
+- **Test Integrity**: Never skip or remove tests - fix them to work properly, or replace them. Tests prove code works.
 - **Think Before Acting**: Research and discuss solutions before implementing
 - **No Unnatural Acts**: Use tools as designed. If it's not working, reconsider the approach or tool choice
 - **Bad News Early**: Stop and explain issues/errors immediately when discovered, then collaborate on resolution

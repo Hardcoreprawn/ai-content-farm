@@ -13,9 +13,9 @@ from typing import Any, Dict, List
 
 import pytest
 import pytest_asyncio
-from libs.blob_storage import BlobContainers, BlobStorageClient
-
 from service_logic import ContentRankerService
+
+from libs.blob_storage import BlobContainers, BlobStorageClient
 
 
 @pytest.mark.asyncio
