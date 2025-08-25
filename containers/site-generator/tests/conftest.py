@@ -22,6 +22,10 @@ if not os.getenv("AZURE_STORAGE_CONNECTION_STRING"):
 if not os.getenv("ENVIRONMENT"):
     os.environ["ENVIRONMENT"] = "testing"
 
+# Add missing mock environment variables for consistency with other containers
+os.environ.setdefault("BLOB_STORAGE_MOCK", "true")
+os.environ.setdefault("PYTEST_CURRENT_TEST", "true")
+
 from tests.contracts.blob_storage_contract import (
     BlobItemContract,
     RankedContentContract,
