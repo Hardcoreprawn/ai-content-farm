@@ -16,14 +16,15 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import uvicorn
-from config import get_config, health_check
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from processor import process_reddit_batch, transform_reddit_post
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
-from service_logic import ContentProcessorService
 from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from config import get_config, health_check
+from processor import process_reddit_batch, transform_reddit_post
+from service_logic import ContentProcessorService
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 sys.path.insert(
@@ -433,7 +434,8 @@ async def api_health():
             "data": h.model_dump(),
         }
     except Exception as e:
-        return {"status": "error", "errors": [str(e)]}
+        logger.error(f"Health check failed: {e}")
+        return {"status": "error", "errors": ["Health check failed"]}
 
 
 @app.get("/api/content-processor/status")
@@ -443,7 +445,8 @@ async def api_status():
         s = await get_status()
         return {"status": "success", "data": s}
     except Exception as e:
-        return {"status": "error", "errors": [str(e)]}
+        logger.error(f"Status check failed: {e}")
+        return {"status": "error", "errors": ["Status check failed"]}
 
 
 @app.post("/api/content-processor/process")
@@ -464,8 +467,10 @@ async def api_process(payload: Dict[str, Any]):
             content={"status": "error", "errors": [str(he.detail)]},
         )
     except Exception as e:
+        logger.error(f"Process request failed: {e}")
         return JSONResponse(
-            status_code=500, content={"status": "error", "errors": [str(e)]}
+            status_code=500,
+            content={"status": "error", "errors": ["Processing request failed"]},
         )
 
 

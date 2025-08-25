@@ -16,19 +16,18 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import uvicorn
-
-# Import local modules
-from config import get_config, validate_environment
 from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from health import HealthChecker
+from libs.blob_storage import BlobContainers, BlobStorageClient
 from models import *
 from pydantic import BaseModel, Field
-from service_logic import SiteProcessor
 
-from libs.blob_storage import BlobContainers, BlobStorageClient
+# Import local modules
+from config import get_config, validate_environment
+from service_logic import SiteProcessor
 
 # Configure logging
 logging.basicConfig(
@@ -246,7 +245,10 @@ async def api_generate_site(request: Request, background_tasks: BackgroundTasks)
     try:
         req_model = GenerationRequest(**payload)
     except Exception as e:
-        return JSONResponse(status_code=422, content={"detail": str(e)})
+        logger.error(f"Request validation failed: {e}")
+        return JSONResponse(
+            status_code=422, content={"detail": "Invalid request format or parameters"}
+        )
 
     site_id = f"site_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
     # In tests, run generation synchronously so status is immediately available
@@ -303,7 +305,11 @@ async def api_list_sites():
         ]
         return JSONResponse(status_code=200, content={"sites": sites})
     except Exception as e:
-        return JSONResponse(status_code=500, content={"detail": str(e)})
+        logger.error(f"Failed to list sites: {e}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal server error occurred while listing sites"},
+        )
 
 
 @app.get("/generate/status/{site_id}")
