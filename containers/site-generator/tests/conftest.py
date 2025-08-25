@@ -15,6 +15,13 @@ from unittest.mock import MagicMock, Mock
 import pytest
 from fastapi.testclient import TestClient
 
+# Set up environment before any imports
+if not os.getenv("AZURE_STORAGE_CONNECTION_STRING"):
+    os.environ["AZURE_STORAGE_CONNECTION_STRING"] = "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=dGVzdA==;EndpointSuffix=core.windows.net"
+
+if not os.getenv("ENVIRONMENT"):
+    os.environ["ENVIRONMENT"] = "testing"
+
 from tests.contracts.blob_storage_contract import (
     BlobItemContract,
     RankedContentContract,

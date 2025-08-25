@@ -72,6 +72,16 @@ runs:
           pip install -r "containers/${CONTAINER_NAME}/requirements-test.txt"
         fi
 
+    - name: Set Test Environment Variables
+      shell: bash
+      env:
+        CONTAINER_NAME: ${{ inputs.container-name }}
+      run: |
+        echo "[ENV] Setting up test environment for ${CONTAINER_NAME}..."
+        echo "AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;AccountName=test;AccountKey=dGVzdA==;EndpointSuffix=core.windows.net" >> $GITHUB_ENV
+        echo "ENVIRONMENT=testing" >> $GITHUB_ENV
+        echo "PYTHONPATH=/home/runner/work/ai-content-farm/ai-content-farm:$PYTHONPATH" >> $GITHUB_ENV
+
     - name: Run Unit Tests
       if: inputs.test-type == 'unit'
       shell: bash
