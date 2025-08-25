@@ -73,6 +73,11 @@ Thumbs.db
 .pytest_cache/
 .mypy_cache/
 
+# Test results and coverage reports (should not be committed)
+coverage-*.xml
+test-results-*.xml
+.coverage
+
 # Cython build
 build/
 *.egg-info/

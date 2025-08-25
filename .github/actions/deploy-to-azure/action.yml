@@ -145,12 +145,15 @@ runs:
         ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" --query loginServer -o tsv)
         deployed_containers=""
 
+        # Get resource prefix from environment or use default
+        RESOURCE_PREFIX=${RESOURCE_PREFIX:-"ai-content-dev"}
+
         # Deploy customer-facing services first, then content pipeline
         declare -A container_apps=(
-          ["site-generator"]="ai-content-dev-site-gen"
-          ["content-generator"]="ai-content-dev-content-gen"
-          ["content-collector"]="ai-content-dev-collector"
-          ["content-ranker"]="ai-content-dev-ranker"
+          ["site-generator"]="${RESOURCE_PREFIX}-site-gen"
+          ["content-generator"]="${RESOURCE_PREFIX}-content-gen"
+          ["content-collector"]="${RESOURCE_PREFIX}-collector"
+          ["content-ranker"]="${RESOURCE_PREFIX}-ranker"
         )
 
         for container in "${!container_apps[@]}"; do
@@ -178,7 +181,7 @@ runs:
 
         # Get deployment URL from site-generator (customer-facing)
         DEPLOYMENT_URL=$(az containerapp show \
-          --name "ai-content-dev-site-gen" \
+          --name "${RESOURCE_PREFIX}-site-gen" \
           --resource-group "$RESOURCE_GROUP" \
           --query "properties.configuration.ingress.fqdn" \
           -o tsv 2>/dev/null)
