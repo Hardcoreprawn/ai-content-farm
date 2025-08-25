@@ -35,8 +35,8 @@ runs:
           bridgecrew/checkov:latest -d /workspace/infra \
           --framework terraform \
           --output json \
-          --output-file-path /workspace/security-results \
-          --file checkov-results.json || true
+          --output-file-path /workspace \
+          --file security-results/checkov-results.json || true
 
     - name: Upload Checkov Results
       if: steps.check-infra.outputs.found == 'true'
@@ -45,3 +45,4 @@ runs:
         name: security-results-checkov
         path: security-results/checkov-results.json
         retention-days: 30
+        if-no-files-found: warn
