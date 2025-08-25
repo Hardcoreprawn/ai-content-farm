@@ -7,8 +7,8 @@
 terraform {
   backend "azurerm" {
     # Storage account and container for state storage
-    storage_account_name = "aicontentstagingstv33ppo"
-    container_name       = "terraform-state"
+    storage_account_name = "aicontentfarmtfstate"
+    container_name       = "tfstate"
 
     # Production state file (only persistent environment)
     key = "terraform-production.tfstate"
