@@ -8,4 +8,4 @@ Version: 1.2.2 - Parallel container builds implementation (Aug 22, 2025)
 """
 
 __version__ = "1.2.2"
-# Test final Terraform fix: Docker + OIDC + production storage + container
+# Test final fix: backend.tf now matches workflow storage account config
