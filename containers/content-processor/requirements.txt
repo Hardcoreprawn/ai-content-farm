@@ -1,6 +1,6 @@
 # Core web framework
 fastapi~=0.116.1
-uvicorn[standard]~=0.24.0
+uvicorn[standard]~=0.35.0
 
 # Data processing
 pydantic~=2.5.0
