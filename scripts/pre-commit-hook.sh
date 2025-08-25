@@ -3,7 +3,7 @@
 # Run this script to set up the pre-commit hook: ./scripts/setup-git-hooks.sh
 
 # Check if any Python files are being committed
-python_files=$(git diff --cached --name-only | grep -E '\.py$')
+python_files=$(git diff --cached --name-only --diff-filter=AM | grep -E '\.py$')
 
 if [ -n "$python_files" ]; then
     echo "🎨 Python files changed, checking code formatting..."
