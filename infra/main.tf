@@ -4,6 +4,7 @@ resource "random_string" "suffix" {
   length  = 6
   upper   = false
   special = false
+  # Trigger pipeline for Terraform Docker fix test
 }
 
 resource "azurerm_resource_group" "main" {
