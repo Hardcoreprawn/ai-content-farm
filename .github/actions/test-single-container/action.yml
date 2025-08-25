@@ -56,11 +56,20 @@ runs:
         fi
 
         # Install container-specific dependencies
-        if [ -f "containers/${CONTAINER_NAME}/requirements.txt" ]; then
+        if [ -f "containers/${CONTAINER_NAME}/requirements-prod.txt" ]; then
+          echo "Installing ${CONTAINER_NAME} production dependencies..."
+          pip install -r "containers/${CONTAINER_NAME}/requirements-prod.txt"
+        elif [ -f "containers/${CONTAINER_NAME}/requirements.txt" ]; then
           echo "Installing ${CONTAINER_NAME} dependencies..."
           pip install -r "containers/${CONTAINER_NAME}/requirements.txt"
         else
-          echo "[WARN] No requirements.txt found for ${CONTAINER_NAME}"
+          echo "[WARN] No requirements file found for ${CONTAINER_NAME}"
+        fi
+
+        # Install test dependencies for containers that have them
+        if [ -f "containers/${CONTAINER_NAME}/requirements-test.txt" ]; then
+          echo "Installing ${CONTAINER_NAME} test dependencies..."
+          pip install -r "containers/${CONTAINER_NAME}/requirements-test.txt"
         fi
 
     - name: Run Unit Tests

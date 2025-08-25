@@ -186,9 +186,9 @@ class TestPhase1BIntegrationSlow:
     @pytest.fixture
     def real_ranked_content(self):
         """Load real ranked content from test file."""
-        content_file = Path(
-            "/workspaces/ai-content-farm/tests/test_ranked_content.json"
-        )
+        # Use relative path that works in both dev container and GitHub Actions
+        current_dir = Path(__file__).parent.parent.parent.parent
+        content_file = current_dir / "tests" / "test_ranked_content.json"
         with open(content_file, "r") as f:
             real_content = json.load(f)
 

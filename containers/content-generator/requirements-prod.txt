@@ -1,0 +1,15 @@
+# Production dependencies for content-generator
+# Auto-generated from requirements.txt - do not edit manually
+
+fastapi~=0.116.1
+uvicorn[standard]~=0.35.0
+pydantic~=2.11.7
+azure-storage-blob~=12.26.0
+azure-identity~=1.24.0
+azure-servicebus~=7.12.0
+openai~=1.100.2
+anthropic~=0.64.0
+python-multipart~=0.0.20
+python-json-logger~=2.0.7
+aiofiles~=24.1.0
+httpx~=0.28.1

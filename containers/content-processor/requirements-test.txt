@@ -1,0 +1,8 @@
+# Test dependencies for content-processor
+# Auto-generated from requirements.txt - do not edit manually
+
+pytest~=8.4.1
+pytest-asyncio~=1.1.0
+black~=25.1.0
+isort~=6.0.1
+mypy~=1.17.1

@@ -1,0 +1,44 @@
+# Shared version configuration for all containers
+# Use ~= for compatible release (allows patch updates)
+
+[production]
+# Core FastAPI/web dependencies
+fastapi = "~=0.116.1"
+uvicorn = "~=0.35.0"  # with [standard] extras where needed
+pydantic = "~=2.11.7"
+starlette = "~=0.46.2"
+
+# HTTP client libraries
+httpx = "~=0.28.1"
+requests = "~=2.32.5"
+
+# Azure dependencies
+azure-storage-blob = "~=12.26.0"
+azure-identity = "~=1.24.0"
+azure-core = "~=1.35.0"
+azure-servicebus = "~=7.12.0"
+
+# AI/ML dependencies
+openai = "~=1.100.2"
+
+# Utility dependencies
+python-multipart = "~=0.0.20"
+python-dotenv = "~=1.1.1"
+pyyaml = "~=6.0.2"
+jinja2 = "~=3.1.2"
+feedgen = "~=1.0.0"
+
+[test]
+# Testing framework
+pytest = "~=8.4.1"
+pytest-asyncio = "~=1.1.0"
+pytest-cov = "~=4.1.0"
+pytest-xdist = "~=3.8.0"
+
+# Code quality tools
+black = "~=25.1.0"
+isort = "~=6.0.1"
+mypy = "~=1.17.1"
+
+# Type stubs
+types-requests = "~=2.31.0.10"

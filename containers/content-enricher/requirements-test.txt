@@ -1,9 +1,6 @@
-fastapi~=0.116.1
-uvicorn[standard]~=0.35.0
-pydantic~=2.11.7
-httpx~=0.28.1
-requests~=2.32.5
-python-multipart~=0.0.20
+# Test dependencies for content-enricher
+# Auto-generated from requirements.txt - do not edit manually
+
 pytest~=8.4.1
 pytest-asyncio~=1.1.0
 pytest-cov~=4.1.0

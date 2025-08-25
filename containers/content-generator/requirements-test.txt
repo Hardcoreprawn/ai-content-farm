@@ -1,0 +1,5 @@
+# Test dependencies for content-generator
+# Auto-generated from requirements.txt - do not edit manually
+
+pytest~=8.4.1
+pytest-asyncio~=1.1.0

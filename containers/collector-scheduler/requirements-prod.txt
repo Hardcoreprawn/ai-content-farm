@@ -1,0 +1,7 @@
+# Production dependencies for collector-scheduler
+# Auto-generated from requirements.txt - do not edit manually
+
+httpx~=0.28.1
+azure-storage-blob~=12.26.0
+requests~=2.32.5
+APScheduler>=3.10.0

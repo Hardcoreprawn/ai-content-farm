@@ -1,0 +1,9 @@
+# Production dependencies for content-ranker
+# Auto-generated from requirements.txt - do not edit manually
+
+fastapi~=0.116.1
+uvicorn[standard]~=0.35.0
+pydantic~=2.11.7
+httpx~=0.28.1
+requests~=2.32.5
+python-multipart~=0.0.20

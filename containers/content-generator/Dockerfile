@@ -13,9 +13,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements and install Python dependencies
-COPY containers/content-generator/requirements.txt .
+COPY containers/content-generator/requirements-prod.txt .
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r requirements.txt
+    pip install -r requirements-prod.txt
 
 # Copy application code
 COPY containers/content-generator/ .

@@ -18,9 +18,9 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r /tmp/requirements-common.txt
 
 # 2. Install service-specific dependencies  
-COPY containers/site-generator/requirements.txt /tmp/
+COPY containers/site-generator/requirements-prod.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r /tmp/requirements.txt
+    pip install -r /tmp/requirements-prod.txt
 
 # 3. Copy shared libraries
 COPY libs/ ./libs/
