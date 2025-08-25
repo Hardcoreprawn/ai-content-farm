@@ -57,11 +57,23 @@ runs:
         echo "[PACKAGE] Deploying infrastructure with Terraform..."
         cd infra
 
+        # Get Azure authentication details from environment
+        export ARM_CLIENT_ID="${{ inputs.client-id }}"
+        export ARM_TENANT_ID="${{ inputs.tenant-id }}"
+        export ARM_SUBSCRIPTION_ID="${{ inputs.subscription-id }}"
+        export ARM_USE_OIDC=true
+
         # Initialize Terraform with environment-specific state file
         echo "[CONFIG] Using state file: terraform-${ENVIRONMENT}.tfstate"
         docker run --rm \
           -v "${PWD}":/workspace \
           -w /workspace \
+          -e ARM_CLIENT_ID \
+          -e ARM_TENANT_ID \
+          -e ARM_SUBSCRIPTION_ID \
+          -e ARM_USE_OIDC \
+          -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+          -e ACTIONS_ID_TOKEN_REQUEST_URL \
           hashicorp/terraform:latest \
           init -reconfigure \
           -backend-config="key=terraform-${ENVIRONMENT}.tfstate" \
@@ -71,12 +83,24 @@ runs:
         docker run --rm \
           -v "${PWD}":/workspace \
           -w /workspace \
+          -e ARM_CLIENT_ID \
+          -e ARM_TENANT_ID \
+          -e ARM_SUBSCRIPTION_ID \
+          -e ARM_USE_OIDC \
+          -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+          -e ACTIONS_ID_TOKEN_REQUEST_URL \
           hashicorp/terraform:latest \
           plan -var-file="${ENVIRONMENT}.tfvars" -out=tfplan
 
         docker run --rm \
           -v "${PWD}":/workspace \
           -w /workspace \
+          -e ARM_CLIENT_ID \
+          -e ARM_TENANT_ID \
+          -e ARM_SUBSCRIPTION_ID \
+          -e ARM_USE_OIDC \
+          -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+          -e ACTIONS_ID_TOKEN_REQUEST_URL \
           hashicorp/terraform:latest \
           apply -auto-approve tfplan
 
