@@ -8,4 +8,4 @@ Version: 1.2.2 - Parallel container builds implementation (Aug 22, 2025)
 """
 
 __version__ = "1.2.2"
-# Trigger pipeline for Terraform Docker fix test
+# Test Azure OIDC authentication fix for Terraform
