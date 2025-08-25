@@ -126,11 +126,19 @@ pytest containers/content-collector/tests/
 
 See [Implementation Roadmap](docs/IMPLEMENTATION_ROADMAP.md) for detailed timeline.
 
+## 📋 Key Documentation
+
+- **[Quick Start Guide](docs/QUICK_START_GUIDE.md)** - Get started with development
+- **[Dependency Management](docs/DEPENDENCY_MANAGEMENT.md)** - Version control and package management
+- **[Container Development Standards](docs/CONTAINER_DEVELOPMENT_STANDARDS.md)** - Development guidelines
+- **[CI/CD Pipeline Design](docs/CICD_PIPELINE_DESIGN.md)** - Automated testing and deployment
+- **[Implementation Roadmap](docs/IMPLEMENTATION_ROADMAP.md)** - Project priorities and timeline
+
 ## 🤝 Contributing
 
 1. **Read the Documentation**: Start with [Quick Start Guide](docs/QUICK_START_GUIDE.md)
 2. **Follow Standards**: Use [Container Development Standards](docs/CONTAINER_DEVELOPMENT_STANDARDS.md)
-3. **Check Roadmap**: See current priorities in [Implementation Roadmap](docs/IMPLEMENTATION_ROADMAP.md)
+3. **Check Dependencies**: Follow [Dependency Management](docs/DEPENDENCY_MANAGEMENT.md) guidelines
 4. **Test Everything**: Ensure all tests pass before submitting changes
 
 ## 📄 License

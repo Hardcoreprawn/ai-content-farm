@@ -1,11 +1,18 @@
 #!/bin/bash
-# Script to split requirements.txt into production and test dependencies
-# Usage: ./split_requirements.sh [container_name]
+# DEPRECATED: Script to split requirements.txt into production and test dependencies
+# Use standardize_versions.py with shared-versions.toml instead
 
 set -e
 
+echo "⚠️  DEPRECATED: This script is no longer needed"
+echo "📝 Use: python scripts/standardize_versions.py"
+echo "🔧 Which uses: shared-versions.toml for version management"
+echo ""
+echo "🚫 Exiting..."
+exit 1
+
 CONTAINER_DIR="containers"
-SHARED_VERSIONS_FILE="containers/shared-versions.txt"
+SHARED_VERSIONS_FILE="shared-versions.toml"
 
 # Test dependencies to move to requirements-test.txt
 TEST_DEPS=(

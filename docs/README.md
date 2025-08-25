@@ -1,53 +1,89 @@
 # AI Content Farm Documentation
 
-This directory contains the complete documentation for the AI Content Farm project.
+This directory contains comprehensive documentation for the AI Content Farm project, organized by category for easy navigation.
 
-## 📚 Documentation Index
+## � Documentation Structure
 
-### 🏗️ Architecture & Design
-- **[SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md)** - Master architectural document defining system design, container specifications, and data flow
-- **[deployment-guide.md](deployment-guide.md)** - Production deployment procedures and infrastructure setup
+### Core Documentation
+- [`SYSTEM_ARCHITECTURE.md`](SYSTEM_ARCHITECTURE.md) - Overall system design and component architecture
+- [`QUICK_START_GUIDE.md`](QUICK_START_GUIDE.md) - Get started with the project quickly
+- [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md) - Project development roadmap and milestones
+- [`DEPENDENCY_MANAGEMENT.md`](DEPENDENCY_MANAGEMENT.md) - Version management using shared-versions.toml
+- [`content-collector-api.md`](content-collector-api.md) - Content collector service API specification
 
-### 🚀 Development Guides
-- **[QUICK_START_GUIDE.md](QUICK_START_GUIDE.md)** - **START HERE** - Get from zero to productive development in 30 minutes
-- **[CONTAINER_DEVELOPMENT_STANDARDS.md](CONTAINER_DEVELOPMENT_STANDARDS.md)** - Mandatory standards and templates for all containers
-- **[CONTAINER_MIGRATION_GUIDE.md](CONTAINER_MIGRATION_GUIDE.md)** - Step-by-step guide for migrating existing containers
-- **[IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md)** - 12-day implementation plan with daily tasks and milestones
+### 📂 Organized Categories
 
-### 🔒 Security & Configuration  
-- **[security-policy.md](security-policy.md)** - Security policies and procedures
-- **[security-testing-report.md](security-testing-report.md)** - Security testing results and findings
-- **[key-vault-integration.md](key-vault-integration.md)** - Azure Key Vault integration guide
-- **[KEYVAULT_INTEGRATION.md](KEYVAULT_INTEGRATION.md)** - Detailed Key Vault implementation
-- **[KEYVAULT_IMPLEMENTATION_SUMMARY.md](KEYVAULT_IMPLEMENTATION_SUMMARY.md)** - Key Vault setup summary
-- **[LOCAL_DEVELOPMENT_KEYVAULT.md](LOCAL_DEVELOPMENT_KEYVAULT.md)** - Local Key Vault development setup
+#### `/development`
+Development standards, guidelines, and best practices:
+- Container development standards and migration guides
+- Commit message guidelines and emoji policies
+- Testing strategies and content processor optimization
+- Code quality and review guidelines
 
-### ✅ Testing & Quality
-- **[testing-guide.md](testing-guide.md)** - Comprehensive testing strategy and best practices
+#### `/cicd`
+Continuous integration and deployment workflows:
+- GitHub Actions implementation and workflow design
+- Dependabot integration and auto-merge configuration
+- Pipeline execution logic and validation
+- Workflow troubleshooting and best practices
 
-### 💰 Planning & Analysis
-- **[cost-analysis.md](cost-analysis.md)** - Azure resource cost analysis and optimization
+#### `/infrastructure`
+Infrastructure setup, deployment, and cloud services:
+- Azure OpenAI and Key Vault integration
+- Managed identity and authentication setup
+- Cost analysis and optimization strategies
+- Deployment guides and infrastructure architecture
 
-### 📡 API Documentation
-- **[content-collector-api.md](content-collector-api.md)** - Content collector service API specification
+#### `/security`
+Security policies, tools, and remediation:
+- Security scanning and vulnerability management
+- Security testing reports and exceptions
+- Remediation strategies and security tools rationale
 
-### 🎯 Phase Completion Reports
-- **[PHASE_2B_CONTENT_PROCESSOR_INTEGRATION_20250819.md](PHASE_2B_CONTENT_PROCESSOR_INTEGRATION_20250819.md)** - Content processor blob storage integration completion (Aug 19, 2025)
-- **[PHASE_2C_CONTENT_ENRICHER_INTEGRATION_20250819.md](PHASE_2C_CONTENT_ENRICHER_INTEGRATION_20250819.md)** - Content enricher pipeline integration completion (Aug 19, 2025)
+#### `/archived`
+Historical documentation and completed phase reports:
+- Daily development reports
+- Completed phase integration summaries
+- Legacy documentation for reference
 
-### 📄 Sample Content
-- **[articles/](articles/)** - Generated sample articles and content examples
+#### `/articles`
+Content examples and sample outputs for reference
 
-## 🎯 Quick Navigation
+## 🚀 Quick Navigation
 
-### New Developer Setup
-1. **[QUICK_START_GUIDE.md](QUICK_START_GUIDE.md)** - Environment setup and first container
-2. **[SYSTEM_ARCHITECTURE.md](SYSTEM_ARCHITECTURE.md)** - Understand the overall system
-3. **[CONTAINER_DEVELOPMENT_STANDARDS.md](CONTAINER_DEVELOPMENT_STANDARDS.md)** - Learn the development patterns
+### For Developers
+Start with [`QUICK_START_GUIDE.md`](QUICK_START_GUIDE.md), then review:
+- [`development/CONTAINER_DEVELOPMENT_STANDARDS.md`](development/CONTAINER_DEVELOPMENT_STANDARDS.md)
+- [`DEPENDENCY_MANAGEMENT.md`](DEPENDENCY_MANAGEMENT.md)
+- [`development/testing-guide.md`](development/testing-guide.md)
 
-### Implementation Work
-1. **[IMPLEMENTATION_ROADMAP.md](IMPLEMENTATION_ROADMAP.md)** - Current implementation plan
-2. **[CONTAINER_MIGRATION_GUIDE.md](CONTAINER_MIGRATION_GUIDE.md)** - Migrate existing containers
+### For DevOps
+Review CI/CD and infrastructure documentation:
+- [`cicd/GITHUB_ACTIONS_IMPLEMENTATION.md`](cicd/GITHUB_ACTIONS_IMPLEMENTATION.md)
+- [`infrastructure/deployment-guide.md`](infrastructure/deployment-guide.md)
+- [`infrastructure/AZURE_OPENAI_SETUP.md`](infrastructure/AZURE_OPENAI_SETUP.md)
+
+### For Security
+Check security documentation:
+- [`security/SECURITY_REMEDIATION_COMPLETE_2025_08_21.md`](security/SECURITY_REMEDIATION_COMPLETE_2025_08_21.md)
+- [`security/security-policy.md`](security/security-policy.md)
+- [`security/SECURITY_TOOLS_RATIONALE.md`](security/SECURITY_TOOLS_RATIONALE.md)
+
+## 📋 Current Status
+
+The project has completed major dependency standardization and security remediation efforts. All containers now use consistent versioning with compatible release specifiers (`~=`) and separated production/test dependencies.
+
+For the latest project status, see:
+- [`VERSION_STANDARDIZATION_SUMMARY.md`](VERSION_STANDARDIZATION_SUMMARY.md)
+- [`CLEANUP_SUMMARY.md`](CLEANUP_SUMMARY.md)
+
+## 🔧 Maintenance
+
+This documentation is actively maintained. When adding new documentation:
+1. Place files in the appropriate category folder
+2. Update this README with links to new files
+3. Follow the established naming conventions
+4. Include appropriate cross-references
 3. **[testing-guide.md](testing-guide.md)** - Ensure quality through testing
 
 ### Production Deployment

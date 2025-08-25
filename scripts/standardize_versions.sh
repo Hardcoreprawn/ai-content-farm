@@ -1,11 +1,18 @@
 #!/bin/bash
 # Script to standardize dependency versions across all containers
-# Uses containers/shared-versions.txt as the source of truth
+# DEPRECATED: Use standardize_versions.py with shared-versions.toml instead
 
 set -e
 
+echo "⚠️  DEPRECATED: This script uses the old shared-versions.txt format"
+echo "📝 Please use: python scripts/standardize_versions.py"
+echo "🔧 Which uses: shared-versions.toml"
+echo ""
+echo "🚫 Exiting..."
+exit 1
+
 CONTAINER_DIR="containers"
-SHARED_VERSIONS_FILE="containers/shared-versions.txt"
+SHARED_VERSIONS_FILE="shared-versions.toml"
 
 # Read shared versions into associative array
 declare -A SHARED_VERSIONS
