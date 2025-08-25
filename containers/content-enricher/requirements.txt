@@ -11,4 +11,4 @@ pytest-cov~=4.1.0
 black~=25.1.0
 isort~=6.0.1
 mypy~=1.7.1
-types-requests~=2.31.0.10
+types-requests~=2.32.4.20250809
