@@ -3,7 +3,7 @@
 # pytest, pytest-asyncio, httpx, python-json-logger) come from base layers
 
 # AI Services (unique to content-generator)
-openai==1.3.0
+openai==1.101.0
 anthropic==0.7.0
 
 # Azure Service Bus (unique to content-generator)  
