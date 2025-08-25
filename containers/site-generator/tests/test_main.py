@@ -70,6 +70,7 @@ class TestSiteGeneratorAPI:
 
             yield mock_proc
 
+    @pytest.mark.unit
     def test_health_endpoint(self, test_client):
         """Test health check endpoint."""
         response = test_client.get("/health")
@@ -78,6 +79,7 @@ class TestSiteGeneratorAPI:
         assert data["status"] == "healthy"
         assert "timestamp" in data
 
+    @pytest.mark.unit
     def test_generate_site_endpoint_success(self, client, mock_processor_for_api):
         """Test successful site generation via API."""
         request_data = {
@@ -96,6 +98,7 @@ class TestSiteGeneratorAPI:
         assert "site_id" in data
         assert data["message"] == "Site generation started"
 
+    @pytest.mark.unit
     def test_generate_site_endpoint_validation_error(self, test_client):
         """Test site generation with invalid request data."""
         # Missing required fields
@@ -110,6 +113,7 @@ class TestSiteGeneratorAPI:
         data = response.json()
         assert "detail" in data
 
+    @pytest.mark.unit
     def test_get_generation_status_endpoint(self, client, mock_processor_for_api):
         """Test getting site generation status via API."""
         site_id = "test-site-123"
@@ -138,6 +142,7 @@ class TestSiteGeneratorAPI:
         assert status_data["status"] == "completed"
         assert "started_at" in status_data
 
+    @pytest.mark.unit
     def test_get_nonexistent_site_status(self, client, mock_processor_for_api):
         """Test getting status for non-existent site."""
         nonexistent_site_id = "nonexistent-site-456"
@@ -149,6 +154,7 @@ class TestSiteGeneratorAPI:
         assert data["site_id"] == nonexistent_site_id
         assert data["status"] == "not_found"
 
+    @pytest.mark.unit
     def test_list_sites_endpoint(self, client, mock_processor_for_api):
         """Test listing generated sites."""
         # Mock some sites in the processor
@@ -164,6 +170,7 @@ class TestSiteGeneratorAPI:
         assert "sites" in data
         assert len(data["sites"]) == 2
 
+    @pytest.mark.unit
     def test_api_content_type_validation(self, test_client):
         """Test API validates Content-Type header."""
         # Test with invalid content type
@@ -175,6 +182,7 @@ class TestSiteGeneratorAPI:
 
         assert response.status_code == 422
 
+    @pytest.mark.unit
     def test_api_response_format_consistency(self, client, mock_processor_for_api):
         """Test all API responses follow consistent format."""
         # Test generation endpoint response format
@@ -196,6 +204,7 @@ class TestSiteGeneratorAPI:
             assert "site_id" in data
             assert "message" in data
 
+    @pytest.mark.unit
     def test_error_handling_in_api(self, test_client):
         """Test API error handling with proper HTTP status codes."""
         # Test various error scenarios
@@ -218,6 +227,7 @@ class TestSiteGeneratorAPI:
                 response.status_code == case["expected_status"]
             ), f"Failed for: {case['description']}"
 
+    @pytest.mark.unit
     def test_api_performance_expectations(self, client, mock_processor_for_api):
         """Test API responds within performance expectations."""
         import time
@@ -239,6 +249,7 @@ class TestSiteGeneratorAPI:
         assert response_time < 1.0, f"API response too slow: {response_time:.2f}s"
         assert response.status_code == 200
 
+    @pytest.mark.unit
     def test_theme_validation(self, test_client):
         """Test theme parameter validation."""
         valid_themes = ["modern", "classic", "minimal"]

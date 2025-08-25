@@ -58,6 +58,7 @@ class TestSiteGeneratorIntegration:
         assert mock_site_processor.blob_client.download_json.called
         assert mock_site_processor.blob_client.upload_text.called
 
+    @pytest.mark.integration
     def test_content_processing_pipeline_integration(self, mock_site_processor):
         """Test content flows correctly through processing pipeline."""
         # Create contract-based test data
@@ -78,6 +79,7 @@ class TestSiteGeneratorIntegration:
         scores = [article.score for article in processed_articles]
         assert scores == sorted(scores, reverse=True)
 
+    @pytest.mark.integration
     def test_template_rendering_integration(self, mock_site_processor, sample_articles):
         """Test template rendering with realistic content."""
         from service_logic import ContentItem
@@ -122,6 +124,7 @@ class TestSiteGeneratorIntegration:
         assert "<rss" in rss_xml
         assert "Integration Test Site" in rss_xml
 
+    @pytest.mark.integration
     def test_data_flow_consistency(self, mock_site_processor):
         """Test data maintains consistency as it flows through components."""
         # Create contract data with specific values to track
@@ -144,6 +147,7 @@ class TestSiteGeneratorIntegration:
 
         assert original_title in rss_content
 
+    @pytest.mark.integration
     def test_performance_characteristics_integration(self, mock_site_processor):
         """Test performance characteristics meet expectations."""
         import time
@@ -321,6 +325,7 @@ class TestPhase1BIntegrationSlow:
 
         print(f"✅ RSS feed generated with {len(processed_articles)} real articles")
 
+    @pytest.mark.unit
     def test_content_item_validation_with_real_data(self, real_ranked_content):
         """Test that real ranked content validates against ContentItem model."""
         print("\n🔍 Testing ContentItem validation with real data...")

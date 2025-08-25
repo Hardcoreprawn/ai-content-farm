@@ -18,6 +18,7 @@ from tests.contracts.blob_storage_contract import RankedContentContract
 class TestSiteProcessorUnit:
     """Fast unit tests for SiteProcessor business logic."""
 
+    @pytest.mark.unit
     def test_processor_initialization(self, mock_blob_client, mock_template_manager):
         """Test processor initializes correctly with mocked dependencies."""
         processor = SiteProcessor(
@@ -29,6 +30,7 @@ class TestSiteProcessorUnit:
         assert processor.generation_status == {}
         assert not processor.is_running
 
+    @pytest.mark.unit
     def test_process_articles_with_realistic_data(self, mock_site_processor):
         """Test article processing with contract-based data."""
         # Use contract to generate realistic test data
@@ -47,6 +49,7 @@ class TestSiteProcessorUnit:
         # Should be sorted by score
         assert processed_articles[0].score >= processed_articles[1].score
 
+    @pytest.mark.unit
     def test_generate_rss_feed_structure(self, mock_site_processor, sample_articles):
         """Test RSS feed generation produces valid structure."""
         # Convert sample data to ContentItem objects
@@ -108,6 +111,7 @@ class TestSiteProcessorUnit:
         assert status.status == GenerationStatus.IN_PROGRESS
         assert status.progress == "Processing articles..."
 
+    @pytest.mark.unit
     def test_content_item_creation_from_ranked_data(self):
         """Test ContentItem creation from ranked topic data."""
         from service_logic import ContentItem
@@ -134,6 +138,7 @@ class TestSiteProcessorUnit:
         assert content_item.score == article_data["score"]
         assert content_item.source == article_data["source"]
 
+    @pytest.mark.unit
     def test_site_metadata_creation(self, mock_site_processor):
         """Test site metadata creation from generation request."""
         request = GenerationRequest(
@@ -158,6 +163,7 @@ class TestSiteProcessorUnit:
         assert metadata["theme"] == "modern"
         assert metadata["max_articles"] == 10
 
+    @pytest.mark.unit
     def test_error_handling_for_invalid_content(self, mock_site_processor):
         """Test error handling for invalid or missing content."""
         # Test with empty articles list
@@ -176,6 +182,7 @@ class TestSiteProcessorUnit:
             # Should be a meaningful exception
             assert "missing" in str(e).lower() or "required" in str(e).lower()
 
+    @pytest.mark.unit
     def test_template_context_preparation(self, mock_site_processor, sample_articles):
         """Test template context preparation with realistic data."""
         from service_logic import ContentItem

@@ -134,6 +134,7 @@ class TestRankingService:
         service.blob_client = mock_blob_client
         return service
 
+    @pytest.mark.unit
     def test_ranking_algorithms_basic(self):
         """Test basic ranking functionality with the ranking algorithms."""
         print("=== Basic Ranking Algorithm Test ===")
@@ -156,6 +157,7 @@ class TestRankingService:
 
         print(f"Successfully ranked {len(ranked_items)} items")
 
+    @pytest.mark.unit
     def test_ranking_with_custom_weights(self):
         """Test ranking with custom weight options."""
         print("=== Custom Weights Ranking Test ===")
@@ -182,6 +184,7 @@ class TestRankingService:
 
         print(f"Successfully ranked {len(ranked_items)} items with custom weights")
 
+    @pytest.mark.unit
     def test_ranking_edge_cases(self):
         """Test ranking with edge cases."""
         print("=== Edge Cases Test ===")
@@ -210,6 +213,7 @@ class TestRankingService:
 
         print("Edge cases handled successfully")
 
+    @pytest.mark.unit
     def test_error_handling(self):
         """Test error handling in ranking logic."""
         print("=== Error Handling Test ===")
@@ -237,6 +241,7 @@ class TestRankingService:
         print("Error handling working correctly")
 
     @pytest.mark.asyncio
+    @pytest.mark.unit
     async def test_service_batch_ranking(self, ranker_service, mock_blob_client):
         """Test the service layer batch ranking."""
         # Mock enriched content retrieval

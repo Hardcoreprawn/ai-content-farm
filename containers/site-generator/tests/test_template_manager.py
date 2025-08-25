@@ -19,6 +19,7 @@ sys.path.append("/workspaces/ai-content-farm")
 class TestBlobTemplateLoader:
     """Test blob-based template loading"""
 
+    @pytest.mark.unit
     def test_blob_loader_init(self, mock_blob_client):
         """Test BlobTemplateLoader initialization"""
         loader = BlobTemplateLoader(mock_blob_client, "test-container")
@@ -26,6 +27,7 @@ class TestBlobTemplateLoader:
         assert loader.container_name == "test-container"
         assert loader.cache == {}
 
+    @pytest.mark.unit
     def test_blob_loader_get_source(self, mock_blob_client):
         """Test loading template from blob storage"""
         mock_blob_client.download_text.return_value = "<html>Test Template</html>"
@@ -42,6 +44,7 @@ class TestBlobTemplateLoader:
             "site-templates", "templates/test.html"
         )
 
+    @pytest.mark.unit
     def test_blob_loader_caching(self, mock_blob_client):
         """Test that templates are cached after first load"""
         mock_blob_client.download_text.return_value = "<html>Cached Template</html>"
@@ -58,6 +61,7 @@ class TestBlobTemplateLoader:
         # Blob client should only be called once
         mock_blob_client.download_text.assert_called_once()
 
+    @pytest.mark.unit
     def test_blob_loader_template_not_found(self, mock_blob_client):
         """Test handling of missing templates"""
         mock_blob_client.download_text.side_effect = Exception("Blob not found")
@@ -71,11 +75,13 @@ class TestBlobTemplateLoader:
 class TestLocalTemplateLoader:
     """Test filesystem-based template loading (development mode)"""
 
+    @pytest.mark.unit
     def test_local_loader_init(self, temp_templates_dir):
         """Test LocalTemplateLoader initialization"""
         loader = LocalTemplateLoader(temp_templates_dir)
         assert loader.template_dir == Path(temp_templates_dir)
 
+    @pytest.mark.unit
     def test_local_loader_get_source(self, temp_templates_dir):
         """Test loading template from local filesystem"""
         loader = LocalTemplateLoader(temp_templates_dir)
@@ -86,6 +92,7 @@ class TestLocalTemplateLoader:
         assert filename == str(Path(temp_templates_dir) / "base.html")
         assert callable(uptodate)
 
+    @pytest.mark.unit
     def test_local_loader_template_not_found(self, temp_templates_dir):
         """Test handling of missing local templates"""
         loader = LocalTemplateLoader(temp_templates_dir)
@@ -97,6 +104,7 @@ class TestLocalTemplateLoader:
 class TestTemplateManager:
     """Test the main TemplateManager functionality"""
 
+    @pytest.mark.unit
     def test_template_manager_init_local(self, mock_blob_client):
         """Test TemplateManager initialization in local mode"""
         manager = TemplateManager(mock_blob_client, use_local=True)
@@ -105,6 +113,7 @@ class TestTemplateManager:
         assert manager.use_local is True
         assert manager.jinja_env is not None
 
+    @pytest.mark.unit
     def test_template_manager_init_blob(self, mock_blob_client):
         """Test TemplateManager initialization in blob mode"""
         manager = TemplateManager(mock_blob_client, use_local=False)
@@ -114,6 +123,7 @@ class TestTemplateManager:
         assert manager.jinja_env is not None
 
     @patch("template_manager.LocalTemplateLoader")
+    @pytest.mark.unit
     def test_render_template_local(
         self, mock_local_loader, mock_blob_client, temp_templates_dir
     ):
@@ -134,6 +144,7 @@ class TestTemplateManager:
         assert "Test Article" in result
         assert "0.9" in result
 
+    @pytest.mark.unit
     def test_get_static_assets_with_fallback(self, mock_blob_client):
         """Test getting static assets with fallback to default CSS"""
         # Mock blob client to fail CSS download
@@ -147,6 +158,7 @@ class TestTemplateManager:
         # Default CSS should be present
         assert "font-family" in assets["assets/style.css"]
 
+    @pytest.mark.unit
     def test_get_static_assets_from_blob(self, mock_blob_client):
         """Test getting static assets from blob storage"""
         mock_blob_client.download_text.return_value = "body { color: red; }"
@@ -160,6 +172,7 @@ class TestTemplateManager:
             "site-templates", "templates/style.css"
         )
 
+    @pytest.mark.unit
     def test_upload_templates_to_blob(self, mock_blob_client, temp_templates_dir):
         """Test uploading local templates to blob storage"""
         # Create a mock manager with real template directory
@@ -193,6 +206,7 @@ class TestTemplateManager:
 class TestTemplateManagerIntegration:
     """Integration tests for template manager with real templates"""
 
+    @pytest.mark.integration
     def test_full_site_generation_flow(
         self,
         mock_blob_client,
@@ -233,6 +247,7 @@ class TestTemplateManagerIntegration:
             assert sample_ranked_content["ranked_topics"][0]["title"] in article_html
             assert sample_ranked_content["ranked_topics"][0]["content"] in article_html
 
+    @pytest.mark.unit
     def test_error_handling_missing_template(self, mock_blob_client):
         """Test error handling when template is missing"""
         manager = TemplateManager(mock_blob_client, use_local=False)

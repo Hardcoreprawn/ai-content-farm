@@ -19,6 +19,8 @@ from main import app
 class TestContentRankerAPI:
     """Test cases for Content Ranker API endpoints."""
 
+    @pytest.mark.unit
+    @pytest.mark.unit
     def test_root_endpoint(self, test_client):
         """Test the root endpoint returns service information."""
         response = test_client.get("/")
@@ -27,6 +29,8 @@ class TestContentRankerAPI:
         assert "service" in data
         assert data["service"] == "content-ranker"
 
+    @pytest.mark.unit
+    @pytest.mark.unit
     def test_health_endpoint(self, test_client):
         """Test the health check endpoint."""
         response = test_client.get("/health")
@@ -36,7 +40,9 @@ class TestContentRankerAPI:
         assert "service" in data
         assert data["service"] == "content-ranker"
 
+    @pytest.mark.unit
     @patch("main.ranker_service")
+    @pytest.mark.unit
     def test_status_endpoint(self, mock_service, test_client):
         """Test the status endpoint with service information."""
         # Mock service status as async
@@ -55,7 +61,9 @@ class TestContentRankerAPI:
         assert data["service"] == "content-ranker"
         assert data["status"] == "healthy"
 
+    @pytest.mark.unit
     @patch("main.ranker_service")
+    @pytest.mark.unit
     def test_rank_enriched_endpoint_success(self, mock_service, test_client):
         """Test successful enriched content ranking."""
         # Mock successful ranking
@@ -91,6 +99,7 @@ class TestContentRankerAPI:
         assert len(data["ranked_items"]) == 2
 
     @patch("main.ranker_service")
+    @pytest.mark.unit
     def test_rank_batch_endpoint_success(self, mock_service, test_client):
         """Test successful batch ranking."""
         # Mock successful batch ranking
@@ -112,6 +121,7 @@ class TestContentRankerAPI:
         assert "ranked_items" in data
         assert "total_processed" in data
 
+    @pytest.mark.unit
     def test_rank_specific_content_success(self, test_client):
         """Test ranking specific content items."""
         test_content = [
@@ -140,6 +150,7 @@ class TestContentRankerAPI:
         assert len(data["ranked_items"]) > 0
 
     @patch("main.ranker_service")
+    @pytest.mark.unit
     def test_rank_enriched_endpoint_error(self, mock_service, test_client):
         """Test error handling in enriched content ranking."""
         # Mock service error
@@ -152,6 +163,7 @@ class TestContentRankerAPI:
         response = test_client.post("/rank/enriched", json=request_data)
         assert response.status_code == 500
 
+    @pytest.mark.unit
     def test_rank_specific_content_validation_error(self, test_client):
         """Test that invalid data is handled gracefully."""
         # Invalid request data (missing required fields)
@@ -166,6 +178,7 @@ class TestContentRankerAPI:
         data = response.json()
         assert "ranked_items" in data
 
+    @pytest.mark.unit
     def test_rank_specific_content_empty_list(self, test_client):
         """Test ranking with empty content list."""
         request_data = {
@@ -179,6 +192,7 @@ class TestContentRankerAPI:
         assert data["ranked_items"] == []
 
     @patch("main.ranker_service")
+    @pytest.mark.unit
     def test_status_endpoint_error(self, mock_service, test_client):
         """Test status endpoint when service has issues."""
         # Mock service error
