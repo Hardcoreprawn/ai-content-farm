@@ -9,6 +9,6 @@ anthropic~=0.64.0
 python-multipart~=0.0.20
 python-json-logger~=2.0.7
 pytest~=8.4.1
-pytest-asyncio~=0.21.1
+pytest-asyncio~=1.1.0
 aiofiles~=24.1.0
 httpx~=0.25.0
