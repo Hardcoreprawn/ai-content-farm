@@ -277,7 +277,7 @@ resource "azurerm_container_app" "site_generator" {
   template {
     container {
       name   = "site-generator"
-      image  = "${azurerm_container_registry.main.login_server}/site-generator:latest" # Uses shared registry with environment-specific tags
+      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest" # Placeholder image, updated by deployment
       cpu    = 0.5
       memory = "1Gi"
 
@@ -319,7 +319,7 @@ resource "azurerm_container_app" "content_collector" {
   template {
     container {
       name   = "content-collector"
-      image  = "${azurerm_container_registry.main.login_server}/content-collector:latest" # Uses shared registry with environment-specific tags
+      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest" # Placeholder image, updated by deployment
       cpu    = 0.5
       memory = "1Gi"
 
@@ -366,7 +366,7 @@ resource "azurerm_container_app" "content_ranker" {
   template {
     container {
       name   = "content-ranker"
-      image  = "${azurerm_container_registry.main.login_server}/content-ranker:latest"
+      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest" # Placeholder image, updated by deployment
       cpu    = 0.5
       memory = "1Gi"
 
@@ -403,7 +403,7 @@ resource "azurerm_container_app" "content_generator" {
   template {
     container {
       name   = "content-generator"
-      image  = "${azurerm_container_registry.main.login_server}/content-generator:latest"
+      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest" # Placeholder image, updated by deployment
       cpu    = 0.5
       memory = "1Gi"
 
