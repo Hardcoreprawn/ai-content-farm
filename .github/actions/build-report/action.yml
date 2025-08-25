@@ -17,9 +17,6 @@ inputs:
   security-checkov-result:
     description: 'Checkov infrastructure scan result'
     required: true
-  auto-fix-formatting-result:
-    description: 'Auto-fix formatting result'
-    required: true
   code-quality-result:
     description: 'Code quality check result'
     required: true
@@ -82,7 +79,6 @@ runs:
         security-python-result: ${{ inputs.security-python-result }}
         security-sbom-result: ${{ inputs.security-sbom-result }}
         security-checkov-result: ${{ inputs.security-checkov-result }}
-        auto-fix-formatting-result: ${{ inputs.auto-fix-formatting-result }}
         code-quality-result: ${{ inputs.code-quality-result }}
         infrastructure-result: ${{ inputs.infrastructure-result }}
         dependency-result: ${{ inputs.dependency-result }}
