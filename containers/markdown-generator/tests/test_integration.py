@@ -5,9 +5,9 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from service_logic import ContentWatcher, MarkdownGenerator
 
 from libs.blob_storage import BlobContainers, BlobStorageClient
-from service_logic import ContentWatcher, MarkdownGenerator
 
 
 class TestMarkdownGeneratorIntegration:
@@ -87,8 +87,10 @@ class TestMarkdownGeneratorIntegration:
         # Mock the upload operations
         with patch.object(self.blob_client, "upload_json", return_value=True):
             with patch.object(self.blob_client, "upload_text", return_value=True):
-                result = await self.markdown_generator.generate_markdown_from_ranked_content(
-                    content_items
+                result = (
+                    await self.markdown_generator.generate_markdown_from_ranked_content(
+                        content_items
+                    )
                 )
 
                 # Assertions
@@ -131,7 +133,9 @@ class TestMarkdownGeneratorIntegration:
                     with patch.object(
                         self.blob_client, "upload_text", return_value=True
                     ):
-                        result = await self.content_watcher.check_for_new_ranked_content()
+                        result = (
+                            await self.content_watcher.check_for_new_ranked_content()
+                        )
 
                         # Assertions
                         assert result is not None
@@ -181,7 +185,9 @@ class TestMarkdownGeneratorErrorHandling:
 
         with patch.object(self.blob_client, "list_blobs", return_value=mock_blobs):
             with patch.object(
-                self.blob_client, "download_json", side_effect=Exception("JSON decode error")
+                self.blob_client,
+                "download_json",
+                side_effect=Exception("JSON decode error"),
             ):
                 result = await self.content_watcher._get_latest_ranked_content()
                 assert result is None
@@ -202,8 +208,10 @@ class TestMarkdownGeneratorErrorHandling:
         with patch.object(
             self.blob_client, "upload_json", side_effect=Exception("Upload error")
         ):
-            result = await self.markdown_generator.generate_markdown_from_ranked_content(
-                content_items
+            result = (
+                await self.markdown_generator.generate_markdown_from_ranked_content(
+                    content_items
+                )
             )
             assert result is None
 
@@ -220,18 +228,23 @@ class TestMarkdownGeneratorConfiguration:
 
     def test_blob_client_mock_mode_initialization(self):
         """Test blob client initialization in mock mode."""
-        with patch.dict("os.environ", {"BLOB_STORAGE_MOCK": "true", "ENVIRONMENT": "development"}):
+        with patch.dict(
+            "os.environ", {"BLOB_STORAGE_MOCK": "true", "ENVIRONMENT": "development"}
+        ):
             client = BlobStorageClient()
             assert client._mock is True
             assert client.environment == "development"
 
     def test_blob_client_development_mode_initialization(self):
         """Test blob client initialization in development mode."""
-        with patch.dict("os.environ", {
-            "BLOB_STORAGE_MOCK": "false",
-            "ENVIRONMENT": "development",
-            "AZURE_STORAGE_CONNECTION_STRING": "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=testkey;EndpointSuffix=core.windows.net"
-        }):
+        with patch.dict(
+            "os.environ",
+            {
+                "BLOB_STORAGE_MOCK": "false",
+                "ENVIRONMENT": "development",
+                "AZURE_STORAGE_CONNECTION_STRING": "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=testkey;EndpointSuffix=core.windows.net",
+            },
+        ):
             client = BlobStorageClient()
             assert client._mock is False
             assert client.environment == "development"

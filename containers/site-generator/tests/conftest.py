@@ -221,4 +221,5 @@ def temp_templates_dir(tmp_path) -> str:
 def test_client():
     """Create a test client for the FastAPI app."""
     from main import app
+
     return TestClient(app)

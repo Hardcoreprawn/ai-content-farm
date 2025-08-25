@@ -16,6 +16,9 @@ inputs:
   security-checkov-result:
     description: 'Result of Checkov infrastructure scan'
     required: true
+  auto-fix-formatting-result:
+    description: 'Result of auto-fix formatting job'
+    required: true
   code-quality-result:
     description: 'Result of code quality job'
     required: true
@@ -63,6 +66,7 @@ runs:
         SECURITY_PYTHON_RESULT: ${{ inputs.security-python-result }}
         SECURITY_SBOM_RESULT: ${{ inputs.security-sbom-result }}
         SECURITY_CHECKOV_RESULT: ${{ inputs.security-checkov-result }}
+        AUTO_FIX_FORMATTING_RESULT: ${{ inputs.auto-fix-formatting-result }}
         QUALITY_RESULT: ${{ inputs.code-quality-result }}
         INFRA_RESULT: ${{ inputs.infrastructure-result }}
         DEPS_RESULT: ${{ inputs.dependency-result }}
@@ -129,6 +133,20 @@ runs:
 
         echo ""
         echo "=== Quality Gate Results ==="
+
+        # Auto-fix formatting (always runs - strict)
+        total_gates=$((total_gates + 1))
+        if [[ "$AUTO_FIX_FORMATTING_RESULT" == "success" ]]; then
+          passed_gates=$((passed_gates + 1))
+          echo "[PASS] Auto-fix formatting: PASSED"
+        else
+          echo "[FAIL] Auto-fix formatting: FAILED ($AUTO_FIX_FORMATTING_RESULT)"
+          if [ -n "$failed_gates" ]; then
+            failed_gates="$failed_gates,auto-fix-formatting"
+          else
+            failed_gates="auto-fix-formatting"
+          fi
+        fi
 
         # Code quality (always runs - strict)
         total_gates=$((total_gates + 1))
@@ -247,6 +265,7 @@ runs:
           echo ""
           echo "### Gate Results:"
           echo "- Security Scanning: Passed $security_passed/$security_gates"
+          echo "- Auto-fix Formatting: $AUTO_FIX_FORMATTING_RESULT"
           echo "- Code Quality: $QUALITY_RESULT"
           echo "- Infrastructure Quality: $INFRA_RESULT"
           echo "- Dependency Analysis: $DEPS_RESULT"
