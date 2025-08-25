@@ -8,4 +8,4 @@ Version: 1.2.2 - Parallel container builds implementation (Aug 22, 2025)
 """
 
 __version__ = "1.2.2"
-# Test production storage account and permissions fix
+# Test final Terraform fix: Docker + OIDC + production storage + container
