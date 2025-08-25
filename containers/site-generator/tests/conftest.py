@@ -15,9 +15,18 @@ from unittest.mock import MagicMock, Mock
 import pytest
 from fastapi.testclient import TestClient
 
+from tests.contracts.blob_storage_contract import (
+    BlobItemContract,
+    RankedContentContract,
+    SiteGenerationResultContract,
+)
+from tests.contracts.template_contract import StaticAssetContract, TemplateContract
+
 # Set up environment before any imports
 if not os.getenv("AZURE_STORAGE_CONNECTION_STRING"):
-    os.environ["AZURE_STORAGE_CONNECTION_STRING"] = "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=dGVzdA==;EndpointSuffix=core.windows.net"
+    os.environ["AZURE_STORAGE_CONNECTION_STRING"] = (
+        "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=dGVzdA==;EndpointSuffix=core.windows.net"
+    )
 
 if not os.getenv("ENVIRONMENT"):
     os.environ["ENVIRONMENT"] = "testing"
@@ -26,12 +35,6 @@ if not os.getenv("ENVIRONMENT"):
 os.environ.setdefault("BLOB_STORAGE_MOCK", "true")
 os.environ.setdefault("PYTEST_CURRENT_TEST", "true")
 
-from tests.contracts.blob_storage_contract import (
-    BlobItemContract,
-    RankedContentContract,
-    SiteGenerationResultContract,
-)
-from tests.contracts.template_contract import StaticAssetContract, TemplateContract
 
 try:
     # Provide global client/import_error for tests that reference them directly

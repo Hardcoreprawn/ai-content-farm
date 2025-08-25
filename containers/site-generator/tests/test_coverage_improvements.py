@@ -6,15 +6,18 @@ Focuses on uncovered code paths in config, health, and service logic.
 """
 
 import os
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 from fastapi.testclient import TestClient
 
 # Set environment before imports
 if not os.getenv("AZURE_STORAGE_CONNECTION_STRING"):
-    os.environ["AZURE_STORAGE_CONNECTION_STRING"] = "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=dGVzdA==;EndpointSuffix=core.windows.net"
+    os.environ["AZURE_STORAGE_CONNECTION_STRING"] = (
+        "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=dGVzdA==;EndpointSuffix=core.windows.net"
+    )
 
-from config import get_config, validate_environment, ServiceConfig
+from config import ServiceConfig, get_config, validate_environment
 from health import HealthChecker
 from service_logic import SiteProcessor
 
@@ -33,7 +36,9 @@ class TestConfigModule:
     def test_config_missing_storage_connection(self):
         """Test config validation with missing storage connection."""
         with patch.dict(os.environ, {"AZURE_STORAGE_CONNECTION_STRING": ""}):
-            with pytest.raises(ValueError, match="AZURE_STORAGE_CONNECTION_STRING is required"):
+            with pytest.raises(
+                ValueError, match="AZURE_STORAGE_CONNECTION_STRING is required"
+            ):
                 ServiceConfig()
 
     # Removed validate_environment tests - they make real Azure calls
@@ -51,42 +56,46 @@ class TestHealthChecker:
     def test_health_checker_initialization(self, health_checker):
         """Test health checker initializes correctly."""
         assert health_checker is not None
-        assert hasattr(health_checker, 'check_health')
+        assert hasattr(health_checker, "check_health")
 
     @pytest.mark.unit
     def test_check_health_basic(self, health_checker):
         """Test basic health check functionality."""
         # Health checker has async check_health method
         import asyncio
-        
+
         result = asyncio.run(health_checker.check_health())
-        assert 'status' in result
-        assert result['status'] in ['healthy', 'unhealthy']
+        assert "status" in result
+        assert result["status"] in ["healthy", "unhealthy"]
 
     # Removed storage health check tests - they make real Azure calls
+
+
 class TestSiteProcessorEdgeCases:
     """Test SiteProcessor edge cases and error handling."""
 
     @pytest.fixture
     def mock_processor(self):
         """Mock site processor for testing."""
-        with patch('libs.blob_storage.BlobStorageClient'):
-            with patch('template_manager.create_template_manager'):
+        with patch("libs.blob_storage.BlobStorageClient"):
+            with patch("template_manager.create_template_manager"):
                 processor = SiteProcessor()
                 return processor
 
     @pytest.mark.unit
     def test_processor_initialization_error_handling(self):
         """Test processor handles initialization errors gracefully."""
-        with patch('libs.blob_storage.BlobStorageClient') as mock_blob:
+        with patch("libs.blob_storage.BlobStorageClient") as mock_blob:
             mock_blob.side_effect = Exception("Initialization failed")
-            
+
             # Should not raise exception during init
             try:
                 processor = SiteProcessor()
                 assert processor is not None
             except Exception:
-                pytest.fail("SiteProcessor should handle initialization errors gracefully")
+                pytest.fail(
+                    "SiteProcessor should handle initialization errors gracefully"
+                )
 
     @pytest.mark.unit
     def test_process_articles_empty_list(self, mock_processor):
@@ -99,8 +108,8 @@ class TestSiteProcessorEdgeCases:
         """Test processing with invalid article data."""
         invalid_articles = [
             {"invalid": "data"},  # Missing required fields
-            None,                 # Null article
-            {}                   # Empty article
+            None,  # Null article
+            {},  # Empty article
         ]
 
         # Should handle gracefully without crashing
@@ -121,7 +130,9 @@ class TestSiteProcessorEdgeCases:
     @pytest.mark.unit
     def test_error_handling_blob_storage_failure(self, mock_processor):
         """Test error handling when blob storage fails."""
-        mock_processor.blob_client.download_json.side_effect = Exception("Blob not found")
+        mock_processor.blob_client.download_json.side_effect = Exception(
+            "Blob not found"
+        )
 
         # Should handle blob storage errors gracefully
         try:
@@ -140,10 +151,10 @@ class TestMainAppEdgeCases:
     def test_cors_configuration(self):
         """Test CORS is properly configured."""
         from main import app
-        
+
         # Simplified test - just check that app is configured
         assert app is not None
-        assert hasattr(app, 'user_middleware')
+        assert hasattr(app, "user_middleware")
         # Note: CORS middleware detection varies by FastAPI version
 
     @pytest.mark.unit
