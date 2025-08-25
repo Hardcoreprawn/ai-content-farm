@@ -101,7 +101,7 @@ runs:
         if [[ -z "$CONTAINERS_TO_TEST" ]]; then
           echo "passed=true" >> "$GITHUB_OUTPUT"
           echo "[PASS] No containers required testing"
-        elif [[ "$tests_result" == "success" ]]; then
+        elif [[ "$TESTS_RESULT" == "success" ]]; then
           echo "passed=true" >> "$GITHUB_OUTPUT"
           echo "[PASS] All container tests passed"
         elif [[ "$TESTS_RESULT" == "skipped" ]]; then
