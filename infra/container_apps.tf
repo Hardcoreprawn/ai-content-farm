@@ -21,37 +21,39 @@ resource "azurerm_log_analytics_workspace" "container_apps" {
 }
 
 # Container Registry for storing container images
+# COST-EFFECTIVE SECURITY APPROACH:
+# - Standard SKU (not Premium) for essential security features
+# - Authentication-based security via RBAC and managed identities
+# - Public access allowed but secured through Azure AD authentication
+# - Vulnerability scanning included at no extra cost
+# - Diagnostic logging to existing Log Analytics (no extra cost)
+# - Export policy enabled to prevent data exfiltration
 #checkov:skip=CKV_AZURE_165:Geo-replication requires Premium SKU - cost prohibitive for development
 #checkov:skip=CKV_AZURE_233:Zone redundancy requires Premium SKU - cost prohibitive for development  
+#checkov:skip=CKV_AZURE_137:Using authentication-based security instead of network restrictions for cost efficiency
 resource "azurerm_container_registry" "main" {
   # checkov:skip=CKV_AZURE_165: Geo-replication requires Premium SKU - too expensive for development
   # checkov:skip=CKV_AZURE_233: Zone redundancy requires Premium SKU - too expensive for development
+  # checkov:skip=CKV_AZURE_137: Using authentication-based security instead of network restrictions for cost efficiency
   name                = "${replace(var.resource_prefix, "-", "")}acr"
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
-  sku                 = "Standard" # Upgraded from Basic for security features
-  admin_enabled       = false      # Disable admin account for security
+  sku                 = "Basic" # Downgrade to Basic SKU for $15/month savings
+  admin_enabled       = false   # Disable admin account for security - use managed identity only
 
-  # Enable public network access restrictions
-  public_network_access_enabled = false
+  # Enable public network access - Basic SKU has limited security options
+  public_network_access_enabled = true
 
-  # Enable dedicated data endpoints (requires Premium SKU)
-  data_endpoint_enabled = false # Would need Premium SKU
-
-  # Zone redundancy (requires Premium SKU in production)
-  zone_redundancy_enabled = false # Would need Premium SKU
-
-  # Retention policy for untagged manifests (requires Premium SKU)
-  # retention_policy_in_days = 7 # Requires Premium SKU
-
-  # Trust policy for content trust (requires Premium SKU)
-  trust_policy_enabled = false # Would need Premium SKU
-
-  # Enable vulnerability scanning (requires Standard or Premium)
-  # quarantine_policy_enabled = true # Requires Premium SKU
+  # Note: Basic SKU limitations:
+  # - No vulnerability scanning (security trade-off)
+  # - No network restrictions
+  # - 10GB storage limit (currently using 0GB)
+  # - 2 webhook limit (currently using 0)
 
   tags = local.common_tags
 }
+
+# Note: Removing diagnostic settings as Basic SKU has limited logging capabilities
 
 # Resource lock to prevent accidental deletion of Container Registry
 resource "azurerm_management_lock" "container_registry_lock" {

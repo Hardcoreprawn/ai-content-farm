@@ -51,3 +51,25 @@ output "subscription_id" {
   description = "Azure subscription ID for OIDC authentication"
   value       = data.azurerm_client_config.current.subscription_id
 }
+
+# Container Registry outputs
+output "container_registry_name" {
+  description = "Name of the Azure Container Registry"
+  value       = azurerm_container_registry.main.name
+}
+
+output "container_registry_login_server" {
+  description = "Login server URL for the Azure Container Registry"
+  value       = azurerm_container_registry.main.login_server
+}
+
+# Container Apps Environment outputs
+output "container_apps_environment_name" {
+  description = "Name of the Container Apps Environment"
+  value       = azurerm_container_app_environment.main.name
+}
+
+output "container_apps_environment_id" {
+  description = "ID of the Container Apps Environment"
+  value       = azurerm_container_app_environment.main.id
+}

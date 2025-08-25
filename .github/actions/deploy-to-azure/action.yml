@@ -48,6 +48,27 @@ runs:
         tenant-id: ${{ inputs.tenant-id }}
         subscription-id: ${{ inputs.subscription-id }}
 
+    - name: Deploy Infrastructure
+      shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+        STORAGE_ACCOUNT: ${{ inputs.terraform-storage-account }}
+      run: |
+        echo "[PACKAGE] Deploying infrastructure with Terraform..."
+        cd infra
+
+        # Initialize Terraform with environment-specific state file
+        echo "[CONFIG] Using state file: terraform-${ENVIRONMENT}.tfstate"
+        terraform init -reconfigure \
+          -backend-config="key=terraform-${ENVIRONMENT}.tfstate" \
+          -backend-config="storage_account_name=${STORAGE_ACCOUNT}"
+
+        # Plan and apply (no workspace needed with separate state files)
+        terraform plan -var-file="${ENVIRONMENT}.tfvars" -out=tfplan
+        terraform apply tfplan
+
+        echo "[PASS] Infrastructure deployed"
+
     - name: Build and Push Base Images
       shell: bash
       env:
@@ -115,27 +136,6 @@ runs:
 
           echo "[PASS] $container pushed to ACR"
         done
-
-    - name: Deploy Infrastructure
-      shell: bash
-      env:
-        ENVIRONMENT: ${{ inputs.environment }}
-        STORAGE_ACCOUNT: ${{ inputs.terraform-storage-account }}
-      run: |
-        echo "[PACKAGE] Deploying infrastructure with Terraform..."
-        cd infra
-
-        # Initialize Terraform with environment-specific state file
-        echo "[CONFIG] Using state file: terraform-${ENVIRONMENT}.tfstate"
-        terraform init -reconfigure \
-          -backend-config="key=terraform-${ENVIRONMENT}.tfstate" \
-          -backend-config="storage_account_name=${STORAGE_ACCOUNT}"
-
-        # Plan and apply (no workspace needed with separate state files)
-        terraform plan -var="environment=$ENVIRONMENT" -out=tfplan
-        terraform apply tfplan
-
-        echo "[PASS] Infrastructure deployed"
 
     - name: Update Container Apps
       id: deploy
