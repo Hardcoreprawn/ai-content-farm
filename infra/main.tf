@@ -43,7 +43,25 @@ resource "azurerm_key_vault" "main" {
 
     # Allow access from Azure Container Apps and Azure services
     virtual_network_subnet_ids = []
-    ip_rules                   = []
+    # GitHub Actions IP ranges for deployment access
+    # Source: https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#ip-addresses
+    ip_rules = [
+      # GitHub Actions ubuntu-latest runner IP ranges (these change, but commonly used ones)
+      "13.64.0.0/11",     # Azure East US 2 range (common for GitHub Actions)
+      "13.104.0.0/14",    # Azure global range
+      "20.42.0.0/15",     # Azure East US range
+      "20.44.0.0/14",     # Azure global range  
+      "40.64.0.0/10",     # Azure global range
+      "52.224.0.0/11",    # Azure global range
+      "104.42.0.0/16",    # Azure global range
+      "137.116.0.0/16",   # Azure global range
+      "137.117.0.0/16",   # Azure global range
+      "137.135.0.0/16",   # Azure global range
+      "138.91.0.0/16",    # Azure global range
+      "157.55.0.0/16",    # Azure global range
+      "168.61.0.0/16",    # Azure global range
+      "191.232.0.0/13"    # Azure global range
+    ]
   }
 
   tags = {
