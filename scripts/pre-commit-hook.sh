@@ -18,20 +18,20 @@ if [ -n "$python_files" ]; then
     
     # Check Black formatting
     echo "Checking Black formatting..."
-    if ! black --check --diff $python_files; then
+    if ! black --check --diff .; then
         echo ""
         echo "❌ Black formatting check failed!"
-        echo "Please run 'black $python_files' to fix formatting issues."
+        echo "Please run 'black .' to fix formatting issues."
         echo "Then stage your fixes with 'git add' and commit again."
         exit 1
     fi
     
     # Check isort import sorting
     echo "Checking import sorting..."
-    if ! isort --check-only --diff $python_files; then
+    if ! isort --check-only --diff .; then
         echo ""
         echo "❌ Import sorting check failed!"
-        echo "Please run 'isort $python_files' to fix import sorting."
+        echo "Please run 'isort .' to fix import sorting."
         echo "Then stage your fixes with 'git add' and commit again."
         exit 1
     fi

@@ -26,6 +26,10 @@ inputs:
     description: 'Comma-separated list of containers to deploy (default: all)'
     required: false
     default: 'all'
+  terraform-storage-account:
+    description: 'Terraform state storage account name'
+    required: false
+    default: 'aicontentstagingstv33ppo'
 outputs:
   deployment-url:
     description: 'URL of the deployed application'
@@ -116,7 +120,7 @@ runs:
       shell: bash
       env:
         ENVIRONMENT: ${{ inputs.environment }}
-        STORAGE_ACCOUNT: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT || 'aicontentstagingstv33ppo' }}
+        STORAGE_ACCOUNT: ${{ inputs.terraform-storage-account }}
       run: |
         echo "[PACKAGE] Deploying infrastructure with Terraform..."
         cd infra

@@ -395,6 +395,7 @@ jobs:
           resource-group: ai-content-farm-core-rg
           environment: production
           containers: ${{ needs.container-build-summary.outputs.containers-built || 'all' }}
+          terraform-storage-account: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT || 'aicontentstagingstv33ppo' }}
 
   # Stage 8: Post-Deployment Tests
   post-deployment:
