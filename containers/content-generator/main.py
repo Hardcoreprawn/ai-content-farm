@@ -4,10 +4,11 @@ import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
-# Updated: Container test improvements and build reporting enhancements
-from config import config
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
+
+# Updated: Container test improvements and build reporting enhancements
+from config import config
 from models import (
     BatchGenerationRequest,
     BatchGenerationResponse,

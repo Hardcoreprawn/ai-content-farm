@@ -10,13 +10,13 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from processor import process_reddit_batch
-
 from libs.blob_storage import (
     BlobContainers,
     BlobStorageClient,
     get_timestamped_blob_name,
 )
+
+from processor import process_reddit_batch
 
 
 class ContentProcessorService:

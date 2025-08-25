@@ -11,9 +11,10 @@ from unittest.mock import Mock, patch
 import pytest
 from fastapi.testclient import TestClient
 from main import app
-from models import GenerationRequest, GenerationStatus, SiteTheme
 
 from tests.contracts.blob_storage_contract import RankedContentContract
+
+from models import GenerationRequest, GenerationStatus, SiteTheme
 
 
 class TestSiteGeneratorAPI:

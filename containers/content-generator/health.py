@@ -6,10 +6,11 @@ from typing import Any, Dict, Optional
 
 from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
-from config import Config
 from openai import AzureOpenAI
 
 from libs.blob_storage import BlobStorageClient
+
+from config import Config
 
 logger = logging.getLogger(__name__)
 

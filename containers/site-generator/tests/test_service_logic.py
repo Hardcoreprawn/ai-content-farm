@@ -9,10 +9,11 @@ import asyncio
 from unittest.mock import Mock, patch
 
 import pytest
-from models import GenerationRequest, GenerationStatus, SiteTheme
-from service_logic import SiteProcessor
 
 from tests.contracts.blob_storage_contract import RankedContentContract
+
+from models import GenerationRequest, GenerationStatus, SiteTheme
+from service_logic import SiteProcessor
 
 
 class TestSiteProcessorUnit:

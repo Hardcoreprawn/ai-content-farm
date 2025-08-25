@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+
 from service_logic import ContentWatcher, MarkdownGenerator
 
 

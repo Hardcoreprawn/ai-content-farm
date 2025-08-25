@@ -11,9 +11,10 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from collector import collect_content_batch, deduplicate_content
-from config import Config
 
 from libs.blob_storage import BlobContainers, BlobStorageClient
+
+from config import Config
 
 
 class MockBlobStorageClient:

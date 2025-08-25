@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Optional
 
 from ai_clients import AIClientManager
+
 from config import config
 from models import GeneratedContent, RankedTopic
 

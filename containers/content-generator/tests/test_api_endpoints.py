@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 from main import app
+
 from models import GeneratedContent, GenerationRequest, RankedTopic
 from service_logic import ContentGeneratorService
 

@@ -7,6 +7,7 @@ import pytest
 from contracts.azure_openai_contract import AzureOpenAIResponseContract
 from contracts.claude_contract import ClaudeResponseContract
 from contracts.openai_contract import OpenAIResponseContract
+
 from models import RankedTopic, SourceData
 from service_logic import ContentGeneratorService
 

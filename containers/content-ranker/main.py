@@ -13,10 +13,16 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict, List, Optional
 
 import uvicorn
-from config import get_config, health_check
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, ValidationError
+
+# Import our business logic
+from ranker import rank_content_items
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from config import get_config, health_check
 from models import (
     BatchRankingRequest,
     ContentItem,
@@ -27,12 +33,7 @@ from models import (
     RankingResponse,
     SpecificRankingRequest,
 )
-from pydantic import BaseModel, Field, ValidationError
-
-# Import our business logic
-from ranker import rank_content_items
 from service_logic import ContentRankerService
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

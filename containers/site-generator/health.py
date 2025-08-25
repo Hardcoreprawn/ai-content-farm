@@ -8,9 +8,9 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict
 
-from config import get_config
-
 from libs.blob_storage import BlobStorageClient
+
+from config import get_config
 
 logger = logging.getLogger(__name__)
 

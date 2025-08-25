@@ -6,13 +6,13 @@ import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
-from config import config
-
 from libs.blob_storage import (
     BlobContainers,
     BlobStorageClient,
     get_timestamped_blob_name,
 )
+
+from config import config
 
 logger = logging.getLogger(__name__)
 

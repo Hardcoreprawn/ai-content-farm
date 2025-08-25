@@ -12,13 +12,16 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import uvicorn
-from config import get_config, health_check
 
 # Import our business logic
 from enricher import enrich_content_batch
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, ValidationError
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from config import get_config, health_check
 from models import (
     ContentItem,
     EnrichmentOptions,
@@ -26,9 +29,7 @@ from models import (
     EnrichmentResponse,
     HealthResponse,
 )
-from pydantic import BaseModel, Field, ValidationError
 from service_logic import ContentEnricherService
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
