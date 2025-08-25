@@ -219,10 +219,12 @@ az group list --query "[].name" -o table
 - **Subscription ID**: `6b924609-f8c6-4bd2-a873-2b8f55596f67`
 
 ### Federated Identity Credentials
-Three federated credentials configured for GitHub Actions OIDC:
+Five federated credentials configured for comprehensive GitHub Actions OIDC coverage:
 1. **github-main-branch**: `repo:Hardcoreprawn/ai-content-farm:ref:refs/heads/main`
 2. **github-develop-branch**: `repo:Hardcoreprawn/ai-content-farm:ref:refs/heads/develop`
 3. **github-pull-requests**: `repo:Hardcoreprawn/ai-content-farm:pull_request`
+4. **github-staging-environment**: `repo:Hardcoreprawn/ai-content-farm:environment:staging`
+5. **github-production-environment**: `repo:Hardcoreprawn/ai-content-farm:environment:production`
 
 ### Service Principal Permissions
 The following RBAC permissions have been assigned:
