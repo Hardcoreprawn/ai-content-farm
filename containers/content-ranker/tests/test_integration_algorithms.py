@@ -13,10 +13,10 @@ from typing import Any, Dict, List
 
 import pytest
 import pytest_asyncio
-from ranker import calculate_composite_score, rank_content_items
-from service_logic import ContentRankerService
-
 from libs.blob_storage import BlobContainers, BlobStorageClient
+from ranker import calculate_composite_score, rank_content_items
+
+from service_logic import ContentRankerService
 
 
 @pytest.mark.asyncio
@@ -70,6 +70,14 @@ class TestContentRankingAlgorithms:
                 "score": 500,
                 "num_comments": 100,
                 "created_utc": (base_time - timedelta(hours=2)).isoformat(),
+                "published_at": (base_time - timedelta(hours=2)).isoformat(),
+                "engagement_score": 0.8,  # High engagement
+                "normalized_score": 0.85,  # High normalized score
+                "trend_analysis": {"trend_score": 0.9},  # High trend score
+                "topic_classification": {
+                    "primary_topic": "technology",
+                    "confidence": 0.95,
+                },
                 "engagement_metrics": {
                     "upvote_ratio": 0.95,
                     "awards_received": 5,
@@ -95,6 +103,11 @@ class TestContentRankingAlgorithms:
                 "score": 250,
                 "num_comments": 50,
                 "created_utc": (base_time - timedelta(hours=6)).isoformat(),
+                "published_at": (base_time - timedelta(hours=6)).isoformat(),
+                "engagement_score": 0.6,  # Medium engagement
+                "normalized_score": 0.65,  # Medium normalized score
+                "trend_analysis": {"trend_score": 0.6},  # Medium trend score
+                "topic_classification": {"primary_topic": "science", "confidence": 0.8},
                 "engagement_metrics": {
                     "upvote_ratio": 0.85,
                     "awards_received": 2,
@@ -120,6 +133,11 @@ class TestContentRankingAlgorithms:
                 "score": 50,
                 "num_comments": 10,
                 "created_utc": (base_time - timedelta(hours=12)).isoformat(),
+                "published_at": (base_time - timedelta(hours=12)).isoformat(),
+                "engagement_score": 0.2,  # Low engagement
+                "normalized_score": 0.25,  # Low normalized score
+                "trend_analysis": {"trend_score": 0.1},  # Low trend score
+                "topic_classification": {"primary_topic": "general", "confidence": 0.4},
                 "engagement_metrics": {
                     "upvote_ratio": 0.70,
                     "awards_received": 0,
@@ -131,8 +149,8 @@ class TestContentRankingAlgorithms:
                     "novelty_score": 4.0,
                 },
                 "enrichment": {
-                    "summary": "Basic article with limited depth and engagement.",
-                    "key_points": ["General topic", "Basic information"],
+                    "summary": "Basic article with limited insights.",
+                    "key_points": ["General discussion", "Opinion"],
                     "credibility_score": 6.0,
                     "processing_timestamp": base_time.isoformat(),
                 },
@@ -152,9 +170,10 @@ class TestContentRankingAlgorithms:
             )
 
         # Rank the content
-        ranked_content = await self.ranker_service.rank_content_batch()
+        ranking_result = await self.ranker_service.rank_content_batch()
 
         # Should return ranked items
+        ranked_content = ranking_result["ranked_items"]
         assert len(ranked_content) >= 3
 
         # Find our test items
@@ -180,17 +199,20 @@ class TestContentRankingAlgorithms:
 
         # Test composite score calculation
         for item in test_content:
-            score = calculate_composite_score(item)
-            assert isinstance(score, (int, float))
-            assert 0 <= score <= 100
+            score_result = calculate_composite_score(item)
+            composite_score = score_result["composite_score"]
+            assert isinstance(composite_score, (int, float))
+            assert 0 <= composite_score <= 1  # Composite score is 0-1, not 0-100
 
         # High-scoring content should have higher composite score
         high_item = test_content[0]  # test_001
         low_item = test_content[2]  # test_003
 
-        high_score = calculate_composite_score(high_item)
-        low_score = calculate_composite_score(low_item)
-        assert high_score > low_score
+        high_score_result = calculate_composite_score(high_item)
+        low_score_result = calculate_composite_score(low_item)
+        assert (
+            high_score_result["composite_score"] > low_score_result["composite_score"]
+        )
 
     @pytest.mark.integration
     async def test_specific_content_ranking(self):
@@ -205,7 +227,10 @@ class TestContentRankingAlgorithms:
             )
 
         # Rank specific content
-        specific_items = ["test_001", "test_003"]
+        specific_item_ids = ["test_001", "test_003"]
+        specific_items = [
+            item for item in test_content if item["id"] in specific_item_ids
+        ]
         ranked_content = await self.ranker_service.rank_specific_content(specific_items)
 
         # Should return only requested items

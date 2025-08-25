@@ -16,8 +16,8 @@ from unittest.mock import Mock, patch
 
 import pytest
 from models import GenerationRequest, GenerationStatus, SiteTheme
-from service_logic import SiteProcessor
 
+from service_logic import SiteProcessor
 from tests.contracts.blob_storage_contract import RankedContentContract
 from tests.contracts.template_contract import TemplateContract
 
@@ -190,7 +190,9 @@ class TestPhase1BIntegrationSlow:
         current_dir = Path(__file__).parent.parent.parent.parent
         possible_paths = [
             current_dir / "tests" / "test_ranked_content.json",  # Local dev
-            Path("/workspaces/ai-content-farm/tests/test_ranked_content.json"),  # CI/CD absolute
+            Path(
+                "/workspaces/ai-content-farm/tests/test_ranked_content.json"
+            ),  # CI/CD absolute
             current_dir / "test_ranked_content.json",  # Alternative location
         ]
 
@@ -201,7 +203,9 @@ class TestPhase1BIntegrationSlow:
                 break
 
         if not content_file:
-            pytest.skip(f"Test data file not found. Searched: {[str(p) for p in possible_paths]}")
+            pytest.skip(
+                f"Test data file not found. Searched: {[str(p) for p in possible_paths]}"
+            )
 
         with open(content_file, "r") as f:
             real_content = json.load(f)

@@ -5,10 +5,11 @@ Uses shared-versions.toml as the source of truth.
 """
 
 import os
-import sys
-import toml
 import re
+import sys
 from pathlib import Path
+
+import toml
 
 
 def load_shared_versions():
@@ -18,7 +19,7 @@ def load_shared_versions():
         print(f"❌ shared-versions.toml not found!")
         sys.exit(1)
 
-    with open(shared_versions_file, 'r') as f:
+    with open(shared_versions_file, "r") as f:
         versions = toml.load(f)
 
     return versions
@@ -31,7 +32,7 @@ def update_requirements_file(file_path, shared_versions, file_type):
 
     print(f"📝 Processing {file_path}")
 
-    with open(file_path, 'r') as f:
+    with open(file_path, "r") as f:
         lines = f.readlines()
 
     updated_lines = []
@@ -41,14 +42,14 @@ def update_requirements_file(file_path, shared_versions, file_type):
         line = line.strip()
 
         # Skip comments and empty lines
-        if not line or line.startswith('#'):
-            updated_lines.append(line + '\n')
+        if not line or line.startswith("#"):
+            updated_lines.append(line + "\n")
             continue
 
         # Parse package[extras]~=version format
-        match = re.match(r'^([a-zA-Z0-9_-]+)(\[[^\]]+\])?(~=|==|>=)(.+)$', line)
+        match = re.match(r"^([a-zA-Z0-9_-]+)(\[[^\]]+\])?(~=|==|>=)(.+)$", line)
         if not match:
-            updated_lines.append(line + '\n')
+            updated_lines.append(line + "\n")
             continue
 
         package = match.group(1)
@@ -58,35 +59,38 @@ def update_requirements_file(file_path, shared_versions, file_type):
 
         # Look for the package in shared versions
         new_version = None
-        if file_type == 'prod' and package in shared_versions.get('production', {}):
-            new_version = shared_versions['production'][package]
-        elif file_type == 'test' and package in shared_versions.get('test', {}):
-            new_version = shared_versions['test'][package]
+        if file_type == "prod" and package in shared_versions.get("production", {}):
+            new_version = shared_versions["production"][package]
+        elif file_type == "test" and package in shared_versions.get("test", {}):
+            new_version = shared_versions["test"][package]
 
         if new_version:
             # Ensure we use ~= for compatible release
-            if not new_version.startswith('~='):
-                new_version = f"~={new_version}" if not new_version.startswith(
-                    '=') else new_version.replace('==', '~=', 1)
+            if not new_version.startswith("~="):
+                new_version = (
+                    f"~={new_version}"
+                    if not new_version.startswith("=")
+                    else new_version.replace("==", "~=", 1)
+                )
 
             new_line = f"{package}{extras}{new_version}"
             if new_line != line:
                 print(f"  📌 {package}: {current_version} → {new_version}")
                 changes_made = True
-            updated_lines.append(new_line + '\n')
+            updated_lines.append(new_line + "\n")
         else:
             # Keep original line but convert == to ~= if needed
-            if operator == '==':
-                new_line = line.replace('==', '~=', 1)
+            if operator == "==":
+                new_line = line.replace("==", "~=", 1)
                 if new_line != line:
                     print(f"  🔄 {package}: Converting == to ~= for compatibility")
                     changes_made = True
-                updated_lines.append(new_line + '\n')
+                updated_lines.append(new_line + "\n")
             else:
-                updated_lines.append(line + '\n')
+                updated_lines.append(line + "\n")
 
     if changes_made:
-        with open(file_path, 'w') as f:
+        with open(file_path, "w") as f:
             f.writelines(updated_lines)
         return True
 
@@ -111,12 +115,12 @@ def main():
 
         # Update production requirements
         prod_file = container_path / "requirements-prod.txt"
-        if update_requirements_file(prod_file, shared_versions, 'prod'):
+        if update_requirements_file(prod_file, shared_versions, "prod"):
             total_changes += 1
 
         # Update test requirements
         test_file = container_path / "requirements-test.txt"
-        if update_requirements_file(test_file, shared_versions, 'test'):
+        if update_requirements_file(test_file, shared_versions, "test"):
             total_changes += 1
 
         # Also check original requirements.txt and suggest splitting if needed

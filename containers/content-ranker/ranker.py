@@ -199,6 +199,7 @@ def rank_content_items(
         return []
 
     # Calculate scores for all items
+    ranking_timestamp = datetime.now(timezone.utc).isoformat()
     ranked_items = []
     for item in content_items:
         # Calculate ranking scores
@@ -211,6 +212,8 @@ def rank_content_items(
         ranked_item["rank_score"] = scores["composite_score"]
         # Keep for backward compatibility
         ranked_item["final_rank_score"] = scores["composite_score"]
+        # Add ranking timestamp
+        ranked_item["ranking_timestamp"] = ranking_timestamp
 
         ranked_items.append(ranked_item)
 
