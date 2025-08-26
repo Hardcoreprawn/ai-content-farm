@@ -1,0 +1,99 @@
+name: 'Collect Container Test Results'
+description: 'Analyzes test job results and determines which containers passed tests and should be built'
+inputs:
+  test-jobs:
+    description: 'JSON object containing all test job results'
+    required: true
+
+outputs:
+  passed-containers:
+    description: 'JSON array of containers that passed all tests'
+    value: ${{ steps.analyze.outputs.passed-containers }}
+  failed-containers:
+    description: 'JSON array of containers that failed tests'
+    value: ${{ steps.analyze.outputs.failed-containers }}
+  containers-to-build:
+    description: 'JSON array of containers ready for building (passed tests)'
+    value: ${{ steps.analyze.outputs.containers-to-build }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Analyze Test Results
+      id: analyze
+      shell: bash
+      env:
+        TEST_JOBS: ${{ inputs.test-jobs }}
+      run: |
+        echo "[ANALYZE] Processing container test results..."
+
+        # Initialize arrays
+        passed_containers=()
+        failed_containers=()
+
+        # Parse test job results
+        echo "$TEST_JOBS" | jq -r 'to_entries[] | select(.value.result) | "\(.key)=\(.value.result)"' > test_results.tmp
+
+        # Group results by container (remove test-type suffix)
+        declare -A container_results
+
+        while IFS='=' read -r job_key result; do
+          # Extract container name from job key (format: container-test-type)
+          if [[ "$job_key" =~ ^(.+)-(unit|integration)$ ]]; then
+            container="${BASH_REMATCH[1]}"
+            test_type="${BASH_REMATCH[2]}"
+
+            echo "[TEST] $container ($test_type): $result"
+
+            # Track results per container
+            if [ -z "${container_results[$container]}" ]; then
+              container_results[$container]="$result"
+            else
+              # If any test failed, mark container as failed
+              if [ "$result" = "failure" ] || [ "${container_results[$container]}" = "failure" ]; then
+                container_results[$container]="failure"
+              fi
+            fi
+          fi
+        done < test_results.tmp
+
+        # Categorize containers based on test results
+        for container in "${!container_results[@]}"; do
+          result="${container_results[$container]}"
+
+          if [ "$result" = "success" ]; then
+            echo "[PASS] $container: All tests passed"
+            passed_containers+=("$container")
+          else
+            echo "[FAIL] $container: Tests failed"
+            failed_containers+=("$container")
+          fi
+        done
+
+        # Convert arrays to JSON
+        if [ ${#passed_containers[@]} -eq 0 ]; then
+          passed_json="[]"
+          build_json="[]"
+        else
+          passed_json=$(printf '%s\n' "${passed_containers[@]}" | jq -R . | jq -s .)
+          build_json="$passed_json"
+        fi
+
+        if [ ${#failed_containers[@]} -eq 0 ]; then
+          failed_json="[]"
+        else
+          failed_json=$(printf '%s\n' "${failed_containers[@]}" | jq -R . | jq -s .)
+        fi
+
+        echo "[SUMMARY] Containers passed: ${#passed_containers[@]}"
+        echo "[SUMMARY] Containers failed: ${#failed_containers[@]}"
+
+        # Output results
+        echo "passed-containers=$passed_json" >> $GITHUB_OUTPUT
+        echo "failed-containers=$failed_json" >> $GITHUB_OUTPUT
+        echo "containers-to-build=$build_json" >> $GITHUB_OUTPUT
+
+        # Clean up
+        rm -f test_results.tmp
+
+        echo "[INFO] Test result analysis completed"

@@ -1,0 +1,143 @@
+name: 'Build and Push Container to Registry'
+description: 'Builds a single service container and pushes it to the specified registry with proper tagging'
+inputs:
+  container-name:
+    description: 'Name of the container to build'
+    required: true
+  registry:
+    description: 'Container registry (e.g., ghcr.io)'
+    required: true
+    default: 'ghcr.io'
+  repository:
+    description: 'Repository name (e.g., owner/repo)'
+    required: true
+  tag:
+    description: 'Tag for the container (e.g., commit SHA)'
+    required: true
+  enable-cache:
+    description: 'Enable Docker layer caching'
+    required: false
+    default: 'true'
+  dependency-results-path:
+    description: 'Path to dependency analysis results from previous job'
+    required: false
+    default: ''
+outputs:
+  build-result:
+    description: 'Build result: success or failure'
+    value: ${{ steps.build.outputs.result }}
+  image-tag:
+    description: 'Full image tag that was built and pushed'
+    value: ${{ steps.build.outputs.image-tag }}
+  registry-url:
+    description: 'Full registry URL of the pushed image'
+    value: ${{ steps.build.outputs.registry-url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Build and Push Container
+      id: build
+      shell: bash
+      env:
+        CONTAINER_NAME: ${{ inputs.container-name }}
+        REGISTRY: ${{ inputs.registry }}
+        REPOSITORY: ${{ inputs.repository }}
+        TAG: ${{ inputs.tag }}
+        ENABLE_CACHE: ${{ inputs.enable-cache }}
+        DEPENDENCY_RESULTS_PATH: ${{ inputs.dependency-results-path }}
+      run: |
+        echo "[BUILD] Building and pushing container: $CONTAINER_NAME"
+
+        container_dir="containers/$CONTAINER_NAME"
+        dockerfile_path="$container_dir/Dockerfile"
+
+        # Verify files exist
+        if [ ! -d "$container_dir" ]; then
+          echo "[ERROR] Container directory not found: $container_dir"
+          echo "result=failure" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+        if [ ! -f "$dockerfile_path" ]; then
+          echo "[ERROR] Dockerfile not found: $dockerfile_path"
+          echo "result=failure" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+        # Check for existing dependency analysis results
+        dependency_results_path="$DEPENDENCY_RESULTS_PATH"
+        if [ -n "$dependency_results_path" ] && [ -d "$dependency_results_path" ]; then
+          safety_result_file="$dependency_results_path/safety-${CONTAINER_NAME}.json"
+          if [ -f "$safety_result_file" ]; then
+            echo "[DEPENDENCY] Using cached dependency analysis for $CONTAINER_NAME"
+
+            # Check if vulnerabilities were found
+            if [ -s "$safety_result_file" ] && grep -q '"vulnerabilities"' "$safety_result_file" 2>/dev/null; then
+              vuln_count=$(jq -r '.vulnerabilities | length' "$safety_result_file" 2>/dev/null || echo "unknown")
+              if [ "$vuln_count" != "0" ] && [ "$vuln_count" != "null" ]; then
+                echo "[WARN] $vuln_count vulnerabilities found in dependencies for $CONTAINER_NAME"
+                cat "$dependency_results_path/safety-${CONTAINER_NAME}.txt" || true
+              else
+                echo "[PASS] No dependency vulnerabilities found for $CONTAINER_NAME"
+              fi
+            else
+              echo "[PASS] No dependency vulnerabilities found for $CONTAINER_NAME"
+            fi
+          else
+            echo "[INFO] No cached dependency analysis found for $CONTAINER_NAME, proceeding with build"
+          fi
+        else
+          echo "[INFO] No dependency results path provided, proceeding with build"
+        fi
+
+        # Generate image tags
+        registry_repo="$REGISTRY/$REPOSITORY"
+        short_sha=$(echo "$TAG" | cut -c1-7)
+
+        # Build production target for deployment
+        image_tag_latest="$registry_repo/$CONTAINER_NAME:latest"
+        image_tag_sha="$registry_repo/$CONTAINER_NAME:$short_sha"
+        image_tag_full_sha="$registry_repo/$CONTAINER_NAME:$TAG"
+
+        echo "[BUILD] Building production image: $image_tag_latest"
+
+        # Configure build caching for speed
+        build_args="--target production --cache-from=type=gha --cache-to=type=gha,mode=max"
+
+        if [ "$ENABLE_CACHE" = "false" ]; then
+          build_args="--target production --no-cache"
+        fi
+
+        echo "[INFO] Using Docker BuildKit with caching: $build_args"
+
+        # Build the container
+        if docker build $build_args -f "$dockerfile_path" -t "$image_tag_latest" .; then
+          echo "[BUILD] $CONTAINER_NAME built successfully"
+
+          # Tag with multiple versions for better tracking
+          docker tag "$image_tag_latest" "$image_tag_sha"
+          docker tag "$image_tag_latest" "$image_tag_full_sha"
+
+          # Push all tags
+          echo "[PUSH] Pushing to registry: $registry_repo/$CONTAINER_NAME"
+
+          if docker push "$image_tag_latest" && \
+             docker push "$image_tag_sha" && \
+             docker push "$image_tag_full_sha"; then
+            echo "[PASS] $CONTAINER_NAME pushed successfully to registry"
+            echo "result=success" >> $GITHUB_OUTPUT
+            echo "image-tag=$image_tag_latest" >> $GITHUB_OUTPUT
+            echo "registry-url=$image_tag_full_sha" >> $GITHUB_OUTPUT
+          else
+            echo "[ERROR] Failed to push $CONTAINER_NAME to registry"
+            echo "result=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+        else
+          echo "[ERROR] Failed to build $CONTAINER_NAME"
+          echo "result=failure" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+
+        echo "[INFO] Container $CONTAINER_NAME build and push completed"

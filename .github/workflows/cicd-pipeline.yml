@@ -90,18 +90,16 @@ jobs:
         with:
           force-build-all: ${{ github.ref == 'refs/heads/main' && 'true' || 'false' }}
 
-  # Stage 3: Container Build (Optimized for Speed)
-
-  # Generate build matrix for parallel container builds
-  build-matrix:
-    name: Generate Build Matrix
+  # Stage 3: Test Matrix Generation for Parallel Testing
+  test-matrix:
+    name: Generate Test Matrix
     runs-on: ubuntu-latest
     needs: [change-detection]
     if: needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true'
     outputs:
       matrix: ${{ steps.generate.outputs.matrix }}
     steps:
-      - name: Generate Container Build Matrix
+      - name: Generate Container Test Matrix
         id: generate
         run: |
           # Generate matrix based on what changed
@@ -116,12 +114,12 @@ jobs:
           fi
 
           if [ "$libs_changed" = "true" ]; then
-            # Build all containers if libs changed
-            echo "Building all containers due to libs change"
+            # Test all containers if libs changed
+            echo "Testing all containers due to libs change"
             matrix="$all_containers"
           else
-            # Build only changed containers
-            echo "Building changed containers only"
+            # Test only changed containers
+            echo "Testing changed containers only"
             matrix="$containers_changed"
           fi
 
@@ -141,14 +139,23 @@ jobs:
           echo "Generated matrix: $containers_array"
           echo "matrix=$containers_array" >> "$GITHUB_OUTPUT"
 
-  # Build service containers in parallel (optimized for speed)
-  build-containers:
-    name: Build ${{ matrix.container }}
+  # Stage 4: Quality Gates + Container Tests (Parallel Execution)
+
+  # Container Tests - Run in parallel with quality checks
+  container-tests:
+    name: Test ${{ matrix.container }} (${{ matrix.test-type }})
     runs-on: ubuntu-latest
-    needs: [build-matrix, dependency-analysis]
+    needs: [test-matrix, dependency-analysis]
+    if: needs.test-matrix.outputs.matrix != '[]'
     strategy:
       matrix:
-        container: ${{ fromJson(needs.build-matrix.outputs.matrix) }}
+        container: ${{ fromJson(needs.test-matrix.outputs.matrix) }}
+        test-type: [unit, integration]
+        exclude:
+          - container: collector-scheduler
+            test-type: integration
+          - container: markdown-generator
+            test-type: integration
       fail-fast: false
     steps:
       - name: Checkout code
@@ -159,47 +166,18 @@ jobs:
           name: security-results-dependencies
           path: security-results/
         continue-on-error: true
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
-          driver-opts: |
-            network=host
-      - name: Build Container (Optimized)
-        uses: ./.github/actions/build-single-container
+          python-version: '3.11'
+          cache: 'pip'
+      - name: Test Container
+        uses: ./.github/actions/test-single-container
         with:
           container-name: ${{ matrix.container }}
-          enable-cache: 'true'
-          dependency-results-path: 'security-results/'
+          test-type: ${{ matrix.test-type }}
+          upload-coverage: 'true'
 
-  # Collect build results and setup tests
-  container-build-summary:
-    name: Container Build Summary
-    runs-on: ubuntu-latest
-    needs: [change-detection, build-matrix, build-containers]
-    if: always() && (needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true')
-    outputs:
-      containers-built: ${{ steps.summary.outputs.containers-built }}
-      containers-to-test: ${{ steps.test-setup.outputs.containers-to-test }}
-      containers-json: ${{ steps.test-setup.outputs.containers-json }}
-      build-result: ${{ steps.summary.outputs.build-result }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Collect Build Results
-        id: summary
-        uses: ./.github/actions/collect-build-results
-        with:
-          container-jobs: ${{ toJson(needs.build-containers) }}
-          all-containers: ${{ needs.change-detection.outputs.all-containers }}
-      - name: Setup Container Tests
-        id: test-setup
-        uses: ./.github/actions/setup-container-tests
-        with:
-          containers-changed: ${{ needs.change-detection.outputs.containers-changed }}
-          libs-changed: ${{ needs.change-detection.outputs.libs-changed }}
-          all-containers: ${{ needs.change-detection.outputs.all-containers }}
-
-  # Stage 4: Quality Gates (Parallel)
   security-trivy:
     name: Trivy Security Scan
     runs-on: ubuntu-latest
@@ -300,42 +278,87 @@ jobs:
           infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
           comment-on-pr: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
 
-  # Stage 5: Container Tests
-  container-tests:
-    name: Test ${{ matrix.container }} (${{ matrix.test-type }})
+  # Stage 5: Conditional Container Build & Registry Push
+  container-test-summary:
+    name: Container Test Summary
     runs-on: ubuntu-latest
-    needs: [container-build-summary]
-    if: needs.container-build-summary.outputs.containers-to-test != '' && needs.container-build-summary.outputs.containers-json != '[]'
+    needs: [container-tests]
+    if: always() && needs.container-tests.result != 'skipped'
+    outputs:
+      passed-containers: ${{ steps.summary.outputs.passed-containers }}
+      failed-containers: ${{ steps.summary.outputs.failed-containers }}
+      containers-to-build: ${{ steps.summary.outputs.containers-to-build }}
+    steps:
+      - name: Collect Test Results
+        id: summary
+        uses: ./.github/actions/collect-test-results
+        with:
+          test-jobs: ${{ toJson(needs.container-tests) }}
+
+  build-and-push-containers:
+    name: Build & Push ${{ matrix.container }}
+    runs-on: ubuntu-latest
+    needs: [container-test-summary, dependency-analysis]
+    if: needs.container-test-summary.outputs.containers-to-build != '[]'
     strategy:
       matrix:
-        container: ${{ fromJson(needs.container-build-summary.outputs.containers-json) }}
-        test-type: [unit, integration]
-        exclude:
-          - container: collector-scheduler
-            test-type: integration
-          - container: markdown-generator
-            test-type: integration
+        container: ${{ fromJson(needs.container-test-summary.outputs.containers-to-build) }}
       fail-fast: false
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Download Dependency Analysis Results
+        uses: actions/download-artifact@v4
         with:
-          python-version: '3.11'
-          cache: 'pip'
-      - name: Test Container
-        uses: ./.github/actions/test-single-container
+          name: security-results-dependencies
+          path: security-results/
+        continue-on-error: true
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            network=host
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and Push Container
+        uses: ./.github/actions/build-and-push-container
         with:
           container-name: ${{ matrix.container }}
-          test-type: ${{ matrix.test-type }}
-          upload-coverage: 'true'
+          registry: 'ghcr.io'
+          repository: ${{ github.repository }}
+          tag: ${{ github.sha }}
+          enable-cache: 'true'
+          dependency-results-path: 'security-results/'
+
+  container-build-summary:
+    name: Container Build Summary
+    runs-on: ubuntu-latest
+    needs: [build-and-push-containers, container-test-summary]
+    if: always()
+    outputs:
+      containers-built: ${{ steps.summary.outputs.containers-built }}
+      build-result: ${{ steps.summary.outputs.build-result }}
+      registry-images: ${{ steps.summary.outputs.registry-images }}
+    steps:
+      - name: Collect Build Results
+        id: summary
+        uses: ./.github/actions/collect-build-summary
+        with:
+          build-jobs: ${{ toJson(needs.build-and-push-containers) }}
+          test-summary: ${{ needs.container-test-summary.outputs.passed-containers }}
 
   # Stage 6: Build Report (Quality Gates + Test Results)
   build-report:
     name: Build Report
     runs-on: ubuntu-latest
-    needs: [security-trivy, security-semgrep, security-python, security-sbom, security-checkov, code-quality, infrastructure-quality, dependency-analysis, cost-analysis, container-build-summary, container-tests]
+    needs: [security-trivy, security-semgrep, security-python, security-sbom, security-checkov, code-quality, infrastructure-quality, dependency-analysis, cost-analysis, container-build-summary, container-tests, container-test-summary]
     if: always() && !cancelled()
     outputs:
       build-passed: ${{ steps.report.outputs.build-passed }}
@@ -358,8 +381,8 @@ jobs:
           infrastructure-result: ${{ needs.infrastructure-quality.result }}
           dependency-result: ${{ needs.dependency-analysis.result }}
           cost-analysis-result: ${{ needs.cost-analysis.result }}
-          containers-to-test: ${{ needs.container-build-summary.outputs.containers-to-test }}
-          containers-json: ${{ needs.container-build-summary.outputs.containers-json }}
+          containers-to-test: ${{ needs.container-build-summary.outputs.containers-built }}
+          containers-json: ${{ needs.container-test-summary.outputs.passed-containers }}
           container-tests-result: ${{ needs.container-tests.result }}
           container-build-result: ${{ needs.container-build-summary.outputs.build-result }}
 
@@ -388,13 +411,13 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       - name: Deploy to Azure
         id: deploy
-        uses: ./.github/actions/deploy-to-azure
+        uses: ./.github/actions/deploy-from-registry
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           environment: production
-          containers: ${{ needs.container-build-summary.outputs.containers-built || 'all' }}
+          registry-images: ${{ needs.container-build-summary.outputs.registry-images }}
           terraform-storage-account: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT_PROD || 'aicontentfarmtfstate' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 

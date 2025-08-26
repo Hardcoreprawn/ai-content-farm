@@ -1,0 +1,98 @@
+name: 'Collect Container Build Summary'
+description: 'Summarizes container build results and generates registry image mappings for deployment'
+inputs:
+  build-jobs:
+    description: 'JSON object containing all build job results'
+    required: true
+  test-summary:
+    description: 'JSON array of containers that passed tests'
+    required: true
+
+outputs:
+  containers-built:
+    description: 'Comma-separated list of successfully built containers'
+    value: ${{ steps.summary.outputs.containers-built }}
+  build-result:
+    description: 'Overall build result: success, partial, or failure'
+    value: ${{ steps.summary.outputs.build-result }}
+  registry-images:
+    description: 'JSON object mapping container names to registry URLs'
+    value: ${{ steps.summary.outputs.registry-images }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Summarize Build Results
+      id: summary
+      shell: bash
+      env:
+        BUILD_JOBS: ${{ inputs.build-jobs }}
+        TEST_SUMMARY: ${{ inputs.test-summary }}
+      run: |
+        echo "[SUMMARY] Processing container build results..."
+
+        # Initialize tracking arrays
+        successful_builds=()
+        failed_builds=()
+        registry_images="{}"
+
+        # Process build job results if they exist
+        if [ "$BUILD_JOBS" != "null" ] && [ "$BUILD_JOBS" != "{}" ]; then
+          echo "$BUILD_JOBS" | jq -r 'to_entries[] | select(.value.result) | "\(.key)=\(.value.result)=\(.value.outputs.registry-url // "")"' > build_results.tmp
+
+          while IFS='=' read -r job_key result registry_url; do
+            # Extract container name from job key
+            container=$(echo "$job_key" | sed 's/^build-and-push-//')
+
+            echo "[BUILD] $container: $result"
+
+            if [ "$result" = "success" ]; then
+              successful_builds+=("$container")
+
+              # Add to registry images mapping if URL is available
+              if [ -n "$registry_url" ] && [ "$registry_url" != "null" ]; then
+                registry_images=$(echo "$registry_images" | jq --arg container "$container" --arg url "$registry_url" '. + {($container): $url}')
+                echo "[REGISTRY] $container -> $registry_url"
+              fi
+            else
+              failed_builds+=("$container")
+            fi
+          done < build_results.tmp
+
+          rm -f build_results.tmp
+        else
+          echo "[INFO] No build jobs to process"
+        fi
+
+        # Determine overall build result
+        total_expected=$(echo "$TEST_SUMMARY" | jq 'length')
+        total_built=${#successful_builds[@]}
+        total_failed=${#failed_builds[@]}
+
+        if [ $total_built -eq $total_expected ] && [ $total_failed -eq 0 ]; then
+          overall_result="success"
+        elif [ $total_built -gt 0 ]; then
+          overall_result="partial"
+        else
+          overall_result="failure"
+        fi
+
+        # Generate outputs
+        if [ ${#successful_builds[@]} -eq 0 ]; then
+          containers_built=""
+        else
+          containers_built=$(IFS=,; echo "${successful_builds[*]}")
+        fi
+
+        echo "[SUMMARY] Build Results:"
+        echo "  - Successfully built: $total_built containers"
+        echo "  - Failed builds: $total_failed containers"
+        echo "  - Overall result: $overall_result"
+        echo "  - Registry images: $(echo "$registry_images" | jq -c .)"
+
+        # Set outputs
+        echo "containers-built=$containers_built" >> $GITHUB_OUTPUT
+        echo "build-result=$overall_result" >> $GITHUB_OUTPUT
+        echo "registry-images=$(echo "$registry_images" | jq -c .)" >> $GITHUB_OUTPUT
+
+        echo "[INFO] Build summary completed"

@@ -1,0 +1,212 @@
+name: 'Deploy from Container Registry'
+description: 'Deploys pre-built containers from registry to Azure Container Apps using Terraform'
+inputs:
+  client-id:
+    description: 'Azure service principal client ID'
+    required: true
+  tenant-id:
+    description: 'Azure tenant ID'
+    required: true
+  subscription-id:
+    description: 'Azure subscription ID'
+    required: true
+  environment:
+    description: 'Environment to deploy to (staging/production)'
+    required: true
+    default: 'production'
+  registry-images:
+    description: 'JSON object mapping container names to registry URLs'
+    required: true
+  terraform-storage-account:
+    description: 'Terraform state storage account name'
+    required: false
+    default: 'aicontentstagingstv33ppo'
+  github-token:
+    description: 'GitHub token for registry access'
+    required: true
+outputs:
+  deployment-url:
+    description: 'URL of the deployed application'
+    value: ${{ steps.get-url.outputs.url }}
+  deployed-containers:
+    description: 'List of containers that were deployed'
+    value: ${{ steps.deploy.outputs.containers }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        client-id: ${{ inputs.client-id }}
+        tenant-id: ${{ inputs.tenant-id }}
+        subscription-id: ${{ inputs.subscription-id }}
+
+    - name: Deploy Infrastructure
+      shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+        STORAGE_ACCOUNT: ${{ inputs.terraform-storage-account }}
+        ARM_CLIENT_ID: ${{ inputs.client-id }}
+        ARM_TENANT_ID: ${{ inputs.tenant-id }}
+        ARM_SUBSCRIPTION_ID: ${{ inputs.subscription-id }}
+        ARM_USE_OIDC: true
+      run: |
+        echo "[INFRASTRUCTURE] Deploying infrastructure with Terraform..."
+        cd infra
+
+        # Azure authentication details are already set in environment
+        export ARM_CLIENT_ID="$ARM_CLIENT_ID"
+        export ARM_TENANT_ID="$ARM_TENANT_ID"
+        export ARM_SUBSCRIPTION_ID="$ARM_SUBSCRIPTION_ID"
+        export ARM_USE_OIDC="$ARM_USE_OIDC"
+
+        # Initialize Terraform with environment-specific state file
+        echo "[CONFIG] Using state file: terraform-${ENVIRONMENT}.tfstate"
+        docker run --rm \
+          -v "${PWD}":/workspace \
+          -w /workspace \
+          -e ARM_CLIENT_ID \
+          -e ARM_TENANT_ID \
+          -e ARM_SUBSCRIPTION_ID \
+          -e ARM_USE_OIDC \
+          -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+          -e ACTIONS_ID_TOKEN_REQUEST_URL \
+          hashicorp/terraform:latest \
+          init -reconfigure \
+          -backend-config="key=terraform-${ENVIRONMENT}.tfstate" \
+          -backend-config="storage_account_name=${STORAGE_ACCOUNT}"
+
+        echo "[PASS] Infrastructure initialized"
+
+    - name: Login to GitHub Container Registry
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        echo "[REGISTRY] Logging into GitHub Container Registry..."
+        echo "$GITHUB_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+        echo "[PASS] Registry login successful"
+
+    - name: Pull Container Images
+      shell: bash
+      env:
+        REGISTRY_IMAGES: ${{ inputs.registry-images }}
+      run: |
+        echo "[PULL] Pulling container images from registry..."
+
+        # Parse registry images JSON and pull each image
+        echo "$REGISTRY_IMAGES" | jq -r 'to_entries[] | "\(.key)=\(.value)"' > images_to_pull.tmp
+
+        pulled_containers=()
+
+        while IFS='=' read -r container_name registry_url; do
+          echo "[PULL] Pulling $container_name from $registry_url"
+
+          if docker pull "$registry_url"; then
+            # Tag locally for easier reference
+            docker tag "$registry_url" "$container_name:latest"
+            pulled_containers+=("$container_name")
+            echo "[PASS] Successfully pulled $container_name"
+          else
+            echo "[ERROR] Failed to pull $container_name from $registry_url"
+            exit 1
+          fi
+        done < images_to_pull.tmp
+
+        rm -f images_to_pull.tmp
+
+        echo "[SUMMARY] Pulled ${#pulled_containers[@]} containers successfully"
+
+        # Store pulled containers for later use
+        echo "PULLED_CONTAINERS=$(IFS=,; echo "${pulled_containers[*]}")" >> $GITHUB_ENV
+
+    - name: Deploy with Terraform
+      id: deploy
+      shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+        STORAGE_ACCOUNT: ${{ inputs.terraform-storage-account }}
+        ARM_CLIENT_ID: ${{ inputs.client-id }}
+        ARM_TENANT_ID: ${{ inputs.tenant-id }}
+        ARM_SUBSCRIPTION_ID: ${{ inputs.subscription-id }}
+        ARM_USE_OIDC: true
+        REGISTRY_IMAGES: ${{ inputs.registry-images }}
+      run: |
+        echo "[TERRAFORM] Deploying infrastructure and container apps..."
+        cd infra
+
+        # Set up Terraform environment
+        export ARM_CLIENT_ID="$ARM_CLIENT_ID"
+        export ARM_TENANT_ID="$ARM_TENANT_ID"
+        export ARM_SUBSCRIPTION_ID="$ARM_SUBSCRIPTION_ID"
+        export ARM_USE_OIDC="$ARM_USE_OIDC"
+
+        # Create a terraform variables file with registry image URLs
+        echo "[CONFIG] Generating container image variables..."
+        echo "# Container registry images - generated automatically" > container_images.auto.tfvars
+        echo "container_images = {" >> container_images.auto.tfvars
+
+        echo "$REGISTRY_IMAGES" | jq -r 'to_entries[] | "  \(.key) = \"\(.value)\""' >> container_images.auto.tfvars
+
+        echo "}" >> container_images.auto.tfvars
+
+        echo "[CONFIG] Container images configuration:"
+        cat container_images.auto.tfvars
+
+        # Run terraform apply with the new container images
+        echo "[DEPLOY] Applying Terraform configuration with registry images..."
+        docker run --rm \
+          -v "${PWD}":/workspace \
+          -w /workspace \
+          -e ARM_CLIENT_ID \
+          -e ARM_TENANT_ID \
+          -e ARM_SUBSCRIPTION_ID \
+          -e ARM_USE_OIDC \
+          -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+          -e ACTIONS_ID_TOKEN_REQUEST_URL \
+          hashicorp/terraform:latest \
+          apply -auto-approve -var-file="${ENVIRONMENT}.tfvars"
+
+        echo "[PASS] Terraform deployment completed"
+        echo "containers=$PULLED_CONTAINERS" >> $GITHUB_OUTPUT
+
+    - name: Get Deployment URL
+      id: get-url
+      shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+        STORAGE_ACCOUNT: ${{ inputs.terraform-storage-account }}
+        ARM_CLIENT_ID: ${{ inputs.client-id }}
+        ARM_TENANT_ID: ${{ inputs.tenant-id }}
+        ARM_SUBSCRIPTION_ID: ${{ inputs.subscription-id }}
+        ARM_USE_OIDC: true
+      run: |
+        echo "[URL] Getting deployment URL from Terraform outputs..."
+        cd infra
+
+        export ARM_CLIENT_ID="$ARM_CLIENT_ID"
+        export ARM_TENANT_ID="$ARM_TENANT_ID"
+        export ARM_SUBSCRIPTION_ID="$ARM_SUBSCRIPTION_ID"
+        export ARM_USE_OIDC="$ARM_USE_OIDC"
+
+        # Get the application URL from Terraform outputs
+        app_url=$(docker run --rm \
+          -v "${PWD}":/workspace \
+          -w /workspace \
+          -e ARM_CLIENT_ID \
+          -e ARM_TENANT_ID \
+          -e ARM_SUBSCRIPTION_ID \
+          -e ARM_USE_OIDC \
+          -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+          -e ACTIONS_ID_TOKEN_REQUEST_URL \
+          hashicorp/terraform:latest \
+          output -raw application_url 2>/dev/null || echo "")
+
+        if [ -n "$app_url" ] && [ "$app_url" != "null" ]; then
+          echo "[PASS] Deployment URL: $app_url"
+          echo "url=$app_url" >> $GITHUB_OUTPUT
+        else
+          echo "[WARN] No application URL found in Terraform outputs"
+          echo "url=" >> $GITHUB_OUTPUT
+        fi
