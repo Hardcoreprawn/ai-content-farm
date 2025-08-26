@@ -133,7 +133,7 @@ runs:
 
         # Determine which containers to deploy
         if [ "$CONTAINERS" = "all" ]; then
-          CONTAINERS=("content-generator" "content-collector" "content-ranker" "site-generator")
+          CONTAINERS=("content-generator" "content-collector" "content-ranker" "site-generator" "content-enricher" "content-processor" "markdown-generator" "collector-scheduler")
         else
           IFS=',' read -ra CONTAINERS <<< "$CONTAINERS"
         fi
