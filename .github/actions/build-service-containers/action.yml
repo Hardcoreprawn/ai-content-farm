@@ -76,13 +76,15 @@ runs:
         for container_name in "${CONTAINERS[@]}"; do
           container_dir="containers/$container_name"
 
-          # Determine which Dockerfile to use
+          # Determine which Dockerfile to use and build target
           if [ "$USE_PRODUCTION_DOCKERFILES" = "true" ]; then
             dockerfile_path="$container_dir/Dockerfile.production"
             build_strategy="production (self-contained)"
+            build_args=""
           else
             dockerfile_path="$container_dir/Dockerfile"
-            build_strategy="multi-tier"
+            build_strategy="development (with test tools)"
+            build_args="--target development"
           fi
 
           if [ -d "$container_dir" ] && [ -f "$dockerfile_path" ]; then
@@ -90,7 +92,7 @@ runs:
             echo "[BUILD] Building $container_name using $build_strategy..."
 
             # Build from repo root with correct context
-            if docker build -f "$dockerfile_path" -t "$container_name:latest" .; then
+            if docker build -f "$dockerfile_path" $build_args -t "$container_name:latest" .; then
               echo "[PASS] $container_name builds successfully"
 
               # Add to built containers list

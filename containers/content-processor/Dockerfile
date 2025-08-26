@@ -1,5 +1,9 @@
-# Optimized Dockerfile for fast builds and reliable caching
-FROM python:3.11-slim
+# Multi-stage Dockerfile for both development/test and production environments
+# Usage:
+#   Development/Test: docker build --target development
+#   Production:       docker build --target production (default)
+
+FROM python:3.11-slim AS base
 
 # System dependencies (cached layer)
 RUN apt-get update && apt-get install -y \
@@ -12,23 +16,58 @@ RUN useradd --create-home --shell /bin/bash appuser
 
 WORKDIR /app
 
-# 1. Install common dependencies first (highest cache hit rate)
+# Install common dependencies first (highest cache hit rate)
 COPY containers/base/requirements-common.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r /tmp/requirements-common.txt
 
-# 2. Install service-specific dependencies
+# Install service-specific production dependencies
 COPY containers/content-processor/requirements-prod.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r /tmp/requirements-prod.txt
 
-# 3. Copy shared libraries
+# Development/Test stage - includes test dependencies and tools
+FROM base AS development
+
+# Install test dependencies
+RUN echo "pytest>=7.0\npytest-cov>=4.0\npytest-mock>=3.0" > /tmp/requirements-test.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r /tmp/requirements-test.txt
+
+# Install development tools for debugging
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install ipdb pdbpp rich
+
+# Copy shared libraries
 COPY libs/ ./libs/
 
-# 4. Copy application code (changes most frequently)
+# Copy application code
 COPY containers/content-processor/ .
 
-# Service configuration
+# Service configuration with debug-friendly settings
+ENV SERVICE_NAME=content-processor
+ENV LOG_LEVEL=debug
+ENV PYTHONPATH=/app
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Run application with reload for development
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# Production stage - minimal, secure, optimized
+FROM base AS production
+
+# Copy shared libraries
+COPY libs/ ./libs/
+
+# Copy application code
+COPY containers/content-processor/ .
+
+# Service configuration optimized for production
 ENV SERVICE_NAME=content-processor
 ENV LOG_LEVEL=info
 
@@ -42,5 +81,5 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Run application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run application optimized for production
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
