@@ -250,9 +250,10 @@ resource "azurerm_servicebus_queue" "blob_events" {
 
 # Event Grid Subscription for blob creation events
 # Event Grid Subscription for blob creation events
-resource "azurerm_eventgrid_event_subscription" "blob_created" {
+resource "azurerm_eventgrid_system_topic_event_subscription" "blob_created" {
   name                  = "${var.resource_prefix}-blob-created"
-  scope                 = azurerm_eventgrid_system_topic.storage.id
+  system_topic          = azurerm_eventgrid_system_topic.storage.name
+  resource_group_name   = azurerm_resource_group.main.name
   event_delivery_schema = "EventGridSchema"
 
   service_bus_queue_endpoint_id = azurerm_servicebus_queue.blob_events.id

@@ -61,7 +61,8 @@ resource "azurerm_key_vault" "main" {
       "138.91.0.0/16",  # Azure global range
       "157.55.0.0/16",  # Azure global range
       "168.61.0.0/16",  # Azure global range
-      "191.232.0.0/13"  # Azure global range
+      "191.232.0.0/13", # Azure global range
+      "81.2.90.47"      # Current development IP
     ]
   }
 
@@ -277,14 +278,6 @@ resource "azurerm_monitor_diagnostic_setting" "storage_logging" {
   name                       = "${local.resource_prefix}-storage-logs"
   target_resource_id         = azurerm_storage_account.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
-
-  enabled_log {
-    category = "StorageWrite"
-  }
-
-  enabled_log {
-    category = "StorageDelete"
-  }
 
   enabled_metric {
     category = "Transaction"
