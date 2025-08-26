@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Script to standardize dependency versions across all containers.
-Uses shared-versions.toml as the source of truth.
+Uses config/shared-versions.toml as the source of truth.
 """
 
 import os
@@ -14,9 +14,9 @@ import toml
 
 def load_shared_versions():
     """Load shared versions from TOML file."""
-    shared_versions_file = Path("shared-versions.toml")
+    shared_versions_file = Path("config/shared-versions.toml")
     if not shared_versions_file.exists():
-        print(f"❌ shared-versions.toml not found!")
+        print(f"❌ config/shared-versions.toml not found!")
         sys.exit(1)
 
     with open(shared_versions_file, "r") as f:
@@ -47,7 +47,8 @@ def update_requirements_file(file_path, shared_versions, file_type):
             continue
 
         # Parse package[extras]~=version format
-        match = re.match(r"^([a-zA-Z0-9_-]+)(\[[^\]]+\])?(~=|==|>=)(.+)$", line)
+        match = re.match(
+            r"^([a-zA-Z0-9_-]+)(\[[^\]]+\])?(~=|==|>=)(.+)$", line)
         if not match:
             updated_lines.append(line + "\n")
             continue
@@ -83,7 +84,8 @@ def update_requirements_file(file_path, shared_versions, file_type):
             if operator == "==":
                 new_line = line.replace("==", "~=", 1)
                 if new_line != line:
-                    print(f"  🔄 {package}: Converting == to ~= for compatibility")
+                    print(
+                        f"  🔄 {package}: Converting == to ~= for compatibility")
                     changes_made = True
                 updated_lines.append(new_line + "\n")
             else:
@@ -100,7 +102,8 @@ def update_requirements_file(file_path, shared_versions, file_type):
 def main():
     shared_versions = load_shared_versions()
     print(f"📋 Loaded shared versions:")
-    print(f"  🏭 Production: {len(shared_versions.get('production', {}))} packages")
+    print(
+        f"  🏭 Production: {len(shared_versions.get('production', {}))} packages")
     print(f"  🧪 Test: {len(shared_versions.get('test', {}))} packages")
 
     containers_dir = Path("containers")

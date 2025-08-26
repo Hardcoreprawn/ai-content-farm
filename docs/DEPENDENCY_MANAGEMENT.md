@@ -42,7 +42,7 @@ fastapi>=0.116.1  # Could install breaking changes
 
 Version consistency is maintained through:
 
-1. **`shared-versions.toml`** - Central configuration file
+1. **`config/shared-versions.toml`** - Central configuration file
 2. **`scripts/standardize_versions.py`** - Automated synchronization
 
 ## Production vs Test Dependencies
@@ -104,13 +104,13 @@ GitHub Actions installs dependencies in this order:
 
 ### Adding New Dependencies
 
-1. Add to appropriate section in `shared-versions.toml`
+1. Add to appropriate section in `config/shared-versions.toml`
 2. Run `python scripts/standardize_versions.py`
 3. Test and commit changes
 
 ### Updating Versions
 
-1. Update versions in `shared-versions.toml`
+1. Update versions in `config/shared-versions.toml`
 2. Run `python scripts/standardize_versions.py`
 3. Test compatibility across all containers
 4. Commit changes

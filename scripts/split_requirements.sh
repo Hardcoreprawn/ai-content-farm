@@ -6,13 +6,13 @@ set -e
 
 echo "⚠️  DEPRECATED: This script is no longer needed"
 echo "📝 Use: python scripts/standardize_versions.py"
-echo "🔧 Which uses: shared-versions.toml for version management"
+echo "🔧 Which uses: config/shared-versions.toml for version management"
 echo ""
 echo "🚫 Exiting..."
 exit 1
 
 CONTAINER_DIR="containers"
-SHARED_VERSIONS_FILE="shared-versions.toml"
+SHARED_VERSIONS_FILE="config/shared-versions.toml"
 
 # Test dependencies to move to requirements-test.txt
 TEST_DEPS=(

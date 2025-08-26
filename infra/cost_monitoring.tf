@@ -28,8 +28,7 @@ resource "azurerm_consumption_budget_resource_group" "main" {
     operator  = "GreaterThan"
 
     contact_emails = [
-      # Add your email here
-      # "your-email@example.com"
+      "hardcoreprawn@duck.com" # Placeholder - replace with actual admin email
     ]
   }
 
@@ -39,8 +38,7 @@ resource "azurerm_consumption_budget_resource_group" "main" {
     operator  = "GreaterThan"
 
     contact_emails = [
-      # Add your email here
-      # "your-email@example.com"
+      "admin@example.com" # Placeholder - replace with actual admin email
     ]
   }
 }

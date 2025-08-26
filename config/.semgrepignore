@@ -2,8 +2,8 @@
 
 # Development and test files - less critical security requirements
 tests/
-conftest.py
-pytest.ini
+config/conftest.py
+config/pytest.ini
 __pycache__/
 .pytest_cache/
 test_*.py

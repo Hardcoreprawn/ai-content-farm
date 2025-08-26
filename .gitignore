@@ -13,7 +13,7 @@ trivy
 terrascan
 
 # Local development tools
-actionlint
+config/actionlint
 actionlint.tar.gz
 
 # Python

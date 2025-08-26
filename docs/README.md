@@ -8,7 +8,7 @@ This directory contains comprehensive documentation for the AI Content Farm proj
 - [`SYSTEM_ARCHITECTURE.md`](SYSTEM_ARCHITECTURE.md) - Overall system design and component architecture
 - [`QUICK_START_GUIDE.md`](QUICK_START_GUIDE.md) - Get started with the project quickly
 - [`IMPLEMENTATION_ROADMAP.md`](IMPLEMENTATION_ROADMAP.md) - Project development roadmap and milestones
-- [`DEPENDENCY_MANAGEMENT.md`](DEPENDENCY_MANAGEMENT.md) - Version management using shared-versions.toml
+- [`DEPENDENCY_MANAGEMENT.md`](DEPENDENCY_MANAGEMENT.md) - Version management using config/shared-versions.toml
 - [`content-collector-api.md`](content-collector-api.md) - Content collector service API specification
 
 ### 📂 Organized Categories

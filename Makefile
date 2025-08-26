@@ -104,20 +104,21 @@ terraform-quality-fix:
 yamllint:
 	@echo "Running yamllint on GitHub Actions..."
 	@if command -v docker >/dev/null 2>&1; then \
-		docker run --rm -v $(PWD):/workspace cytopia/yamllint:latest -c /workspace/.yamllint.yml /workspace/.github/; \
+		docker run --rm -v $(PWD):/workspace cytopia/yamllint:latest -c /workspace/config/.yamllint.yml /workspace/.github/; \
 	else \
 		echo "Docker not available, skipping yamllint"; \
 	fi
 
 actionlint:
 	@echo "Running actionlint on GitHub Actions..."
-	@if [ ! -f ./actionlint ]; then \
+	@if [ ! -f ./config/actionlint ]; then \
 		echo "Downloading actionlint..."; \
 		curl -L -o actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz; \
 		tar --extract --file=actionlint.tar.gz actionlint; \
+		mv actionlint config/; \
 		rm actionlint.tar.gz; \
 	fi
-	@./actionlint -color
+	@./config/actionlint -color
 
 check-emojis:
 	@echo "Checking YAML files for emojis..."
@@ -182,7 +183,7 @@ lint-container: ## Lint specific container: make lint-container CONTAINER=conten
 quality-check: ## Run the same quality checks as GitHub Actions
 	@echo "🔍 Running quality checks (same as GitHub Actions)..."
 	@echo "📁 Checking for Python file changes..."
-	@if [ -d .git ] && [ -n "$$(git status --porcelain | grep -E '\.(py)$$|requirements.*\.txt$$|pyproject\.toml$$|\.flake8$$|scripts/code-quality\.sh$$')" ]; then \
+	@if [ -d .git ] && [ -n "$$(git status --porcelain | grep -E '\.(py)$$|requirements.*\.txt$$|pyproject\.toml$$|config/\.flake8$$|scripts/code-quality\.sh$$')" ]; then \
 		echo "🐍 Running Python quality checks..."; \
 		./scripts/code-quality.sh; \
 	elif [ ! -d .git ]; then \

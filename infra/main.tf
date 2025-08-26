@@ -53,6 +53,7 @@ resource "azurerm_key_vault" "main" {
       "20.44.0.0/14",   # Azure global range
       "40.64.0.0/10",   # Azure global range
       "52.224.0.0/11",  # Azure global range
+      "64.236.0.0/16",  # GitHub Actions runner range (includes 64.236.192.149)
       "104.42.0.0/16",  # Azure global range
       "137.116.0.0/16", # Azure global range
       "137.117.0.0/16", # Azure global range
@@ -276,10 +277,6 @@ resource "azurerm_monitor_diagnostic_setting" "storage_logging" {
   name                       = "${local.resource_prefix}-storage-logs"
   target_resource_id         = azurerm_storage_account.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
-
-  enabled_log {
-    category = "StorageRead"
-  }
 
   enabled_log {
     category = "StorageWrite"

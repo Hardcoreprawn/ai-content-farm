@@ -325,6 +325,16 @@ resource "azurerm_container_app" "content_collector" {
     identity_ids = [azurerm_user_assigned_identity.containers.id]
   }
 
+  secret {
+    name  = "reddit-client-id"
+    value = azurerm_key_vault_secret.reddit_client_id.value
+  }
+
+  secret {
+    name  = "reddit-client-secret"
+    value = azurerm_key_vault_secret.reddit_client_secret.value
+  }
+
   template {
     container {
       name   = "content-collector"

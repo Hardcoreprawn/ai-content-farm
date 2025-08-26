@@ -6,13 +6,13 @@ set -e
 
 echo "⚠️  DEPRECATED: This script uses the old shared-versions.txt format"
 echo "📝 Please use: python scripts/standardize_versions.py"
-echo "🔧 Which uses: shared-versions.toml"
+echo "🔧 Which uses: config/shared-versions.toml"
 echo ""
 echo "🚫 Exiting..."
 exit 1
 
 CONTAINER_DIR="containers"
-SHARED_VERSIONS_FILE="shared-versions.toml"
+SHARED_VERSIONS_FILE="config/shared-versions.toml"
 
 # Read shared versions into associative array
 declare -A SHARED_VERSIONS
