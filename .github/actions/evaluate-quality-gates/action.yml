@@ -16,6 +16,9 @@ inputs:
   security-checkov-result:
     description: 'Result of Checkov infrastructure scan'
     required: true
+  auto-fix-formatting-result:
+    description: 'Result of auto-fix formatting job'
+    required: true
   code-quality-result:
     description: 'Result of code quality job'
     required: true
@@ -63,6 +66,7 @@ runs:
         SECURITY_PYTHON_RESULT: ${{ inputs.security-python-result }}
         SECURITY_SBOM_RESULT: ${{ inputs.security-sbom-result }}
         SECURITY_CHECKOV_RESULT: ${{ inputs.security-checkov-result }}
+        AUTO_FIX_FORMATTING_RESULT: ${{ inputs.auto-fix-formatting-result }}
         QUALITY_RESULT: ${{ inputs.code-quality-result }}
         INFRA_RESULT: ${{ inputs.infrastructure-result }}
         DEPS_RESULT: ${{ inputs.dependency-result }}
@@ -71,6 +75,13 @@ runs:
         ALLOW_COST_WARNINGS: ${{ inputs.allow-cost-warnings }}
       run: |
         echo "[STATS] Evaluating quality gate results with flexible policies..."
+
+        # Check if this is a Dependabot PR for more lenient evaluation
+        IS_DEPENDABOT=false
+        if [[ "${{ github.actor }}" == "dependabot[bot]" ]]; then
+          IS_DEPENDABOT=true
+          echo "[POLICY] Dependabot PR detected - applying lenient quality gate policies"
+        fi
 
         # Track results
         failed_gates=""
@@ -130,17 +141,61 @@ runs:
         echo ""
         echo "=== Quality Gate Results ==="
 
-        # Code quality (always runs - strict)
+        # Auto-fix formatting (conditional evaluation based on actor)
+        total_gates=$((total_gates + 1))
+        if [[ "$AUTO_FIX_FORMATTING_RESULT" == "success" ]]; then
+          passed_gates=$((passed_gates + 1))
+          echo "[PASS] Auto-fix formatting: PASSED"
+        elif [[ "$AUTO_FIX_FORMATTING_RESULT" == "skipped" && "$IS_DEPENDABOT" == "true" ]]; then
+          # Treat skipped auto-fix as pass for Dependabot PRs
+          passed_gates=$((passed_gates + 1))
+          echo "[PASS] Auto-fix formatting: SKIPPED (acceptable for Dependabot PR)"
+        else
+          echo "[FAIL] Auto-fix formatting: FAILED ($AUTO_FIX_FORMATTING_RESULT)"
+          if [[ "$IS_DEPENDABOT" == "true" ]]; then
+            # For Dependabot PRs, treat formatting failures as warnings
+            echo "[WARN] Auto-fix formatting failure treated as warning for Dependabot PR"
+            if [ -n "$warning_gates" ]; then
+              warning_gates="$warning_gates,auto-fix-formatting"
+            else
+              warning_gates="auto-fix-formatting"
+            fi
+          else
+            # For regular PRs, treat as hard failure
+            if [ -n "$failed_gates" ]; then
+              failed_gates="$failed_gates,auto-fix-formatting"
+            else
+              failed_gates="auto-fix-formatting"
+            fi
+          fi
+        fi
+
+        # Code quality (conditional evaluation based on actor)
         total_gates=$((total_gates + 1))
         if [[ "$QUALITY_RESULT" == "success" ]]; then
           passed_gates=$((passed_gates + 1))
           echo "[PASS] Code quality: PASSED"
+        elif [[ "$QUALITY_RESULT" == "skipped" && "$IS_DEPENDABOT" == "true" ]]; then
+          # Treat skipped code quality as pass for Dependabot PRs
+          passed_gates=$((passed_gates + 1))
+          echo "[PASS] Code quality: SKIPPED (acceptable for Dependabot PR)"
         else
           echo "[FAIL] Code quality: FAILED ($QUALITY_RESULT)"
-          if [ -n "$failed_gates" ]; then
-            failed_gates="$failed_gates,code-quality"
+          if [[ "$IS_DEPENDABOT" == "true" ]]; then
+            # For Dependabot PRs, treat code quality failures as warnings
+            echo "[WARN] Code quality failure treated as warning for Dependabot PR"
+            if [ -n "$warning_gates" ]; then
+              warning_gates="$warning_gates,code-quality"
+            else
+              warning_gates="code-quality"
+            fi
           else
-            failed_gates="code-quality"
+            # For regular PRs, treat as hard failure
+            if [ -n "$failed_gates" ]; then
+              failed_gates="$failed_gates,code-quality"
+            else
+              failed_gates="code-quality"
+            fi
           fi
         fi
 

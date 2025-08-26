@@ -215,10 +215,28 @@ jobs:
       - name: Run Checkov Scan
         uses: ./.github/actions/security-checkov
 
+  auto-fix-formatting:
+    name: Auto-fix Code Formatting
+    runs-on: ubuntu-latest
+    needs: [workflow-validation, change-detection]
+    if: github.event_name == 'pull_request' && (needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true')
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.head_ref }}
+      - name: Auto-fix Code Formatting
+        uses: ./.github/actions/auto-fix-formatting
+
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
-    needs: [workflow-validation, change-detection]
+    needs: [workflow-validation, change-detection, auto-fix-formatting]
+    if: always() && !cancelled()
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -333,7 +351,7 @@ jobs:
   build-report:
     name: Build Report
     runs-on: ubuntu-latest
-    needs: [security-trivy, security-semgrep, security-python, security-sbom, security-checkov, code-quality, infrastructure-quality, dependency-analysis, cost-analysis, container-build-summary, container-tests, container-test-summary, build-and-push-containers]
+    needs: [security-trivy, security-semgrep, security-python, security-sbom, security-checkov, auto-fix-formatting, code-quality, infrastructure-quality, dependency-analysis, cost-analysis, container-build-summary, container-tests, container-test-summary, build-and-push-containers]
     if: always() && !cancelled()
     outputs:
       build-passed: ${{ steps.report.outputs.build-passed }}
@@ -352,6 +370,7 @@ jobs:
           security-python-result: ${{ needs.security-python.result }}
           security-sbom-result: ${{ needs.security-sbom.result }}
           security-checkov-result: ${{ needs.security-checkov.result }}
+          auto-fix-formatting-result: ${{ needs.auto-fix-formatting.result }}
           code-quality-result: ${{ needs.code-quality.result }}
           infrastructure-result: ${{ needs.infrastructure-quality.result }}
           dependency-result: ${{ needs.dependency-analysis.result }}

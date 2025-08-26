@@ -61,6 +61,14 @@ class TestAzureIntegration:
     @pytest.mark.integration
     def test_key_vault_connection(self):
         """Should be able to connect to Azure Key Vault"""
+        # Skip in CI environment without real credentials
+        if os.getenv("ENVIRONMENT") == "testing":
+            pytest.skip("Key Vault integration test skipped in CI environment")
+
+        # Skip if running in GitHub Actions (additional safety check)
+        if os.getenv("GITHUB_ACTIONS") == "true":
+            pytest.skip("Key Vault integration test skipped in GitHub Actions")
+
         # This test will be skipped in unit test runs
         # Only run in integration test environment
         config = get_config()
