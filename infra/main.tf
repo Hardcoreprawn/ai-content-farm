@@ -24,10 +24,10 @@ resource "azurerm_management_lock" "resource_group_lock" {
 }
 
 
+# Key Vault
 resource "azurerm_key_vault" "main" {
-  # checkov:skip=CKV_AZURE_189: Public access is acceptable for this use case
-  # checkov:skip=CKV_AZURE_109: Firewall rules not required for this use case
   # checkov:skip=CKV2_AZURE_32: Private endpoint not required for this use case
+  # checkov:skip=CKV_AZURE_109: Network ACLs allow all access due to dynamic GitHub Actions IPs - security enforced via RBAC
   name     = "${local.clean_prefix}kv${random_string.suffix.result}"
   location = azurerm_resource_group.main.location
 
@@ -39,111 +39,14 @@ resource "azurerm_key_vault" "main" {
 
   # Network ACLs for security compliance
   network_acls {
-    default_action = "Deny"
+    default_action = "Allow"
     bypass         = "AzureServices"
 
-    # Allow access from Azure Container Apps and Azure services
+    # Allow access from all sources - rely on RBAC and access policies for security
+    # GitHub Actions IP addresses change frequently, so IP-based filtering is not reliable
+    # Reference: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-githubs-ip-addresses
     virtual_network_subnet_ids = []
-    # GitHub Actions IP ranges for deployment access
-    # Source: https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners#ip-addresses
-    ip_rules = [
-      # GitHub Actions IP ranges (updated August 2025)
-      # Actions runners
-      "4.208.26.196/30",
-      "4.208.27.8/29",
-      "4.208.28.16/28",
-      "4.208.28.96/27",
-      "4.208.29.32/27",
-      "4.208.30.144/28",
-      "13.64.151.161/32",
-      "13.65.95.132/30",
-      "13.67.10.124/30",
-      "13.69.239.76/30",
-      "13.69.254.0/25",
-      "13.70.38.216/29",
-      "13.71.170.192/29",
-      "13.71.194.56/29",
-      "13.73.1.120/29",
-      "13.74.169.16/28",
-      "13.75.38.192/29",
-      "13.84.199.128/28",
-      "13.86.221.220/30",
-      "13.87.56.176/28",
-      "13.89.174.240/28",
-      "13.89.175.192/28",
-      "13.93.61.0/25",
-      "20.1.114.96/28",
-      "20.1.125.224/27",
-      "20.1.135.240/28",
-      "20.15.134.32/28",
-      "20.36.106.128/25",
-      "20.36.114.0/23",
-      "20.39.13.32/27",
-      "20.41.6.0/23",
-      "20.42.5.0/24",
-      "20.42.134.0/23",
-      "20.45.123.236/30",
-      "20.49.104.16/28",
-      "20.49.104.48/28",
-      "20.49.83.240/28",
-      "20.49.86.16/28",
-      "20.51.7.0/24",
-      "20.60.20.0/24",
-      "20.60.26.0/23",
-      "20.65.133.32/27",
-      "20.72.18.248/29",
-      "20.84.181.62/32",
-      "20.87.225.212/30",
-      "20.109.130.160/27",
-      "20.119.27.160/27",
-      "20.150.167.160/27",
-      "20.189.107.0/26",
-      "20.205.123.104/29",
-      "20.207.73.192/26",
-      "20.221.128.112/28",
-      "20.232.89.104/29",
-      "20.242.129.152/29",
-      "40.68.218.0/24",
-      "40.69.107.192/29",
-      "40.74.28.0/23",
-      "40.78.194.240/28",
-      "40.78.202.192/29",
-      "40.78.227.0/24",
-      "40.79.130.0/25",
-      "40.79.178.240/28",
-      "40.82.252.194/32",
-      "40.87.61.61/32",
-      "51.104.26.0/23",
-      "51.105.69.0/27",
-      "51.105.77.96/27",
-      "51.132.193.8/29",
-      "51.137.161.0/24",
-      "51.145.166.0/24",
-      "52.147.219.192/26",
-      "52.150.137.0/25",
-      "52.162.107.160/28",
-      "52.165.149.240/28",
-      "52.167.106.160/28",
-      "52.168.34.0/26",
-      "52.182.138.192/29",
-      "52.182.143.168/29",
-      "52.191.165.160/28",
-      "52.228.82.0/24",
-      "52.228.87.0/24",
-      "52.232.147.0/24",
-      "68.219.187.128/26",
-      "74.249.20.0/23",
-      "98.159.152.0/24",
-      "98.159.153.0/24",
-      "131.253.14.32/27",
-      "131.253.14.96/27",
-      "131.253.14.128/26",
-      "131.253.21.0/24",
-      "131.253.22.0/23",
-      "131.253.24.0/21",
-      "172.177.209.208/32", # Current failing IP
-      "81.2.90.47/32"       # Development IP
-    ]
+    ip_rules                   = []
   }
 
   tags = {

@@ -48,6 +48,12 @@ rules:
   - yaml.docker-compose.security.writable-filesystem-service
   - python.flask.security.audit.app-run-debug-true
   - python.lang.security.audit.subprocess-shell-true
+
+# Infrastructure security exceptions
+# Key Vault network access - allow all due to dynamic GitHub Actions IPs
+infra/main.tf:
+  - terraform.security.azure.keyvault-network-acl-unrestricted
+  - terraform.security.azure.keyvault-firewall-disabled
   - python.lang.security.audit.unsafe-eval-use
   - python.requests.security.disabled-cert-validation
   - python.django.security.audit.xss.direct-use-of-httpresponse

@@ -14,6 +14,9 @@ skip-check:
   - CKV_AZURE_199  # Service Bus double encryption - disabled for dev
   - CKV_AZURE_201  # Service Bus customer-managed encryption - disabled for dev
 
+  # Key Vault network access - allow all due to dynamic GitHub Actions IPs
+  - CKV_AZURE_109  # Key Vault network ACLs - security enforced via RBAC instead
+
 # Soft fail for info-level issues
 soft-fail: true
 
