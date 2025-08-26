@@ -18,6 +18,10 @@ inputs:
     description: 'Azure Container Registry name'
     required: true
     default: 'aicontentfarm76ko2hacr'
+  resource-prefix:
+    description: 'Resource prefix for naming (from Terraform outputs)'
+    required: false
+    default: 'ai-content-dev'
   environment:
     description: 'Environment to deploy to (staging/production)'
     required: true
@@ -180,14 +184,15 @@ runs:
       env:
         ACR_NAME: ${{ inputs.acr-name }}
         RESOURCE_GROUP: ${{ inputs.resource-group }}
+        RESOURCE_PREFIX: ${{ inputs.resource-prefix }}
       run: |
         echo "[PROCESS] Updating Container Apps..."
 
         ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" --query loginServer -o tsv)
         deployed_containers=""
 
-        # Get resource prefix from environment or use default
-        RESOURCE_PREFIX=${RESOURCE_PREFIX:-"ai-content-dev"}
+        # Use resource prefix from Terraform outputs or fallback to default
+        echo "[CONFIG] Using resource prefix: $RESOURCE_PREFIX"
 
         # Deploy customer-facing services first, then content pipeline
         declare -A container_apps=(

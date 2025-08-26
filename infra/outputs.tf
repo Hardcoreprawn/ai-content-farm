@@ -1,5 +1,15 @@
 # Outputs
-# Trivial change to trigger infrastructure change detection - 2025-08-25
+# Trivial change to trigger infrastructure detection - 2025-08-25
+
+output "resource_group_name" {
+  description = "Name of the Azure resource group"
+  value       = azurerm_resource_group.main.name
+}
+
+output "resource_prefix" {
+  description = "Resource prefix used for naming resources"
+  value       = var.resource_prefix
+}
 
 # Function App outputs removed - container services don't need these
 
@@ -56,6 +66,11 @@ output "subscription_id" {
 output "resource_group_name" {
   description = "Name of the main resource group"
   value       = azurerm_resource_group.main.name
+}
+
+output "resource_prefix" {
+  description = "Resource prefix used for naming resources"
+  value       = var.resource_prefix
 }
 
 # Shared Container Registry outputs (consolidated across all environments)
