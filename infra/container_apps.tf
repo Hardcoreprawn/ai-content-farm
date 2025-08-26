@@ -433,3 +433,187 @@ resource "azurerm_container_app" "content_generator" {
     azurerm_key_vault_access_policy.containers
   ]
 }
+
+# Content Enricher Container App
+resource "azurerm_container_app" "content_enricher" {
+  name                         = "${local.resource_prefix}-enricher"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  template {
+    container {
+      name   = "content-enricher"
+      image  = "ghcr.io/hardcoreprawn/ai-content-farm/content-enricher:latest"
+      cpu    = 0.5
+      memory = "1Gi"
+
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.containers.client_id
+      }
+
+      env {
+        name  = "AZURE_STORAGE_ACCOUNT_NAME"
+        value = azurerm_storage_account.main.name
+      }
+
+      env {
+        name  = "CONTAINER_NAME"
+        value = azurerm_storage_container.topics.name
+      }
+    }
+
+    min_replicas = 1
+    max_replicas = 3
+  }
+
+  tags = local.common_tags
+
+  depends_on = [
+    azurerm_role_assignment.containers_storage_blob_data_contributor
+  ]
+}
+
+# Content Processor Container App
+resource "azurerm_container_app" "content_processor" {
+  name                         = "${local.resource_prefix}-processor"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  template {
+    container {
+      name   = "content-processor"
+      image  = "ghcr.io/hardcoreprawn/ai-content-farm/content-processor:latest"
+      cpu    = 0.5
+      memory = "1Gi"
+
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.containers.client_id
+      }
+
+      env {
+        name  = "AZURE_STORAGE_ACCOUNT_NAME"
+        value = azurerm_storage_account.main.name
+      }
+
+      env {
+        name  = "CONTAINER_NAME"
+        value = azurerm_storage_container.topics.name
+      }
+    }
+
+    min_replicas = 1
+    max_replicas = 3
+  }
+
+  tags = local.common_tags
+
+  depends_on = [
+    azurerm_role_assignment.containers_storage_blob_data_contributor
+  ]
+}
+
+# Markdown Generator Container App
+resource "azurerm_container_app" "markdown_generator" {
+  name                         = "${local.resource_prefix}-markdown-gen"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  template {
+    container {
+      name   = "markdown-generator"
+      image  = "ghcr.io/hardcoreprawn/ai-content-farm/markdown-generator:latest"
+      cpu    = 0.5
+      memory = "1Gi"
+
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.containers.client_id
+      }
+
+      env {
+        name  = "AZURE_STORAGE_ACCOUNT_NAME"
+        value = azurerm_storage_account.main.name
+      }
+
+      env {
+        name  = "CONTAINER_NAME"
+        value = azurerm_storage_container.topics.name
+      }
+    }
+
+    min_replicas = 1
+    max_replicas = 3
+  }
+
+  tags = local.common_tags
+
+  depends_on = [
+    azurerm_role_assignment.containers_storage_blob_data_contributor
+  ]
+}
+
+# Collector Scheduler Container App
+resource "azurerm_container_app" "collector_scheduler" {
+  name                         = "${local.resource_prefix}-scheduler"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  template {
+    container {
+      name   = "collector-scheduler"
+      image  = "ghcr.io/hardcoreprawn/ai-content-farm/collector-scheduler:latest"
+      cpu    = 0.25
+      memory = "0.5Gi"
+
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.containers.client_id
+      }
+
+      env {
+        name  = "SERVICE_BUS_NAMESPACE"
+        value = azurerm_servicebus_namespace.main.name
+      }
+
+      env {
+        name  = "BLOB_EVENTS_QUEUE"
+        value = azurerm_servicebus_queue.blob_events.name
+      }
+    }
+
+    min_replicas = 1
+    max_replicas = 2
+  }
+
+  tags = local.common_tags
+
+  depends_on = [
+    azurerm_role_assignment.containers_storage_blob_data_contributor
+  ]
+}
