@@ -22,6 +22,7 @@ permissions:
   issues: write
   actions: read
   checks: write
+  packages: write  # Required for pushing to GitHub Container Registry
   id-token: write  # Required for Azure OIDC authentication
 
 env:
@@ -395,6 +396,7 @@ jobs:
           environment: production
           containers: ${{ needs.container-build-summary.outputs.containers-built || 'all' }}
           terraform-storage-account: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT_PROD || 'aicontentfarmtfstate' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
   # Stage 8: Post-Deployment Tests
   post-deployment:
