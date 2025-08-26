@@ -4,8 +4,9 @@ resource "random_string" "suffix" {
   length  = 6
   upper   = false
   special = false
-  # Fix Azure OIDC permissions issue - trigger deploy test
 }
+
+# Fix Azure OIDC permissions issue - trigger deploy test
 
 resource "azurerm_resource_group" "main" {
   name     = "${local.resource_prefix}-rg"
@@ -115,17 +116,19 @@ resource "azurerm_monitor_diagnostic_setting" "key_vault" {
 
 # Key Vault secrets for CI/CD integration
 resource "azurerm_key_vault_secret" "reddit_client_id" {
-  name            = "reddit-client-id"
-  value           = var.reddit_client_id != "" ? var.reddit_client_id : "placeholder-change-me"
-  key_vault_id    = azurerm_key_vault.main.id
-  content_type    = "text/plain"
-  expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
-  depends_on      = [azurerm_key_vault_access_policy.current_user]
+  name         = "reddit-client-id"
+  value        = var.reddit_client_id
+  key_vault_id = azurerm_key_vault.main.id
+  content_type = "text/plain"
+
+  expiration_date = timeadd(timestamp(), "2160h") # 90 days
 
   tags = {
     Environment = var.environment
     Purpose     = "reddit-api-access"
   }
+
+  depends_on = [azurerm_key_vault_access_policy.github_actions]
 }
 
 resource "azurerm_key_vault_secret" "reddit_client_secret" {
@@ -148,7 +151,7 @@ resource "azurerm_key_vault_secret" "reddit_user_agent" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
-  depends_on      = [azurerm_key_vault_access_policy.current_user]
+  depends_on      = [azurerm_key_vault_access_policy.github_actions]
 
   tags = {
     Environment = var.environment
@@ -163,7 +166,7 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
-  depends_on      = [azurerm_key_vault_access_policy.current_user]
+  depends_on      = [azurerm_key_vault_access_policy.github_actions]
 
   tags = {
     Environment = var.environment
