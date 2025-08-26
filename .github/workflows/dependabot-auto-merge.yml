@@ -64,37 +64,33 @@ jobs:
         if: steps.check-label.outputs.auto_merge == 'true' && steps.check-changes.outputs.python_deps_only == 'true' && steps.check-version-type.outputs.safe_version_update == 'true'
         run: |
           # Wait up to 30 minutes for status checks to complete
-          timeout 1800 bash -c '
+          timeout 1800 bash -c "
             while true; do
-              # Get the current status of all required checks
-              STATUS=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.number }}/reviews \
-                --jq ".[] | select(.state == \"APPROVED\") | .state" | head -1)
-
               # Check if all required status checks have passed
-              CHECKS_PASSED=$(gh api repos/${{ github.repository }}/commits/${{ github.event.pull_request.head.sha }}/status \
-                --jq ".state")
+              CHECKS_PASSED=\$(gh api repos/${{ github.repository }}/commits/${{ github.event.pull_request.head.sha }}/status \
+                --jq '.state')
 
               # Also check check runs (for GitHub Actions)
-              CHECK_RUNS_PASSED=$(gh api repos/${{ github.repository }}/commits/${{ github.event.pull_request.head.sha }}/check-runs \
-                --jq ".check_runs | map(select(.conclusion != \"success\" and .conclusion != \"neutral\" and .conclusion != null)) | length")
+              CHECK_RUNS_PASSED=\$(gh api repos/${{ github.repository }}/commits/${{ github.event.pull_request.head.sha }}/check-runs \
+                --jq '.check_runs | map(select(.conclusion != \"success\" and .conclusion != \"neutral\" and .conclusion != null)) | length')
 
-              echo "Overall status: $CHECKS_PASSED"
-              echo "Failed check runs: $CHECK_RUNS_PASSED"
+              echo \"Overall status: \$CHECKS_PASSED\"
+              echo \"Failed check runs: \$CHECK_RUNS_PASSED\"
 
-              if [[ "$CHECKS_PASSED" == "success" && "$CHECK_RUNS_PASSED" == "0" ]]; then
-                echo "All checks passed!"
-                echo "checks_passed=true" >> $GITHUB_OUTPUT
+              if [[ \"\$CHECKS_PASSED\" == \"success\" && \"\$CHECK_RUNS_PASSED\" == \"0\" ]]; then
+                echo \"All checks passed!\"
+                echo \"checks_passed=true\" >> \$GITHUB_OUTPUT
                 break
-              elif [[ "$CHECKS_PASSED" == "failure" || "$CHECK_RUNS_PASSED" != "0" ]]; then
-                echo "Some checks failed, will not auto-merge"
-                echo "checks_passed=false" >> $GITHUB_OUTPUT
+              elif [[ \"\$CHECKS_PASSED\" == \"failure\" || \"\$CHECK_RUNS_PASSED\" != \"0\" ]]; then
+                echo \"Some checks failed, will not auto-merge\"
+                echo \"checks_passed=false\" >> \$GITHUB_OUTPUT
                 break
               else
-                echo "Waiting for checks to complete..."
+                echo \"Waiting for checks to complete...\"
                 sleep 30
               fi
             done
-          ' || echo "checks_passed=timeout" >> $GITHUB_OUTPUT
+          " || echo "checks_passed=timeout" >> \$GITHUB_OUTPUT
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -103,7 +99,7 @@ jobs:
         run: |
           # Enable auto-merge on the PR
           gh pr merge ${{ github.event.number }} --auto --squash
-          echo "✅ Auto-merge enabled for Dependabot PR #${{ github.event.number }}"
+          echo "[PASS] Auto-merge enabled for Dependabot PR #${{ github.event.number }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -111,13 +107,13 @@ jobs:
         if: steps.check-label.outputs.auto_merge == 'true'
         run: |
           if [[ "${{ steps.check-changes.outputs.python_deps_only }}" == "true" && "${{ steps.check-version-type.outputs.safe_version_update }}" == "true" && "${{ steps.wait-for-checks.outputs.checks_passed }}" == "true" ]]; then
-            gh pr comment ${{ github.event.number }} --body "🤖 **Auto-merge enabled** - This Dependabot PR updates only Python dependencies with patch/minor versions and all checks have passed."
+            gh pr comment ${{ github.event.number }} --body "[AUTO-MERGE] **Auto-merge enabled** - This Dependabot PR updates only Python dependencies with patch/minor versions and all checks have passed."
           elif [[ "${{ steps.check-changes.outputs.python_deps_only }}" != "true" ]]; then
-            gh pr comment ${{ github.event.number }} --body "⚠️ **Auto-merge skipped** - This PR contains non-dependency file changes and requires manual review."
+            gh pr comment ${{ github.event.number }} --body "[WARNING] **Auto-merge skipped** - This PR contains non-dependency file changes and requires manual review."
           elif [[ "${{ steps.check-version-type.outputs.safe_version_update }}" != "true" ]]; then
-            gh pr comment ${{ github.event.number }} --body "⚠️ **Auto-merge skipped** - This appears to be a major version update and requires manual review."
+            gh pr comment ${{ github.event.number }} --body "[WARNING] **Auto-merge skipped** - This appears to be a major version update and requires manual review."
           elif [[ "${{ steps.wait-for-checks.outputs.checks_passed }}" != "true" ]]; then
-            gh pr comment ${{ github.event.number }} --body "❌ **Auto-merge skipped** - Some required checks have failed or timed out."
+            gh pr comment ${{ github.event.number }} --body "[FAIL] **Auto-merge skipped** - Some required checks have failed or timed out."
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
