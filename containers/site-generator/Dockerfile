@@ -1,5 +1,5 @@
 # Multi-stage Dockerfile for site-generator
-# Updated: 2025-08-26 - Testing quality gate fixes
+# Updated: 2025-08-26 - Testing pipeline logic fixes
 # Base stage with common dependencies
 FROM python:3.11-slim AS base
 
