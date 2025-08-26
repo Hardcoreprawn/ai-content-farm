@@ -4,6 +4,8 @@ Azure Blob Storage Client
 Shared module for all containers to handle blob storage operations.
 Works with both Azurite (local) and Azure Storage (production).
 Uses managed identity and secure authentication patterns for Azure environments.
+
+Updated: 2025-08-26 - Testing optimized CI/CD pipeline
 """
 
 import io
