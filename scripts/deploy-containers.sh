@@ -88,16 +88,16 @@ CONTAINERS=("content-generator" "content-enricher" "content-processor" "content-
 
 for container in "${CONTAINERS[@]}"; do
     echo "Building and pushing $container..."
-    
+
     # Build from repo root with correct context for multi-tier strategy
     docker build -f containers/$container/Dockerfile -t $container:latest .
-    
+
     # Tag for ACR
     docker tag $container:latest $ACR_LOGIN_SERVER/$container:latest
-    
+
     # Push to ACR
     docker push $ACR_LOGIN_SERVER/$container:latest
-    
+
     echo "✅ $container pushed to ACR"
 done
 

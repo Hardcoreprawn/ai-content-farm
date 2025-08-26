@@ -126,7 +126,7 @@ This is the content of test article 1.""",
             "score": 0.72,
             "content": """---
 title: "Business Innovation Trends"
-slug: "business-innovation-trends" 
+slug: "business-innovation-trends"
 date: "2024-01-01"
 ---
 

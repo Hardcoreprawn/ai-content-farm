@@ -80,7 +80,7 @@ cat > "$REPORT_FILE" << EOF
     "steps_completed": [
       "content_collection",
       "content_processing",
-      "markdown_generation", 
+      "markdown_generation",
       "cms_integration"
     ],
     "metrics": {

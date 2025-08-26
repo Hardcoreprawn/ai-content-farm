@@ -126,7 +126,7 @@ h1, h2 {
 // Simple article interactions
 document.addEventListener('DOMContentLoaded', function() {
     console.log('AI Content Farm loaded');
-    
+
     // Add click tracking for articles
     const articles = document.querySelectorAll('article');
     articles.forEach(article => {

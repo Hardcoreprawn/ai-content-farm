@@ -388,40 +388,40 @@ footer a:hover {
     .container {
         padding: 0 15px;
     }
-    
+
     .article-grid {
         grid-template-columns: 1fr;
         gap: 20px;
     }
-    
+
     .header-content {
         flex-direction: column;
         text-align: center;
         gap: 15px;
     }
-    
+
     .hero {
         padding: 40px 20px;
     }
-    
+
     .hero h1 {
         font-size: 2rem;
     }
-    
+
     .article-full {
         padding: 25px;
     }
-    
+
     .article-header h1 {
         font-size: 1.5rem;
     }
-    
+
     .article-footer {
         flex-direction: column;
         gap: 20px;
         text-align: center;
     }
-    
+
     .meta-row {
         justify-content: center;
     }
@@ -431,15 +431,15 @@ footer a:hover {
     .article-card {
         padding: 20px;
     }
-    
+
     .article-full {
         padding: 20px;
     }
-    
+
     .hero h1 {
         font-size: 1.75rem;
     }
-    
+
     .hero p {
         font-size: 1rem;
     }

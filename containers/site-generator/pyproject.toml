@@ -2,7 +2,7 @@
 testpaths = ["tests"]
 markers = [
     "unit: Fast unit tests with mocked dependencies",
-    "api: FastAPI endpoint tests", 
+    "api: FastAPI endpoint tests",
     "integration: Fast integration tests with contract-based mocking",
     "slow: Slow tests (20+ minutes) - only run when specifically requested"
 ]

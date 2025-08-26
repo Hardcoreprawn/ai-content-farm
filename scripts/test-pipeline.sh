@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# AI Content Farm - Local Pipeline Test Script  
+# AI Content Farm - Local Pipeline Test Script
 # Tests both the content flow AND CI/CD pipeline readiness
 
 set -e

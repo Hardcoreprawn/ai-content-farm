@@ -15,7 +15,7 @@
       "tags": ["AI", "startups", "technology", "automation"]
     },
     {
-      "id": "item2", 
+      "id": "item2",
       "title": "Why Your SaaS Startup Needs a Content Strategy (Before You Build the Product)",
       "url": "https://example.com/saas-content-strategy",
       "content": "Most SaaS founders make the same mistake: they build first, then think about content marketing. Here's why you should flip that approach and start with content...",
@@ -33,7 +33,7 @@
       "url": "https://example.com/10k-mrr-tech-stack",
       "content": "After failing with my first two startups, I finally built something that works. Here's the exact tech stack I used and why each choice mattered...",
       "author": "indie_maker_wins",
-      "source": "r/Entrepreneur", 
+      "source": "r/Entrepreneur",
       "source_type": "reddit",
       "created_utc": "2025-08-24T13:45:00Z",
       "score": 412,
@@ -47,7 +47,7 @@
       "content": "After analyzing 10,000 viral posts, we discovered 7 psychological triggers that make content spread like wildfire. Here's what we learned...",
       "author": "content_researcher",
       "source": "r/marketing",
-      "source_type": "reddit", 
+      "source_type": "reddit",
       "created_utc": "2025-08-24T12:20:00Z",
       "score": 156,
       "num_comments": 34,
@@ -61,7 +61,7 @@
       "author": "budget_startup_guru",
       "source": "r/programming",
       "source_type": "reddit",
-      "created_utc": "2025-08-24T11:10:00Z", 
+      "created_utc": "2025-08-24T11:10:00Z",
       "score": 324,
       "num_comments": 89,
       "tags": ["open source", "tools", "startup", "budget"]

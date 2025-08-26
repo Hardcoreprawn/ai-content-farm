@@ -44,20 +44,20 @@ ROLE_ASSIGNMENTS=$(az role assignment list \
 
 if [ "$(echo $ROLE_ASSIGNMENTS | jq length)" -eq 0 ]; then
   echo "   ⚠️  No role assignments found directly. Checking resource groups..."
-  
+
   # Check core resource group
   CORE_RG_ROLES=$(az role assignment list \
     --resource-group "ai-content-farm-core-rg" \
     --query "[?principalId=='$(echo $SP_INFO | jq -r .id)'].{role:roleDefinitionName, scope:scope}" -o json)
-  
+
   echo "   Core Resource Group roles: $(echo $CORE_RG_ROLES | jq length)"
   echo $CORE_RG_ROLES | jq -r '.[] | "   - \(.role) on \(.scope | split("/") | .[-1])"'
-  
+
   # Check staging resource group
   STAGING_RG_ROLES=$(az role assignment list \
     --resource-group "ai-content-staging-rg" \
     --query "[?principalId=='$(echo $SP_INFO | jq -r .id)'].{role:roleDefinitionName, scope:scope}" -o json)
-  
+
   echo "   Staging Resource Group roles: $(echo $STAGING_RG_ROLES | jq length)"
   echo $STAGING_RG_ROLES | jq -r '.[] | "   - \(.role) on \(.scope | split("/") | .[-1])"'
 else

@@ -214,7 +214,7 @@ total_items: {len(items)}
 This index contains {len(items)} articles automatically curated and ranked by our AI content pipeline. Articles are sourced from leading technology publications and processed through:
 
 - **Content Processing**: Normalization and cleaning
-- **AI Enrichment**: Summary generation and topic classification  
+- **AI Enrichment**: Summary generation and topic classification
 - **Smart Ranking**: Multi-factor scoring based on relevance and quality
 
 *Last updated: {timestamp}*

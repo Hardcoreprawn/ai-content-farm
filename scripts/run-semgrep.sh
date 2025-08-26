@@ -48,7 +48,7 @@ docker run --rm \
 if [ -f "$OUTPUT_DIR/semgrep-results.json" ]; then
   finding_count=$(jq -r '.results | length' "$OUTPUT_DIR/semgrep-results.json" 2>/dev/null || echo "0")
   echo "📈 Security findings: $finding_count"
-  
+
   if [ "$finding_count" -gt 0 ]; then
     echo "🔍 Security issues found:"
     jq -r '.results[] | "• \(.check_id) in \(.path):\(.start.line) - \(.extra.message)"' "$OUTPUT_DIR/semgrep-results.json" 2>/dev/null || echo "Could not parse findings"

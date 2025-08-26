@@ -17,7 +17,7 @@ COPY containers/base/requirements-common.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r /tmp/requirements-common.txt
 
-# 2. Install service-specific dependencies  
+# 2. Install service-specific dependencies
 COPY containers/content-ranker/requirements-prod.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install -r /tmp/requirements-prod.txt

@@ -53,7 +53,7 @@ EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # =============================================================================
-# TIER 3B: Data Processing Specialization  
+# TIER 3B: Data Processing Specialization
 # Contains: Data processing, ML, async processing tools
 # =============================================================================
 FROM common-deps AS data-processing

@@ -32,14 +32,14 @@ prompt_with_default() {
     local prompt="$1"
     local default="$2"
     local var_name="$3"
-    
+
     if [ -n "$default" ]; then
         read -p "$prompt [$default]: " input
         value="${input:-$default}"
     else
         read -p "$prompt: " value
     fi
-    
+
     # Update or add to .env file
     if grep -q "^$var_name=" .env; then
         # Update existing line
@@ -69,11 +69,11 @@ echo ""
 read -p "Do you want to configure Service Principal authentication? (y/n): " use_sp
 if [[ $use_sp =~ ^[Yy]$ ]]; then
     prompt_with_default "   Azure Client ID (Service Principal)" "$current_client_id" "AZURE_CLIENT_ID"
-    
+
     echo "   Azure Client Secret (Service Principal)"
     read -s -p "   Enter Client Secret (hidden): " client_secret
     echo ""
-    
+
     if [ -n "$client_secret" ]; then
         if grep -q "^AZURE_CLIENT_SECRET=" .env; then
             sed -i "s|^AZURE_CLIENT_SECRET=.*|AZURE_CLIENT_SECRET=$client_secret|" .env
@@ -81,7 +81,7 @@ if [[ $use_sp =~ ^[Yy]$ ]]; then
             echo "AZURE_CLIENT_SECRET=$client_secret" >> .env
         fi
     fi
-    
+
     prompt_with_default "   Azure Tenant ID" "$current_tenant_id" "AZURE_TENANT_ID"
 else
     echo -e "${YELLOW}💡 Make sure you're logged in with Azure CLI: ${NC}az login"
@@ -98,13 +98,13 @@ read -p "Do you want to set local Reddit credentials as fallback? (y/n): " use_r
 if [[ $use_reddit_env =~ ^[Yy]$ ]]; then
     current_reddit_id=$(grep "^REDDIT_CLIENT_ID=" .env 2>/dev/null | cut -d'=' -f2- || echo "")
     current_reddit_agent=$(grep "^REDDIT_USER_AGENT=" .env 2>/dev/null | cut -d'=' -f2- || echo "ai-content-farm-local/1.0")
-    
+
     prompt_with_default "   Reddit Client ID" "$current_reddit_id" "REDDIT_CLIENT_ID"
-    
+
     echo "   Reddit Client Secret"
     read -s -p "   Enter Reddit Client Secret (hidden): " reddit_secret
     echo ""
-    
+
     if [ -n "$reddit_secret" ]; then
         if grep -q "^REDDIT_CLIENT_SECRET=" .env; then
             sed -i "s|^REDDIT_CLIENT_SECRET=.*|REDDIT_CLIENT_SECRET=$reddit_secret|" .env
@@ -112,7 +112,7 @@ if [[ $use_reddit_env =~ ^[Yy]$ ]]; then
             echo "REDDIT_CLIENT_SECRET=$reddit_secret" >> .env
         fi
     fi
-    
+
     prompt_with_default "   Reddit User Agent" "$current_reddit_agent" "REDDIT_USER_AGENT"
 fi
 

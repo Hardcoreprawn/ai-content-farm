@@ -13,7 +13,7 @@
             <h2 class="article-title">
                 <a href="/articles/{{ article.slug }}/">{{ article.title }}</a>
             </h2>
-            
+
             <div class="article-meta">
                 <span class="source">{{ article.source }}</span>
                 <span class="score">Score: {{ "%.2f"|format(article.score) }}</span>
@@ -23,11 +23,11 @@
                 </time>
                 {% endif %}
             </div>
-            
+
             <div class="article-summary">
                 {{ article.summary[:200] }}{% if article.summary|length > 200 %}...{% endif %}
             </div>
-            
+
             {% if article.tags %}
             <div class="article-tags">
                 {% for tag in article.tags[:5] %}

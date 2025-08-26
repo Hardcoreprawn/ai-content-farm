@@ -197,10 +197,10 @@ generated_at: "{datetime.now(timezone.utc).isoformat()}"
 
 ## Key Information
 
-**Topics:** {topics_str}  
-**Sentiment:** {sentiment.title()}  
-**AI Score:** {final_score:.1f}/100  
-**Engagement Score:** {engagement_score:.1f}/100  
+**Topics:** {topics_str}
+**Sentiment:** {sentiment.title()}
+**AI Score:** {final_score:.1f}/100
+**Engagement Score:** {engagement_score:.1f}/100
 
 ## Source
 
@@ -247,7 +247,7 @@ timestamp: "{timestamp}"
 
         body = f"""# AI Curated Content Index
 
-Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}  
+Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}
 Total Articles: {len(content_items)}
 
 ## Featured Articles

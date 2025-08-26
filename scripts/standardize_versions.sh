@@ -21,11 +21,11 @@ while IFS='=' read -r package version || [[ -n "$package" ]]; do
     if [[ -z "$package" ]] || [[ "$package" =~ ^#.* ]] || [[ -z "$version" ]]; then
         continue
     fi
-    
+
     # Clean up whitespace
     package=$(echo "$package" | xargs)
     version=$(echo "$version" | xargs)
-    
+
     SHARED_VERSIONS["$package"]="$version"
 done < "$SHARED_VERSIONS_FILE"
 
@@ -35,20 +35,20 @@ standardize_file() {
     local file="$1"
     local temp_file=$(mktemp)
     local changed=false
-    
+
     while IFS= read -r line; do
         # Skip empty lines and comments
         if [[ -z "$line" ]] || [[ "$line" =~ ^#.* ]]; then
             echo "$line" >> "$temp_file"
             continue
         fi
-        
+
         # Extract package name (handle ~ and == patterns)
         package=""
         if [[ "$line" =~ ^([a-zA-Z0-9_\[\]-]+)[~=] ]]; then
             package="${BASH_REMATCH[1]}"
         fi
-        
+
         # Check if we have a shared version for this package
         if [[ -n "$package" ]] && [[ -n "${SHARED_VERSIONS[$package]:-}" ]]; then
             new_line="${package}~=${SHARED_VERSIONS[$package]}"
@@ -61,7 +61,7 @@ standardize_file() {
             echo "$line" >> "$temp_file"
         fi
     done < "$file"
-    
+
     if [[ "$changed" == true ]]; then
         mv "$temp_file" "$file"
         return 0
@@ -74,32 +74,32 @@ standardize_file() {
 standardize_container() {
     local container_name="$1"
     local container_path="${CONTAINER_DIR}/${container_name}"
-    
+
     echo "🔄 Standardizing $container_name..."
-    
+
     local files_changed=0
-    
+
     # Check production requirements
     if [[ -f "${container_path}/requirements-prod.txt" ]]; then
         if standardize_file "${container_path}/requirements-prod.txt"; then
             ((files_changed++))
         fi
     fi
-    
+
     # Check test requirements
     if [[ -f "${container_path}/requirements-test.txt" ]]; then
         if standardize_file "${container_path}/requirements-test.txt"; then
             ((files_changed++))
         fi
     fi
-    
+
     # Check legacy requirements.txt
     if [[ -f "${container_path}/requirements.txt" ]]; then
         if standardize_file "${container_path}/requirements.txt"; then
             ((files_changed++))
         fi
     fi
-    
+
     if [[ $files_changed -eq 0 ]]; then
         echo "  ✅ No changes needed"
     else

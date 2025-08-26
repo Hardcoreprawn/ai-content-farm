@@ -17,7 +17,7 @@ SHARED_VERSIONS_FILE="shared-versions.toml"
 # Test dependencies to move to requirements-test.txt
 TEST_DEPS=(
     "pytest"
-    "pytest-asyncio" 
+    "pytest-asyncio"
     "pytest-cov"
     "pytest-xdist"
     "black"
@@ -32,31 +32,31 @@ split_requirements() {
     local req_file="${CONTAINER_DIR}/${container_name}/requirements.txt"
     local prod_file="${CONTAINER_DIR}/${container_name}/requirements-prod.txt"
     local test_file="${CONTAINER_DIR}/${container_name}/requirements-test.txt"
-    
+
     if [[ ! -f "$req_file" ]]; then
         echo "❌ No requirements.txt found for $container_name"
         return 1
     fi
-    
+
     echo "📦 Processing $container_name..."
-    
+
     # Create production requirements (exclude test dependencies)
     echo "# Production dependencies for $container_name" > "$prod_file"
     echo "# Auto-generated from requirements.txt - do not edit manually" >> "$prod_file"
     echo "" >> "$prod_file"
-    
+
     # Create test requirements
     echo "# Test dependencies for $container_name" > "$test_file"
     echo "# Auto-generated from requirements.txt - do not edit manually" >> "$test_file"
     echo "" >> "$test_file"
-    
+
     # Process each line in requirements.txt
     while IFS= read -r line; do
         # Skip empty lines and comments
         if [[ -z "$line" ]] || [[ "$line" =~ ^#.* ]]; then
             continue
         fi
-        
+
         # Check if this is a test dependency
         is_test_dep=false
         for test_dep in "${TEST_DEPS[@]}"; do
@@ -66,26 +66,26 @@ split_requirements() {
                 break
             fi
         done
-        
+
         # If not a test dependency, add to production
         if [[ "$is_test_dep" == false ]]; then
             echo "$line" >> "$prod_file"
         fi
-        
+
     done < "$req_file"
-    
+
     echo "✅ Created $prod_file and $test_file"
 }
 
 update_dockerfile() {
     local container_name=$1
     local dockerfile="${CONTAINER_DIR}/${container_name}/Dockerfile"
-    
+
     if [[ ! -f "$dockerfile" ]]; then
         echo "❌ No Dockerfile found for $container_name"
         return 1
     fi
-    
+
     # Update Dockerfile to use requirements-prod.txt instead of requirements.txt
     if grep -q "requirements\.txt" "$dockerfile"; then
         echo "🐳 Updating Dockerfile for $container_name..."

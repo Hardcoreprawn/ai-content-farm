@@ -1,7 +1,7 @@
 # Makefile for AI Content Farm Project
 # Trigger pipeline for Terraform Docker fix test
 
-.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles scan-containers yamllint actionlint lint-workflows lint-actions check-emojis lint-python lint-python-all flake8 black-check black-format isort-check isort-format mypy pylint format-python lint-container lint-all quality-check
+.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format terraform-quality terraform-quality-fix apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles scan-containers yamllint actionlint lint-workflows lint-actions check-emojis lint-python lint-python-all flake8 black-check black-format isort-check isort-format mypy pylint format-python lint-container lint-all quality-check
 
 help:
 	@echo "Available targets:"
@@ -27,6 +27,8 @@ help:
 	@echo "  cache-clean     - Clean analysis caches and results"
 	@echo ""
 	@echo "Infrastructure:"
+	@echo "  terraform-quality - Run Terraform format & validate checks"
+	@echo "  terraform-quality-fix - Auto-fix Terraform formatting issues"
 	@echo "  cost-estimate   - Generate cost estimates with Infracost (bootstrap/env Key Vault)"
 	@echo "  sbom            - Generate Software Bill of Materials"
 	@echo "  verify          - Run full verification pipeline (security, cost, compliance)"
@@ -89,6 +91,14 @@ terraform-validate:
 terraform-plan:
 	@echo "Planning Terraform changes..."
 	cd infra && terraform plan
+
+terraform-quality:
+	@echo "Running comprehensive Terraform quality checks..."
+	./scripts/terraform-quality.sh
+
+terraform-quality-fix:
+	@echo "Running Terraform quality checks with auto-fix..."
+	./scripts/terraform-quality.sh --fix
 
 # Workflow linting targets
 yamllint:
@@ -532,7 +542,7 @@ infracost-help:
 	@echo "  4. Deploy: make deploy-staging"
 	@echo ""
 	@echo "After deploying infrastructure:"
-	@echo "  1. Store in Key Vault: make setup-infracost" 
+	@echo "  1. Store in Key Vault: make setup-infracost"
 	@echo "  2. Future cost estimates use Key Vault automatically"
 	@echo ""
 
@@ -571,7 +581,7 @@ cost-calculator:
 	@echo "🧮 Running AI Content Farm cost calculator..."
 	@python3 scripts/cost-calculator.py
 
-# Comprehensive cost analysis including calculator and Infracost  
+# Comprehensive cost analysis including calculator and Infracost
 cost-analysis: cost-estimate cost-calculator
 	@echo "📊 Complete cost analysis finished"
 	@echo "📄 See docs/cost-analysis.md for detailed breakdown"

@@ -23,15 +23,15 @@ check_docker() {
 start_services() {
     echo ""
     echo "🔧 Building and starting services..."
-    
+
     # Build only the new services (existing ones should be already built)
     echo "📦 Building new containers..."
     docker-compose build ssg markdown-generator markdown-converter
-    
+
     # Start all services
     echo "🚀 Starting all services..."
     docker-compose up -d
-    
+
     echo "✅ Services started"
 }
 
@@ -39,27 +39,27 @@ start_services() {
 wait_for_services() {
     echo ""
     echo "⏳ Waiting for services to be ready..."
-    
+
     services=(
         "localhost:8001|Content Collector"
-        "localhost:8002|Content Processor" 
+        "localhost:8002|Content Processor"
         "localhost:8003|Content Enricher"
         "localhost:8004|Content Ranker"
         "localhost:8005|Static Site Generator"
         "localhost:8006|Markdown Converter"
         "localhost:8007|Markdown Generator"
     )
-    
+
     for service in "${services[@]}"; do
         IFS='|' read -r url name <<< "$service"
         echo -n "   Waiting for $name..."
-        
+
         for i in {1..30}; do
             if curl -s "http://$url/health" > /dev/null 2>&1; then
                 echo " ✅ Ready"
                 break
             fi
-            
+
             if [ $i -eq 30 ]; then
                 echo " ❌ Timeout"
             else
@@ -74,13 +74,13 @@ wait_for_services() {
 test_pipeline() {
     echo ""
     echo "🧪 Running event-driven pipeline test..."
-    
+
     # Install httpx if not available
     if ! python3 -c "import httpx" 2>/dev/null; then
         echo "📦 Installing required Python packages..."
         pip3 install httpx
     fi
-    
+
     # Run the test
     python3 test_event_driven_pipeline.py
 }

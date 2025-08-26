@@ -5,7 +5,7 @@
 repos:
   # Pre-commit hooks
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v6.0.0
     hooks:
       - id: trailing-whitespace
         exclude: '^(.*\.md|.*\.txt)$'
@@ -30,7 +30,19 @@ repos:
         types: [python]
         pass_filenames: false
         always_run: true
-        stages: [commit]
+        stages: [pre-commit]
+
+  # Terraform formatting and validation
+  - repo: local
+    hooks:
+      - id: terraform-quality
+        name: Terraform Quality (Format + Validate)
+        entry: ./scripts/terraform-quality.sh
+        language: system
+        files: '\.tf$'
+        pass_filenames: false
+        always_run: false
+        require_serial: true
 
   # GitHub Actions linting
   - repo: local
@@ -44,7 +56,7 @@ repos:
 
   # YAML linting (excluding GitHub Actions which are handled above)
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.32.0
+    rev: v1.37.1
     hooks:
       - id: yamllint
         exclude: '^\.github/workflows/.*\.ya?ml$'
@@ -52,7 +64,7 @@ repos:
 
   # Security scanning
   - repo: https://github.com/Yelp/detect-secrets
-    rev: v1.4.0
+    rev: v1.5.0
     hooks:
       - id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
@@ -61,4 +73,4 @@ repos:
 # Configuration for ci (optional, for pre-commit.ci service)
 ci:
   autoupdate_schedule: weekly
-  skip: [python-code-quality, actionlint]  # Skip local hooks on CI
+  skip: [python-code-quality, actionlint, terraform-quality]  # Skip local hooks on CI

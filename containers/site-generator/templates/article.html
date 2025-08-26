@@ -20,13 +20,13 @@
 <article class="article-full">
     <header class="article-header">
         <h1>{{ article.title }}</h1>
-        
+
         <div class="article-meta-full">
             <div class="meta-row">
                 <span class="source">Source: {{ article.source }}</span>
                 <span class="score">Quality Score: {{ "%.2f"|format(article.score) }}</span>
             </div>
-            
+
             {% if article.published_date or article.author %}
             <div class="meta-row">
                 {% if article.author %}
@@ -39,7 +39,7 @@
                 {% endif %}
             </div>
             {% endif %}
-            
+
             {% if article.url %}
             <div class="meta-row">
                 <a href="{{ article.url }}" target="_blank" rel="noopener noreferrer" class="original-link">
@@ -48,7 +48,7 @@
             </div>
             {% endif %}
         </div>
-        
+
         {% if article.tags %}
         <div class="article-tags">
             {% for tag in article.tags %}
@@ -57,7 +57,7 @@
         </div>
         {% endif %}
     </header>
-    
+
     <div class="article-content">
         {% if article.summary %}
         <div class="article-summary-full">
@@ -65,7 +65,7 @@
             <p>{{ article.summary }}</p>
         </div>
         {% endif %}
-        
+
         {% if article.content %}
         <div class="article-body">
             <h2>Content</h2>
@@ -82,7 +82,7 @@
             Share on Twitter
         </a>
     </div>
-    
+
     <div class="navigation">
         <a href="/">← Back to Feed</a>
     </div>

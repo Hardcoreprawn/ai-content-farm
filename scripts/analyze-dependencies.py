@@ -237,7 +237,7 @@ class DependencyAnalyzer:
         title = f"🚨 Security Vulnerabilities Found in Dependencies - {datetime.now().strftime('%Y-%m-%d')}"
 
         body = f"""## Security Vulnerability Report
-        
+
 **Generated**: {datetime.now().isoformat()}
 **Priority**: HIGH
 **Type**: Security
@@ -282,7 +282,7 @@ class DependencyAnalyzer:
         )
 
         body = f"""## Dependency Update Report
-        
+
 **Generated**: {datetime.now().isoformat()}
 **Priority**: MEDIUM
 **Type**: Maintenance

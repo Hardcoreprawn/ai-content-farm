@@ -15,13 +15,13 @@ resource "azurerm_container_app_environment" "main" {
 
 # SHARED Container Registry for all environments - saves $20/month vs per-environment registries
 # Uses image tags to differentiate between staging/production deployments
-# Tags strategy: 
+# Tags strategy:
 #   - latest = development
-#   - staging-{version} = staging environment  
+#   - staging-{version} = staging environment
 #   - prod-{version} = production environment
 #   - pr-{number}-{commit} = ephemeral PR environments
 #checkov:skip=CKV_AZURE_165:Geo-replication requires Premium SKU - cost prohibitive for development
-#checkov:skip=CKV_AZURE_233:Zone redundancy requires Premium SKU - cost prohibitive for development  
+#checkov:skip=CKV_AZURE_233:Zone redundancy requires Premium SKU - cost prohibitive for development
 #checkov:skip=CKV_AZURE_137:Using authentication-based security instead of network restrictions for cost efficiency
 resource "azurerm_container_registry" "main" {
   # checkov:skip=CKV_AZURE_165: Geo-replication requires Premium SKU - too expensive for development
@@ -200,7 +200,7 @@ resource "azurerm_eventgrid_system_topic" "storage" {
 
 # Service Bus Namespace for event processing
 #checkov:skip=CKV_AZURE_199:Double encryption complex and costly for development environment
-#checkov:skip=CKV_AZURE_201:Customer-managed encryption complex setup for development environment  
+#checkov:skip=CKV_AZURE_201:Customer-managed encryption complex setup for development environment
 resource "azurerm_servicebus_namespace" "main" {
   # checkov:skip=CKV_AZURE_201: Customer-managed encryption requires complex setup - using Azure-managed encryption for development
   # checkov:skip=CKV_AZURE_199: Double encryption requires complex configuration - single encryption sufficient for development
@@ -351,7 +351,7 @@ resource "azurerm_container_app" "content_collector" {
   tags = local.common_tags
 }
 
-# Content Ranker Container App 
+# Content Ranker Container App
 resource "azurerm_container_app" "content_ranker" {
   name                         = "${var.resource_prefix}-ranker"
   container_app_environment_id = azurerm_container_app_environment.main.id

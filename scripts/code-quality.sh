@@ -106,9 +106,9 @@ run_check() {
     local name="$1"
     local command="$2"
     local continue_on_error="$3"
-    
+
     echo -e "${BLUE}Running $name...${NC}"
-    
+
     if [[ "$continue_on_error" == "true" ]]; then
         if eval "$command"; then
             echo -e "${GREEN}✓ $name passed${NC}"

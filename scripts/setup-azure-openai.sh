@@ -130,9 +130,9 @@ resource "azurerm_cognitive_account" "openai" {
   resource_group_name = "$RESOURCE_GROUP"
   kind                = "OpenAI"
   sku_name           = "S0"
-  
+
   custom_subdomain_name = "$OPENAI_SERVICE_NAME"
-  
+
   tags = {
     Environment = "production"
     Project     = "ai-content-farm"
@@ -143,13 +143,13 @@ resource "azurerm_cognitive_account" "openai" {
 resource "azurerm_cognitive_deployment" "gpt35_turbo" {
   name                 = "$DEPLOYMENT_NAME"
   cognitive_account_id = azurerm_cognitive_account.openai.id
-  
+
   model {
     format  = "OpenAI"
     name    = "$MODEL_NAME"
     version = "$MODEL_VERSION"
   }
-  
+
   scale {
     type     = "Standard"
     capacity = 10
@@ -200,7 +200,7 @@ async def test_azure_openai():
         api_key="$API_KEY",
         api_version="2024-02-15-preview"
     )
-    
+
     try:
         response = await client.chat.completions.create(
             model="$DEPLOYMENT_NAME",

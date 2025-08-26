@@ -34,7 +34,7 @@ echo "  SARIF format: $sarif_count findings"
 # Validate consistency
 if [ "$json_count" -eq "$sarif_count" ]; then
     echo "✅ Results are consistent between formats"
-    
+
     if [ "$json_count" -eq 0 ]; then
         echo "🎉 No security issues found!"
         exit 0
@@ -52,7 +52,7 @@ else
     echo "⚠️  Format discrepancy detected: JSON ($json_count) vs SARIF ($sarif_count)"
     echo "📝 This is expected due to nosemgrep comment handling differences"
     echo "🎯 Using JSON format as the authoritative source (CI/CD standard)"
-    
+
     if [ "$json_count" -eq 0 ]; then
         echo "🎉 No security issues found in authoritative JSON format!"
         exit 0

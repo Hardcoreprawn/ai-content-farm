@@ -28,7 +28,7 @@ echo "📋 Current subscription: $SUBSCRIPTION"
 echo ""
 echo "Select environment:"
 echo "1) Development (ai-content-dev)"
-echo "2) Staging (ai-content-staging)"  
+echo "2) Staging (ai-content-staging)"
 echo "3) Production (ai-content-prod)"
 read -p "Enter choice (1-3): " ENV_CHOICE
 
