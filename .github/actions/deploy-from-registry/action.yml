@@ -96,7 +96,7 @@ runs:
         echo "[PULL] Pulling container images from registry..."
 
         # Parse registry images JSON and pull each image
-        echo "$REGISTRY_IMAGES" | jq -r 'to_entries[] | "\(.key)=\(.value)"' > images_to_pull.tmp
+        echo "$REGISTRY_IMAGES" | jq -r 'to_entries[] | "\(.key)=\(.value.image)"' > images_to_pull.tmp
 
         pulled_containers=()
 
@@ -147,7 +147,7 @@ runs:
         echo "# Container registry images - generated automatically" > container_images.auto.tfvars
         echo "container_images = {" >> container_images.auto.tfvars
 
-        echo "$REGISTRY_IMAGES" | jq -r 'to_entries[] | "  \(.key) = \"\(.value)\""' >> container_images.auto.tfvars
+        echo "$REGISTRY_IMAGES" | jq -r 'to_entries[] | "  \(.key) = \"\(.value.image)\""' >> container_images.auto.tfvars
 
         echo "}" >> container_images.auto.tfvars
 
