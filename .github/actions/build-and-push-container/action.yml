@@ -91,8 +91,8 @@ runs:
           echo "[INFO] No dependency results path provided, proceeding with build"
         fi
 
-        # Generate image tags
-        registry_repo="$REGISTRY/$REPOSITORY"
+        # Generate image tags - convert repository to lowercase for Docker registry compatibility
+        registry_repo="$REGISTRY/$(echo "$REPOSITORY" | tr '[:upper:]' '[:lower:]')"
         short_sha=$(echo "$TAG" | cut -c1-7)
 
         # Build production target for deployment
