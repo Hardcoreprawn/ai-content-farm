@@ -88,18 +88,42 @@ def pytest_runtest_setup(item):
     # are re-imported from the active container directory so tests that
     # patch by unqualified module name (for example `patch('main.foo')`)
     # operate on the intended module.
-    for top_mod in ("main", "collector", "processor", "enricher"):
+    # Use explicit whitelist for security - only allow known safe modules
+    ALLOWED_MODULES = frozenset(["main", "collector", "processor", "enricher"])
+
+    for module_name in ALLOWED_MODULES:
         try:
-            mod = sys.modules.get(top_mod)
+            mod = sys.modules.get(module_name)
             if mod is None or not getattr(mod, "__file__", "").startswith(s):
                 # Remove any existing module then import fresh from container dir
-                if top_mod in sys.modules:
+                if module_name in sys.modules:
                     try:
-                        del sys.modules[top_mod]
+                        del sys.modules[module_name]
                     except KeyError:
                         pass
                 try:
-                    importlib.import_module(top_mod)
+                    # Explicit module imports for security compliance
+                    # Avoid importlib.import_module to prevent dynamic loading vulnerability
+                    if module_name == "main":
+                        try:
+                            import main  # noqa: F401
+                        except ImportError:
+                            pass
+                    elif module_name == "collector":
+                        try:
+                            import collector  # noqa: F401
+                        except ImportError:
+                            pass
+                    elif module_name == "processor":
+                        try:
+                            import processor  # noqa: F401
+                        except ImportError:
+                            pass
+                    elif module_name == "enricher":
+                        try:
+                            import enricher  # noqa: F401
+                        except ImportError:
+                            pass
                 except Exception:
                     # Import may fail if module doesn't exist in the container; ignore
                     pass

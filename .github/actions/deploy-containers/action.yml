@@ -1,5 +1,5 @@
 name: 'Deploy Containers to Azure'
-description: 'Deploy all container services to Azure Container Apps using production Dockerfiles'
+description: 'Deploy all container services to Azure Container Apps using GHCR'
 inputs:
   azure-credentials:
     description: 'Azure service principal credentials'
@@ -8,10 +8,6 @@ inputs:
     description: 'Azure resource group name'
     required: true
     default: 'ai-content-farm-core-rg'
-  acr-name:
-    description: 'Azure Container Registry name'
-    required: true
-    default: 'aicontentfarm76ko2hacr'
   environment:
     description: 'Deployment environment (staging/production)'
     required: true
@@ -33,20 +29,12 @@ runs:
       with:
         creds: ${{ inputs.azure-credentials }}
 
-    - name: Get ACR login server
-      shell: bash
-      env:
-        ACR_NAME: ${{ inputs.acr-name }}
-        RESOURCE_GROUP: ${{ inputs.resource-group }}
-      run: |
-        ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" --query loginServer -o tsv)
-        echo "ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER" >> $GITHUB_ENV
-
-    - name: Login to Azure Container Registry
-      shell: bash
-      env:
-        ACR_NAME: ${{ inputs.acr-name }}
-      run: az acr login --name "$ACR_NAME"
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
 
     - name: Build and push all containers
       id: deploy
@@ -76,18 +64,18 @@ runs:
           # Build using production Dockerfile (self-contained)
           docker build -f containers/$container/Dockerfile.production -t $container:"$ENVIRONMENT" .
 
-          # Tag for ACR
-          docker tag $container:"$ENVIRONMENT" $ACR_LOGIN_SERVER/$container:"$ENVIRONMENT"
+          # Tag for GHCR
+          docker tag $container:"$ENVIRONMENT" ghcr.io/hardcoreprawn/ai-content-farm/$container:"$ENVIRONMENT"
 
-          # Push to ACR
-          docker push $ACR_LOGIN_SERVER/$container:"$ENVIRONMENT"
+          # Push to GHCR
+          docker push ghcr.io/hardcoreprawn/ai-content-farm/$container:"$ENVIRONMENT"
 
-          echo "[PASS] $container pushed to ACR"
+          echo "[PASS] $container pushed to GHCR"
           deployed_containers="$deployed_containers $container"
         done
 
         echo "containers=$deployed_containers" >> $GITHUB_OUTPUT
-        echo "[PASS] All containers pushed to ACR"
+        echo "[PASS] All containers pushed to GHCR"
 
     - name: Update Container Apps
       shell: bash
@@ -103,7 +91,7 @@ runs:
           az containerapp update \
             --name "ai-content-farm-core-content-generator" \
             --resource-group "$RESOURCE_GROUP" \
-            --image $ACR_LOGIN_SERVER/content-generator:"$ENVIRONMENT"
+            --image ghcr.io/hardcoreprawn/ai-content-farm/content-generator:"$ENVIRONMENT"
           echo "[PASS] content-generator Container App updated"
         else
           echo "[WARN] content-generator Container App not found - may need Terraform deployment first"

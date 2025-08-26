@@ -13,51 +13,6 @@ resource "azurerm_container_app_environment" "main" {
 # Log Analytics Workspace consolidated with main workspace for cost efficiency
 # Using azurerm_log_analytics_workspace.main from main.tf
 
-# SHARED Container Registry for all environments - saves $20/month vs per-environment registries
-# Uses image tags to differentiate between staging/production deployments
-# Tags strategy:
-#   - latest = development
-#   - staging-{version} = staging environment
-#   - prod-{version} = production environment
-#   - pr-{number}-{commit} = ephemeral PR environments
-#checkov:skip=CKV_AZURE_165:Geo-replication requires Premium SKU - cost prohibitive for development
-#checkov:skip=CKV_AZURE_233:Zone redundancy requires Premium SKU - cost prohibitive for development
-#checkov:skip=CKV_AZURE_137:Using authentication-based security instead of network restrictions for cost efficiency
-resource "azurerm_container_registry" "main" {
-  # checkov:skip=CKV_AZURE_165: Geo-replication requires Premium SKU - too expensive for development
-  # checkov:skip=CKV_AZURE_233: Zone redundancy requires Premium SKU - too expensive for development
-  # checkov:skip=CKV_AZURE_137: Using authentication-based security instead of network restrictions for cost efficiency
-  name                = "aicontentfarmacr${random_string.suffix.result}" # Shared across all environments
-  resource_group_name = azurerm_resource_group.main.name
-  location            = var.location
-  sku                 = "Basic" # Basic SKU saves $15/month per environment vs Standard
-  admin_enabled       = false   # Disable admin account for security - use managed identity only
-
-  # Enable public network access - Basic SKU has limited security options
-  public_network_access_enabled = true
-
-  # Note: Basic SKU limitations:
-  # - No vulnerability scanning (security trade-off compensated by CI/CD Trivy scanning)
-  # - No network restrictions (compensated by Azure AD authentication)
-  # - 10GB storage limit (sufficient for multiple tagged versions)
-  # - 2 webhook limit (currently using 0)
-
-  tags = merge(local.common_tags, {
-    Purpose          = "shared-multi-environment"
-    CostOptimization = "consolidated-registry"
-  })
-}
-
-# Note: Removing diagnostic settings as Basic SKU has limited logging capabilities
-
-# Resource lock to prevent accidental deletion of Container Registry
-resource "azurerm_management_lock" "container_registry_lock" {
-  name       = "container-registry-lock"
-  scope      = azurerm_container_registry.main.id
-  lock_level = "CanNotDelete"
-  notes      = "Prevents accidental deletion of the container registry and all stored images"
-}
-
 # Managed Identity for containers
 resource "azurerm_user_assigned_identity" "containers" {
   name                = "${var.resource_prefix}-containers-identity"
@@ -142,15 +97,6 @@ resource "azurerm_role_assignment" "containers_storage_blob_data_contributor" {
   depends_on = [azurerm_user_assigned_identity.containers]
 }
 
-# Grant container identity access to Container Registry
-resource "azurerm_role_assignment" "containers_acr_pull" {
-  scope                = azurerm_container_registry.main.id
-  role_definition_name = "AcrPull"
-  principal_id         = azurerm_user_assigned_identity.containers.principal_id
-
-  depends_on = [azurerm_user_assigned_identity.containers]
-}
-
 # Grant container identity access to Azure OpenAI
 resource "azurerm_role_assignment" "containers_cognitive_services_openai_user" {
   scope                = azurerm_cognitive_account.openai.id
@@ -164,15 +110,6 @@ resource "azurerm_role_assignment" "containers_cognitive_services_openai_user" {
 resource "azurerm_role_assignment" "github_actions_contributor" {
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Contributor"
-  principal_id         = azurerm_user_assigned_identity.github_actions.principal_id
-
-  depends_on = [azurerm_user_assigned_identity.github_actions]
-}
-
-# Grant GitHub Actions identity access to Container Registry
-resource "azurerm_role_assignment" "github_actions_acr_push" {
-  scope                = azurerm_container_registry.main.id
-  role_definition_name = "AcrPush"
   principal_id         = azurerm_user_assigned_identity.github_actions.principal_id
 
   depends_on = [azurerm_user_assigned_identity.github_actions]
@@ -287,7 +224,7 @@ resource "azurerm_container_app" "site_generator" {
   template {
     container {
       name   = "site-generator"
-      image  = "${azurerm_container_registry.main.login_server}/site-generator:latest"
+      image  = "ghcr.io/hardcoreprawn/ai-content-farm/site-generator:latest"
       cpu    = 0.5
       memory = "1Gi"
 
@@ -339,7 +276,7 @@ resource "azurerm_container_app" "content_collector" {
   template {
     container {
       name   = "content-collector"
-      image  = "${azurerm_container_registry.main.login_server}/content-collector:latest"
+      image  = "ghcr.io/hardcoreprawn/ai-content-farm/content-collector:latest"
       cpu    = 0.5
       memory = "1Gi"
 
@@ -386,7 +323,7 @@ resource "azurerm_container_app" "content_ranker" {
   template {
     container {
       name   = "content-ranker"
-      image  = "${azurerm_container_registry.main.login_server}/content-ranker:latest"
+      image  = "ghcr.io/hardcoreprawn/ai-content-farm/content-ranker:latest"
       cpu    = 0.5
       memory = "1Gi"
 
@@ -423,7 +360,7 @@ resource "azurerm_container_app" "content_generator" {
   template {
     container {
       name   = "content-generator"
-      image  = "${azurerm_container_registry.main.login_server}/content-generator:latest"
+      image  = "ghcr.io/hardcoreprawn/ai-content-farm/content-generator:latest"
       cpu    = 0.5
       memory = "1Gi"
 

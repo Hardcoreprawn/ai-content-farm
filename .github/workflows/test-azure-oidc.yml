@@ -47,10 +47,6 @@ jobs:
           az keyvault list --query "[].{Name:name, ResourceGroup:resourceGroup}" -o table
 
           echo ""
-          echo "[TEST] Testing Container Registry access..."
-          az acr list --query "[].{Name:name, ResourceGroup:resourceGroup}" -o table
-
-          echo ""
           echo "[TEST] Testing Storage Account access..."
           az storage account list --query "[].{Name:name, ResourceGroup:resourceGroup}" -o table
 

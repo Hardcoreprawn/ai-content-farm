@@ -63,17 +63,6 @@ output "subscription_id" {
 }
 
 # Resource Group output
-# Shared Container Registry outputs (consolidated across all environments)
-output "container_registry_name" {
-  description = "Name of the shared Azure Container Registry (use image tags for environment separation)"
-  value       = azurerm_container_registry.main.name
-}
-
-output "container_registry_login_server" {
-  description = "Login server URL for the shared Azure Container Registry"
-  value       = azurerm_container_registry.main.login_server
-}
-
 # Container Apps Environment outputs
 output "container_apps_environment_name" {
   description = "Name of the Container Apps Environment"
