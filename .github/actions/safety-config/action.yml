@@ -1,0 +1,199 @@
+name: 'Safety Configuration'
+description: 'Centralized Safety configuration and execution for Python security scanning'
+inputs:
+  mode:
+    description: 'Operation mode: install, scan, or check-results'
+    required: true
+    default: 'scan'
+  requirements-files:
+    description: 'Comma-separated list of requirements.txt files to scan'
+    required: false
+    default: ''
+  output-format:
+    description: 'Output format: json, text, or both'
+    required: false
+    default: 'both'
+  output-dir:
+    description: 'Directory to store safety results'
+    required: false
+    default: 'security-results'
+  container-name:
+    description: 'Container name for output file naming (when scanning single container)'
+    required: false
+    default: ''
+outputs:
+  safety-version:
+    description: 'Version of Safety tool that was installed/used'
+    value: ${{ steps.config.outputs.safety-version }}
+  scan-results:
+    description: 'JSON array of scan results for each file'
+    value: ${{ steps.scan.outputs.results }}
+  vulnerabilities-found:
+    description: 'Number of vulnerabilities found across all scans'
+    value: ${{ steps.scan.outputs.vulnerabilities-found }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Load Safety Configuration
+      id: config
+      shell: bash
+      run: |
+        # Load Safety version from shared-versions.toml
+        if [ -f "config/shared-versions.toml" ]; then
+          safety_version=$(python3 -c "
+        import toml
+        with open('config/shared-versions.toml', 'r') as f:
+            config = toml.load(f)
+        version = config.get('security', {}).get('safety', '~=3.2.7')
+        print(version)
+        " 2>/dev/null || echo "~=3.2.7")
+        else
+          safety_version="~=3.2.7"
+        fi
+
+        echo "safety-version=$safety_version" >> $GITHUB_OUTPUT
+        echo "[INFO] Safety version configured: $safety_version"
+
+    - name: Install Safety
+      if: ${{ inputs.mode == 'install' || inputs.mode == 'scan' }}
+      shell: bash
+      run: |
+        echo "[INFO] Installing Safety dependency scanner..."
+        pip install --upgrade pip "safety${{ steps.config.outputs.safety-version }}"
+        safety --version
+
+    - name: Safety Scan
+      id: scan
+      if: ${{ inputs.mode == 'scan' }}
+      shell: bash
+      run: |
+        # Create output directory
+        mkdir -p "${{ inputs.output-dir }}"
+
+        # Initialize results
+        scan_results="[]"
+        total_vulnerabilities=0
+
+        # Determine files to scan
+        if [ -n "${{ inputs.requirements-files }}" ]; then
+          # Use provided files
+          IFS=',' read -ra files <<< "${{ inputs.requirements-files }}"
+        else
+          # Auto-discover requirements.txt files
+          files=($(find containers/ -name "requirements.txt" 2>/dev/null || true))
+          # Add root requirements if it exists
+          if [ -f "requirements.txt" ]; then
+            files+=("requirements.txt")
+          fi
+        fi
+
+        if [ ${#files[@]} -eq 0 ]; then
+          echo "[WARNING] No requirements.txt files found to scan"
+          echo "scan-results=[]" >> $GITHUB_OUTPUT
+          echo "vulnerabilities-found=0" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # Function to run safety scan for a single file
+        run_safety_scan() {
+          local req_file="$1"
+          local container_name="$2"
+          local base_name="${container_name:-$(basename "$(dirname "$req_file")")}"
+
+          echo "[INFO] Scanning $req_file for $base_name..."
+
+          # Run safety scan with JSON output
+          local json_output=""
+          local text_output=""
+          local vuln_count=0
+
+          if [ "${{ inputs.output-format }}" = "json" ] || [ "${{ inputs.output-format }}" = "both" ]; then
+            if safety scan --file "$req_file" --json > "${{ inputs.output-dir }}/safety-${base_name}.json" 2>/dev/null; then
+              json_output="${{ inputs.output-dir }}/safety-${base_name}.json"
+              vuln_count=$(jq -r '.vulnerabilities | length' "$json_output" 2>/dev/null || echo "0")
+            else
+              echo "[INFO] No vulnerabilities found in $req_file (JSON)"
+              echo '{"vulnerabilities": []}' > "${{ inputs.output-dir }}/safety-${base_name}.json"
+              json_output="${{ inputs.output-dir }}/safety-${base_name}.json"
+            fi
+          fi
+
+          if [ "${{ inputs.output-format }}" = "text" ] || [ "${{ inputs.output-format }}" = "both" ]; then
+            safety scan --file "$req_file" > "${{ inputs.output-dir }}/safety-${base_name}.txt" 2>/dev/null || true
+            text_output="${{ inputs.output-dir }}/safety-${base_name}.txt"
+          fi
+
+          echo "$vuln_count"
+        }
+
+        # Scan all files
+        echo "[INFO] Starting Safety scans for ${#files[@]} files..."
+
+        for req_file in "${files[@]}"; do
+          if [ -f "$req_file" ]; then
+            # Determine container name
+            if [ -n "${{ inputs.container-name }}" ]; then
+              container_name="${{ inputs.container-name }}"
+            else
+              container_name=$(basename "$(dirname "$req_file")")
+              # Handle root-level requirements.txt
+              if [ "$container_name" = "." ]; then
+                container_name="root"
+              fi
+            fi
+
+            vuln_count=$(run_safety_scan "$req_file" "$container_name")
+            total_vulnerabilities=$((total_vulnerabilities + vuln_count))
+
+            # Add to results array
+            result=$(jq -n \
+              --arg file "$req_file" \
+              --arg container "$container_name" \
+              --arg vulnerabilities "$vuln_count" \
+              '{
+                file: $file,
+                container: $container,
+                vulnerabilities: ($vulnerabilities | tonumber)
+              }')
+
+            scan_results=$(echo "$scan_results" | jq ". + [$result]")
+          else
+            echo "[WARNING] Requirements file not found: $req_file"
+          fi
+        done
+
+        echo "[INFO] Safety scans completed. Total vulnerabilities: $total_vulnerabilities"
+
+        # Output results
+        echo "scan-results=$(echo "$scan_results" | jq -c .)" >> $GITHUB_OUTPUT
+        echo "vulnerabilities-found=$total_vulnerabilities" >> $GITHUB_OUTPUT
+
+    - name: Check Results
+      if: ${{ inputs.mode == 'check-results' }}
+      shell: bash
+      run: |
+        echo "[INFO] Checking Safety scan results in ${{ inputs.output-dir }}"
+
+        safety_files=$(find "${{ inputs.output-dir }}" -name "safety-*.json" 2>/dev/null || true)
+        total_vulnerabilities=0
+
+        if [ -n "$safety_files" ]; then
+          for safety_file in $safety_files; do
+            if [ -f "$safety_file" ] && [ -s "$safety_file" ]; then
+              container_name=$(basename "$safety_file" .json | sed 's/safety-//')
+              vuln_count=$(jq -r '.vulnerabilities | length' "$safety_file" 2>/dev/null || echo "0")
+              total_vulnerabilities=$((total_vulnerabilities + vuln_count))
+
+              if [ "$vuln_count" -gt 0 ]; then
+                echo "[WARNING] $container_name has $vuln_count Safety vulnerabilities"
+              else
+                echo "[PASS] $container_name has no Safety vulnerabilities"
+              fi
+            fi
+          done
+        else
+          echo "[INFO] No Safety scan results found"
+        fi
+
+        echo "[INFO] Total Safety vulnerabilities across all containers: $total_vulnerabilities"

@@ -368,13 +368,16 @@ scan-containers:
 # Python security scanning with multiple tools
 scan-python:
 	@echo "🐍 Running Python security scans..."
-	@if command -v docker >/dev/null 2>&1; then \
-		echo "� Running Safety for dependency vulnerabilities..."; \
+	@echo "🔍 Running Safety for dependency vulnerabilities..."
+	@if command -v python3 >/dev/null 2>&1; then \
+		pip install -q "safety~=3.2.7" 2>/dev/null || pip install -q safety; \
+		safety scan --file requirements.txt --json > python-safety-results.json 2>/dev/null || echo "No requirements.txt or vulnerabilities found"; \
+	elif command -v docker >/dev/null 2>&1; then \
 		if ! docker images pyupio/safety:latest -q | grep -q .; then \
 			echo "Pulling Python security scanning images..."; \
 			docker pull pyupio/safety:latest; \
 		fi; \
-		docker run --rm -v $(PWD):/workspace pyupio/safety:latest check --json --file /workspace/requirements.txt > python-safety-results.json 2>/dev/null || echo "No requirements.txt or vulnerabilities found"; \
+		docker run --rm -v $(PWD):/workspace pyupio/safety:latest scan --json --file /workspace/requirements.txt > python-safety-results.json 2>/dev/null || echo "No requirements.txt or vulnerabilities found"; \
 		echo "Running Semgrep for code security analysis..."; \
 		./scripts/run-semgrep.sh $(PWD) security-results semgrep/semgrep:latest; \
 		echo "🔐 Running Trivy filesystem scan for Python dependencies..."; \

@@ -27,11 +27,10 @@ runs:
         python-version: ${{ inputs.python-version }}
         cache: 'pip'
 
-    - name: Install Safety
-      shell: bash
-      run: |
-        echo "Installing Safety dependency checker..."
-        pip install --upgrade pip safety
+    - name: Setup Safety Configuration
+      uses: ./.github/actions/safety-config
+      with:
+        mode: 'install'
 
     - name: Create Results Directory
       shell: bash
@@ -54,72 +53,14 @@ runs:
           echo "$requirements_files" > security-results/requirements-files.txt
         fi
 
-    - name: Run Safety Check
+    - name: Run Safety Scan
       if: steps.find-requirements.outputs.has-requirements == 'true'
-      shell: bash
+      uses: ./.github/actions/safety-config
+      with:
+        mode: 'scan'
+        output-format: 'both'
+        output-dir: 'security-results'
       continue-on-error: ${{ inputs.continue-on-error == 'true' }}
-      env:
-        CONTINUE_ON_ERROR: ${{ inputs.continue-on-error }}
-      run: |
-        echo "Running Safety security checks in parallel..."
-
-        overall_status=0
-        pids=()
-
-        # Function to run safety check for a single container
-        check_container() {
-          local req_file="$1"
-          local container_name=$(basename "$(dirname "$req_file")")
-          local temp_status_file="security-results/.${container_name}_status"
-
-          echo "Checking dependencies for $container_name..."
-
-          # Run safety check and save results
-          if safety check --file "$req_file" --json > "security-results/safety-${container_name}.json" 2>/dev/null; then
-            echo "[PASS] No vulnerabilities found in $container_name"
-            echo "0" > "$temp_status_file"
-          else
-            echo "[WARN] Vulnerabilities found in $container_name"
-            echo "1" > "$temp_status_file"
-          fi
-
-          # Also generate human-readable report
-          safety check --file "$req_file" > "security-results/safety-${container_name}.txt" 2>/dev/null || true
-        }
-
-        # Start safety checks in parallel
-        while IFS= read -r req_file; do
-          if [ -f "$req_file" ]; then
-            check_container "$req_file" &
-            pids+=($!)
-          fi
-        done < security-results/requirements-files.txt
-
-        # Wait for all background jobs to complete
-        echo "Waiting for all safety checks to complete..."
-        for pid in "${pids[@]}"; do
-          wait "$pid"
-        done
-
-        # Check overall status from temp files
-        for status_file in security-results/.*_status; do
-          if [ -f "$status_file" ]; then
-            status=$(cat "$status_file")
-            if [ "$status" -eq 1 ]; then
-              overall_status=1
-            fi
-            rm -f "$status_file"
-          fi
-        done
-
-        if [ $overall_status -eq 0 ]; then
-          echo "All dependency checks passed"
-        else
-          echo "Some dependencies have vulnerabilities - check security-results/"
-          if [ "$CONTINUE_ON_ERROR" != "true" ]; then
-            exit 1
-          fi
-        fi
 
     - name: Generate Summary
       if: always() && steps.find-requirements.outputs.has-requirements == 'true'

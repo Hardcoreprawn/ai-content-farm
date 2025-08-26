@@ -42,3 +42,9 @@ mypy = "~=1.17.1"
 
 # Type stubs
 types-requests = "~=2.31.0.10"
+
+[security]
+# Security scanning tools
+safety = "~=3.2.7"
+bandit = "~=1.8.0"
+semgrep = "~=1.91.0"

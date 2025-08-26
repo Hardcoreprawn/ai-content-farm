@@ -30,6 +30,7 @@ black~=24.10.0    # Code formatting
 isort~=5.13.0     # Import sorting
 flake8~=7.1.0     # Linting
 mypy~=1.13.0      # Type checking
+safety~=3.2.7     # Security vulnerability scanning
 
 # Testing dependencies
 pytest-cov~=6.0.0

@@ -75,7 +75,7 @@ runs:
         chmod +x ./scripts/run-semgrep.sh
         ./scripts/run-semgrep.sh "${WORKSPACE_PATH}" security-results semgrep/semgrep:latest || echo "Semgrep scan completed with warnings"
 
-    - name: Run Python Security Scan
+    - name: Python Security Scan (Safety)
       shell: bash
       env:
         WORKSPACE_PATH: ${{ github.workspace }}
@@ -83,16 +83,16 @@ runs:
       run: |
         echo "Running Python security scans..."
 
-        # Use containerized Safety for Python dependency vulnerabilities
-        # Safety provides specialized Python package vulnerability detection
-        find . -name "requirements.txt" -type f | while read -r req_file; do
-          req_file_dir="$(dirname "$req_file")"
-          container_name="$(basename "$req_file_dir")"
-          echo "Safety scan for $container_name..."
-          docker run --rm -v "${WORKSPACE_PATH}":/workspace \
-            pyupio/safety:latest check --json --file "/workspace/$req_file" \
-            > "security-results/safety-${container_name}.json" 2>/dev/null || true
-        done
+        # Use centralized Safety configuration for consistent scanning
+        echo "[INFO] Using centralized Safety configuration"
+
+    - name: Run Safety Dependency Scan
+      uses: ./.github/actions/safety-config
+      with:
+        mode: 'scan'
+        output-format: 'json'
+        output-dir: 'security-results'
+      continue-on-error: true
 
         # Note: Bandit removed - Semgrep provides superior Python security analysis
         # with broader language support and more comprehensive rule sets
