@@ -65,8 +65,8 @@ runs:
         echo "[SUMMARY] Containers failed: 0"
 
         # Output results
-        echo "passed-containers=$passed_json" >> $GITHUB_OUTPUT
-        echo "failed-containers=$failed_json" >> $GITHUB_OUTPUT
-        echo "containers-to-build=$build_json" >> $GITHUB_OUTPUT
+        echo "passed-containers=$(echo "$passed_json" | jq -c .)" >> $GITHUB_OUTPUT
+        echo "failed-containers=$(echo "$failed_json" | jq -c .)" >> $GITHUB_OUTPUT
+        echo "containers-to-build=$(echo "$build_json" | jq -c .)" >> $GITHUB_OUTPUT
 
         echo "[INFO] Test result analysis completed"

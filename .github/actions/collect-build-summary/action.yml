@@ -84,7 +84,7 @@ runs:
         echo "[INFO] Build summary: $built_count containers mapped to registry"
 
         # Output results
-        echo "registry-images=$registry_images" >> $GITHUB_OUTPUT
-        echo "build-summary=$build_summary" >> $GITHUB_OUTPUT
+        echo "registry-images=$(echo "$registry_images" | jq -c .)" >> $GITHUB_OUTPUT
+        echo "build-summary=$(echo "$build_summary" | jq -c .)" >> $GITHUB_OUTPUT
 
         echo "[INFO] Build summary generation completed"
