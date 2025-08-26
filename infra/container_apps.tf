@@ -151,6 +151,15 @@ resource "azurerm_role_assignment" "containers_acr_pull" {
   depends_on = [azurerm_user_assigned_identity.containers]
 }
 
+# Grant container identity access to Azure OpenAI
+resource "azurerm_role_assignment" "containers_cognitive_services_openai_user" {
+  scope                = azurerm_cognitive_account.openai.id
+  role_definition_name = "Cognitive Services OpenAI User"
+  principal_id         = azurerm_user_assigned_identity.containers.principal_id
+
+  depends_on = [azurerm_user_assigned_identity.containers]
+}
+
 # Grant GitHub Actions identity access to subscription (for deployments)
 resource "azurerm_role_assignment" "github_actions_contributor" {
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
@@ -422,10 +431,8 @@ resource "azurerm_container_app" "content_generator" {
         secret_name = "azure-openai-endpoint"
       }
 
-      env {
-        name        = "AZURE_OPENAI_API_KEY"
-        secret_name = "azure-openai-api-key"
-      }
+      # Note: API key authentication disabled - using managed identity
+      # Container should authenticate using Azure.Identity.DefaultAzureCredential
 
       env {
         name  = "AZURE_OPENAI_DEPLOYMENT_NAME"
@@ -458,10 +465,7 @@ resource "azurerm_container_app" "content_generator" {
     value = azurerm_cognitive_account.openai.endpoint
   }
 
-  secret {
-    name  = "azure-openai-api-key"
-    value = azurerm_cognitive_account.openai.primary_access_key
-  }
+  # Note: API key secret removed - using managed identity authentication
 
   ingress {
     allow_insecure_connections = false

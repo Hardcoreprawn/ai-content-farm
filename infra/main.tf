@@ -340,20 +340,12 @@ resource "azurerm_cognitive_account" "openai" {
   tags = local.common_tags
 }
 
-# Store OpenAI endpoint and key in Key Vault
+# Store OpenAI endpoint in Key Vault for managed identity authentication
+# Note: API key authentication is disabled (local_auth_enabled = false)
+# Services should use managed identity to authenticate with Azure OpenAI
 resource "azurerm_key_vault_secret" "openai_endpoint" {
   name         = "azure-openai-endpoint"
   value        = azurerm_cognitive_account.openai.endpoint
-  key_vault_id = azurerm_key_vault.main.id
-  content_type = "text/plain"
-  depends_on   = [azurerm_key_vault_access_policy.current_user]
-
-  tags = local.common_tags
-}
-
-resource "azurerm_key_vault_secret" "openai_key" {
-  name         = "azure-openai-api-key"
-  value        = azurerm_cognitive_account.openai.primary_access_key
   key_vault_id = azurerm_key_vault.main.id
   content_type = "text/plain"
   depends_on   = [azurerm_key_vault_access_policy.current_user]

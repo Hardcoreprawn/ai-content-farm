@@ -6,9 +6,9 @@ This folder contains Terraform code to provision:
 - Azure Container Instance (ACI) to run the content pipeline
 
 ## Steps
-1. Update `<ACR_LOGIN_SERVER>`, `<YOUR_AZURE_OPENAI_ENDPOINT>`, and `<YOUR_AZURE_OPENAI_KEY>` in `main.tf` after deploying ACR and OpenAI resources.
-2. Build and push your pipeline container to ACR.
-3. Run `terraform init && terraform apply` in this folder.
+1. Build and push your pipeline container to ACR (Azure Container Registry login server is configured automatically).
+2. Run `terraform init && terraform apply` in this folder.
+3. Container apps will authenticate with Azure OpenAI using managed identity (no API keys required).
 
 ## Notes
 - The container will run your Python pipeline on a schedule or on demand.
