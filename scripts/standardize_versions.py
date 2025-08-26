@@ -47,8 +47,7 @@ def update_requirements_file(file_path, shared_versions, file_type):
             continue
 
         # Parse package[extras]~=version format
-        match = re.match(
-            r"^([a-zA-Z0-9_-]+)(\[[^\]]+\])?(~=|==|>=)(.+)$", line)
+        match = re.match(r"^([a-zA-Z0-9_-]+)(\[[^\]]+\])?(~=|==|>=)(.+)$", line)
         if not match:
             updated_lines.append(line + "\n")
             continue
@@ -84,8 +83,7 @@ def update_requirements_file(file_path, shared_versions, file_type):
             if operator == "==":
                 new_line = line.replace("==", "~=", 1)
                 if new_line != line:
-                    print(
-                        f"  🔄 {package}: Converting == to ~= for compatibility")
+                    print(f"  🔄 {package}: Converting == to ~= for compatibility")
                     changes_made = True
                 updated_lines.append(new_line + "\n")
             else:
@@ -102,8 +100,7 @@ def update_requirements_file(file_path, shared_versions, file_type):
 def main():
     shared_versions = load_shared_versions()
     print(f"📋 Loaded shared versions:")
-    print(
-        f"  🏭 Production: {len(shared_versions.get('production', {}))} packages")
+    print(f"  🏭 Production: {len(shared_versions.get('production', {}))} packages")
     print(f"  🧪 Test: {len(shared_versions.get('test', {}))} packages")
 
     containers_dir = Path("containers")
