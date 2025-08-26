@@ -22,6 +22,7 @@ This is a **personal content aggregation and curation platform** that collects i
 - **Security Results**: Use `security-results/` directory for local scans - it's gitignored to prevent tracking temporary outputs
 
 ## AI Agent Working Principles
+- **Relentless Focus on Simplification**: Always ask "Can this be simpler?" Remove unnecessary complexity, redundant steps, and over-engineering. Prefer native tool capabilities over custom workarounds. Question every abstraction layer and manual process.
 - **Code Quality First**: Always consider linting, formatting, and best practices
 - **Test Integrity**: Never skip or remove tests - fix them to work properly, or replace them. Tests prove code works.
 - **Think Before Acting**: Research and discuss solutions before implementing
