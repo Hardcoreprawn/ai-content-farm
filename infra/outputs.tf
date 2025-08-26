@@ -63,16 +63,6 @@ output "subscription_id" {
 }
 
 # Resource Group output
-output "resource_group_name" {
-  description = "Name of the main resource group"
-  value       = azurerm_resource_group.main.name
-}
-
-output "resource_prefix" {
-  description = "Resource prefix used for naming resources"
-  value       = var.resource_prefix
-}
-
 # Shared Container Registry outputs (consolidated across all environments)
 output "container_registry_name" {
   description = "Name of the shared Azure Container Registry (use image tags for environment separation)"
