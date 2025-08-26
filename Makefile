@@ -111,14 +111,7 @@ yamllint:
 
 actionlint:
 	@echo "Running actionlint on GitHub Actions..."
-	@if [ ! -f ./config/actionlint ]; then \
-		echo "Downloading actionlint..."; \
-		curl -L -o actionlint.tar.gz https://github.com/rhysd/actionlint/releases/download/v1.7.7/actionlint_1.7.7_linux_amd64.tar.gz; \
-		tar --extract --file=actionlint.tar.gz actionlint; \
-		mv actionlint config/; \
-		rm actionlint.tar.gz; \
-	fi
-	@./config/actionlint -color
+	@docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:latest -color
 
 check-emojis:
 	@echo "Checking YAML files for emojis..."
