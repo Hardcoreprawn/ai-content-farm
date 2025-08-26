@@ -77,11 +77,27 @@ resource "azurerm_key_vault" "main" {
   depends_on = [azurerm_log_analytics_workspace.main]
 }
 
-# Key Vault access policy for current user/service principal
-resource "azurerm_key_vault_access_policy" "current_user" {
+# Key Vault access policy for local development user
+resource "azurerm_key_vault_access_policy" "developer_user" {
   key_vault_id = azurerm_key_vault.main.id
   tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = data.azurerm_client_config.current.object_id
+  object_id    = "e96077a7-82ec-4be0-86d5-ac85fdec6312" # Static developer object ID
+
+  secret_permissions = [
+    "Get",
+    "List",
+    "Set",
+    "Delete",
+    "Purge",
+    "Recover"
+  ]
+}
+
+# Key Vault access policy for GitHub Actions CI/CD
+resource "azurerm_key_vault_access_policy" "github_actions_user" {
+  key_vault_id = azurerm_key_vault.main.id
+  tenant_id    = data.azurerm_client_config.current.tenant_id
+  object_id    = "d8052fa3-6566-489e-9d61-4db7299ced2f" # Static GitHub Actions object ID
 
   secret_permissions = [
     "Get",
@@ -117,7 +133,7 @@ resource "azurerm_monitor_diagnostic_setting" "key_vault" {
 # Key Vault secrets for CI/CD integration
 resource "azurerm_key_vault_secret" "reddit_client_id" {
   name         = "reddit-client-id"
-  value        = var.reddit_client_id
+  value        = var.reddit_client_id != "" ? var.reddit_client_id : "placeholder-change-me"
   key_vault_id = azurerm_key_vault.main.id
   content_type = "text/plain"
 
@@ -128,7 +144,10 @@ resource "azurerm_key_vault_secret" "reddit_client_id" {
     Purpose     = "reddit-api-access"
   }
 
-  depends_on = [azurerm_key_vault_access_policy.github_actions]
+  depends_on = [
+    azurerm_key_vault_access_policy.developer_user,
+    azurerm_key_vault_access_policy.github_actions_user
+  ]
 }
 
 resource "azurerm_key_vault_secret" "reddit_client_secret" {
@@ -137,7 +156,10 @@ resource "azurerm_key_vault_secret" "reddit_client_secret" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
-  depends_on      = [azurerm_key_vault_access_policy.github_actions]
+  depends_on = [
+    azurerm_key_vault_access_policy.developer_user,
+    azurerm_key_vault_access_policy.github_actions_user
+  ]
 
   tags = {
     Environment = var.environment
@@ -151,7 +173,10 @@ resource "azurerm_key_vault_secret" "reddit_user_agent" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
-  depends_on      = [azurerm_key_vault_access_policy.github_actions]
+  depends_on = [
+    azurerm_key_vault_access_policy.developer_user,
+    azurerm_key_vault_access_policy.github_actions_user
+  ]
 
   tags = {
     Environment = var.environment
@@ -166,7 +191,10 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
-  depends_on      = [azurerm_key_vault_access_policy.github_actions]
+  depends_on = [
+    azurerm_key_vault_access_policy.developer_user,
+    azurerm_key_vault_access_policy.github_actions_user
+  ]
 
   tags = {
     Environment = var.environment
@@ -341,7 +369,10 @@ resource "azurerm_key_vault_secret" "openai_endpoint" {
   value        = azurerm_cognitive_account.openai.endpoint
   key_vault_id = azurerm_key_vault.main.id
   content_type = "text/plain"
-  depends_on   = [azurerm_key_vault_access_policy.github_actions]
+  depends_on = [
+    azurerm_key_vault_access_policy.developer_user,
+    azurerm_key_vault_access_policy.github_actions_user
+  ]
 
   tags = local.common_tags
 }
