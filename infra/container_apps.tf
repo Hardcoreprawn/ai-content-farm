@@ -287,7 +287,7 @@ resource "azurerm_container_app" "site_generator" {
   template {
     container {
       name   = "site-generator"
-      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest" # Placeholder image, updated by deployment
+      image  = "${azurerm_container_registry.main.login_server}/site-generator:latest"
       cpu    = 0.5
       memory = "1Gi"
 
@@ -339,7 +339,7 @@ resource "azurerm_container_app" "content_collector" {
   template {
     container {
       name   = "content-collector"
-      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest" # Placeholder image, updated by deployment
+      image  = "${azurerm_container_registry.main.login_server}/content-collector:latest"
       cpu    = 0.5
       memory = "1Gi"
 
@@ -386,7 +386,7 @@ resource "azurerm_container_app" "content_ranker" {
   template {
     container {
       name   = "content-ranker"
-      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest" # Placeholder image, updated by deployment
+      image  = "${azurerm_container_registry.main.login_server}/content-ranker:latest"
       cpu    = 0.5
       memory = "1Gi"
 
@@ -423,7 +423,7 @@ resource "azurerm_container_app" "content_generator" {
   template {
     container {
       name   = "content-generator"
-      image  = "mcr.microsoft.com/azuredocs/containerapps-helloworld:latest" # Placeholder image, updated by deployment
+      image  = "${azurerm_container_registry.main.login_server}/content-generator:latest"
       cpu    = 0.5
       memory = "1Gi"
 

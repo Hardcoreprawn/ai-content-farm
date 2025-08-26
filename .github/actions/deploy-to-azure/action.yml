@@ -1,5 +1,5 @@
 name: 'Deploy to Azure Container Apps'
-description: 'Deploys service containers to Azure Container Apps using multi-tier strategy'
+description: 'Deploys service containers to Azure Container Apps using Terraform'
 inputs:
   client-id:
     description: 'Azure service principal client ID'
@@ -10,18 +10,6 @@ inputs:
   subscription-id:
     description: 'Azure subscription ID'
     required: true
-  resource-group:
-    description: 'Azure resource group name'
-    required: true
-    default: 'ai-content-farm-core-rg'
-  acr-name:
-    description: 'Azure Container Registry name'
-    required: true
-    default: 'aicontentfarm76ko2hacr'
-  resource-prefix:
-    description: 'Resource prefix for naming (from Terraform outputs)'
-    required: false
-    default: 'ai-content-dev'
   environment:
     description: 'Environment to deploy to (staging/production)'
     required: true
@@ -37,7 +25,7 @@ inputs:
 outputs:
   deployment-url:
     description: 'URL of the deployed application'
-    value: ${{ steps.deploy.outputs.url }}
+    value: ${{ steps.get-url.outputs.url }}
   deployed-containers:
     description: 'List of containers that were deployed'
     value: ${{ steps.deploy.outputs.containers }}
@@ -110,55 +98,72 @@ runs:
 
         echo "[PASS] Infrastructure deployed"
 
-    - name: Build and Push Base Images
-      shell: bash
-      env:
-        ACR_NAME: ${{ inputs.acr-name }}
-        RESOURCE_GROUP: ${{ inputs.resource-group }}
-      run: |
-        echo "[BUILD] Building and pushing multi-tier base images to ACR..."
-
-        # Get ACR login server
-        ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" --query loginServer -o tsv)
-        echo "[REPORT] ACR Login Server: $ACR_LOGIN_SERVER"
-
-        # Login to ACR
-        az acr login --name "$ACR_NAME"
-
-        # Build and push base images
-        base_images=("foundation" "common-deps" "web-services" "data-processing" "scheduler")
-
-        for tier in "${base_images[@]}"; do
-          echo "Building and pushing $tier base image..."
-
-          # Build base image
-          docker build -f containers/base/Dockerfile.multitier \
-            -t ai-content-farm-base:$tier \
-            --target $tier .
-
-          # Tag for ACR
-          docker tag ai-content-farm-base:$tier $ACR_LOGIN_SERVER/ai-content-farm-base:$tier
-
-          # Push to ACR
-          docker push $ACR_LOGIN_SERVER/ai-content-farm-base:$tier
-
-          echo "[PASS] $tier base image pushed to ACR"
-        done
-
     - name: Build and Push Service Containers
       shell: bash
       env:
-        ACR_NAME: ${{ inputs.acr-name }}
-        RESOURCE_GROUP: ${{ inputs.resource-group }}
+        ENVIRONMENT: ${{ inputs.environment }}
         CONTAINERS: ${{ inputs.containers }}
       run: |
         echo "[BUILD] Building and pushing service containers..."
 
+        # Get ACR details from Terraform
+        cd infra
+
+        # Initialize Terraform to access state
+        export ARM_CLIENT_ID="${{ inputs.client-id }}"
+        export ARM_TENANT_ID="${{ inputs.tenant-id }}"
+        export ARM_SUBSCRIPTION_ID="${{ inputs.subscription-id }}"
+        export ARM_USE_OIDC=true
+
+        docker run --rm \
+          -v "${PWD}":/workspace \
+          -w /workspace \
+          -e ARM_CLIENT_ID \
+          -e ARM_TENANT_ID \
+          -e ARM_SUBSCRIPTION_ID \
+          -e ARM_USE_OIDC \
+          -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+          -e ACTIONS_ID_TOKEN_REQUEST_URL \
+          hashicorp/terraform:latest \
+          init -reconfigure \
+          -backend-config="key=terraform-${ENVIRONMENT}.tfstate" \
+          -backend-config="storage_account_name=${{ inputs.terraform-storage-account }}"
+
+        # Get ACR info from Terraform state
+        ACR_NAME=$(docker run --rm \
+          -v "${PWD}":/workspace \
+          -w /workspace \
+          -e ARM_CLIENT_ID \
+          -e ARM_TENANT_ID \
+          -e ARM_SUBSCRIPTION_ID \
+          -e ARM_USE_OIDC \
+          -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+          -e ACTIONS_ID_TOKEN_REQUEST_URL \
+          hashicorp/terraform:latest \
+          output -raw container_registry_name)
+
+        RESOURCE_GROUP=$(docker run --rm \
+          -v "${PWD}":/workspace \
+          -w /workspace \
+          -e ARM_CLIENT_ID \
+          -e ARM_TENANT_ID \
+          -e ARM_SUBSCRIPTION_ID \
+          -e ARM_USE_OIDC \
+          -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+          -e ACTIONS_ID_TOKEN_REQUEST_URL \
+          hashicorp/terraform:latest \
+          output -raw resource_group_name)
+
+        cd ..
+
         ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" --query loginServer -o tsv)
+
+        # Login to ACR
+        az acr login --name "$ACR_NAME"
 
         # Determine which containers to deploy
         if [ "$CONTAINERS" = "all" ]; then
-          CONTAINERS=("content-generator" "content-enricher" "content-processor" "content-ranker" "markdown-generator" "site-generator" "content-collector" "collector-scheduler")
+          CONTAINERS=("content-generator" "content-collector" "content-ranker" "site-generator")
         else
           IFS=',' read -ra CONTAINERS <<< "$CONTAINERS"
         fi
@@ -178,54 +183,79 @@ runs:
           echo "[PASS] $container pushed to ACR"
         done
 
-    - name: Update Container Apps
+    - name: Deploy with Terraform
       id: deploy
       shell: bash
       env:
-        ACR_NAME: ${{ inputs.acr-name }}
-        RESOURCE_GROUP: ${{ inputs.resource-group }}
-        RESOURCE_PREFIX: ${{ inputs.resource-prefix }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        STORAGE_ACCOUNT: ${{ inputs.terraform-storage-account }}
       run: |
-        echo "[PROCESS] Updating Container Apps..."
+        echo "[TERRAFORM] Deploying/updating infrastructure and container apps..."
+        cd infra
 
-        ACR_LOGIN_SERVER=$(az acr show --name "$ACR_NAME" --resource-group "$RESOURCE_GROUP" --query loginServer -o tsv)
-        deployed_containers=""
+        # Set up Terraform environment
+        export ARM_CLIENT_ID="${{ inputs.client-id }}"
+        export ARM_TENANT_ID="${{ inputs.tenant-id }}"
+        export ARM_SUBSCRIPTION_ID="${{ inputs.subscription-id }}"
+        export ARM_USE_OIDC=true
 
-        # Use resource prefix from Terraform outputs or fallback to default
-        echo "[CONFIG] Using resource prefix: $RESOURCE_PREFIX"
+        # Re-run terraform apply to pick up the new container images
+        echo "[CONFIG] Using state file: terraform-${ENVIRONMENT}.tfstate"
+        docker run --rm \
+          -v "${PWD}":/workspace \
+          -w /workspace \
+          -e ARM_CLIENT_ID \
+          -e ARM_TENANT_ID \
+          -e ARM_SUBSCRIPTION_ID \
+          -e ARM_USE_OIDC \
+          -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+          -e ACTIONS_ID_TOKEN_REQUEST_URL \
+          hashicorp/terraform:latest \
+          apply -auto-approve -var-file="${ENVIRONMENT}.tfvars"
 
-        # Deploy customer-facing services first, then content pipeline
-        declare -A container_apps=(
-          ["site-generator"]="${RESOURCE_PREFIX}-site-gen"
-          ["content-generator"]="${RESOURCE_PREFIX}-content-gen"
-          ["content-collector"]="${RESOURCE_PREFIX}-collector"
-          ["content-ranker"]="${RESOURCE_PREFIX}-ranker"
-        )
+        echo "[PASS] Terraform deployment completed"
+        echo "containers=${{ inputs.containers }}" >> $GITHUB_OUTPUT
 
-        for container in "${!container_apps[@]}"; do
-          app_name="${container_apps[$container]}"
-          echo "Updating $container -> $app_name..."
+    - name: Get Deployment URL
+      id: get-url
+      shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+      run: |
+        cd infra
 
-          # Check if container app exists
-          if az containerapp show --name "$app_name" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
-            az containerapp update \
-              --name "$app_name" \
-              --resource-group "$RESOURCE_GROUP" \
-              --image $ACR_LOGIN_SERVER/$container:latest
+        # Get site generator URL from Terraform state
+        export ARM_CLIENT_ID="${{ inputs.client-id }}"
+        export ARM_TENANT_ID="${{ inputs.tenant-id }}"
+        export ARM_SUBSCRIPTION_ID="${{ inputs.subscription-id }}"
+        export ARM_USE_OIDC=true
 
-            echo "[PASS] $container container app updated"
+        # Try to get the URL from Terraform outputs (if we add it) or from Azure CLI
+        RESOURCE_GROUP=$(docker run --rm \
+          -v "${PWD}":/workspace \
+          -w /workspace \
+          -e ARM_CLIENT_ID \
+          -e ARM_TENANT_ID \
+          -e ARM_SUBSCRIPTION_ID \
+          -e ARM_USE_OIDC \
+          -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+          -e ACTIONS_ID_TOKEN_REQUEST_URL \
+          hashicorp/terraform:latest \
+          output -raw resource_group_name)
 
-            if [ -z "$deployed_containers" ]; then
-              deployed_containers="$container"
-            else
-              deployed_containers="$deployed_containers,$container"
-            fi
-          else
-            echo "[WARNING] Container app $app_name does not exist - skipping $container"
-          fi
-        done
+        RESOURCE_PREFIX=$(docker run --rm \
+          -v "${PWD}":/workspace \
+          -w /workspace \
+          -e ARM_CLIENT_ID \
+          -e ARM_TENANT_ID \
+          -e ARM_SUBSCRIPTION_ID \
+          -e ARM_USE_OIDC \
+          -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+          -e ACTIONS_ID_TOKEN_REQUEST_URL \
+          hashicorp/terraform:latest \
+          output -raw resource_prefix)
 
-        # Get deployment URL from site-generator (customer-facing)
+        # Get deployment URL from site-generator container app
         DEPLOYMENT_URL=$(az containerapp show \
           --name "${RESOURCE_PREFIX}-site-gen" \
           --resource-group "$RESOURCE_GROUP" \
@@ -239,4 +269,3 @@ runs:
           echo "[WARNING] Could not retrieve deployment URL"
           echo "url=" >> $GITHUB_OUTPUT
         fi
-        echo "containers=$deployed_containers" >> $GITHUB_OUTPUT
