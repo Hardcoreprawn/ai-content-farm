@@ -2,7 +2,7 @@
 
 **An intelligent, event-driven content aggregation and curation system** that collects interesting articles from various sources and presents them as high-quality static websites. Built with Docker microservices and Azure blob storage for scalability and reliability.
 
-> **Latest Update (Aug 22, 2025)**: Enhanced CI/CD pipeline with parallel security scanning, modular action architecture, and optimized dependency caching for improved maintainability and performance.
+> **Latest Update (Aug 26, 2025)**: Fixed CI/CD pipeline GitHub Container Registry permissions and authentication for successful container deployment.
 
 ## 🎯 Vision
 
