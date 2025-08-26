@@ -137,7 +137,7 @@ resource "azurerm_key_vault_secret" "reddit_client_secret" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
-  depends_on      = [azurerm_key_vault_access_policy.current_user]
+  depends_on      = [azurerm_key_vault_access_policy.github_actions]
 
   tags = {
     Environment = var.environment
@@ -341,7 +341,7 @@ resource "azurerm_key_vault_secret" "openai_endpoint" {
   value        = azurerm_cognitive_account.openai.endpoint
   key_vault_id = azurerm_key_vault.main.id
   content_type = "text/plain"
-  depends_on   = [azurerm_key_vault_access_policy.current_user]
+  depends_on   = [azurerm_key_vault_access_policy.github_actions]
 
   tags = local.common_tags
 }
