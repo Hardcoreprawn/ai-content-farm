@@ -4,6 +4,7 @@
 
 # Core Web Framework
 fastapi==0.116.1
+starlette>=0.47.2  # Security fix for CVE-2025-54121 (DoS vulnerability)
 uvicorn[standard]==0.35.0
 pydantic==2.11.7
 
