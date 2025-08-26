@@ -340,14 +340,23 @@ resource "azurerm_cognitive_account" "openai" {
   tags = local.common_tags
 }
 
-# Store OpenAI key in Key Vault
+# Store OpenAI endpoint and key in Key Vault
+resource "azurerm_key_vault_secret" "openai_endpoint" {
+  name         = "azure-openai-endpoint"
+  value        = azurerm_cognitive_account.openai.endpoint
+  key_vault_id = azurerm_key_vault.main.id
+  content_type = "text/plain"
+  depends_on   = [azurerm_key_vault_access_policy.current_user]
+
+  tags = local.common_tags
+}
+
 resource "azurerm_key_vault_secret" "openai_key" {
-  name            = "openai-api-key"
-  value           = azurerm_cognitive_account.openai.primary_access_key
-  key_vault_id    = azurerm_key_vault.main.id
-  content_type    = "text/plain"
-  expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
-  depends_on      = [azurerm_key_vault_access_policy.current_user]
+  name         = "azure-openai-api-key"
+  value        = azurerm_cognitive_account.openai.primary_access_key
+  key_vault_id = azurerm_key_vault.main.id
+  content_type = "text/plain"
+  depends_on   = [azurerm_key_vault_access_policy.current_user]
 
   tags = local.common_tags
 }
