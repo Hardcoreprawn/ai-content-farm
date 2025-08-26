@@ -289,6 +289,8 @@ jobs:
       failed-containers: ${{ steps.summary.outputs.failed-containers }}
       containers-to-build: ${{ steps.summary.outputs.containers-to-build }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
       - name: Collect Test Results
         id: summary
         uses: ./.github/actions/collect-test-results
@@ -347,6 +349,8 @@ jobs:
       build-result: ${{ steps.summary.outputs.build-result }}
       registry-images: ${{ steps.summary.outputs.registry-images }}
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
       - name: Collect Build Results
         id: summary
         uses: ./.github/actions/collect-build-summary
