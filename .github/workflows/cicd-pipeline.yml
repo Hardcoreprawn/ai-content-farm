@@ -385,6 +385,60 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Get Terraform Outputs
+        id: terraform-outputs
+        run: |
+          cd infra
+          # Get Azure authentication details from environment
+          export ARM_CLIENT_ID="${{ vars.AZURE_CLIENT_ID }}"
+          export ARM_TENANT_ID="${{ vars.AZURE_TENANT_ID }}"
+          export ARM_SUBSCRIPTION_ID="${{ vars.AZURE_SUBSCRIPTION_ID }}"
+          export ARM_USE_OIDC=true
+
+          # Initialize Terraform with production state
+          docker run --rm \
+            -v "${PWD}":/workspace \
+            -w /workspace \
+            -e ARM_CLIENT_ID \
+            -e ARM_TENANT_ID \
+            -e ARM_SUBSCRIPTION_ID \
+            -e ARM_USE_OIDC \
+            -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+            -e ACTIONS_ID_TOKEN_REQUEST_URL \
+            hashicorp/terraform:latest \
+            init -reconfigure \
+            -backend-config="key=terraform-production.tfstate" \
+            -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT_PROD || 'aicontentfarmtfstate' }}"
+
+          # Get outputs
+          RESOURCE_GROUP=$(docker run --rm \
+            -v "${PWD}":/workspace \
+            -w /workspace \
+            -e ARM_CLIENT_ID \
+            -e ARM_TENANT_ID \
+            -e ARM_SUBSCRIPTION_ID \
+            -e ARM_USE_OIDC \
+            -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+            -e ACTIONS_ID_TOKEN_REQUEST_URL \
+            hashicorp/terraform:latest \
+            output -raw resource_group_name)
+
+          ACR_NAME=$(docker run --rm \
+            -v "${PWD}":/workspace \
+            -w /workspace \
+            -e ARM_CLIENT_ID \
+            -e ARM_TENANT_ID \
+            -e ARM_SUBSCRIPTION_ID \
+            -e ARM_USE_OIDC \
+            -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
+            -e ACTIONS_ID_TOKEN_REQUEST_URL \
+            hashicorp/terraform:latest \
+            output -raw container_registry_name)
+
+          echo "resource-group=$RESOURCE_GROUP" >> "$GITHUB_OUTPUT"
+          echo "acr-name=$ACR_NAME" >> "$GITHUB_OUTPUT"
+          echo "Resource Group: $RESOURCE_GROUP"
+          echo "ACR Name: $ACR_NAME"
       - name: Deploy to Azure
         id: deploy
         uses: ./.github/actions/deploy-to-azure
@@ -392,8 +446,8 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          resource-group: ai-content-farm-core-rg
-          acr-name: aicontentprodacr
+          resource-group: ${{ steps.terraform-outputs.outputs.resource-group }}
+          acr-name: ${{ steps.terraform-outputs.outputs.acr-name }}
           environment: production
           containers: ${{ needs.container-build-summary.outputs.containers-built || 'all' }}
           terraform-storage-account: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT_PROD || 'aicontentfarmtfstate' }}
