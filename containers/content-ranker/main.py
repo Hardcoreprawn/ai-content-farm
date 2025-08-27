@@ -44,7 +44,9 @@ from libs.shared_models import (
     ErrorCodes,
     HealthStatus,
     ServiceStatus,
-    StandardResponse,
+)
+from libs.shared_models import StandardResponseFactory as StandardResponse
+from libs.shared_models import (
     wrap_legacy_response,
 )
 

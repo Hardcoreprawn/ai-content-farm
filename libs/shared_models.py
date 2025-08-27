@@ -29,6 +29,34 @@ class ErrorCodes:
     RATE_LIMIT_ERROR = "RATE_LIMIT_ERROR"
     SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE"
 
+    # Backward compatibility methods for old exception handler approach
+    @classmethod
+    def internal_error(cls, message: str, details: Optional[str] = None):
+        """Create internal error response - backward compatibility"""
+        return APIError(message=message, code=cls.INTERNAL_ERROR, details=details)
+
+    @classmethod
+    def validation_error(cls, field: str, message: str):
+        """Create validation error response - backward compatibility"""
+        return APIError(
+            message=f"Validation error in {field}: {message}", code=cls.VALIDATION_ERROR
+        )
+
+    @classmethod
+    def not_found(cls, resource: str):
+        """Create not found error response - backward compatibility"""
+        return APIError(message=f"{resource} not found", code=cls.NOT_FOUND)
+
+    @classmethod
+    def unauthorized(cls, message: str):
+        """Create unauthorized error response - backward compatibility"""
+        return APIError(message=message, code=cls.AUTHENTICATION_ERROR)
+
+    @classmethod
+    def forbidden(cls, message: str):
+        """Create forbidden error response - backward compatibility"""
+        return APIError(message=message, code=cls.AUTHORIZATION_ERROR)
+
 
 class HealthStatus(BaseModel):
     """Health status model for health check endpoints"""
@@ -149,7 +177,11 @@ def create_success_response(
 ) -> StandardResponse:
     """Helper to create success responses."""
     return StandardResponse(
-        status="success", message=message, data=data, metadata=metadata or {}
+        status="success",
+        message=message,
+        data=data,
+        errors=None,
+        metadata=metadata or {},
     )
 
 
@@ -233,8 +265,56 @@ def wrap_legacy_response(
         status="success",
         message=message,
         data=legacy_data if isinstance(legacy_data, dict) else {"result": legacy_data},
+        errors=None,
         metadata={
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "legacy_wrapper": True,
         },
     )
+
+
+# Backward compatibility classes for containers still using old API
+class APIError(BaseModel):
+    """Backward compatibility class for containers using old exception handler approach"""
+
+    message: str
+    code: str = "INTERNAL_ERROR"
+    details: Optional[Any] = None
+
+
+# Backward compatibility factory class for old StandardResponse usage
+class StandardResponseFactory:
+    """Factory class providing backward compatibility for StandardResponse.success() and .error() methods"""
+
+    @staticmethod
+    def success(
+        message: str, data: Any = None, metadata: Optional[Dict[str, Any]] = None
+    ):
+        """Create success response - backward compatibility method"""
+        return StandardResponse(
+            status="success",
+            message=message,
+            data=data,
+            errors=None,
+            metadata=metadata or {"timestamp": datetime.now(timezone.utc).isoformat()},
+        )
+
+    @staticmethod
+    def error(
+        message: str,
+        errors: Optional[List[str]] = None,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        """Create error response - backward compatibility method"""
+        return StandardResponse(
+            status="error",
+            message=message,
+            data=None,
+            errors=errors,
+            metadata=metadata or {"timestamp": datetime.now(timezone.utc).isoformat()},
+        )
+
+
+# For backward compatibility - create an alias
+# Use: from libs.shared_models import StandardResponseFactory as StandardResponse
+# Then: StandardResponse.success("message", data)
