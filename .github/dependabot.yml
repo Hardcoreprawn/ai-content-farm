@@ -34,6 +34,29 @@ updates:
   #     separator: "/"
 
   # Python dependencies - container services
+  # Python packages for libs
+  - package-ecosystem: "pip"
+    directory: "/libs"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+    labels:
+      - "dependencies"
+      - "python"
+      - "libs"
+      - "auto-merge"
+    open-pull-requests-limit: 5
+    # Group related updates to reduce PR volume
+    groups:
+      python-minor-patches:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
+
+  # Python packages for containers/content-collector
   - package-ecosystem: "pip"
     directory: "/containers/content-collector"
     schedule:
@@ -44,7 +67,15 @@ updates:
       - "dependencies"
       - "python"
       - "content-collector"
+      - "auto-merge"
     open-pull-requests-limit: 5
+    groups:
+      python-minor-patches:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
 
   - package-ecosystem: "pip"
     directory: "/containers/content-processor"
@@ -56,7 +87,15 @@ updates:
       - "dependencies"
       - "python"
       - "content-processor"
+      - "auto-merge"
     open-pull-requests-limit: 5
+    groups:
+      python-minor-patches:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
 
   - package-ecosystem: "pip"
     directory: "/containers/content-enricher"
@@ -68,7 +107,15 @@ updates:
       - "dependencies"
       - "python"
       - "content-enricher"
+      - "auto-merge"
     open-pull-requests-limit: 5
+    groups:
+      python-minor-patches:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
 
   - package-ecosystem: "pip"
     directory: "/containers/content-ranker"
@@ -80,7 +127,15 @@ updates:
       - "dependencies"
       - "python"
       - "content-ranker"
+      - "auto-merge"
     open-pull-requests-limit: 5
+    groups:
+      python-minor-patches:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
 
   - package-ecosystem: "pip"
     directory: "/containers/content-generator"
@@ -92,7 +147,15 @@ updates:
       - "dependencies"
       - "python"
       - "content-generator"
+      - "auto-merge"
     open-pull-requests-limit: 5
+    groups:
+      python-minor-patches:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
 
   - package-ecosystem: "pip"
     directory: "/containers/markdown-generator"
@@ -104,7 +167,15 @@ updates:
       - "dependencies"
       - "python"
       - "markdown-generator"
+      - "auto-merge"
     open-pull-requests-limit: 5
+    groups:
+      python-minor-patches:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
 
   - package-ecosystem: "pip"
     directory: "/containers/site-generator"
@@ -116,7 +187,15 @@ updates:
       - "dependencies"
       - "python"
       - "site-generator"
+      - "auto-merge"
     open-pull-requests-limit: 5
+    groups:
+      python-minor-patches:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
 
   - package-ecosystem: "pip"
     directory: "/containers/collector-scheduler"
@@ -128,7 +207,15 @@ updates:
       - "dependencies"
       - "python"
       - "collector-scheduler"
+      - "auto-merge"
     open-pull-requests-limit: 5
+    groups:
+      python-minor-patches:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
 
   # # Docker base images
   # - package-ecosystem: "docker"

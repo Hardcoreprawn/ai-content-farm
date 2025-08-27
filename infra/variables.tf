@@ -38,6 +38,22 @@ variable "resource_prefix" {
   default     = "ai-content-dev"
 }
 
+# Container image configuration for deployments
+variable "container_images" {
+  description = "Map of container names to their full registry URLs with tags"
+  type        = map(string)
+  default = {
+    "site-generator"      = "ghcr.io/hardcoreprawn/ai-content-farm/site-generator:latest"
+    "content-collector"   = "ghcr.io/hardcoreprawn/ai-content-farm/content-collector:latest"
+    "content-ranker"      = "ghcr.io/hardcoreprawn/ai-content-farm/content-ranker:latest"
+    "content-generator"   = "ghcr.io/hardcoreprawn/ai-content-farm/content-generator:latest"
+    "content-enricher"    = "ghcr.io/hardcoreprawn/ai-content-farm/content-enricher:latest"
+    "content-processor"   = "ghcr.io/hardcoreprawn/ai-content-farm/content-processor:latest"
+    "markdown-generator"  = "ghcr.io/hardcoreprawn/ai-content-farm/markdown-generator:latest"
+    "collector-scheduler" = "ghcr.io/hardcoreprawn/ai-content-farm/collector-scheduler:latest"
+  }
+}
+
 # Computed locals for dynamic naming
 locals {
   # Use environment_name if provided (for ephemeral), otherwise use environment

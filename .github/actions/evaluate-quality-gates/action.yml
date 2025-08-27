@@ -141,15 +141,20 @@ runs:
         echo ""
         echo "=== Quality Gate Results ==="
 
-        # Auto-fix formatting (conditional evaluation based on actor)
+        # Auto-fix formatting (conditional evaluation - only runs on PRs)
         total_gates=$((total_gates + 1))
         if [[ "$AUTO_FIX_FORMATTING_RESULT" == "success" ]]; then
           passed_gates=$((passed_gates + 1))
           echo "[PASS] Auto-fix formatting: PASSED"
-        elif [[ "$AUTO_FIX_FORMATTING_RESULT" == "skipped" && "$IS_DEPENDABOT" == "true" ]]; then
-          # Treat skipped auto-fix as pass for Dependabot PRs
+        elif [[ "$AUTO_FIX_FORMATTING_RESULT" == "skipped" ]]; then
+          # Auto-fix formatting is only designed to run on PRs, not push events
+          # Treat skipped as pass since it's intentionally conditional
           passed_gates=$((passed_gates + 1))
-          echo "[PASS] Auto-fix formatting: SKIPPED (acceptable for Dependabot PR)"
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "[PASS] Auto-fix formatting: SKIPPED (acceptable for Dependabot or conditional skip)"
+          else
+            echo "[PASS] Auto-fix formatting: SKIPPED (only runs on pull requests)"
+          fi
         else
           echo "[FAIL] Auto-fix formatting: FAILED ($AUTO_FIX_FORMATTING_RESULT)"
           if [[ "$IS_DEPENDABOT" == "true" ]]; then

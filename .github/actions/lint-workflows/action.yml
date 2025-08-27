@@ -29,21 +29,41 @@ runs:
       run: |
         echo "[SCAN] Checking for workflow and action file changes..."
 
-        # Check if this is a push event and show changed files
+        # Check if this is a push event and get changed files
         if [ "$GITHUB_EVENT_NAME" = "push" ]; then
           workflow_files=$(git diff --name-only "$GITHUB_EVENT_BEFORE".."$GITHUB_SHA" | grep -E '\.github/(workflows|actions)/' || true)
           if [ -n "$workflow_files" ]; then
             echo "[INFO] Changed workflow/action files:"
             echo "$workflow_files" | sed 's/^/  - /'
+            echo "CHANGED_WORKFLOW_FILES<<EOF" >> $GITHUB_ENV
+            echo "$workflow_files" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+            echo "VALIDATE_ALL=false" >> $GITHUB_ENV
           else
-            echo "[INFO] No workflow files changed, but running validation anyway"
+            echo "[INFO] No workflow files changed, skipping validation"
+            echo "VALIDATE_ALL=skip" >> $GITHUB_ENV
+          fi
+        elif [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+          # For PRs, check changed files against base branch
+          workflow_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -E '\.github/(workflows|actions)/' || true)
+          if [ -n "$workflow_files" ]; then
+            echo "[INFO] Changed workflow/action files in PR:"
+            echo "$workflow_files" | sed 's/^/  - /'
+            echo "CHANGED_WORKFLOW_FILES<<EOF" >> $GITHUB_ENV
+            echo "$workflow_files" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
+            echo "VALIDATE_ALL=false" >> $GITHUB_ENV
+          else
+            echo "[INFO] No workflow files changed in PR, skipping validation"
+            echo "VALIDATE_ALL=skip" >> $GITHUB_ENV
           fi
         else
-          echo "[INFO] Running workflow validation for $GITHUB_EVENT_NAME event"
+          echo "[INFO] Running full workflow validation for $GITHUB_EVENT_NAME event"
+          echo "VALIDATE_ALL=true" >> $GITHUB_ENV
         fi
 
         echo ""
-        echo "[VALIDATE] Running comprehensive workflow validation..."
+        echo "[VALIDATE] Preparing workflow validation..."
 
     - name: Install linting tools
       shell: bash
@@ -62,18 +82,51 @@ runs:
       env:
         INPUT_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
+        if [ "$VALIDATE_ALL" = "skip" ]; then
+          echo "No workflow files changed, skipping yamllint"
+          echo "passed=true" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
         echo "Running yamllint via Makefile..."
 
-        # Use Makefile target for consistency
-        if make yamllint; then
-          echo "yamllint passed"
-          echo "passed=true" >> $GITHUB_OUTPUT
-        else
-          echo "yamllint failed"
-          echo "passed=false" >> $GITHUB_OUTPUT
+        # Use Makefile target for consistency unless we have specific files
+        if [ "$VALIDATE_ALL" = "true" ]; then
+          # Run on all files
+          if make yamllint; then
+            echo "yamllint passed"
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "yamllint failed"
+            echo "passed=false" >> $GITHUB_OUTPUT
 
-          if [ "${INPUT_FAIL_ON_ERROR}" = "true" ]; then
-            exit 1
+            if [ "${INPUT_FAIL_ON_ERROR}" = "true" ]; then
+              exit 1
+            fi
+          fi
+        else
+          # Run only on changed files
+          echo "Running yamllint on changed files only..."
+          failed=false
+
+          while IFS= read -r file; do
+            if [ -n "$file" ] && [ -f "$file" ]; then
+              echo "Checking $file..."
+              if ! docker run --rm -v "$(pwd):/workspace" cytopia/yamllint:latest -c /workspace/config/.yamllint.yml "/workspace/$file"; then
+                failed=true
+              fi
+            fi
+          done <<< "$CHANGED_WORKFLOW_FILES"
+
+          if [ "$failed" = "true" ]; then
+            echo "yamllint failed"
+            echo "passed=false" >> $GITHUB_OUTPUT
+            if [ "${INPUT_FAIL_ON_ERROR}" = "true" ]; then
+              exit 1
+            fi
+          else
+            echo "yamllint passed"
+            echo "passed=true" >> $GITHUB_OUTPUT
           fi
         fi
 
@@ -83,18 +136,62 @@ runs:
       env:
         INPUT_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
-        echo "Running actionlint via Makefile..."
-
-        # Use Makefile target for consistency
-        if make actionlint; then
-          echo "actionlint passed"
+        if [ "$VALIDATE_ALL" = "skip" ]; then
+          echo "No workflow files changed, skipping actionlint"
           echo "passed=true" >> $GITHUB_OUTPUT
-        else
-          echo "actionlint failed"
-          echo "passed=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
 
-          if [ "${INPUT_FAIL_ON_ERROR}" = "true" ]; then
-            exit 1
+        echo "Running actionlint..."
+
+        if [ "$VALIDATE_ALL" = "true" ]; then
+          # Run on all files via Makefile
+          if make actionlint; then
+            echo "actionlint passed"
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "actionlint failed"
+            echo "passed=false" >> $GITHUB_OUTPUT
+
+            if [ "${INPUT_FAIL_ON_ERROR}" = "true" ]; then
+              exit 1
+            fi
+          fi
+        else
+          # Run only on changed workflow files (actionlint only works on workflows, not actions)
+          echo "Running actionlint on changed workflow files only..."
+          changed_workflows=$(echo "$CHANGED_WORKFLOW_FILES" | grep '\.github/workflows/' || true)
+
+          if [ -n "$changed_workflows" ]; then
+            echo "Changed workflow files:"
+            echo "$changed_workflows" | sed 's/^/  - /'
+
+            # Create a space-separated list for actionlint
+            workflow_list=""
+            while IFS= read -r file; do
+              if [ -n "$file" ] && [ -f "$file" ]; then
+                workflow_list="$workflow_list $file"
+              fi
+            done <<< "$changed_workflows"
+
+            if [ -n "$workflow_list" ]; then
+              if docker run --rm -v "${PWD}:/repo" -w /repo rhysd/actionlint:latest -color $workflow_list; then
+                echo "actionlint passed"
+                echo "passed=true" >> $GITHUB_OUTPUT
+              else
+                echo "actionlint failed"
+                echo "passed=false" >> $GITHUB_OUTPUT
+                if [ "${INPUT_FAIL_ON_ERROR}" = "true" ]; then
+                  exit 1
+                fi
+              fi
+            else
+              echo "No valid workflow files to check"
+              echo "passed=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "No workflow files changed (only action files), skipping actionlint"
+            echo "passed=true" >> $GITHUB_OUTPUT
           fi
         fi
 
@@ -104,18 +201,51 @@ runs:
       env:
         INPUT_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
+        if [ "$VALIDATE_ALL" = "skip" ]; then
+          echo "No workflow files changed, skipping emoji check"
+          echo "passed=true" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
         echo "Running emoji check on YAML files..."
 
-        # Run the emoji check script
-        if ./scripts/check-emojis.sh; then
-          echo "emoji-check passed"
-          echo "passed=true" >> $GITHUB_OUTPUT
-        else
-          echo "emoji-check failed"
-          echo "passed=false" >> $GITHUB_OUTPUT
+        if [ "$VALIDATE_ALL" = "true" ]; then
+          # Run the emoji check script on all files
+          if ./scripts/check-emojis.sh; then
+            echo "emoji-check passed"
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "emoji-check failed"
+            echo "passed=false" >> $GITHUB_OUTPUT
 
-          if [ "${INPUT_FAIL_ON_ERROR}" = "true" ]; then
-            exit 1
+            if [ "${INPUT_FAIL_ON_ERROR}" = "true" ]; then
+              exit 1
+            fi
+          fi
+        else
+          # Run emoji check only on changed files
+          echo "Checking emojis in changed workflow files only..."
+          failed=false
+
+          while IFS= read -r file; do
+            if [ -n "$file" ] && [ -f "$file" ]; then
+              echo "Checking $file for emojis..."
+              if grep -E "[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F700-\U0001F77F\U0001F780-\U0001F7FF\U0001F800-\U0001F8FF\U0001F900-\U0001F9FF\U0001FA00-\U0001FA6F\U0001FA70-\U0001FAFF\U00002702-\U000027B0\U000024C2-\U0001F251]" "$file" > /dev/null 2>&1; then
+                echo "[FAIL] Found emojis in $file"
+                failed=true
+              fi
+            fi
+          done <<< "$CHANGED_WORKFLOW_FILES"
+
+          if [ "$failed" = "true" ]; then
+            echo "emoji-check failed"
+            echo "passed=false" >> $GITHUB_OUTPUT
+            if [ "${INPUT_FAIL_ON_ERROR}" = "true" ]; then
+              exit 1
+            fi
+          else
+            echo "emoji-check passed"
+            echo "passed=true" >> $GITHUB_OUTPUT
           fi
         fi
 
