@@ -2,6 +2,7 @@
 # Usage:
 #   Development/Test: docker build --target development
 #   Production:       docker build --target production (default)
+# Updated for smart deployment testing
 
 FROM python:3.11-slim AS base
 
