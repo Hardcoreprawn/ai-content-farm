@@ -1,0 +1,189 @@
+name: Large File Detector
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  detect-large-files:
+    name: Detect Files Over 400 Lines
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Find Large Files
+        id: find-large
+        shell: bash
+        run: |
+          echo "Scanning for files over 400 lines..."
+
+          # Get list of changed files (for PR) or all files (for push to main)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # For PRs, only check changed files
+            changed_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          else
+            # For pushes to main, check all tracked files
+            changed_files=$(git ls-files)
+          fi
+
+          large_files=""
+          file_count=0
+
+          # Check each file
+          while IFS= read -r file; do
+            if [[ -z "$file" ]]; then continue; fi
+
+            # Skip binary files, images, and other non-source files
+            if [[ "$file" =~ \.(jpg|jpeg|png|gif|ico|pdf|zip|tar|gz|bz2|xz|7z|rar|exe|dll|so|dylib|bin|dat)$ ]]; then
+              continue
+            fi
+
+            # Skip directories
+            if [[ ! -f "$file" ]]; then
+              continue
+            fi
+
+            # Count lines
+            line_count=$(wc -l < "$file" 2>/dev/null || echo "0")
+
+            if [[ $line_count -gt 400 ]]; then
+              echo "Large file detected: $file ($line_count lines)"
+              if [[ -z "$large_files" ]]; then
+                large_files="$file:$line_count"
+              else
+                large_files="$large_files|$file:$line_count"
+              fi
+              ((file_count++))
+            fi
+          done <<< "$changed_files"
+
+          echo "large_files=$large_files" >> "$GITHUB_OUTPUT"
+          echo "file_count=$file_count" >> "$GITHUB_OUTPUT"
+
+          if [[ $file_count -gt 0 ]]; then
+            echo "Found $file_count large files"
+          else
+            echo "No large files found"
+          fi
+
+      - name: Create Issue for Large Files
+        if: steps.find-large.outputs.file_count > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const largeFiles = '${{ steps.find-large.outputs.large_files }}';
+            const fileCount = '${{ steps.find-large.outputs.file_count }}';
+
+            if (!largeFiles) return;
+
+            // Parse the large files data
+            const files = largeFiles.split('|').map(entry => {
+              const [path, lines] = entry.split(':');
+              return { path, lines: parseInt(lines) };
+            });
+
+            // Create issue body
+            const maxLines = Math.max(...files.map(f => f.lines));
+            const issueTitle = `Large File Alert: ${fileCount} file${fileCount > 1 ? 's' : ''} exceed 400 lines (max: ${maxLines} lines)`;
+
+            let issueBody = `## [SIZE] Large File Detection Report
+
+            **Trigger**: ${context.eventName === 'pull_request' ? `PR #${context.payload.number}` : `Push to ${context.ref.replace('refs/heads/', '')}`}
+            **Commit**: ${context.sha.substring(0, 7)}
+            **Date**: ${new Date().toISOString().split('T')[0]}
+
+            ### Files Over 400 Lines:
+
+            `;
+
+            files.forEach(file => {
+              const percentage = Math.round((file.lines / 400) * 100);
+              const severity = file.lines > 1000 ? '[CRITICAL]' : file.lines > 600 ? '[WARNING]' : '[LARGE]';
+              issueBody += `${severity} **\`${file.path}\`** - ${file.lines} lines (${percentage}% of limit)\n`;
+            });
+
+            issueBody += `
+
+            ### Recommendations:
+
+            Consider refactoring large files by:
+            - Splitting into smaller, focused modules
+            - Extracting reusable functions into separate files
+            - Moving configuration or data to external files
+            - Breaking down complex classes or functions
+
+            ### File Size Guidelines:
+            - [GOOD] **Good**: < 200 lines
+            - [OK] **Acceptable**: 200-400 lines
+            - [LARGE] **Large**: 400-600 lines
+            - [CRITICAL] **Too Large**: > 600 lines
+
+            *This issue was automatically created by the Large File Detector workflow.*`;
+
+            // Check for existing open issues
+            const existingIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'code-quality,large-files'
+            });
+
+            const hasExistingIssue = existingIssues.data.some(issue =>
+              issue.title.includes('Large File Alert')
+            );
+
+            if (!hasExistingIssue) {
+              // Create new issue
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: issueTitle,
+                body: issueBody,
+                labels: ['code-quality', 'large-files', 'technical-debt']
+              });
+
+              console.log('Created new large file issue');
+            } else {
+              console.log('Large file issue already exists, skipping creation');
+            }
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && steps.find-large.outputs.file_count > 0
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const largeFiles = '${{ steps.find-large.outputs.large_files }}';
+            const fileCount = '${{ steps.find-large.outputs.file_count }}';
+
+            if (!largeFiles) return;
+
+            const files = largeFiles.split('|').map(entry => {
+              const [path, lines] = entry.split(':');
+              return { path, lines: parseInt(lines) };
+            });
+
+            let comment = `## [SIZE] Large File Detection\n\n`;
+            comment += `This PR contains ${fileCount} file${fileCount > 1 ? 's' : ''} over 400 lines:\n\n`;
+
+            files.forEach(file => {
+              const severity = file.lines > 1000 ? '[CRITICAL]' : file.lines > 600 ? '[WARNING]' : '[LARGE]';
+              comment += `${severity} \`${file.path}\` - ${file.lines} lines\n`;
+            });
+
+            comment += `\nConsider refactoring large files for better maintainability. An issue has been created to track this.`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.number,
+              body: comment
+            });
