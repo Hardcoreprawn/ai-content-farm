@@ -57,6 +57,53 @@ class ErrorCodes:
         """Create forbidden error response - backward compatibility"""
         return APIError(message=message, code=cls.AUTHORIZATION_ERROR)
 
+    # Secure error handling methods
+    @classmethod
+    def secure_internal_error(cls, actual_error: Exception, log_context: str = ""):
+        """
+        Create secure internal error response - logs actual error but returns generic message.
+
+        Args:
+            actual_error: The actual exception that occurred
+            log_context: Additional context for logging (e.g., function name, operation)
+
+        Returns:
+            APIError with generic message while logging actual error server-side
+        """
+        import logging
+
+        # Log the actual error server-side for debugging
+        if log_context:
+            logging.error(
+                f"Internal error in {log_context}: {actual_error}", exc_info=True
+            )
+        else:
+            logging.error(f"Internal error: {actual_error}", exc_info=True)
+
+        # Return generic error to client
+        return APIError(
+            message="Internal server error",
+            code=cls.INTERNAL_ERROR,
+            details="An unexpected error occurred. Please try again.",
+        )
+
+    @classmethod
+    def secure_validation_error(cls, field: str, safe_message: str):
+        """
+        Create secure validation error response - only exposes safe validation messages.
+
+        Args:
+            field: The field that failed validation
+            safe_message: A safe, user-friendly validation message
+
+        Returns:
+            APIError with safe validation message
+        """
+        return APIError(
+            message=f"Validation error in {field}: {safe_message}",
+            code=cls.VALIDATION_ERROR,
+        )
+
 
 class HealthStatus(BaseModel):
     """Health status model for health check endpoints"""
@@ -329,6 +376,67 @@ class StandardResponseFactory:
             message=message,
             data=None,
             errors=errors,
+            metadata=metadata or {"timestamp": datetime.now(timezone.utc).isoformat()},
+        )
+
+    @staticmethod
+    def secure_internal_error(
+        actual_error: Exception,
+        log_context: str = "",
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        """
+        Create secure internal error response - logs actual error but returns generic message.
+
+        Args:
+            actual_error: The actual exception that occurred
+            log_context: Additional context for logging (e.g., function name, operation)
+            metadata: Additional metadata for the response
+
+        Returns:
+            StandardResponse with generic error message while logging actual error server-side
+        """
+        import logging
+
+        # Log the actual error server-side for debugging
+        if log_context:
+            logging.error(
+                f"Internal error in {log_context}: {actual_error}", exc_info=True
+            )
+        else:
+            logging.error(f"Internal error: {actual_error}", exc_info=True)
+
+        # Return generic error to client
+        return StandardResponse(
+            status="error",
+            message="Internal server error",
+            data=None,
+            errors=["An unexpected error occurred. Please try again."],
+            metadata=metadata or {"timestamp": datetime.now(timezone.utc).isoformat()},
+        )
+
+    @staticmethod
+    def secure_validation_error(
+        field: str,
+        safe_message: str,
+        metadata: Optional[Dict[str, Any]] = None,
+    ):
+        """
+        Create secure validation error response - only exposes safe validation messages.
+
+        Args:
+            field: The field that failed validation
+            safe_message: A safe, user-friendly validation message
+            metadata: Additional metadata for the response
+
+        Returns:
+            StandardResponse with safe validation error message
+        """
+        return StandardResponse(
+            status="error",
+            message=f"Validation error in {field}",
+            data=None,
+            errors=[safe_message],
             metadata=metadata or {"timestamp": datetime.now(timezone.utc).isoformat()},
         )
 

@@ -1,16 +1,12 @@
 """
-Content # Import collector and storage utilities
-from collector import collect_content_batch
-from fastapi import FastAPI, HTTPException, status, Depends, Request
-from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from starlette.exceptions import HTTPException as StarletteHTTPExceptionector API - FastAPI Native
+Content Collector API - FastAPI Native
 
 FastAPI application for collecting content from various sources with blob storage integration.
 Refactored to use FastAPI-native patterns with Pydantic response models and dependency injection.
 """
 
 import json
+import logging
 import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -35,6 +31,7 @@ from libs.shared_models import (
     ServiceStatus,
     StandardError,
     StandardResponse,
+    StandardResponseFactory,
     add_standard_metadata,
     create_error_response,
     create_service_dependency,
@@ -48,8 +45,11 @@ app = FastAPI(
     description="API for collecting content from various sources with blob storage integration. Uses FastAPI-native standardized response formats.",
     version="1.0.0",
     docs_url="/docs",
-    redoc_url="/redoc",
 )
+
+# Define logger and constants
+logger = logging.getLogger(__name__)
+FUNCTION_NAME = "content-collector"
 
 # Custom exception handler for legacy compatibility
 
@@ -336,7 +336,7 @@ async def collect_content(request: CollectionRequest):
         return result
 
     except Exception as e:
-        # Update last collection with error
+        # Update last collection with generic error message; log actual error server-side
         execution_time = time.time() - start_time
         last_collection = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -344,11 +344,17 @@ async def collect_content(request: CollectionRequest):
             "items_collected": 0,
             "execution_time_seconds": execution_time,
             "success": False,
-            "error": str(e),
+            "error": "Internal error",  # Do not expose details to users
         }
 
-        # Re-raise with original error for test compatibility
-        raise HTTPException(status_code=500, detail=f"Collection error: {str(e)}")
+        # Log actual error server-side for debugging
+        logger.error("Error in content collection endpoint: %s", str(e), exc_info=True)
+
+        # Use secure error response instead of exposing actual error
+        error = ErrorCodes.secure_internal_error(e, "content_collection")
+        error.function_name = FUNCTION_NAME
+        response = error.to_standard_response()
+        raise HTTPException(status_code=500, detail=response.message)
 
 
 # Standardized collection endpoint - FastAPI-native
@@ -460,7 +466,7 @@ async def api_process_content(
         )
 
     except Exception as e:
-        # Update last collection with error
+        # Update last collection with generic error message; log actual error server-side
         execution_time = time.time() - start_time
         last_collection = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -468,21 +474,26 @@ async def api_process_content(
             "items_collected": 0,
             "execution_time_seconds": execution_time,
             "success": False,
-            "error": str(e),
+            "error": "Internal error",  # Do not expose details to users
         }
 
-        # Update metadata with error info
-        metadata.update(
-            {"execution_time_seconds": execution_time, "error_type": type(e).__name__}
+        # Log actual error server-side for debugging
+        logger.error(
+            "Error in standardized content collection endpoint: %s",
+            str(e),
+            exc_info=True,
         )
 
-        # Use FastAPI-native HTTPException with StandardError detail
-        raise HTTPException(
-            status_code=500,
-            detail=create_error_response(
-                message="Content collection failed", errors=[str(e)], metadata=metadata
-            ).model_dump(),
+        # Update metadata with generic error info only
+        metadata.update(
+            {"execution_time_seconds": execution_time, "error_type": "InternalError"}
         )
+
+        # Use secure error response
+        response = StandardResponseFactory.secure_internal_error(
+            e, "content_collection", metadata
+        )
+        raise HTTPException(status_code=500, detail=response.model_dump())
 
 
 # Sources endpoint - Legacy format
