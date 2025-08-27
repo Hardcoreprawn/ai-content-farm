@@ -372,7 +372,7 @@ cd containers/ssg
 **🎉 Successfully implemented the complete modular CI/CD architecture with conditional jobs!**
 
 #### Key Files Created/Updated:
-- **`.github/workflows/modular-cicd-pipeline.yml`**: New modular pipeline with conditional execution
+- **`.github/workflows/cicd-pipeline.yml`**: Modular pipeline with conditional execution
 - **`.github/actions/fast-container-deploy/action.yml`**: Direct Azure CLI container updates (bypasses Terraform)
 - **Enhanced change detection**: Intelligent pipeline planning based on file changes
 

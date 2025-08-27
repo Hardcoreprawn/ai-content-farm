@@ -2,7 +2,6 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main, develop]
-    # Removed paths-ignore - smart deployment now handles all change types appropriately
   pull_request:
     branches: [main, develop]
     paths-ignore:
@@ -18,282 +17,267 @@ permissions:
   issues: write
   actions: read
   checks: write
-  packages: write  # Required for pushing to GitHub Container Registry
-  id-token: write  # Required for Azure OIDC authentication
+  packages: write
+  id-token: write
 
 env:
   DOCKER_BUILDKIT: 1
   BUILDKIT_PROGRESS: plain
 
 jobs:
-  # Stage 1: Workflow Validation (with pre-commit hook validation)
+  # Stage 1: Change Detection & Job Planning
+  plan-pipeline:
+    name: Plan Pipeline Execution
+    runs-on: ubuntu-latest
+    outputs:
+      skip-deployment: ${{ steps.plan.outputs.skip-deployment }}
+      changed-containers: ${{ steps.plan.outputs.changed-containers }}
+      needs-infrastructure: ${{ steps.plan.outputs.needs-infrastructure }}
+      needs-security-scan: ${{ steps.plan.outputs.needs-security-scan }}
+      test-matrix: ${{ steps.plan.outputs.test-matrix }}
+      deployment-method: ${{ steps.plan.outputs.deployment-method }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Plan Pipeline Execution
+        id: plan
+        shell: bash
+        run: |
+          echo "[SCAN] Analyzing changes to plan pipeline execution..."
+
+          # Get changed files with multiple fallback methods
+          changed_files=""
+
+          if [ -z "$changed_files" ]; then
+            changed_files=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          fi
+
+          if [ -z "$changed_files" ]; then
+            changed_files=$(git diff --name-only origin/main HEAD 2>/dev/null || echo "")
+          fi
+
+          if [ -z "$changed_files" ]; then
+            changed_files=$(git show --name-only --format="" HEAD 2>/dev/null || echo "")
+          fi
+
+          echo "[FILES] Changed files:"
+          echo "$changed_files"
+
+          # Initialize decision variables
+          skip_deployment=false
+          changed_containers="[]"
+          needs_infrastructure=false
+          needs_security_scan=false
+          deployment_method="skip"
+
+          # Analyze each changed file
+          declare -A container_set
+          has_code_changes=false
+          has_only_docs=true
+
+          while IFS= read -r file; do
+            if [[ -z "$file" ]]; then continue; fi
+
+            if [[ "$file" =~ ^containers/([^/]+)/ ]]; then
+              container_name="${BASH_REMATCH[1]}"
+              container_set["$container_name"]=1
+              has_code_changes=true
+              has_only_docs=false
+              echo "[CONTAINER] Container change: $container_name"
+            elif [[ "$file" =~ ^libs/ ]] || [[ "$file" =~ ^requirements.*\.txt$ ]] || [[ "$file" == "pyproject.toml" ]]; then
+              # Libs affect all containers
+              for container in content-collector content-enricher content-generator content-processor content-ranker markdown-generator site-generator collector-scheduler; do
+                container_set["$container"]=1
+              done
+              has_code_changes=true
+              has_only_docs=false
+              echo "[LIBRARY] Library change affects all containers"
+            elif [[ "$file" =~ ^infra/ ]] || [[ "$file" =~ \.tf$ ]]; then
+              needs_infrastructure=true
+              has_only_docs=false
+              echo "[INFRA] Infrastructure change: $file"
+            elif [[ "$file" =~ ^(docs/|\.md$|\.github/workflows/|\.github/actions/|scripts/|\.pre-commit) ]]; then
+              echo "[DOC] Non-deployment change: $file"
+            else
+              has_code_changes=true
+              has_only_docs=false
+              echo "[UNKNOWN] Other change: $file"
+            fi
+          done <<< "$changed_files"          # Convert container set to JSON array
+          if [[ ${#container_set[@]} -gt 0 ]]; then
+            containers_json=$(printf '"%s",' "${!container_set[@]}" | sed 's/,$//')
+            changed_containers="[$containers_json]"
+          fi
+
+          # Determine security scan needs
+          if [[ "$has_code_changes" == true ]] || [[ "$needs_infrastructure" == true ]]; then
+            needs_security_scan=true
+          fi
+
+          # Determine deployment method
+          if [[ "$has_only_docs" == true ]]; then
+            skip_deployment=true
+            deployment_method="skip"
+          elif [[ "$has_code_changes" == true ]] && [[ "$needs_infrastructure" == false ]]; then
+            deployment_method="container-update"
+          elif [[ "$needs_infrastructure" == true ]]; then
+            deployment_method="terraform"
+          else
+            skip_deployment=true
+            deployment_method="skip"
+          fi
+
+          # Generate test matrix for parallel execution
+          test_matrix="$changed_containers"
+
+          echo "[STATS] Pipeline Plan:"
+          echo "skip-deployment=$skip_deployment"
+          echo "changed-containers=$changed_containers"
+          echo "needs-infrastructure=$needs_infrastructure"
+          echo "needs-security-scan=$needs_security_scan"
+          echo "test-matrix=$test_matrix"
+          echo "deployment-method=$deployment_method"
+
+          # Set outputs
+          {
+            echo "skip-deployment=$skip_deployment"
+            echo "changed-containers=$changed_containers"
+            echo "needs-infrastructure=$needs_infrastructure"
+            echo "needs-security-scan=$needs_security_scan"
+            echo "test-matrix=$test_matrix"
+            echo "deployment-method=$deployment_method"
+          } >> "$GITHUB_OUTPUT"
+
+  # Stage 2: Workflow Validation (Always Required)
   workflow-validation:
     name: Validate Workflows
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-
-      - name: Record Stage Start
-        id: start-time
-        run: echo "start-time=$(date +%s)" >> "$GITHUB_OUTPUT"
-
       - name: Validate Workflows
         uses: ./.github/actions/lint-workflows
 
-      - name: Calculate Stage Duration
-        id: stage-end
-        if: always()
-        run: |
-          end_time=$(date +%s)
-          start_time="${{ steps.start-time.outputs.start-time }}"
-          # Validate start_time is numeric
-          if ! [[ "$start_time" =~ ^[0-9]+$ ]]; then
-            echo "Invalid start time: $start_time"
-            exit 1
-          fi
-          duration=$((end_time - start_time))
-          echo "duration=$duration" >> "$GITHUB_OUTPUT"
-
-      - name: Monitor Stage Performance
-        if: always()
-        uses: ./.github/actions/pipeline-monitoring
-        with:
-          stage-name: 'workflow-validation'
-          stage-result: ${{ job.status }}
-          stage-duration: ${{ steps.stage-end.outputs.duration }}
-          collect-metrics: 'true'
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-  # Stage 2: Change Detection
-  change-detection:
-    name: Detect Changes
+  # Stage 3: Conditional Container Testing
+  test-containers:
+    name: Test ${{ matrix.container }}
     runs-on: ubuntu-latest
-    needs: workflow-validation
-    if: always() && needs.workflow-validation.result != 'cancelled'
-    outputs:
-      containers-changed: ${{ steps.changes.outputs.containers-changed }}
-      infra-changed: ${{ steps.changes.outputs.infrastructure-changed }}
-      libs-changed: ${{ steps.changes.outputs.libs-changed }}
-      all-containers: ${{ steps.changes.outputs.all-containers }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-      - name: Detect Changes
-        id: changes
-        uses: ./.github/actions/detect-changes
-        with:
-          force-build-all: ${{ github.ref == 'refs/heads/main' && 'true' || 'false' }}
-
-  # Stage 3: Test Matrix Generation for Parallel Testing
-  test-matrix:
-    name: Generate Test Matrix
-    runs-on: ubuntu-latest
-    needs: [change-detection]
-    if: needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true'
-    outputs:
-      matrix: ${{ steps.generate.outputs.matrix }}
-      containers-count: ${{ steps.generate.outputs.containers-count }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Generate Container Test Matrix
-        id: generate
-        uses: ./.github/actions/generate-test-matrix
-        with:
-          libs-changed: ${{ needs.change-detection.outputs.libs-changed }}
-          all-containers: ${{ needs.change-detection.outputs.all-containers }}
-          containers-changed: ${{ needs.change-detection.outputs.containers-changed }}
-
-  # Stage 4: Quality Gates + Container Tests (Parallel Execution)
-
-  # Container Tests - Run in parallel with quality checks
-  container-tests:
-    name: Test ${{ matrix.container }} (${{ matrix.test-type }})
-    runs-on: ubuntu-latest
-    needs: [test-matrix, dependency-analysis]
-    if: needs.test-matrix.outputs.matrix != '[]'
+    needs: [plan-pipeline, workflow-validation]
+    if: needs.plan-pipeline.outputs.changed-containers != '[]' && needs.workflow-validation.result == 'success'
     strategy:
       matrix:
-        container: ${{ fromJson(needs.test-matrix.outputs.matrix) }}
-        test-type: [unit, integration]
-        exclude:
-          - container: collector-scheduler
-            test-type: integration
-          - container: markdown-generator
-            test-type: integration
+        container: ${{ fromJson(needs.plan-pipeline.outputs.changed-containers) }}
       fail-fast: false
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-      - name: Download Dependency Analysis Results
-        uses: actions/download-artifact@v4
-        with:
-          name: security-results-dependencies
-          path: security-results/
-        continue-on-error: true
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-      - name: Test Container
+
+      - name: Test Container (${{ matrix.container }})
         uses: ./.github/actions/test-single-container
         with:
           container-name: ${{ matrix.container }}
-          test-type: ${{ matrix.test-type }}
+          test-type: unit
           upload-coverage: 'true'
 
-  security-trivy:
-    name: Trivy Security Scan
+      - name: Integration Test Container (${{ matrix.container }})
+        if: matrix.container != 'collector-scheduler' && matrix.container != 'markdown-generator'
+        uses: ./.github/actions/test-single-container
+        with:
+          container-name: ${{ matrix.container }}
+          test-type: integration
+          upload-coverage: 'false'
+
+  # Stage 4: Conditional Security Scans
+  security-scans:
+    name: Security Scans
     runs-on: ubuntu-latest
-    needs: [workflow-validation, change-detection]
-    if: needs.workflow-validation.result == 'success'
+    needs: [plan-pipeline, workflow-validation]
+    if: needs.plan-pipeline.outputs.needs-security-scan == 'true' && needs.workflow-validation.result == 'success'
+    strategy:
+      matrix:
+        scan-type: [trivy, semgrep, python, sbom]
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-      - name: Run Trivy Scan
+
+      - name: Run Trivy Security Scan
+        if: matrix.scan-type == 'trivy'
         uses: ./.github/actions/security-trivy
 
+      - name: Run Semgrep Security Scan
+        if: matrix.scan-type == 'semgrep'
+        uses: ./.github/actions/security-semgrep
+
+      - name: Run Python Security Scan
+        if: matrix.scan-type == 'python'
+        uses: ./.github/actions/security-python
+
+      - name: Generate SBOM
+        if: matrix.scan-type == 'sbom'
+        uses: ./.github/actions/security-sbom  # Stage 5: Conditional Infrastructure Quality
   infrastructure-quality:
     name: Infrastructure Quality
     runs-on: ubuntu-latest
-    needs: [workflow-validation, change-detection]
-    if: needs.workflow-validation.result == 'success'
+    needs: [plan-pipeline, workflow-validation]
+    if: needs.plan-pipeline.outputs.needs-infrastructure == 'true' && needs.workflow-validation.result == 'success'
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+
       - name: Run Infrastructure Quality Checks
         uses: ./.github/actions/infrastructure-quality
         with:
-          infra-changed: ${{ needs.change-detection.outputs.infra-changed }}
+          infra-changed: 'true'
 
-  security-semgrep:
-    name: Semgrep SAST Scan
-    runs-on: ubuntu-latest
-    needs: [workflow-validation, change-detection]
-    if: needs.workflow-validation.result == 'success' && (needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true')
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Run Semgrep Scan
-        uses: ./.github/actions/security-semgrep
-
-  security-python:
-    name: Python Security Scan
-    runs-on: ubuntu-latest
-    needs: [workflow-validation, change-detection]
-    if: needs.workflow-validation.result == 'success' && (needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true')
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Run Python Security Scan
-        uses: ./.github/actions/security-python
-
-  security-sbom:
-    name: SBOM Generation
-    runs-on: ubuntu-latest
-    needs: [workflow-validation, change-detection]
-    if: needs.workflow-validation.result == 'success' && (needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true')
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Generate SBOM
-        uses: ./.github/actions/security-sbom
-
-  security-checkov:
-    name: Checkov Infrastructure Scan
-    runs-on: ubuntu-latest
-    needs: [workflow-validation, change-detection]
-    if: needs.change-detection.outputs.infra-changed == 'true'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Run Checkov Scan
+      - name: Run Checkov Infrastructure Scan
         uses: ./.github/actions/security-checkov
 
-  auto-fix-formatting:
-    name: Auto-fix Code Formatting
-    runs-on: ubuntu-latest
-    needs: [workflow-validation, change-detection]
-    if: needs.workflow-validation.result == 'success' && github.event_name == 'pull_request' && (needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true')
-    permissions:
-      contents: write
-      pull-requests: write
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.head_ref }}
-      - name: Auto-fix Code Formatting
-        uses: ./.github/actions/auto-fix-formatting
-
-  code-quality:
-    name: Code Quality
-    runs-on: ubuntu-latest
-    needs: [workflow-validation, change-detection, auto-fix-formatting]
-    if: always() && !cancelled() && needs.workflow-validation.result == 'success' && (needs.change-detection.outputs.containers-changed != '' || needs.change-detection.outputs.libs-changed == 'true')
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Run Code Quality Checks
-        uses: ./.github/actions/code-quality
-
-  dependency-analysis:
-    name: Dependency Analysis
-    runs-on: ubuntu-latest
-    needs: [workflow-validation, change-detection]
-    if: needs.workflow-validation.result == 'success'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Run Dependency Security Analysis
-        uses: ./.github/actions/dependency-analysis
-
-  cost-analysis:
-    name: Cost Analysis
-    runs-on: ubuntu-latest
-    needs: [workflow-validation, change-detection]
-    if: needs.workflow-validation.result == 'success' && needs.change-detection.outputs.infra-changed == 'true'
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
       - name: Analyze Infrastructure Costs
         uses: ./.github/actions/cost-analysis
         with:
           infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
           comment-on-pr: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
 
-  # Stage 5: Conditional Container Build & Registry Push
-  container-test-summary:
-    name: Container Test Summary
+  # Stage 6: Code Quality (Only for Code Changes)
+  code-quality:
+    name: Code Quality
     runs-on: ubuntu-latest
-    needs: [container-tests]
-    if: always() && needs.container-tests.result != 'skipped'
-    outputs:
-      passed-containers: ${{ steps.summary.outputs.passed-containers }}
-      failed-containers: ${{ steps.summary.outputs.failed-containers }}
-      containers-to-build: ${{ steps.summary.outputs.containers-to-build }}
+    needs: [plan-pipeline, workflow-validation]
+    if: needs.plan-pipeline.outputs.changed-containers != '[]' && needs.workflow-validation.result == 'success'
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-      - name: Collect Test Results
-        id: summary
-        uses: ./.github/actions/collect-test-results
-        with:
-          test-jobs: ${{ toJson(needs.container-tests) }}
 
-  build-and-push-containers:
-    name: Build & Push ${{ matrix.container }}
+      - name: Auto-fix Code Formatting
+        if: github.event_name == 'pull_request'
+        uses: ./.github/actions/auto-fix-formatting
+
+      - name: Run Code Quality Checks
+        uses: ./.github/actions/code-quality
+
+  # Stage 7: Conditional Container Builds
+  build-containers:
+    name: Build ${{ matrix.container }}
     runs-on: ubuntu-latest
-    needs: [container-test-summary, dependency-analysis]
-    if: needs.container-test-summary.outputs.containers-to-build != '[]'
+    needs: [plan-pipeline, test-containers, security-scans, code-quality]
+    if: |
+      always() &&
+      needs.plan-pipeline.outputs.changed-containers != '[]' &&
+      needs.test-containers.result == 'success' &&
+      (needs.security-scans.result == 'success' || needs.security-scans.result == 'skipped') &&
+      (needs.code-quality.result == 'success' || needs.code-quality.result == 'skipped')
     strategy:
       matrix:
-        container: ${{ fromJson(needs.container-test-summary.outputs.containers-to-build) }}
+        container: ${{ fromJson(needs.plan-pipeline.outputs.changed-containers) }}
       fail-fast: false
     permissions:
       contents: read
@@ -301,24 +285,21 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-      - name: Download Dependency Analysis Results
-        uses: actions/download-artifact@v4
-        with:
-          name: security-results-dependencies
-          path: security-results/
-        continue-on-error: true
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
         with:
           driver-opts: |
             network=host
+
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and Push Container
+
+      - name: Build and Push Container (${{ matrix.container }})
         uses: ./.github/actions/build-and-push-container
         with:
           container-name: ${{ matrix.container }}
@@ -326,105 +307,144 @@ jobs:
           repository: ${{ github.repository }}
           tag: ${{ github.sha }}
           enable-cache: 'true'
-          dependency-results-path: 'security-results/'
 
-  container-build-summary:
-    name: Container Build Summary
+  # Stage 8: Deployment Planning
+  prepare-deployment:
+    name: Prepare Deployment
     runs-on: ubuntu-latest
-    needs: [build-and-push-containers, container-test-summary]
-    if: always() && needs.build-and-push-containers.result != 'skipped'
+    needs: [plan-pipeline, build-containers, infrastructure-quality]
+    if: |
+      always() &&
+      needs.plan-pipeline.outputs.skip-deployment == 'false' &&
+      (needs.build-containers.result == 'success' || needs.build-containers.result == 'skipped') &&
+      (needs.infrastructure-quality.result == 'success' || needs.infrastructure-quality.result == 'skipped')
     outputs:
-      registry-images: ${{ steps.summary.outputs.registry-images }}
-      build-summary: ${{ steps.summary.outputs.build-summary }}
+      registry-images: ${{ steps.collect.outputs.registry-images }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+
       - name: Collect Build Results
-        id: summary
+        id: collect
         uses: ./.github/actions/collect-build-summary
         with:
-          build-jobs: ${{ toJson(needs.build-and-push-containers) }}
+          build-jobs: ${{ toJson(needs.build-containers) }}
           registry: 'ghcr.io'
           commit-sha: ${{ github.sha }}
 
-  # Stage 6: Build Report (Quality Gates + Test Results)
-  build-report:
-    name: Build Report
+  # Stage 9: Conditional Deployment
+  deploy-containers:
+    name: Deploy (Container Update)
     runs-on: ubuntu-latest
-    needs: [security-trivy, security-semgrep, security-python, security-sbom, security-checkov, auto-fix-formatting, code-quality, infrastructure-quality, dependency-analysis, cost-analysis, container-build-summary, container-tests, container-test-summary, build-and-push-containers]
-    if: always() && !cancelled()
-    outputs:
-      build-passed: ${{ steps.report.outputs.build-passed }}
-      quality-passed: ${{ steps.report.outputs.quality-passed }}
-      tests-passed: ${{ steps.report.outputs.tests-passed }}
-      summary: ${{ steps.report.outputs.summary }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Generate Build Report
-        id: report
-        uses: ./.github/actions/build-report
-        with:
-          security-trivy-result: ${{ needs.security-trivy.result }}
-          security-semgrep-result: ${{ needs.security-semgrep.result }}
-          security-python-result: ${{ needs.security-python.result }}
-          security-sbom-result: ${{ needs.security-sbom.result }}
-          security-checkov-result: ${{ needs.security-checkov.result }}
-          auto-fix-formatting-result: ${{ needs.auto-fix-formatting.result }}
-          code-quality-result: ${{ needs.code-quality.result }}
-          infrastructure-result: ${{ needs.infrastructure-quality.result }}
-          dependency-result: ${{ needs.dependency-analysis.result }}
-          cost-analysis-result: ${{ needs.cost-analysis.result }}
-          containers-to-test: ${{ needs.container-test-summary.outputs.containers-to-build }}
-          containers-json: ${{ needs.container-test-summary.outputs.passed-containers }}
-          container-tests-result: ${{ needs.container-tests.result }}
-          container-build-result: ${{ needs.build-and-push-containers.result }}
-
-  # Stage 7: Deployment (Production Only)
-  deployment:
-    name: Deploy to Production
-    runs-on: ubuntu-latest
-    needs: [build-report, cost-analysis, container-build-summary, build-and-push-containers]
+    needs: [plan-pipeline, prepare-deployment]
     if: |
       github.ref == 'refs/heads/main' &&
-      always() &&
-      needs.build-report.outputs.build-passed == 'true' &&
-      (needs.cost-analysis.result == 'success' || needs.cost-analysis.result == 'skipped') &&
-      (needs.build-and-push-containers.result == 'success' || needs.build-and-push-containers.result == 'skipped')
+      needs.plan-pipeline.outputs.deployment-method == 'container-update' &&
+      needs.prepare-deployment.result == 'success'
     environment: production
     outputs:
-      deployment-url: ${{ steps.deploy.outputs.deployment-url }}
+      deployment-url: ${{ steps.fast-deploy.outputs.deployment-url }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
+
       - name: Azure Login via OIDC
         uses: azure/login@v2
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - name: Smart Deploy to Azure
-        id: deploy
+
+      - name: Fast Container Deployment
+        id: fast-deploy
+        uses: ./.github/actions/fast-container-deploy
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          environment: production
+          registry-images: ${{ needs.prepare-deployment.outputs.registry-images }}
+
+  deploy-infrastructure:
+    name: Deploy (Full Terraform)
+    runs-on: ubuntu-latest
+    needs: [plan-pipeline, prepare-deployment]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      needs.plan-pipeline.outputs.deployment-method == 'terraform' &&
+      needs.prepare-deployment.result == 'success'
+    environment: production
+    outputs:
+      deployment-url: ${{ steps.terraform-deploy.outputs.deployment-url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Full Terraform Deployment
+        id: terraform-deploy
         uses: ./.github/actions/smart-deploy
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           environment: production
-          registry-images: ${{ needs.container-build-summary.outputs.registry-images }}
+          registry-images: ${{ needs.prepare-deployment.outputs.registry-images }}
           terraform-storage-account: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT_PROD || 'aicontentfarmtfstate' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-  # Stage 8: Post-Deployment Tests
-  post-deployment:
-    name: Post-Deployment Validation
+  # Stage 10: Post-Deployment Validation
+  validate-deployment:
+    name: Validate Deployment
     runs-on: ubuntu-latest
-    needs: deployment
-    if: needs.deployment.result == 'success' && needs.deployment.outputs.deployment-url != 'N/A (no deployment performed)'
+    needs: [deploy-containers, deploy-infrastructure]
+    if: |
+      always() &&
+      (needs.deploy-containers.result == 'success' || needs.deploy-infrastructure.result == 'success')
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
-      - name: Validate Deployment
+
+      - name: Post-Deployment Tests
         uses: ./.github/actions/post-deployment
         with:
-          deployment-url: ${{ needs.deployment.outputs.deployment-url }}
+          deployment-url: ${{ needs.deploy-containers.outputs.deployment-url || needs.deploy-infrastructure.outputs.deployment-url }}
+
+  # Stage 11: Pipeline Summary
+  pipeline-summary:
+    name: Pipeline Summary
+    runs-on: ubuntu-latest
+    needs: [plan-pipeline, workflow-validation, test-containers, security-scans, infrastructure-quality, code-quality, build-containers, deploy-containers, deploy-infrastructure, validate-deployment]
+    if: always()
+    steps:
+      - name: Generate Pipeline Summary
+        shell: bash
+        run: |
+          {
+            echo "# [DEPLOY] CI/CD Pipeline Summary"
+            echo ""
+            echo "## [PLAN] Execution Plan"
+            echo "- **Deployment Method**: ${{ needs.plan-pipeline.outputs.deployment-method }}"
+            echo "- **Changed Containers**: ${{ needs.plan-pipeline.outputs.changed-containers }}"
+            echo "- **Infrastructure Changes**: ${{ needs.plan-pipeline.outputs.needs-infrastructure }}"
+            echo "- **Security Scans**: ${{ needs.plan-pipeline.outputs.needs-security-scan }}"
+            echo ""
+            echo "## [STATS] Job Results"
+            echo "| Stage | Result |"
+            echo "|-------|--------|"
+            echo "| Workflow Validation | ${{ needs.workflow-validation.result }} |"
+            echo "| Container Tests | ${{ needs.test-containers.result }} |"
+            echo "| Security Scans | ${{ needs.security-scans.result }} |"
+            echo "| Infrastructure Quality | ${{ needs.infrastructure-quality.result }} |"
+            echo "| Code Quality | ${{ needs.code-quality.result }} |"
+            echo "| Container Builds | ${{ needs.build-containers.result }} |"
+            echo "| Container Deployment | ${{ needs.deploy-containers.result }} |"
+            echo "| Infrastructure Deployment | ${{ needs.deploy-infrastructure.result }} |"
+            echo "| Deployment Validation | ${{ needs.validate-deployment.result }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
