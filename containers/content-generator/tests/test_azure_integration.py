@@ -6,8 +6,9 @@ Test Azure OpenAI integration and demonstrate content generation capabilities
 import os
 import sys
 
-from config import config
 from models import RankedTopic, SourceData
+
+from config import config
 
 # Add the parent directory to the path to allow imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

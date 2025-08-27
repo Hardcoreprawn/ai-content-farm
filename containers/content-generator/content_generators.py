@@ -5,9 +5,9 @@ from datetime import datetime
 from typing import Optional
 
 from ai_clients import AIClientManager
+from models import GeneratedContent, RankedTopic
 
 from config import config
-from models import GeneratedContent, RankedTopic
 
 # Configure logging
 logger = logging.getLogger(__name__)

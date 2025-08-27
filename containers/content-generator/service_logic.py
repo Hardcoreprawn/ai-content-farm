@@ -8,10 +8,6 @@ from typing import Any, Dict, List, Optional
 from ai_clients import AIClientManager
 from blob_events import BlobEventProcessor
 from content_generators import ContentGenerators
-
-from libs.blob_storage import BlobStorageClient, get_blob_client
-
-from config import config
 from models import (
     BatchGenerationRequest,
     BatchGenerationResponse,
@@ -20,6 +16,9 @@ from models import (
     GenerationStatus,
     RankedTopic,
 )
+
+from config import config
+from libs.blob_storage import BlobStorageClient, get_blob_client
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

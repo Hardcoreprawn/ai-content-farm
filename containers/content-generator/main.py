@@ -6,9 +6,6 @@ from datetime import datetime, timedelta
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-
-# Updated: Container test improvements and build reporting enhancements
-from config import config
 from models import (
     BatchGenerationRequest,
     BatchGenerationResponse,
@@ -20,6 +17,9 @@ from models import (
     StatusResponse,
 )
 from service_logic import ContentGeneratorService, content_generator
+
+# Updated: Container test improvements and build reporting enhancements
+from config import config
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)

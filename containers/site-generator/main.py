@@ -20,15 +20,14 @@ from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from health import HealthChecker
+from models import *
 from pydantic import BaseModel, Field
-
-from libs.blob_storage import BlobContainers, BlobStorageClient
+from service_logic import SiteProcessor
 
 # Import local modules
 from config import get_config, validate_environment
-from health import HealthChecker
-from models import *
-from service_logic import SiteProcessor
+from libs.blob_storage import BlobContainers, BlobStorageClient
 
 # Configure logging
 logging.basicConfig(

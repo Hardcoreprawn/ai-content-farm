@@ -19,12 +19,12 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from processor import process_reddit_batch, transform_reddit_post
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
+from service_logic import ContentProcessorService
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from config import get_config, health_check
-from processor import process_reddit_batch, transform_reddit_post
-from service_logic import ContentProcessorService
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 sys.path.insert(

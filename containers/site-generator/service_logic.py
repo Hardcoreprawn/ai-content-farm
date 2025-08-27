@@ -13,21 +13,20 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from template_manager import create_template_manager
-
-from libs.blob_storage import (
-    BlobContainers,
-    BlobStorageClient,
-    get_timestamped_blob_name,
-)
-
-from config import get_config
 from models import (
     ContentItem,
     GenerationRequest,
     GenerationStatus,
     GenerationStatusResponse,
     SiteMetadata,
+)
+from template_manager import create_template_manager
+
+from config import get_config
+from libs.blob_storage import (
+    BlobContainers,
+    BlobStorageClient,
+    get_timestamped_blob_name,
 )
 
 logger = logging.getLogger(__name__)

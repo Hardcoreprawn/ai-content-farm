@@ -17,9 +17,10 @@ if not os.getenv("AZURE_STORAGE_CONNECTION_STRING"):
         "DefaultEndpointsProtocol=https;AccountName=test;AccountKey=dGVzdA==;EndpointSuffix=core.windows.net"
     )
 
-from config import ServiceConfig, get_config, validate_environment
 from health import HealthChecker
 from service_logic import SiteProcessor
+
+from config import ServiceConfig, get_config, validate_environment
 
 
 class TestConfigModule:

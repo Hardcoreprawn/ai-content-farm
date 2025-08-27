@@ -21,22 +21,6 @@ import uvicorn
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field, ValidationError
-
-# Import our business logic
-from ranker import rank_content_items
-from starlette.exceptions import HTTPException as StarletteHTTPException
-
-from libs.shared_models import (
-    APIError,
-    ErrorCodes,
-    HealthStatus,
-    ServiceStatus,
-    StandardResponse,
-    wrap_legacy_response,
-)
-
-from config import get_config, health_check
 from models import (
     BatchRankingRequest,
     ContentItem,
@@ -47,7 +31,22 @@ from models import (
     RankingResponse,
     SpecificRankingRequest,
 )
+from pydantic import BaseModel, Field, ValidationError
+
+# Import our business logic
+from ranker import rank_content_items
 from service_logic import ContentRankerService
+from starlette.exceptions import HTTPException as StarletteHTTPException
+
+from config import get_config, health_check
+from libs.shared_models import (
+    APIError,
+    ErrorCodes,
+    HealthStatus,
+    ServiceStatus,
+    StandardResponse,
+    wrap_legacy_response,
+)
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 

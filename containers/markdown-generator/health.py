@@ -4,9 +4,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict
 
-from libs.blob_storage import BlobStorageClient
-
 from config import config
+from libs.blob_storage import BlobStorageClient
 
 logger = logging.getLogger(__name__)
 

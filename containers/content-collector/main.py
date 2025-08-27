@@ -20,8 +20,11 @@ from collector import collect_content_batch
 from fastapi import Depends, FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from models import CollectionRequest
+from service_logic import ContentCollectorService
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from config import Config
 from libs.blob_storage import BlobContainers, BlobStorageClient
 
 # Import FastAPI-native standardized models
@@ -38,10 +41,6 @@ from libs.shared_models import (
     create_success_response,
     wrap_legacy_response,
 )
-
-from config import Config
-from models import CollectionRequest
-from service_logic import ContentCollectorService
 
 # Initialize FastAPI app with enhanced documentation
 app = FastAPI(

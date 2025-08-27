@@ -8,9 +8,8 @@ from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from openai import AzureOpenAI
 
-from libs.blob_storage import BlobStorageClient
-
 from config import Config
+from libs.blob_storage import BlobStorageClient
 
 logger = logging.getLogger(__name__)
 

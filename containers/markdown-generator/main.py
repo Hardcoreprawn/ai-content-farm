@@ -7,13 +7,12 @@ from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-
-from libs.blob_storage import BlobStorageClient
-
-from config import config
 from health import HealthChecker
 from models import GenerationResult, HealthCheckResponse, MarkdownRequest, ServiceStatus
 from service_logic import ContentWatcher, MarkdownGenerator
+
+from config import config
+from libs.blob_storage import BlobStorageClient
 
 # Configure logging
 logging.basicConfig(

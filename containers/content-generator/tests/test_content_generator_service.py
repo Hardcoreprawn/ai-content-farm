@@ -3,7 +3,6 @@
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-
 from models import GeneratedContent, RankedTopic, SourceData
 from service_logic import ContentGeneratorService
 

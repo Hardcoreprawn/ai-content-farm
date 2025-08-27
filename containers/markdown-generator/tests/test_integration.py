@@ -5,10 +5,9 @@ from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from service_logic import ContentWatcher, MarkdownGenerator
 
 from libs.blob_storage import BlobContainers, BlobStorageClient
-
-from service_logic import ContentWatcher, MarkdownGenerator
 
 
 class TestMarkdownGeneratorIntegration:

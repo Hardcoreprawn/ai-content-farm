@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 import httpx
 import pytest
-
 from models import GeneratedContent, RankedTopic, SourceData
 from service_logic import ContentGeneratorService
 
