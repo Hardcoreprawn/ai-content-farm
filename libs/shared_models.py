@@ -280,6 +280,24 @@ class APIError(BaseModel):
     message: str
     code: str = "INTERNAL_ERROR"
     details: Optional[Any] = None
+    function_name: Optional[str] = None  # For backward compatibility
+
+    def to_standard_response(self) -> StandardResponse:
+        """Convert APIError to StandardResponse format for backward compatibility"""
+        metadata = {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "error_code": self.code,
+        }
+        if self.function_name:
+            metadata["function"] = self.function_name
+
+        return StandardResponse(
+            status="error",
+            message=self.message,
+            data=None,
+            errors=[self.details] if self.details else None,
+            metadata=metadata,
+        )
 
 
 # Backward compatibility factory class for old StandardResponse usage
