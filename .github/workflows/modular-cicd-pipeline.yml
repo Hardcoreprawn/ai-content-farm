@@ -1,0 +1,450 @@
+name: Modular CI/CD Pipeline
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+    paths-ignore:
+      - '.github/workflows/**'
+      - '.github/actions/**'
+      - '**.md'
+      - 'docs/**'
+
+permissions:
+  contents: read
+  security-events: write
+  pull-requests: write
+  issues: write
+  actions: read
+  checks: write
+  packages: write
+  id-token: write
+
+env:
+  DOCKER_BUILDKIT: 1
+  BUILDKIT_PROGRESS: plain
+
+jobs:
+  # Stage 1: Change Detection & Job Planning
+  plan-pipeline:
+    name: Plan Pipeline Execution
+    runs-on: ubuntu-latest
+    outputs:
+      skip-deployment: ${{ steps.plan.outputs.skip-deployment }}
+      changed-containers: ${{ steps.plan.outputs.changed-containers }}
+      needs-infrastructure: ${{ steps.plan.outputs.needs-infrastructure }}
+      needs-security-scan: ${{ steps.plan.outputs.needs-security-scan }}
+      test-matrix: ${{ steps.plan.outputs.test-matrix }}
+      deployment-method: ${{ steps.plan.outputs.deployment-method }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Plan Pipeline Execution
+        id: plan
+        shell: bash
+        run: |
+          echo "[SCAN] Analyzing changes to plan pipeline execution..."
+
+          # Get changed files with multiple fallback methods
+          changed_files=""
+
+          if [ -z "$changed_files" ]; then
+            changed_files=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+          fi
+
+          if [ -z "$changed_files" ]; then
+            changed_files=$(git diff --name-only origin/main HEAD 2>/dev/null || echo "")
+          fi
+
+          if [ -z "$changed_files" ]; then
+            changed_files=$(git show --name-only --format="" HEAD 2>/dev/null || echo "")
+          fi
+
+          echo "[FILES] Changed files:"
+          echo "$changed_files"
+
+          # Initialize decision variables
+          skip_deployment=false
+          changed_containers="[]"
+          needs_infrastructure=false
+          needs_security_scan=false
+          deployment_method="skip"
+
+          # Analyze each changed file
+          declare -A container_set
+          has_code_changes=false
+          has_only_docs=true
+
+          while IFS= read -r file; do
+            if [[ -z "$file" ]]; then continue; fi
+
+            if [[ "$file" =~ ^containers/([^/]+)/ ]]; then
+              container_name="${BASH_REMATCH[1]}"
+              container_set["$container_name"]=1
+              has_code_changes=true
+              has_only_docs=false
+              echo "[CONTAINER] Container change: $container_name"
+            elif [[ "$file" =~ ^libs/ ]] || [[ "$file" =~ ^requirements.*\.txt$ ]] || [[ "$file" == "pyproject.toml" ]]; then
+              # Libs affect all containers
+              for container in content-collector content-enricher content-generator content-processor content-ranker markdown-generator site-generator collector-scheduler; do
+                container_set["$container"]=1
+              done
+              has_code_changes=true
+              has_only_docs=false
+              echo "[LIBRARY] Library change affects all containers"
+            elif [[ "$file" =~ ^infra/ ]] || [[ "$file" =~ \.tf$ ]]; then
+              needs_infrastructure=true
+              has_only_docs=false
+              echo "[INFRA] Infrastructure change: $file"
+            elif [[ "$file" =~ ^(docs/|\.md$|\.github/workflows/|\.github/actions/|scripts/|\.pre-commit) ]]; then
+              echo "[DOC] Non-deployment change: $file"
+            else
+              has_code_changes=true
+              has_only_docs=false
+              echo "[UNKNOWN] Other change: $file"
+            fi
+          done <<< "$changed_files"          # Convert container set to JSON array
+          if [[ ${#container_set[@]} -gt 0 ]]; then
+            containers_json=$(printf '"%s",' "${!container_set[@]}" | sed 's/,$//')
+            changed_containers="[$containers_json]"
+          fi
+
+          # Determine security scan needs
+          if [[ "$has_code_changes" == true ]] || [[ "$needs_infrastructure" == true ]]; then
+            needs_security_scan=true
+          fi
+
+          # Determine deployment method
+          if [[ "$has_only_docs" == true ]]; then
+            skip_deployment=true
+            deployment_method="skip"
+          elif [[ "$has_code_changes" == true ]] && [[ "$needs_infrastructure" == false ]]; then
+            deployment_method="container-update"
+          elif [[ "$needs_infrastructure" == true ]]; then
+            deployment_method="terraform"
+          else
+            skip_deployment=true
+            deployment_method="skip"
+          fi
+
+          # Generate test matrix for parallel execution
+          test_matrix="$changed_containers"
+
+          echo "[STATS] Pipeline Plan:"
+          echo "skip-deployment=$skip_deployment"
+          echo "changed-containers=$changed_containers"
+          echo "needs-infrastructure=$needs_infrastructure"
+          echo "needs-security-scan=$needs_security_scan"
+          echo "test-matrix=$test_matrix"
+          echo "deployment-method=$deployment_method"
+
+          # Set outputs
+          {
+            echo "skip-deployment=$skip_deployment"
+            echo "changed-containers=$changed_containers"
+            echo "needs-infrastructure=$needs_infrastructure"
+            echo "needs-security-scan=$needs_security_scan"
+            echo "test-matrix=$test_matrix"
+            echo "deployment-method=$deployment_method"
+          } >> "$GITHUB_OUTPUT"
+
+  # Stage 2: Workflow Validation (Always Required)
+  workflow-validation:
+    name: Validate Workflows
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+      - name: Validate Workflows
+        uses: ./.github/actions/lint-workflows
+
+  # Stage 3: Conditional Container Testing
+  test-containers:
+    name: Test ${{ matrix.container }}
+    runs-on: ubuntu-latest
+    needs: [plan-pipeline, workflow-validation]
+    if: needs.plan-pipeline.outputs.changed-containers != '[]' && needs.workflow-validation.result == 'success'
+    strategy:
+      matrix:
+        container: ${{ fromJson(needs.plan-pipeline.outputs.changed-containers) }}
+      fail-fast: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Test Container (${{ matrix.container }})
+        uses: ./.github/actions/test-single-container
+        with:
+          container-name: ${{ matrix.container }}
+          test-type: unit
+          upload-coverage: 'true'
+
+      - name: Integration Test Container (${{ matrix.container }})
+        if: matrix.container != 'collector-scheduler' && matrix.container != 'markdown-generator'
+        uses: ./.github/actions/test-single-container
+        with:
+          container-name: ${{ matrix.container }}
+          test-type: integration
+          upload-coverage: 'false'
+
+  # Stage 4: Conditional Security Scans
+  security-scans:
+    name: Security Scans
+    runs-on: ubuntu-latest
+    needs: [plan-pipeline, workflow-validation]
+    if: needs.plan-pipeline.outputs.needs-security-scan == 'true' && needs.workflow-validation.result == 'success'
+    strategy:
+      matrix:
+        scan-type: [trivy, semgrep, python, sbom]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Run Trivy Security Scan
+        if: matrix.scan-type == 'trivy'
+        uses: ./.github/actions/security-trivy
+
+      - name: Run Semgrep Security Scan
+        if: matrix.scan-type == 'semgrep'
+        uses: ./.github/actions/security-semgrep
+
+      - name: Run Python Security Scan
+        if: matrix.scan-type == 'python'
+        uses: ./.github/actions/security-python
+
+      - name: Generate SBOM
+        if: matrix.scan-type == 'sbom'
+        uses: ./.github/actions/security-sbom  # Stage 5: Conditional Infrastructure Quality
+  infrastructure-quality:
+    name: Infrastructure Quality
+    runs-on: ubuntu-latest
+    needs: [plan-pipeline, workflow-validation]
+    if: needs.plan-pipeline.outputs.needs-infrastructure == 'true' && needs.workflow-validation.result == 'success'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Run Infrastructure Quality Checks
+        uses: ./.github/actions/infrastructure-quality
+        with:
+          infra-changed: 'true'
+
+      - name: Run Checkov Infrastructure Scan
+        uses: ./.github/actions/security-checkov
+
+      - name: Analyze Infrastructure Costs
+        uses: ./.github/actions/cost-analysis
+        with:
+          infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
+          comment-on-pr: ${{ github.event_name == 'pull_request' && 'true' || 'false' }}
+
+  # Stage 6: Code Quality (Only for Code Changes)
+  code-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    needs: [plan-pipeline, workflow-validation]
+    if: needs.plan-pipeline.outputs.changed-containers != '[]' && needs.workflow-validation.result == 'success'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Auto-fix Code Formatting
+        if: github.event_name == 'pull_request'
+        uses: ./.github/actions/auto-fix-formatting
+
+      - name: Run Code Quality Checks
+        uses: ./.github/actions/code-quality
+
+  # Stage 7: Conditional Container Builds
+  build-containers:
+    name: Build ${{ matrix.container }}
+    runs-on: ubuntu-latest
+    needs: [plan-pipeline, test-containers, security-scans, code-quality]
+    if: |
+      always() &&
+      needs.plan-pipeline.outputs.changed-containers != '[]' &&
+      needs.test-containers.result == 'success' &&
+      (needs.security-scans.result == 'success' || needs.security-scans.result == 'skipped') &&
+      (needs.code-quality.result == 'success' || needs.code-quality.result == 'skipped')
+    strategy:
+      matrix:
+        container: ${{ fromJson(needs.plan-pipeline.outputs.changed-containers) }}
+      fail-fast: false
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            network=host
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Container (${{ matrix.container }})
+        uses: ./.github/actions/build-and-push-container
+        with:
+          container-name: ${{ matrix.container }}
+          registry: 'ghcr.io'
+          repository: ${{ github.repository }}
+          tag: ${{ github.sha }}
+          enable-cache: 'true'
+
+  # Stage 8: Deployment Planning
+  prepare-deployment:
+    name: Prepare Deployment
+    runs-on: ubuntu-latest
+    needs: [plan-pipeline, build-containers, infrastructure-quality]
+    if: |
+      always() &&
+      needs.plan-pipeline.outputs.skip-deployment == 'false' &&
+      (needs.build-containers.result == 'success' || needs.build-containers.result == 'skipped') &&
+      (needs.infrastructure-quality.result == 'success' || needs.infrastructure-quality.result == 'skipped')
+    outputs:
+      registry-images: ${{ steps.collect.outputs.registry-images }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Collect Build Results
+        id: collect
+        uses: ./.github/actions/collect-build-summary
+        with:
+          build-jobs: ${{ toJson(needs.build-containers) }}
+          registry: 'ghcr.io'
+          commit-sha: ${{ github.sha }}
+
+  # Stage 9: Conditional Deployment
+  deploy-containers:
+    name: Deploy (Container Update)
+    runs-on: ubuntu-latest
+    needs: [plan-pipeline, prepare-deployment]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      needs.plan-pipeline.outputs.deployment-method == 'container-update' &&
+      needs.prepare-deployment.result == 'success'
+    environment: production
+    outputs:
+      deployment-url: ${{ steps.fast-deploy.outputs.deployment-url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Fast Container Deployment
+        id: fast-deploy
+        uses: ./.github/actions/fast-container-deploy
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          environment: production
+          registry-images: ${{ needs.prepare-deployment.outputs.registry-images }}
+
+  deploy-infrastructure:
+    name: Deploy (Full Terraform)
+    runs-on: ubuntu-latest
+    needs: [plan-pipeline, prepare-deployment]
+    if: |
+      github.ref == 'refs/heads/main' &&
+      needs.plan-pipeline.outputs.deployment-method == 'terraform' &&
+      needs.prepare-deployment.result == 'success'
+    environment: production
+    outputs:
+      deployment-url: ${{ steps.terraform-deploy.outputs.deployment-url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Full Terraform Deployment
+        id: terraform-deploy
+        uses: ./.github/actions/smart-deploy
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          environment: production
+          registry-images: ${{ needs.prepare-deployment.outputs.registry-images }}
+          terraform-storage-account: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT_PROD || 'aicontentfarmtfstate' }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # Stage 10: Post-Deployment Validation
+  validate-deployment:
+    name: Validate Deployment
+    runs-on: ubuntu-latest
+    needs: [deploy-containers, deploy-infrastructure]
+    if: |
+      always() &&
+      (needs.deploy-containers.result == 'success' || needs.deploy-infrastructure.result == 'success')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Post-Deployment Tests
+        uses: ./.github/actions/post-deployment
+        with:
+          deployment-url: ${{ needs.deploy-containers.outputs.deployment-url || needs.deploy-infrastructure.outputs.deployment-url }}
+
+  # Stage 11: Pipeline Summary
+  pipeline-summary:
+    name: Pipeline Summary
+    runs-on: ubuntu-latest
+    needs: [plan-pipeline, workflow-validation, test-containers, security-scans, infrastructure-quality, code-quality, build-containers, deploy-containers, deploy-infrastructure, validate-deployment]
+    if: always()
+    steps:
+      - name: Generate Pipeline Summary
+        shell: bash
+        run: |
+          {
+            echo "# [DEPLOY] Modular CI/CD Pipeline Summary"
+            echo ""
+            echo "## [PLAN] Execution Plan"
+            echo "- **Deployment Method**: ${{ needs.plan-pipeline.outputs.deployment-method }}"
+            echo "- **Changed Containers**: ${{ needs.plan-pipeline.outputs.changed-containers }}"
+            echo "- **Infrastructure Changes**: ${{ needs.plan-pipeline.outputs.needs-infrastructure }}"
+            echo "- **Security Scans**: ${{ needs.plan-pipeline.outputs.needs-security-scan }}"
+            echo ""
+            echo "## [STATS] Job Results"
+            echo "| Stage | Result |"
+            echo "|-------|--------|"
+            echo "| Workflow Validation | ${{ needs.workflow-validation.result }} |"
+            echo "| Container Tests | ${{ needs.test-containers.result }} |"
+            echo "| Security Scans | ${{ needs.security-scans.result }} |"
+            echo "| Infrastructure Quality | ${{ needs.infrastructure-quality.result }} |"
+            echo "| Code Quality | ${{ needs.code-quality.result }} |"
+            echo "| Container Builds | ${{ needs.build-containers.result }} |"
+            echo "| Container Deployment | ${{ needs.deploy-containers.result }} |"
+            echo "| Infrastructure Deployment | ${{ needs.deploy-infrastructure.result }} |"
+            echo "| Deployment Validation | ${{ needs.validate-deployment.result }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

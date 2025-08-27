@@ -1,0 +1,12 @@
+{
+    "required_status_checks": {
+        "strict": true,
+        "contexts": [
+            "CI/CD Pipeline / Code Quality",
+            "CI/CD Pipeline / Container Test Summary"
+        ]
+    },
+    "enforce_admins": false,
+    "required_pull_request_reviews": null,
+    "restrictions": null
+}

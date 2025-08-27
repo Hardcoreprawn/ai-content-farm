@@ -1,0 +1,29 @@
+{
+    "required_status_checks": {
+        "strict": true,
+        "contexts": [
+            "CI/CD Pipeline / Code Quality",
+            "CI/CD Pipeline / Container Test Summary"
+        ]
+    },
+    "enforce_admins": false,
+    "required_pull_request_reviews": {
+        "required_approving_review_count": 1,
+        "dismiss_stale_reviews": true,
+        "require_code_owner_reviews": true,
+        "require_last_push_approval": true
+    },
+    "restrictions": {
+        "users": [
+            "Hardcoreprawn"
+        ],
+        "teams": [],
+        "apps": [
+            "dependabot"
+        ]
+    },
+    "required_conversation_resolution": true,
+    "allow_force_pushes": false,
+    "allow_deletions": false,
+    "block_creations": false
+}

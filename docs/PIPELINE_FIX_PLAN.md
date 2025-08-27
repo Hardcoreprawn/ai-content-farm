@@ -50,6 +50,62 @@ git push origin main
 - Verify containers deploy with commit-specific SHA tags
 - Confirm no more ACR-related errors
 
+## Smart Deployment Optimizations
+
+### 4. ✅ Intelligent Deployment Routing
+- **Added**: Smart deployment action with change-based routing
+- **Features**: 
+  - Skip deployment for docs/workflow-only changes
+  - Fast path for container-only updates (bypasses Terraform)
+  - Slow path for infrastructure changes (full deployment)
+- **Impact**: Reduces deployment time and avoids unnecessary Terraform operations
+- **Location**: `.github/actions/smart-deploy/action.yml`
+
+### 5. ✅ Container Versioning Best Practices
+- **Current State**: Already using optimal container versioning strategy
+- **Implementation**:
+  - Commit SHA tags for deterministic deployments (e.g., `:6772d44dd110158bf16713d49a615bf93f439f17`)
+  - `:latest` fallbacks in Terraform variables for safety
+  - Auto-generated `container_images.auto.tfvars` overrides with pinned versions
+- **Benefits**: 
+  - Reproducible deployments
+  - Rollback capability to any commit
+  - Safe infrastructure changes with known container versions
+
+### 6. 🔄 Planned: Modular Job Architecture
+- **Goal**: Split container and infrastructure operations into conditional jobs
+- **Benefits**:
+  - Targeted testing (only test changed containers)
+  - Improved debugging (clearer failure isolation)
+  - Faster CI/CD for specific change types
+- **Implementation**: Conditional GitHub Actions jobs based on change detection
+
+## Container Versioning Strategy
+
+### Current Implementation (Best Practice)
+```yaml
+# CI/CD generates pinned versions
+container_images = {
+  "content-collector"  = "aicontentfarm.azurecr.io/content-collector:6772d44dd110158bf16713d49a615bf93f439f17"
+  "content-enricher"   = "aicontentfarm.azurecr.io/content-enricher:6772d44dd110158bf16713d49a615bf93f439f17"
+  # ... all 8 containers with commit SHA tags
+}
+```
+
+### Safety for Infrastructure Changes
+- ✅ **Safe Assumption**: When making infrastructure changes, pinned container versions (not `:latest`) are used
+- ✅ **Deterministic**: Each deployment uses exact commit SHA-tagged containers
+- ✅ **Rollback Ready**: Can deploy any previous commit's containers
+- ✅ **Override System**: Auto-generated tfvars override `:latest` defaults
+
+### Versioning Decision Matrix
+| Change Type | Container Version Strategy | Reasoning |
+|-------------|---------------------------|-----------|
+| Infrastructure Only | Use current pinned versions | No need to rebuild containers |
+| Container Only | New commit SHA tags | Fast path deployment |
+| Mixed Changes | New commit SHA tags | Full deployment with latest |
+| Hotfix/Rollback | Specific commit SHA | Deterministic rollback |
+
 ## Expected Outcomes
 
 1. **No Terraform Warnings**: `container_images` variable properly declared
