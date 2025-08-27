@@ -347,6 +347,7 @@ async def collect_content(request: CollectionRequest):
             "error": "Internal error",  # Do not expose details to users
         }
         import logging
+
         logging.error("Error in content collection endpoint: %s", str(e), exc_info=True)
         # Re-raise with original error for test compatibility
         raise HTTPException(status_code=500, detail=f"Collection error: {str(e)}")
