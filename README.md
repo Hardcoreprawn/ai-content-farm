@@ -8,10 +8,10 @@
 
 Create a **personal content curation platform** that automatically:
 - **🧹 Aggregates Quality Content**: Collect from Reddit, HackerNews, and other sources
-- **🤖 AI-Enhanced Processing**: Smart ranking, enrichment, and fact-checking
+- **🤖 AI-Enhanced Processing**: Smart ranking, enrichment, and fact-checking  
 - **📚 Generates Static Sites**: Beautiful, fast-loading websites for consumption
 - **🔄 Event-Driven Automation**: Fully automated pipeline with minimal manual intervention
-- **☁️ Cloud-Native Design**: Scalable, secure, and cost-effective
+- **☁️ Cloud-Native Design**: Scalable, secure, and cost-effective with smart deployment routing
 
 ## 🏗️ Architecture
 
