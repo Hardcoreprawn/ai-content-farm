@@ -2,6 +2,8 @@
 
 This guide gets you from zero to productive development in under 30 minutes.
 
+**🚀 Now featuring smart deployment routing for faster development cycles!**
+
 ## Prerequisites Checklist
 
 - [ ] Docker and Docker Compose installed
