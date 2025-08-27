@@ -4,7 +4,7 @@ uvicorn[standard]~=0.24.0
 
 # Data processing
 pydantic~=2.5.0
-python-dateutil~=2.8.2
+python-dateutil~=2.9.0
 
 # HTTP client for health checks
 requests~=2.32.5
