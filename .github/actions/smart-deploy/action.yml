@@ -56,11 +56,11 @@ runs:
             has_container_changes=true
             has_deployment_relevant_changes=true
             echo "[CONTAINER] Found container change: $file"
-          elif [[ "$file" =~ ^infra/ ]] || [[ "$file" =~ ^\.github/workflows/.*deploy ]] || [[ "$file" =~ \.tf$ ]]; then
+          elif [[ "$file" =~ ^infra/ ]] || [[ "$file" =~ \.tf$ ]]; then
             has_infra_changes=true
             has_deployment_relevant_changes=true
             echo "[INFRA] Found infrastructure change: $file"
-          elif [[ "$file" =~ ^docs/ ]] || [[ "$file" =~ \.md$ ]] || [[ "$file" =~ ^\.pre-commit ]] || [[ "$file" =~ ^scripts/.*\.(sh|py)$ ]] || [[ "$file" =~ ^tests/ ]]; then
+          elif [[ "$file" =~ ^docs/ ]] || [[ "$file" =~ \.md$ ]] || [[ "$file" =~ ^\.pre-commit ]] || [[ "$file" =~ ^scripts/.*\.(sh|py)$ ]] || [[ "$file" =~ ^tests/ ]] || [[ "$file" =~ ^\.github/ ]]; then
             echo "[NON-DEPLOY] Found non-deployment change: $file"
           else
             # Other changes that might affect runtime behavior

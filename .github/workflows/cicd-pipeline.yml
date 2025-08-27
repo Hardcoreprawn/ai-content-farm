@@ -424,7 +424,7 @@ jobs:
     name: Post-Deployment Validation
     runs-on: ubuntu-latest
     needs: deployment
-    if: needs.deployment.result == 'success'
+    if: needs.deployment.result == 'success' && needs.deployment.outputs.deployment-url != 'N/A (no deployment performed)'
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
