@@ -354,7 +354,9 @@ async def collect_content(request: CollectionRequest):
         error = ErrorCodes.secure_internal_error(e, "content_collection")
         error.function_name = FUNCTION_NAME
         response = error.to_standard_response()
-        raise HTTPException(status_code=500, detail=response.message)
+        return JSONResponse(
+            status_code=500, content=response.model_dump(exclude_none=True)
+        )
 
 
 # Standardized collection endpoint - FastAPI-native
