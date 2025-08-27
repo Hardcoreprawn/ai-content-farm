@@ -336,7 +336,7 @@ async def collect_content(request: CollectionRequest):
         return result
 
     except Exception as e:
-        # Update last collection with error
+        # Update last collection with generic error message; log actual error server-side
         execution_time = time.time() - start_time
         last_collection = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -344,9 +344,10 @@ async def collect_content(request: CollectionRequest):
             "items_collected": 0,
             "execution_time_seconds": execution_time,
             "success": False,
-            "error": str(e),
+            "error": "Internal error",  # Do not expose details to users
         }
-
+        import logging
+        logging.error("Error in content collection endpoint: %s", str(e), exc_info=True)
         # Re-raise with original error for test compatibility
         raise HTTPException(status_code=500, detail=f"Collection error: {str(e)}")
 
