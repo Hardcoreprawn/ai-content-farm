@@ -22,6 +22,7 @@ from fastapi.responses import JSONResponse
 from processor import process_reddit_batch, transform_reddit_post
 from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 from service_logic import ContentProcessorService
+from shared_models import ErrorCodes, StandardResponseFactory
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from config import get_config, health_check
@@ -164,63 +165,39 @@ class HealthResponse(BaseModel):
 async def value_error_handler(request: Request, exc: ValueError):
     """Handle JSON parsing errors"""
     logger.error(f"Value error (likely JSON parsing): {exc}")
-    return JSONResponse(
-        status_code=400, content={"detail": "Invalid JSON format", "error": str(exc)}
+    response = ErrorCodes.secure_validation_error(
+        field="request body", safe_message="Invalid format"
     )
+    return JSONResponse(status_code=400, content=response.model_dump())
 
 
 @app.exception_handler(json.JSONDecodeError)
 async def json_error_handler(request: Request, exc: json.JSONDecodeError):
     """Handle JSON decode errors"""
     logger.error(f"JSON decode error: {exc}")
-    return JSONResponse(
-        status_code=400, content={"detail": "Malformed JSON", "error": str(exc)}
+    response = ErrorCodes.secure_validation_error(
+        field="request body", safe_message="Malformed JSON"
     )
+    return JSONResponse(status_code=400, content=response.model_dump())
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     """Handle Pydantic validation errors"""
     logger.error(f"Validation error: {exc}")
-    # Ensure errors are serializable by recursively stringifying non-serializable values
-    try:
-        errors = exc.errors()
-    except Exception:
-        errors = [str(exc)]
-
-    def _safe_serialize(obj):
-        """Recursively convert an object into JSON-serializable primitives.
-
-        Non-primitive objects are converted to their string representation.
-        """
-        # Primitives
-        if obj is None or isinstance(obj, (str, int, float, bool)):
-            return obj
-        # Dicts -> sanitize values
-        if isinstance(obj, dict):
-            return {k: _safe_serialize(v) for k, v in obj.items()}
-        # Lists / tuples -> sanitize elements
-        if isinstance(obj, (list, tuple)):
-            return [_safe_serialize(v) for v in obj]
-        # Fallback -> stringify
-        try:
-            return str(obj)
-        except Exception:
-            return repr(obj)
-
-    safe_errors = [_safe_serialize(e) for e in errors]
-
-    return JSONResponse(
-        status_code=422, content={"detail": "Validation error", "errors": safe_errors}
+    response = ErrorCodes.secure_validation_error(
+        field="request", safe_message="Validation failed"
     )
+    return JSONResponse(status_code=422, content=response.model_dump())
 
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Global exception: {exc}")
-    return JSONResponse(
-        status_code=500, content={"detail": "Internal server error", "error": str(exc)}
+    response = ErrorCodes.secure_internal_error(
+        actual_error=exc, log_context="content-processor API"
     )
+    return JSONResponse(status_code=500, content=response.model_dump())
 
 
 # Health check endpoint
@@ -314,7 +291,7 @@ async def process_content(request: ProcessRequest):
         raise
     except Exception as e:
         logger.error(f"Processing failed: {e}")
-        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 # Root endpoint
@@ -354,7 +331,7 @@ async def process_collection(collection_data: Dict[str, Any]):
         return result
     except Exception as e:
         logger.error(f"Error processing collection: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.post("/process/batch")
@@ -390,7 +367,7 @@ async def process_batch():
                     {
                         "collection_id": collection_info["collection_id"],
                         "status": "error",
-                        "error": str(e),
+                        "error": "Processing failed",
                     }
                 )
 
@@ -401,7 +378,7 @@ async def process_batch():
         }
     except Exception as e:
         logger.error(f"Error processing batch: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/status")

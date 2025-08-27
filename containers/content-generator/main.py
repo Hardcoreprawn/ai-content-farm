@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
@@ -17,9 +18,17 @@ from models import (
     StatusResponse,
 )
 from service_logic import ContentGeneratorService, content_generator
+from shared_models import ErrorCodes, StandardResponseFactory
+
+from config import config
+
+# Add path for shared models
+sys.path.insert(
+    0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../libs"))
+)
+
 
 # Updated: Container test improvements and build reporting enhancements
-from config import config
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -141,7 +150,7 @@ async def health_check():
             content={
                 "status": "unhealthy",
                 "service": config.SERVICE_NAME,
-                "error": str(e),
+                "error": "Health check failed",
                 "timestamp": datetime.utcnow().isoformat(),
             },
         )
@@ -187,7 +196,7 @@ async def get_status():
 
     except Exception as e:
         logger.error(f"Status check failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.post("/generate/tldr", response_model=GeneratedContent)
@@ -201,10 +210,10 @@ async def generate_tldr(topic: RankedTopic, writer_personality: str = "professio
         return content
     except ValueError as e:
         logger.error(f"TL;DR generation failed: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail="Invalid request parameters")
     except Exception as e:
         logger.error(f"TL;DR generation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.post("/generate/blog", response_model=GeneratedContent)
@@ -218,7 +227,7 @@ async def generate_blog(topic: RankedTopic, writer_personality: str = "professio
         return content
     except Exception as e:
         logger.error(f"Blog generation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.post("/generate/deepdive", response_model=GeneratedContent)
@@ -234,7 +243,7 @@ async def generate_deepdive(
         return content
     except Exception as e:
         logger.error(f"Deep dive generation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.post("/generate/batch", response_model=BatchGenerationResponse)
@@ -249,7 +258,7 @@ async def generate_batch(
         return response
     except Exception as e:
         logger.error(f"Batch generation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 
 @app.get("/generation/status/{batch_id}", response_model=GenerationStatus)

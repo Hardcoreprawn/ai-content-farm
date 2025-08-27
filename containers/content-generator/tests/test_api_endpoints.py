@@ -224,4 +224,4 @@ class TestContentGeneratorAPI:
         assert response.status_code == 400
         data = response.json()
         assert "detail" in data
-        assert "Insufficient source material" in data["detail"]
+        assert "Invalid request parameters" in data["detail"]

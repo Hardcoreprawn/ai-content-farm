@@ -30,6 +30,7 @@ from service_logic import ContentEnricherService
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from config import get_config, health_check
+from libs.shared_models import ErrorCodes, StandardResponseFactory
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -84,16 +85,12 @@ async def validation_exception_handler(
 
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Handle general exceptions."""
-    logger.error(f"Unexpected error: {exc}")
-    return JSONResponse(
-        status_code=500,
-        content={
-            "error": "Internal server error",
-            "message": str(exc),
-            "status_code": 500,
-        },
-    )
+    """Handle general exceptions securely."""
+    # Use secure error handling - logs actual error but returns generic message
+    error = ErrorCodes.secure_internal_error(exc, "content-enricher")
+    error.function_name = "content-enricher"
+    response = error.to_standard_response()
+    return JSONResponse(status_code=500, content=response.model_dump())
 
 
 # API endpoints
@@ -161,7 +158,13 @@ async def enrich_content(request: EnrichmentRequest) -> Dict[str, Any]:
 
     except ValueError as e:
         logger.error(f"Validation error in enrichment: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+        # Use secure validation error for client-facing message
+        error = ErrorCodes.secure_validation_error(
+            "enrichment_data", "Invalid enrichment data format"
+        )
+        error.function_name = "content-enricher"
+        response = error.to_standard_response()
+        raise HTTPException(status_code=400, detail=response.message)
     except Exception as e:
         logger.error(f"Error during content enrichment: {e}")
         logger.error(f"Exception type: {type(e)}")
@@ -171,7 +174,11 @@ async def enrich_content(request: EnrichmentRequest) -> Dict[str, Any]:
         import traceback
 
         logger.error(f"Traceback: {traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail="Enrichment processing failed")
+        # Use secure error response instead of generic string
+        error = ErrorCodes.secure_internal_error(e, "content_enrichment")
+        error.function_name = "content-enricher"
+        response = error.to_standard_response()
+        raise HTTPException(status_code=500, detail=response.message)
 
 
 # Pipeline integration endpoints
@@ -187,7 +194,11 @@ async def enrich_processed_content(processed_data: Dict[str, Any]):
         return result
     except Exception as e:
         logger.error(f"Error enriching processed content: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Use secure error response
+        error = ErrorCodes.secure_internal_error(e, "enrich_processed_content")
+        error.function_name = "content-enricher"
+        response = error.to_standard_response()
+        raise HTTPException(status_code=500, detail=response.message)
 
 
 @app.post("/enrich/batch")
@@ -225,8 +236,13 @@ async def enrich_batch():
                     {
                         "process_id": processed_info["process_id"],
                         "status": "error",
-                        "error": str(e),
+                        "error": "Enrichment failed",  # Generic error message
                     }
+                )
+                # Log actual error server-side
+                logger.error(
+                    f"Error enriching process_id {processed_info['process_id']}: {e}",
+                    exc_info=True,
                 )
 
         successful_count = sum(1 for r in results if r["status"] == "success")
@@ -237,7 +253,11 @@ async def enrich_batch():
         }
     except Exception as e:
         logger.error(f"Error in batch enrichment: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Use secure error response
+        error = ErrorCodes.secure_internal_error(e, "batch_enrichment")
+        error.function_name = "content-enricher"
+        response = error.to_standard_response()
+        raise HTTPException(status_code=500, detail=response.message)
 
 
 @app.get("/status")
@@ -267,7 +287,11 @@ async def get_status():
         }
     except Exception as e:
         logger.error(f"Error getting status: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        # Use secure error response
+        error = ErrorCodes.secure_internal_error(e, "status_endpoint")
+        error.function_name = "content-enricher"
+        response = error.to_standard_response()
+        raise HTTPException(status_code=500, detail=response.message)
 
 
 @app.get("/")

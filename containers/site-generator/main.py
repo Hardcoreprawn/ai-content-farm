@@ -9,6 +9,7 @@ Outputs complete HTML sites to blob storage for hosting.
 import json
 import logging
 import shutil
+import sys
 import tempfile
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
@@ -24,10 +25,16 @@ from health import HealthChecker
 from models import *
 from pydantic import BaseModel, Field
 from service_logic import SiteProcessor
+from shared_models import ErrorCodes, StandardResponseFactory
 
-# Import local modules
 from config import get_config, validate_environment
 from libs.blob_storage import BlobContainers, BlobStorageClient
+
+# Add path for shared models
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "libs"))
+
+
+# Import local modules
 
 # Configure logging
 logging.basicConfig(
@@ -215,7 +222,7 @@ async def generate_site(
                 "service": config.service_name,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
-            errors=[{"type": type(e).__name__, "message": str(e)}],
+            errors=[{"type": "GenerationError", "message": "Site generation failed"}],
         )
 
 
@@ -339,7 +346,7 @@ async def get_generation_status(site_id: str) -> StandardResponse:
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "site_id": site_id,
             },
-            errors=[{"type": type(e).__name__, "message": str(e)}],
+            errors=[{"type": "StatusError", "message": "Status retrieval failed"}],
         )
 
 
@@ -358,9 +365,7 @@ async def preview_site(site_id: str) -> HTMLResponse:
 
     except Exception as e:
         logger.error(f"Failed to preview site {site_id}: {e}")
-        raise HTTPException(
-            status_code=404, detail=f"Site preview not available: {str(e)}"
-        )
+        raise HTTPException(status_code=404, detail="Site preview not available")
 
 
 @app.get("/sites")
@@ -390,7 +395,7 @@ async def list_sites() -> StandardResponse:
                 "service": config.service_name,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
-            errors=[{"type": type(e).__name__, "message": str(e)}],
+            errors=[{"type": "ListError", "message": "Site listing failed"}],
         )
 
 
