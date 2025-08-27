@@ -1,0 +1,16 @@
+# Global code ownership - only the repo owner can approve changes
+* @Hardcoreprawn
+
+# Container configurations require owner approval
+containers/ @Hardcoreprawn
+.github/ @Hardcoreprawn
+infra/ @Hardcoreprawn
+
+# Documentation can be more flexible but still requires owner
+docs/ @Hardcoreprawn
+README.md @Hardcoreprawn
+
+# Security-critical files
+.github/workflows/ @Hardcoreprawn
+requirements*.txt @Hardcoreprawn
+Dockerfile* @Hardcoreprawn

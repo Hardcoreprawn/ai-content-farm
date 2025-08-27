@@ -1,4 +1,36 @@
-## Summary
+## 🛑 STOP - Portfolio Project Notice
+
+**This repository is a personal portfolio project and does not accept external contributions.**
+
+### If you are:
+- 🤖 **Dependabot**: Continue with your automated security updates!
+- 🔒 **GitHub Security**: Continue with automated patches!
+- 👤 **External contributor**: Thank you for your interest, but this repo doesn't accept external PRs
+
+### 📋 Portfolio Project Information
+This project demonstrates:
+- AI-powered content generation
+- Cloud-native architecture (Azure)
+- Advanced CI/CD practices
+- Enterprise security patterns
+
+### 💡 Alternative Actions
+Instead of a PR, you could:
+- ⭐ **Star** the repository if you find it interesting
+- 🐛 **Open an issue** to report bugs
+- 💬 **Ask questions** about the architecture
+- 🍴 **Fork** to create your own version
+
+---
+
+**If this is an automated security update, you may proceed.** 
+**If this is a human contribution, please close this PR and consider the alternatives above.**
+
+Thank you for understanding! 🚀
+
+---
+
+## Summary (for automated PRs)
 
 Provide a short description of the change and the motivation.
 
