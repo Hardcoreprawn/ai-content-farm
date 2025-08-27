@@ -70,7 +70,17 @@ repos:
         args: ['--baseline', '.secrets.baseline']
         exclude: '^(tests/.*|.*\.lock|.*\.log)$'
 
+  # Semgrep security scanning (blocking)
+  - repo: local
+    hooks:
+      - id: semgrep
+        name: Semgrep Security Scan
+        entry: ./scripts/run-semgrep-precommit.sh
+        language: system
+        files: '\.(py|tf|yml|yaml|js|ts|json)$'
+        pass_filenames: false
+
 # Configuration for ci (optional, for pre-commit.ci service)
 ci:
   autoupdate_schedule: weekly
-  skip: [python-code-quality, actionlint, terraform-quality]  # Skip local hooks on CI
+  skip: [python-code-quality, actionlint, terraform-quality, semgrep]  # Skip local hooks on CI
