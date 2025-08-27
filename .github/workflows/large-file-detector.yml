@@ -62,7 +62,7 @@ jobs:
               else
                 large_files="$large_files|$file:$line_count"
               fi
-              ((file_count++))
+              ((file_count++)) || true
             fi
           done <<< "$changed_files"
 
