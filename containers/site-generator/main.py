@@ -28,7 +28,11 @@ from service_logic import SiteProcessor
 
 from config import get_config, validate_environment
 from libs.blob_storage import BlobContainers, BlobStorageClient
-from libs.shared_models import StandardResponse, create_service_dependency
+from libs.shared_models import (
+    StandardResponse,
+    StandardResponseFactory,
+    create_service_dependency,
+)
 
 # Add path for shared models
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "libs"))
