@@ -1,0 +1,157 @@
+name: 'Smart Deploy'
+description: 'Chooses between fast container updates or full Terraform deployment based on what changed'
+inputs:
+  client-id:
+    description: 'Azure service principal client ID'
+    required: true
+  tenant-id:
+    description: 'Azure tenant ID'
+    required: true
+  subscription-id:
+    description: 'Azure subscription ID'
+    required: true
+  environment:
+    description: 'Environment to deploy to'
+    required: true
+    default: 'production'
+  registry-images:
+    description: 'JSON object mapping container names to registry URLs'
+    required: true
+  terraform-storage-account:
+    description: 'Terraform state storage account name'
+    required: true
+  github-token:
+    description: 'GitHub token for registry access'
+    required: true
+outputs:
+  deployment-url:
+    description: 'URL of the deployed application'
+    value: ${{ steps.deploy.outputs.deployment-url }}
+  deployment-method:
+    description: 'Method used for deployment (container-update or terraform)'
+    value: ${{ steps.decide.outputs.method }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine deployment method
+      id: decide
+      shell: bash
+      run: |
+        echo "[SMART] Analyzing changes to determine deployment method..."
+
+        # Get changed files since last commit
+        changed_files=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+
+        echo "[FILES] Changed files:"
+        echo "$changed_files"
+
+        # Check if only container-related files changed
+        has_container_changes=false
+        has_infra_changes=false
+
+        while IFS= read -r file; do
+          if [[ "$file" =~ ^containers/ ]] || [[ "$file" =~ ^libs/ ]] || [[ "$file" =~ ^requirements.*\.txt$ ]] || [[ "$file" == "pyproject.toml" ]]; then
+            has_container_changes=true
+            echo "[CONTAINER] Found container change: $file"
+          elif [[ "$file" =~ ^infra/ ]] || [[ "$file" =~ ^\.github/workflows/.*deploy ]] || [[ "$file" =~ \.tf$ ]]; then
+            has_infra_changes=true
+            echo "[INFRA] Found infrastructure change: $file"
+          fi
+        done <<< "$changed_files"
+
+        # Decide deployment method
+        if [ "$has_container_changes" = true ] && [ "$has_infra_changes" = false ]; then
+          method="container-update"
+          echo "[DECISION] Container-only changes detected → Fast deployment"
+        else
+          method="terraform"
+          echo "[DECISION] Infrastructure or mixed changes detected → Full deployment"
+        fi
+
+        echo "method=$method" >> $GITHUB_OUTPUT
+
+    - name: Fast container update
+      id: container-update
+      if: steps.decide.outputs.method == 'container-update'
+      shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
+        REGISTRY_IMAGES: ${{ inputs.registry-images }}
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+      run: |
+        echo "[FAST] Performing direct container updates..."
+
+        # Login to Azure
+        az login --service-principal \
+          --username "${{ inputs.client-id }}" \
+          --tenant "${{ inputs.tenant-id }}" \
+          --federated-token "${ACTIONS_ID_TOKEN_REQUEST_TOKEN}"
+
+        # Login to container registry
+        echo "$GITHUB_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+        # Update each container directly
+        echo "$REGISTRY_IMAGES" | jq -r 'to_entries[] | "\(.key)=\(.value.image)"' | while IFS='=' read -r container_name registry_url; do
+          echo "[UPDATE] Updating $container_name to $registry_url"
+
+          # Map container names to Azure Container App names
+          case "$container_name" in
+            "site-generator")      app_name="ai-content-${ENVIRONMENT}-site-gen" ;;
+            "content-collector")   app_name="ai-content-${ENVIRONMENT}-collector" ;;
+            "content-ranker")      app_name="ai-content-${ENVIRONMENT}-ranker" ;;
+            "content-generator")   app_name="ai-content-${ENVIRONMENT}-content-gen" ;;
+            "content-enricher")    app_name="ai-content-${ENVIRONMENT}-enricher" ;;
+            "content-processor")   app_name="ai-content-${ENVIRONMENT}-processor" ;;
+            "markdown-generator")  app_name="ai-content-${ENVIRONMENT}-markdown-gen" ;;
+            "collector-scheduler") app_name="ai-content-${ENVIRONMENT}-scheduler" ;;
+            *) echo "[SKIP] Unknown container: $container_name"; continue ;;
+          esac
+
+          # Update container app
+          az containerapp update \
+            --name "$app_name" \
+            --resource-group "ai-content-${ENVIRONMENT}-rg" \
+            --image "$registry_url" \
+            --output none && echo "[PASS] Updated $container_name" || echo "[FAIL] Failed to update $container_name"
+
+          sleep 1  # Rate limiting
+        done
+
+        # Get deployment URL
+        app_url=$(az containerapp show \
+          --name "ai-content-${ENVIRONMENT}-site-gen" \
+          --resource-group "ai-content-${ENVIRONMENT}-rg" \
+          --query "properties.configuration.ingress.fqdn" \
+          --output tsv 2>/dev/null || echo "")
+
+        if [ -n "$app_url" ]; then
+          echo "deployment-url=https://$app_url" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Full Terraform deployment
+      id: terraform-deploy
+      if: steps.decide.outputs.method == 'terraform'
+      uses: ./.github/actions/deploy-from-registry
+      with:
+        client-id: ${{ inputs.client-id }}
+        tenant-id: ${{ inputs.tenant-id }}
+        subscription-id: ${{ inputs.subscription-id }}
+        environment: ${{ inputs.environment }}
+        registry-images: ${{ inputs.registry-images }}
+        terraform-storage-account: ${{ inputs.terraform-storage-account }}
+        github-token: ${{ inputs.github-token }}
+
+    - name: Set final output
+      id: deploy
+      shell: bash
+      run: |
+        # Set deployment URL from whichever method was used
+        if [ "${{ steps.decide.outputs.method }}" = "container-update" ]; then
+          url="${{ steps.container-update.outputs.deployment-url }}"
+        else
+          url="${{ steps.terraform-deploy.outputs.deployment-url }}"
+        fi
+
+        echo "deployment-url=$url" >> $GITHUB_OUTPUT
+        echo "[COMPLETE] Deployment completed via ${{ steps.decide.outputs.method }}"

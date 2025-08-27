@@ -407,9 +407,9 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - name: Deploy to Azure
+      - name: Smart Deploy to Azure
         id: deploy
-        uses: ./.github/actions/deploy-from-registry
+        uses: ./.github/actions/smart-deploy
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
