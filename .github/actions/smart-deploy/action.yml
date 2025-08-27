@@ -49,19 +49,31 @@ runs:
         # Check if only container-related files changed
         has_container_changes=false
         has_infra_changes=false
+        has_deployment_relevant_changes=false
 
         while IFS= read -r file; do
           if [[ "$file" =~ ^containers/ ]] || [[ "$file" =~ ^libs/ ]] || [[ "$file" =~ ^requirements.*\.txt$ ]] || [[ "$file" == "pyproject.toml" ]]; then
             has_container_changes=true
+            has_deployment_relevant_changes=true
             echo "[CONTAINER] Found container change: $file"
           elif [[ "$file" =~ ^infra/ ]] || [[ "$file" =~ ^\.github/workflows/.*deploy ]] || [[ "$file" =~ \.tf$ ]]; then
             has_infra_changes=true
+            has_deployment_relevant_changes=true
             echo "[INFRA] Found infrastructure change: $file"
+          elif [[ "$file" =~ ^docs/ ]] || [[ "$file" =~ \.md$ ]] || [[ "$file" =~ ^\.pre-commit ]] || [[ "$file" =~ ^scripts/.*\.(sh|py)$ ]] || [[ "$file" =~ ^tests/ ]]; then
+            echo "[NON-DEPLOY] Found non-deployment change: $file"
+          else
+            # Other changes that might affect runtime behavior
+            has_deployment_relevant_changes=true
+            echo "[OTHER] Found potentially deployment-relevant change: $file"
           fi
         done <<< "$changed_files"
 
         # Decide deployment method
-        if [ "$has_container_changes" = true ] && [ "$has_infra_changes" = false ]; then
+        if [ "$has_deployment_relevant_changes" = false ]; then
+          method="skip"
+          echo "[DECISION] No deployment-relevant changes detected → Skipping deployment"
+        elif [ "$has_container_changes" = true ] && [ "$has_infra_changes" = false ]; then
           method="container-update"
           echo "[DECISION] Container-only changes detected → Fast deployment"
         else
@@ -70,6 +82,14 @@ runs:
         fi
 
         echo "method=$method" >> $GITHUB_OUTPUT
+
+    - name: Skip deployment
+      id: skip-deploy
+      if: steps.decide.outputs.method == 'skip'
+      shell: bash
+      run: |
+        echo "[SKIP] No deployment needed for documentation/config-only changes"
+        echo "deployment-url=N/A (no deployment performed)" >> $GITHUB_OUTPUT
 
     - name: Fast container update
       id: container-update
@@ -147,7 +167,9 @@ runs:
       shell: bash
       run: |
         # Set deployment URL from whichever method was used
-        if [ "${{ steps.decide.outputs.method }}" = "container-update" ]; then
+        if [ "${{ steps.decide.outputs.method }}" = "skip" ]; then
+          url="${{ steps.skip-deploy.outputs.deployment-url }}"
+        elif [ "${{ steps.decide.outputs.method }}" = "container-update" ]; then
           url="${{ steps.container-update.outputs.deployment-url }}"
         else
           url="${{ steps.terraform-deploy.outputs.deployment-url }}"
