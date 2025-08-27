@@ -40,8 +40,28 @@ runs:
       run: |
         echo "[SMART] Analyzing changes to determine deployment method..."
 
-        # Get changed files since last commit
-        changed_files=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+        # Get changed files - try multiple methods for robustness
+        changed_files=""
+
+        # Method 1: Try git diff with previous commit
+        if [ -z "$changed_files" ]; then
+          changed_files=$(git diff --name-only HEAD~1 HEAD 2>/dev/null || echo "")
+        fi
+
+        # Method 2: Try git diff with origin/main if method 1 fails
+        if [ -z "$changed_files" ]; then
+          changed_files=$(git diff --name-only origin/main HEAD 2>/dev/null || echo "")
+        fi
+
+        # Method 3: Get files changed in the last commit
+        if [ -z "$changed_files" ]; then
+          changed_files=$(git diff --name-only HEAD^ HEAD 2>/dev/null || echo "")
+        fi
+
+        # Method 4: If still empty, check files in current commit
+        if [ -z "$changed_files" ]; then
+          changed_files=$(git show --name-only --format="" HEAD 2>/dev/null || echo "")
+        fi
 
         echo "[FILES] Changed files:"
         echo "$changed_files"
@@ -70,6 +90,10 @@ runs:
         done <<< "$changed_files"
 
         # Decide deployment method
+        echo "[DEBUG] has_container_changes: $has_container_changes"
+        echo "[DEBUG] has_infra_changes: $has_infra_changes"
+        echo "[DEBUG] has_deployment_relevant_changes: $has_deployment_relevant_changes"
+
         if [ "$has_deployment_relevant_changes" = false ]; then
           method="skip"
           echo "[DECISION] No deployment-relevant changes detected → Skipping deployment"
