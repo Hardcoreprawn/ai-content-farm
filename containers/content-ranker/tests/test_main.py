@@ -25,9 +25,10 @@ class TestContentRankerAPI:
         """Test the root endpoint returns service information."""
         response = test_client.get("/")
         assert response.status_code == 200
-        data = response.json()
-        assert "service" in data
-        assert data["service"] == "content-ranker"
+        response_data = response.json()
+        assert "data" in response_data
+        assert "service" in response_data["data"]
+        assert response_data["data"]["service"] == "content-ranker"
 
     @pytest.mark.unit
     @pytest.mark.unit

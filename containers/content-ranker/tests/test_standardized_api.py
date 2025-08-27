@@ -151,8 +151,10 @@ class TestStandardizedAPIEndpoints:
 
         # Verify standardized error format
         assert data["status"] == "error"
-        assert data["message"] == "Internal server error"
-        assert "Ranking failed" in str(data["errors"])
+        assert (
+            data["message"] == "Ranking failed"
+        )  # Backward compatibility: exact error message
+        assert "Failed to rank content items" in str(data["errors"])  # Details field
         assert "metadata" in data
         assert data["metadata"]["function"] == "content-ranker"
 
@@ -255,7 +257,7 @@ class TestStandardizedErrorHandling:
 
         # Should use standardized error format
         assert data["status"] == "error"
-        assert data["message"] == "Resource not found"
+        assert data["message"] == "endpoint not found"
         assert "metadata" in data
         assert data["metadata"]["function"] == "content-ranker"
 

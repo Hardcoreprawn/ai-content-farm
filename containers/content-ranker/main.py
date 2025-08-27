@@ -173,20 +173,6 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(status_code=422, content=response.model_dump())
 
 
-@app.exception_handler(StarletteHTTPException)
-async def http_error_handler(request: Request, exc: StarletteHTTPException):
-    """Handle HTTP exceptions"""
-    logger.error(f"HTTP error {exc.status_code}: {exc.detail}")
-    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
-
-
-@app.exception_handler(Exception)
-async def general_error_handler(request: Request, exc: Exception):
-    """Handle unexpected errors"""
-    logger.error(f"Unexpected error: {exc}", exc_info=True)
-    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
-
-
 # API Routes
 
 
