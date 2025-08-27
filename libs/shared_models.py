@@ -18,6 +18,40 @@ from typing import Any, Dict, List, Optional, Union
 from pydantic import BaseModel, Field
 
 
+class ErrorCodes:
+    """Standard error codes for API responses"""
+
+    VALIDATION_ERROR = "VALIDATION_ERROR"
+    NOT_FOUND = "NOT_FOUND"
+    INTERNAL_ERROR = "INTERNAL_ERROR"
+    AUTHENTICATION_ERROR = "AUTHENTICATION_ERROR"
+    AUTHORIZATION_ERROR = "AUTHORIZATION_ERROR"
+    RATE_LIMIT_ERROR = "RATE_LIMIT_ERROR"
+    SERVICE_UNAVAILABLE = "SERVICE_UNAVAILABLE"
+
+
+class HealthStatus(BaseModel):
+    """Health status model for health check endpoints"""
+
+    status: str = Field(..., description="Health status: healthy|warning|error")
+    service: str = Field(..., description="Service name")
+    version: str = Field(..., description="Service version")
+    issues: Optional[List[str]] = Field(
+        default_factory=list, description="Any health issues"
+    )
+
+
+class ServiceStatus(BaseModel):
+    """Service status model for status endpoints"""
+
+    service: str = Field(..., description="Service name")
+    status: str = Field(..., description="Service status: running|stopped|error")
+    uptime_seconds: Optional[float] = Field(
+        None, description="Service uptime in seconds"
+    )
+    stats: Optional[Dict[str, Any]] = Field(None, description="Service statistics")
+
+
 class StandardResponse(BaseModel):
     """
     FastAPI-native standard response format using Pydantic response models.

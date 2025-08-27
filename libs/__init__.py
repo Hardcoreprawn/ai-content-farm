@@ -12,6 +12,7 @@ __version__ = "2.0.0"
 # Import FastAPI-native shared models
 from .shared_models import (  # Core FastAPI-native models; FastAPI dependencies; Helper functions; Data models; Legacy support (temporary)
     ContentItem,
+    ErrorCodes,
     HealthStatus,
     ServiceStatus,
     StandardError,
