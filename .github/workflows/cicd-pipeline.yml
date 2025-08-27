@@ -2,11 +2,7 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [main, develop]
-    paths-ignore:
-      - '.github/workflows/**'
-      - '.github/actions/**'
-      - '**.md'
-      - 'docs/**'
+    # Removed paths-ignore - smart deployment now handles all change types appropriately
   pull_request:
     branches: [main, develop]
     paths-ignore:
