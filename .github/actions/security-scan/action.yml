@@ -94,8 +94,8 @@ runs:
         output-dir: 'security-results'
       continue-on-error: true
 
-        # Note: Bandit removed - Semgrep provides superior Python security analysis
-        # with broader language support and more comprehensive rule sets
+      # Note: Bandit removed - Semgrep provides superior Python security analysis
+      # with broader language support and more comprehensive rule sets
 
     - name: Generate SBOM and Check Dependencies
       shell: bash

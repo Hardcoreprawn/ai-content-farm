@@ -224,7 +224,7 @@ resource "azurerm_container_app" "site_generator" {
   template {
     container {
       name   = "site-generator"
-      image  = "ghcr.io/hardcoreprawn/ai-content-farm/site-generator:latest"
+      image  = var.container_images["site-generator"]
       cpu    = 0.5
       memory = "1Gi"
 
@@ -276,7 +276,7 @@ resource "azurerm_container_app" "content_collector" {
   template {
     container {
       name   = "content-collector"
-      image  = "ghcr.io/hardcoreprawn/ai-content-farm/content-collector:latest"
+      image  = var.container_images["content-collector"]
       cpu    = 0.5
       memory = "1Gi"
 
@@ -323,7 +323,7 @@ resource "azurerm_container_app" "content_ranker" {
   template {
     container {
       name   = "content-ranker"
-      image  = "ghcr.io/hardcoreprawn/ai-content-farm/content-ranker:latest"
+      image  = var.container_images["content-ranker"]
       cpu    = 0.5
       memory = "1Gi"
 
@@ -360,7 +360,7 @@ resource "azurerm_container_app" "content_generator" {
   template {
     container {
       name   = "content-generator"
-      image  = "ghcr.io/hardcoreprawn/ai-content-farm/content-generator:latest"
+      image  = var.container_images["content-generator"]
       cpu    = 0.5
       memory = "1Gi"
 
@@ -449,7 +449,7 @@ resource "azurerm_container_app" "content_enricher" {
   template {
     container {
       name   = "content-enricher"
-      image  = "ghcr.io/hardcoreprawn/ai-content-farm/content-enricher:latest"
+      image  = var.container_images["content-enricher"]
       cpu    = 0.5
       memory = "1Gi"
 
@@ -495,7 +495,7 @@ resource "azurerm_container_app" "content_processor" {
   template {
     container {
       name   = "content-processor"
-      image  = "ghcr.io/hardcoreprawn/ai-content-farm/content-processor:latest"
+      image  = var.container_images["content-processor"]
       cpu    = 0.5
       memory = "1Gi"
 
@@ -541,7 +541,7 @@ resource "azurerm_container_app" "markdown_generator" {
   template {
     container {
       name   = "markdown-generator"
-      image  = "ghcr.io/hardcoreprawn/ai-content-farm/markdown-generator:latest"
+      image  = var.container_images["markdown-generator"]
       cpu    = 0.5
       memory = "1Gi"
 
@@ -587,7 +587,7 @@ resource "azurerm_container_app" "collector_scheduler" {
   template {
     container {
       name   = "collector-scheduler"
-      image  = "ghcr.io/hardcoreprawn/ai-content-farm/collector-scheduler:latest"
+      image  = var.container_images["collector-scheduler"]
       cpu    = 0.25
       memory = "0.5Gi"
 
