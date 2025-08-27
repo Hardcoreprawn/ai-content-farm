@@ -5,7 +5,7 @@ import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from models import (
     BatchGenerationRequest,
@@ -18,7 +18,6 @@ from models import (
     StatusResponse,
 )
 from service_logic import ContentGeneratorService, content_generator
-from shared_models import ErrorCodes, StandardResponseFactory
 
 from config import config
 
@@ -27,6 +26,12 @@ sys.path.insert(
     0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../libs"))
 )
 
+from libs.shared_models import (
+    ErrorCodes,
+    StandardResponse,
+    StandardResponseFactory,
+    create_service_dependency,
+)
 
 # Updated: Container test improvements and build reporting enhancements
 
@@ -81,6 +86,9 @@ app = FastAPI(
     version=config.VERSION,
     lifespan=lifespan,
 )
+
+# Create service dependency for standardized metadata
+service_metadata = create_service_dependency("content-generator")
 
 # Global stats
 app.state.start_time = datetime.utcnow()
@@ -270,13 +278,210 @@ async def get_generation_status(batch_id: str):
     return status
 
 
+# ================================
+# STANDARDIZED API ENDPOINTS
+# ================================
+
+
+@app.get("/api/content-generator/health", response_model=StandardResponse)
+async def api_health(metadata: dict = Depends(service_metadata)) -> StandardResponse:
+    """
+    Standardized health check endpoint.
+    Returns standardized response format with service health status.
+    """
+    try:
+        # Use similar health check logic as legacy endpoint
+        health_data = {
+            "status": "healthy",
+            "service": "Content Generator",
+            "version": config.VERSION,
+            "capabilities": [
+                "TLDR generation",
+                "Blog article generation",
+                "Deep-dive article generation",
+                "Batch generation",
+            ],
+        }
+
+        return StandardResponse(
+            status="success",
+            message="Content generator service is healthy",
+            data=health_data,
+            errors=None,
+            metadata=metadata,
+        )
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return StandardResponse(
+            status="error",
+            message="Service unhealthy",
+            data={"status": "unhealthy", "error": "Health check failed"},
+            errors=None,
+            metadata=metadata,
+        )
+
+
+@app.get("/api/content-generator/status", response_model=StandardResponse)
+async def api_status(metadata: dict = Depends(service_metadata)) -> StandardResponse:
+    """
+    Standardized status endpoint.
+    Returns detailed service status and generation statistics.
+    """
+    try:
+        # Calculate uptime
+        uptime = datetime.utcnow() - app.state.start_time
+        uptime_seconds = uptime.total_seconds()
+
+        status_data = {
+            "service": "Content Generator",
+            "status": "running",
+            "version": config.VERSION,
+            "uptime_seconds": uptime_seconds,
+            "uptime_human": str(uptime),
+            "total_generated": app.state.total_generated,
+            "generation_capabilities": {
+                "tldr": True,
+                "blog": True,
+                "deepdive": True,
+                "batch": True,
+            },
+        }
+
+        return StandardResponse(
+            status="success",
+            message="Content generator status retrieved successfully",
+            data=status_data,
+            errors=None,
+            metadata=metadata,
+        )
+    except Exception as e:
+        logger.error(f"Error getting status: {e}")
+        return StandardResponse(
+            status="error",
+            message="Failed to retrieve service status",
+            data={"error": "Status retrieval failed"},
+            errors=None,
+            metadata=metadata,
+        )
+
+
+@app.post("/api/content-generator/process", response_model=StandardResponse)
+async def api_process_generation(
+    request: GenerationRequest, metadata: dict = Depends(service_metadata)
+) -> StandardResponse:
+    """
+    Standardized content generation endpoint.
+    Processes generation requests using standardized response format.
+    """
+    try:
+        service = get_content_generator()
+
+        # Use the first topic from the request
+        if not request.topics:
+            return StandardResponse(
+                status="error",
+                message="No topics provided in request",
+                data={"error": "Empty topics list"},
+                errors=None,
+                metadata=metadata,
+            )
+
+        topic = request.topics[0]  # Process first topic
+
+        # Generate content using the same method as legacy endpoints
+        result = await service.generate_content(
+            topic, request.content_type, request.writer_personality
+        )
+
+        # Update generation counter
+        app.state.total_generated += 1
+
+        return StandardResponse(
+            status="success",
+            message=f"Successfully generated {request.content_type} content",
+            data=result.model_dump(),
+            errors=None,
+            metadata=metadata,
+        )
+
+    except ValueError as e:
+        logger.error(f"Validation error in generation: {e}")
+        return StandardResponse(
+            status="error",
+            message="Invalid generation request format",
+            data={"error": "Validation error", "details": str(e)},
+            errors=None,
+            metadata=metadata,
+        )
+    except Exception as e:
+        logger.error(f"Error during content generation: {e}")
+        return StandardResponse(
+            status="error",
+            message="Content generation failed",
+            data={"error": "Internal error during generation"},
+            errors=None,
+            metadata=metadata,
+        )
+
+
+@app.get("/api/content-generator/docs", response_model=StandardResponse)
+async def api_docs(metadata: dict = Depends(service_metadata)) -> StandardResponse:
+    """
+    Standardized API documentation endpoint.
+    Returns service documentation and available endpoints.
+    """
+    docs_data = {
+        "service": "content-generator",
+        "version": config.VERSION,
+        "description": "AI-powered content generation service for the AI Content Farm pipeline",
+        "endpoints": {
+            "health": {
+                "path": "/api/content-generator/health",
+                "method": "GET",
+                "description": "Service health check",
+            },
+            "status": {
+                "path": "/api/content-generator/status",
+                "method": "GET",
+                "description": "Detailed service status and generation statistics",
+            },
+            "process": {
+                "path": "/api/content-generator/process",
+                "method": "POST",
+                "description": "Generate content (supports TLDR, blog, and deep-dive generation)",
+            },
+            "docs": {
+                "path": "/api/content-generator/docs",
+                "method": "GET",
+                "description": "API documentation",
+            },
+        },
+        "legacy_endpoints": {
+            "health": "/health",
+            "status": "/status",
+            "generate_tldr": "/generate/tldr (POST)",
+            "generate_blog": "/generate/blog (POST)",
+            "generate_deepdive": "/generate/deepdive (POST)",
+            "generate_batch": "/generate/batch (POST)",
+            "generation_status": "/generation/status/{batch_id}",
+            "root": "/",
+            "docs": "/docs",
+        },
+    }
+
+    return StandardResponse(
+        status="success",
+        message="API documentation retrieved successfully",
+        data=docs_data,
+        errors=None,
+        metadata=metadata,
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("main:app", host="0.0.0.0", port=config.PORT, reload=True)
-
-
-if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("main:app", host="0.0.0.0", port=config.PORT, reload=True)

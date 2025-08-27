@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import uvicorn
-from fastapi import BackgroundTasks, FastAPI, HTTPException, Request
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -29,6 +29,7 @@ from shared_models import ErrorCodes, StandardResponseFactory
 
 from config import get_config, validate_environment
 from libs.blob_storage import BlobContainers, BlobStorageClient
+from libs.shared_models import StandardResponse, create_service_dependency
 
 # Add path for shared models
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "libs"))
@@ -108,6 +109,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Service dependency for FastAPI-native standardized metadata
+service_metadata = create_service_dependency("site-generator")
+
 # Add CORS middleware with secure configuration
 app.add_middleware(
     CORSMiddleware,
@@ -133,19 +137,18 @@ async def global_exception_handler(request: Request, exc: Exception):
     logger.error(f"Unhandled exception: {exc}", exc_info=True)
 
     # Create a StandardResponse for consistency
-    error_response = StandardResponse(
-        status="error",
+    error_response = StandardResponseFactory.error(
         message="Internal server error",
+        errors=[f"{type(exc).__name__}: {str(exc)}"],
         metadata={
             "service": config.service_name,
             "timestamp": datetime.now(timezone.utc).isoformat(),
         },
-        errors=[{"type": type(exc).__name__, "message": str(exc)}],
     )
 
     return JSONResponse(
         status_code=500,
-        content=error_response.dict(),
+        content=error_response.model_dump(),
     )
 
 
@@ -199,8 +202,7 @@ async def generate_site(
             site_processor.generate_site, site_id=site_id, request=request
         )
 
-        return StandardResponse(
-            status="accepted",
+        return StandardResponseFactory.success(
             message="Site generation started",
             data={
                 "site_id": site_id,
@@ -215,14 +217,13 @@ async def generate_site(
         )
     except Exception as e:
         logger.error(f"Site generation request failed: {e}")
-        return StandardResponse(
-            status="error",
+        return StandardResponseFactory.error(
             message="Failed to start site generation",
+            errors=[f"GenerationError: {str(e)}"],
             metadata={
                 "service": config.service_name,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
-            errors=[{"type": "GenerationError", "message": "Site generation failed"}],
         )
 
 
@@ -325,10 +326,9 @@ async def get_generation_status(site_id: str) -> StandardResponse:
     try:
         status = await site_processor.get_generation_status(site_id)
 
-        return StandardResponse(
-            status="success",
+        return StandardResponseFactory.success(
             message="Generation status retrieved",
-            data=status.dict(),
+            data=status.model_dump(),
             metadata={
                 "service": config.service_name,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -338,15 +338,14 @@ async def get_generation_status(site_id: str) -> StandardResponse:
 
     except Exception as e:
         logger.error(f"Failed to get generation status: {e}")
-        return StandardResponse(
-            status="error",
+        return StandardResponseFactory.error(
             message="Site generation status not found",
+            errors=[f"StatusError: {str(e)}"],
             metadata={
                 "service": config.service_name,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "site_id": site_id,
             },
-            errors=[{"type": "StatusError", "message": "Status retrieval failed"}],
         )
 
 
@@ -375,8 +374,7 @@ async def list_sites() -> StandardResponse:
         # Use the site_processor's blob client instead of app.state
         sites = await site_processor.list_available_sites()
 
-        return StandardResponse(
-            status="success",
+        return StandardResponseFactory.success(
             message="Sites retrieved",
             data={"sites": sites},
             metadata={
@@ -388,14 +386,168 @@ async def list_sites() -> StandardResponse:
 
     except Exception as e:
         logger.error(f"Failed to list sites: {e}")
-        return StandardResponse(
-            status="error",
+        return StandardResponseFactory.error(
             message="Failed to retrieve sites",
+            errors=[f"ListError: {str(e)}"],
             metadata={
                 "service": config.service_name,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
-            errors=[{"type": "ListError", "message": "Site listing failed"}],
+        )
+
+
+# FastAPI-native standardized endpoints
+@app.get("/api/site-generator/health", response_model=StandardResponse)
+async def api_health_check(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Standardized health check endpoint"""
+    try:
+        health_status = await health_checker.check_health()
+
+        health_data = {
+            "status": "healthy" if health_status["status"] == "healthy" else "degraded",
+            "service": "site-generator",
+            "version": config.version,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "checks": health_status.get("checks", {}),
+        }
+
+        return StandardResponseFactory.success(
+            data=health_data, message="Service is healthy", metadata=metadata
+        )
+    except Exception as e:
+        logger.error(f"API health check failed: {e}")
+        return StandardResponseFactory.error(
+            message="Health check failed", errors=[str(e)], metadata=metadata
+        )
+
+
+@app.get("/api/site-generator/status", response_model=StandardResponse)
+async def api_get_service_status(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Standardized status endpoint"""
+    try:
+        # Get current operational status
+        status_data = {
+            "service": "site-generator",
+            "status": "operational",
+            "version": config.version,
+            "environment": config.environment,
+            "dependencies": {
+                "azure_storage": {
+                    "status": (
+                        "connected" if site_processor.blob_client else "disconnected"
+                    )
+                },
+                "template_system": {"status": "ready"},
+            },
+            "metrics": {
+                "sites_generated": 0,  # Could be tracked in processor
+                "active_generations": len(
+                    getattr(site_processor, "active_generations", {})
+                ),
+                "uptime_seconds": 0,  # Could be tracked with start_time if added to processor
+            },
+        }
+
+        return StandardResponseFactory.success(
+            data=status_data,
+            message="Service status retrieved successfully",
+            metadata=metadata,
+        )
+    except Exception as e:
+        logger.error(f"API status check failed: {e}")
+        return StandardResponseFactory.error(
+            message="Status check failed", errors=[str(e)], metadata=metadata
+        )
+
+
+@app.post("/api/site-generator/process", response_model=StandardResponse)
+async def api_process_site(
+    request: GenerationRequest,
+    background_tasks: BackgroundTasks,
+    metadata: Dict[str, Any] = Depends(service_metadata),
+):
+    """Standardized site generation endpoint"""
+    try:
+        # Validate request
+        if not request.site_title:
+            return StandardResponseFactory.error(
+                message="Site generation validation failed",
+                errors=["Site title is required"],
+                metadata=metadata,
+            )
+
+        # Generate site in background
+        site_id = f"site_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
+
+        background_tasks.add_task(site_processor.generate_site, site_id, request)
+
+        process_data = {
+            "site_id": site_id,
+            "status": "processing",
+            "request": request.model_dump(),
+            "estimated_completion": "5-10 minutes",
+        }
+
+        return StandardResponseFactory.success(
+            data=process_data,
+            message="Site generation started successfully",
+            metadata=metadata,
+        )
+
+    except Exception as e:
+        logger.error(f"Site generation failed: {e}")
+        return StandardResponseFactory.error(
+            message="Site generation failed", errors=[str(e)], metadata=metadata
+        )
+
+
+@app.get("/api/site-generator/docs", response_model=StandardResponse)
+async def api_docs(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Standardized API documentation endpoint"""
+    try:
+        docs_data = {
+            "service": "site-generator",
+            "version": config.version,
+            "description": "Static site generation service with FastAPI-native standardized API",
+            "endpoints": {
+                "standardized": {
+                    "health": "/api/site-generator/health",
+                    "status": "/api/site-generator/status",
+                    "process": "/api/site-generator/process",
+                    "docs": "/api/site-generator/docs",
+                },
+                "legacy": {
+                    "root": "/",
+                    "health": "/health",
+                    "status": "/status",
+                    "generate": "/generate",
+                    "sites": "/sites",
+                    "api_generate": "/api/sites/generate",
+                    "api_status": "/api/sites/{site_id}/status",
+                },
+            },
+            "models": {
+                "SiteGenerationRequest": "Request model for site generation",
+                "StandardResponse": "Standardized response wrapper",
+            },
+            "features": [
+                "Static site generation from ranked content",
+                "Template-based rendering",
+                "RSS feed generation",
+                "Azure blob storage integration",
+                "Background processing",
+            ],
+        }
+
+        return StandardResponseFactory.success(
+            data=docs_data,
+            message="API documentation retrieved successfully",
+            metadata=metadata,
+        )
+    except Exception as e:
+        logger.error(f"API docs failed: {e}")
+        return StandardResponseFactory.error(
+            message="Documentation retrieval failed", errors=[str(e)], metadata=metadata
         )
 
 

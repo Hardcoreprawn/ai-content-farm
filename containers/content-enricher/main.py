@@ -15,7 +15,7 @@ import uvicorn
 
 # Import our business logic
 from enricher import enrich_content_batch
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from models import (
@@ -30,7 +30,12 @@ from service_logic import ContentEnricherService
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from config import get_config, health_check
-from libs.shared_models import ErrorCodes, StandardResponseFactory
+from libs.shared_models import (
+    ErrorCodes,
+    StandardResponse,
+    StandardResponseFactory,
+    create_service_dependency,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -45,6 +50,9 @@ app = FastAPI(
 
 # Store service start time for uptime calculation
 service_start_time = datetime.now(timezone.utc)
+
+# Create service dependency
+service_metadata = create_service_dependency("content-enricher")
 
 # Initialize service lazily to avoid import-time dependencies
 enricher_service = None
@@ -311,6 +319,209 @@ async def root() -> Dict[str, Any]:
             "docs": "/docs",
         },
     }
+
+
+# ================================
+# STANDARDIZED API ENDPOINTS
+# ================================
+
+
+@app.get("/api/content-enricher/health", response_model=StandardResponse)
+async def api_health(metadata: dict = Depends(service_metadata)) -> StandardResponse:
+    """
+    Standardized health check endpoint.
+    Returns standardized response format with service health status.
+    """
+    try:
+        status = health_check()
+        return StandardResponse(
+            status="success",
+            message="Content enricher service is healthy",
+            data={"status": "healthy", **status},
+            errors=None,
+            metadata=metadata,
+        )
+    except Exception as e:
+        logger.error(f"Health check failed: {e}")
+        return StandardResponse(
+            status="error",
+            message="Service unhealthy",
+            data={"status": "unhealthy", "error": "Health check failed"},
+            errors=None,
+            metadata=metadata,
+        )
+
+
+@app.get("/api/content-enricher/status", response_model=StandardResponse)
+async def api_status(metadata: dict = Depends(service_metadata)) -> StandardResponse:
+    """
+    Standardized status endpoint.
+    Returns detailed service status and pipeline information.
+    """
+    try:
+        # Get service statistics
+        stats = get_enricher_service().get_service_stats()
+
+        # Get unenriched count
+        unenriched = await get_enricher_service().find_unenriched_processed_content(
+            limit=100
+        )
+        unenriched_count = len(unenriched)
+
+        status_data = {
+            "service": "content-enricher",
+            "status": "healthy",
+            "version": "1.0.0",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "stats": stats,
+            "pipeline": {
+                "unenriched_processed_content": unenriched_count,
+                "last_batch_enriched": stats.get("last_enriched"),
+                "enrichment_capacity": "ready",
+            },
+        }
+
+        return StandardResponse(
+            status="success",
+            message="Content enricher status retrieved successfully",
+            data=status_data,
+            errors=None,
+            metadata=metadata,
+        )
+    except Exception as e:
+        logger.error(f"Error getting status: {e}")
+        return StandardResponse(
+            status="error",
+            message="Failed to retrieve service status",
+            data={"error": "Status retrieval failed"},
+            errors=None,
+            metadata=metadata,
+        )
+
+
+@app.post("/api/content-enricher/process", response_model=StandardResponse)
+async def api_process_content(
+    request: EnrichmentRequest, metadata: dict = Depends(service_metadata)
+) -> StandardResponse:
+    """
+    Standardized content enrichment endpoint.
+    Processes content enrichment requests using standardized response format.
+    """
+    try:
+        # Convert Pydantic models to dictionaries for processing
+        items_data = [item.model_dump() for item in request.items]
+
+        # Process the enrichment using the same logic as legacy endpoint
+        try:
+            import importlib as _importlib
+
+            _mod = None
+            try:
+                _mod = _importlib.import_module("main")
+            except Exception:
+                _mod = None
+
+            if _mod is not None and hasattr(_mod, "enrich_content_batch"):
+                _enrich_fn = getattr(_mod, "enrich_content_batch")
+            else:
+                _enrich_fn = enrich_content_batch
+
+            result = _enrich_fn(items_data)
+        except Exception:
+            # Let outer exception handler translate to HTTPException
+            raise
+
+        # Add options to metadata
+        if request.options is not None:
+            result["metadata"]["options"] = request.options.model_dump()
+
+        return StandardResponse(
+            status="success",
+            message=f"Successfully enriched {len(request.items)} content items",
+            data=result,
+            errors=None,
+            metadata=metadata,
+        )
+
+    except ValueError as e:
+        logger.error(f"Validation error in enrichment: {e}")
+        return StandardResponse(
+            status="error",
+            message="Invalid enrichment data format",
+            data={"error": "Validation error", "details": str(e)},
+            errors=None,
+            metadata=metadata,
+        )
+    except Exception as e:
+        logger.error(f"Error during content enrichment: {e}")
+        logger.error(f"Exception type: {type(e)}")
+        logger.error(
+            f"Request items: {len(request.items) if request.items else 'None'}"
+        )
+        import traceback
+
+        logger.error(f"Traceback: {traceback.format_exc()}")
+
+        return StandardResponse(
+            status="error",
+            message="Content enrichment failed",
+            data={"error": "Internal error during enrichment"},
+            errors=None,
+            metadata=metadata,
+        )
+
+
+@app.get("/api/content-enricher/docs", response_model=StandardResponse)
+async def api_docs(metadata: dict = Depends(service_metadata)) -> StandardResponse:
+    """
+    Standardized API documentation endpoint.
+    Returns service documentation and available endpoints.
+    """
+    config = get_config()
+    docs_data = {
+        "service": config.service_name,
+        "version": config.version,
+        "description": "Content enrichment service for AI content pipeline",
+        "endpoints": {
+            "health": {
+                "path": "/api/content-enricher/health",
+                "method": "GET",
+                "description": "Service health check",
+            },
+            "status": {
+                "path": "/api/content-enricher/status",
+                "method": "GET",
+                "description": "Detailed service status and pipeline information",
+            },
+            "process": {
+                "path": "/api/content-enricher/process",
+                "method": "POST",
+                "description": "Enrich content items with AI analysis and metadata",
+            },
+            "docs": {
+                "path": "/api/content-enricher/docs",
+                "method": "GET",
+                "description": "API documentation",
+            },
+        },
+        "legacy_endpoints": {
+            "health": "/health",
+            "enrich": "/enrich (POST)",
+            "enrich_processed": "/enrich/processed (POST)",
+            "enrich_batch": "/enrich/batch (POST)",
+            "status": "/status",
+            "root": "/",
+            "docs": "/docs",
+        },
+    }
+
+    return StandardResponse(
+        status="success",
+        message="API documentation retrieved successfully",
+        data=docs_data,
+        errors=None,
+        metadata=metadata,
+    )
 
 
 # Development server

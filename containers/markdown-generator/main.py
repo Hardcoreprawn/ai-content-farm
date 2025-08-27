@@ -5,7 +5,7 @@ import logging
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from health import HealthChecker
 from models import GenerationResult, HealthCheckResponse, MarkdownRequest, ServiceStatus
@@ -13,12 +13,20 @@ from service_logic import ContentWatcher, MarkdownGenerator
 
 from config import config
 from libs.blob_storage import BlobStorageClient
+from libs.shared_models import (
+    StandardResponse,
+    StandardResponseFactory,
+    create_service_dependency,
+)
 
 # Configure logging
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# Service dependency for metadata injection
+service_metadata = create_service_dependency("markdown-generator")
 
 # Global service instances
 blob_client = None
@@ -237,6 +245,159 @@ async def get_watcher_status():
     except Exception as e:
         logger.error("Failed to get watcher status")
         raise HTTPException(status_code=500, detail="Failed to get watcher status")
+
+
+# Standardized API endpoints following FastAPI-native patterns
+@app.get(
+    "/api/markdown-generator/health",
+    response_model=StandardResponse,
+    tags=["Standardized API"],
+)
+async def api_health_check(metadata: dict = Depends(service_metadata)):
+    """Standardized health check endpoint with FastAPI-native response model."""
+    try:
+        # Get health status from the health checker
+        health_result = await health_checker.check_health()
+
+        # Create standardized success response
+        return StandardResponseFactory.success(
+            data=health_result,
+            message="Health check completed successfully",
+            metadata=metadata,
+        )
+    except Exception as e:
+        logger.error(f"Standardized health check failed: {str(e)}")
+        return StandardResponseFactory.error(
+            message="Health check failed", errors=[str(e)], metadata=metadata
+        )
+
+
+@app.get(
+    "/api/markdown-generator/status",
+    response_model=StandardResponse,
+    tags=["Standardized API"],
+)
+async def api_get_status(metadata: dict = Depends(service_metadata)):
+    """Standardized service status endpoint with FastAPI-native response model."""
+    try:
+        # Get detailed service status
+        status = await health_checker.get_service_status(content_watcher)
+
+        return StandardResponseFactory.success(
+            data=status.model_dump(),
+            message="Service status retrieved successfully",
+            metadata=metadata,
+        )
+    except Exception as e:
+        logger.error(f"Failed to get standardized service status: {str(e)}")
+        return StandardResponseFactory.error(
+            message="Failed to get service status", errors=[str(e)], metadata=metadata
+        )
+
+
+@app.post(
+    "/api/markdown-generator/process",
+    response_model=StandardResponse,
+    tags=["Standardized API"],
+)
+async def api_process_content(
+    request: MarkdownRequest, metadata: dict = Depends(service_metadata)
+):
+    """Standardized content processing endpoint with FastAPI-native response model."""
+    try:
+        if not request.content_items:
+            return StandardResponseFactory.error(
+                message="Request validation failed",
+                errors=["No content items provided"],
+                metadata=metadata,
+            )
+
+        # Check if service is initialized
+        if markdown_generator is None:
+            return StandardResponseFactory.error(
+                message="Service not ready",
+                errors=["Service not initialized"],
+                metadata=metadata,
+            )
+
+        logger.info(
+            f"Standardized markdown generation requested for {len(request.content_items)} items"
+        )
+
+        # Generate markdown
+        result = await markdown_generator.generate_markdown_from_ranked_content(
+            request.content_items,
+            request.template_style or config.MARKDOWN_TEMPLATE_STYLE,
+        )
+
+        logger.info(
+            f"Standardized generation completed: {result.get('files_generated', 0)} files"
+        )
+
+        return StandardResponseFactory.success(
+            data=result,
+            message=f"Markdown generation completed successfully. Generated {result.get('files_generated', 0)} files",
+            metadata=metadata,
+        )
+
+    except ValueError as e:
+        logger.warning(f"Invalid request parameters in standardized endpoint: {str(e)}")
+        return StandardResponseFactory.error(
+            message="Invalid request parameters", errors=[str(e)], metadata=metadata
+        )
+    except Exception as e:
+        logger.error(f"Standardized markdown generation failed: {str(e)}")
+        return StandardResponseFactory.error(
+            message="Markdown generation failed", errors=[str(e)], metadata=metadata
+        )
+
+
+@app.get(
+    "/api/markdown-generator/docs",
+    response_model=StandardResponse,
+    tags=["Standardized API"],
+)
+async def api_documentation(metadata: dict = Depends(service_metadata)):
+    """Standardized API documentation endpoint with FastAPI-native response model."""
+    docs_data = {
+        "service": "markdown-generator",
+        "description": "AI Content Farm markdown generation service with automated content watching",
+        "version": config.VERSION,
+        "endpoints": {
+            "standardized": {
+                "/api/markdown-generator/health": "FastAPI-native health check with standardized response format",
+                "/api/markdown-generator/status": "Detailed service status with standardized response format",
+                "/api/markdown-generator/process": "Process content items into markdown with standardized response format",
+                "/api/markdown-generator/docs": "This documentation endpoint with standardized response format",
+            },
+            "legacy": {
+                "/": "Root endpoint with service information",
+                "/health": "Legacy health check endpoint",
+                "/status": "Legacy service status endpoint",
+                "/generate": "Manual markdown generation endpoint",
+                "/trigger": "Manual content watch trigger",
+                "/watcher/status": "Content watcher status",
+            },
+        },
+        "features": [
+            "Automated content watching and processing",
+            "Manual markdown generation from ranked content",
+            "Multiple template style support",
+            "Blob storage integration",
+            "Real-time health monitoring",
+        ],
+        "schemas": {
+            "MarkdownRequest": "Input format for processing content items",
+            "GenerationResult": "Output format for generation results",
+            "StandardResponse": "Standardized response wrapper for all API endpoints",
+        },
+    }
+
+    return StandardResponseFactory.success(
+        data=docs_data,
+        message="API documentation retrieved successfully",
+        metadata=metadata,
+    )
 
 
 if __name__ == "__main__":
