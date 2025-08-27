@@ -38,6 +38,12 @@ variable "resource_prefix" {
   default     = "ai-content-dev"
 }
 
+variable "test_feature_flag" {
+  description = "Test feature flag for smart deployment validation"
+  type        = bool
+  default     = false
+}
+
 # Container image configuration for deployments
 variable "container_images" {
   description = "Map of container names to their full registry URLs with tags"
