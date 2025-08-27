@@ -240,7 +240,11 @@ class TestErrorHandling:
 
         assert response.status_code == 500
         data = response.json()
-        assert "detail" in data
+
+        # Should use standardized error format
+        assert data["status"] == "error"
+        assert data["message"] == "Internal server error"
+        assert "Collection error" in str(data["errors"])
 
     @pytest.mark.unit
     def test_rate_limiting_handling(self) -> None:

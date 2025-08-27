@@ -27,9 +27,16 @@ class TestStandardization:
         response = client.get("/")
         assert response.status_code == 200
         data = response.json()
-        assert data["service"] == "content-collector"
-        assert "version" in data
-        assert "endpoints" in data
+
+        # Verify standardized response format
+        assert data["status"] == "success"
+        assert data["message"] == "Content Collector API running"
+
+        # Check service info in data field
+        service_data = data["data"]
+        assert service_data["service"] == "content-collector"
+        assert "version" in service_data
+        assert "endpoints" in service_data
 
         # Test health endpoint
         response = client.get("/health")

@@ -22,6 +22,5 @@ asyncio_default_fixture_loop_scope = "function"
 line-length = 88
 target-version = ['py311']
 
-[tool.isort]
-profile = "black"
-line_length = 88
+# Removed [tool.isort] section to inherit from root .isort.cfg
+# This ensures consistent import sorting across all containers
