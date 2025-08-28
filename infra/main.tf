@@ -5,6 +5,7 @@ resource "random_string" "suffix" {
   upper   = false
   special = false
   # Test: Debug deployment conditions - needs-infrastructure trigger (Aug 28, 2025)
+  # Test: Simplified routing fix - direct dependency path (Aug 28, 2025)
 }
 
 resource "azurerm_resource_group" "main" {
