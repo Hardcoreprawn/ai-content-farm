@@ -340,7 +340,6 @@ jobs:
     if: |
       needs.plan-pipeline.outputs.deployment-method == 'terraform' &&
       needs.prepare-deployment.result == 'success'
-    environment: production
     outputs:
       deployment-url: ${{ steps.terraform-deploy.outputs.deployment-url }}
     steps:
@@ -380,7 +379,6 @@ jobs:
     if: |
       needs.plan-pipeline.outputs.deployment-method == 'container-update' &&
       needs.prepare-deployment.result == 'success'
-    environment: production
     outputs:
       deployment-url: ${{ steps.fast-deploy.outputs.deployment-url }}
     steps:
