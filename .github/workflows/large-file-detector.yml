@@ -1,10 +1,11 @@
-name: Large File Detector
+name: Individual Large File Issue Creator
 
 on:
   push:
     branches: [main, develop]
   pull_request:
     branches: [main, develop]
+  workflow_dispatch:  # Allow manual triggering
 
 permissions:
   contents: read
@@ -12,7 +13,7 @@ permissions:
 
 jobs:
   detect-large-files:
-    name: Detect Files Over 400 Lines
+    name: Create Individual Issues for Large Files
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -75,7 +76,7 @@ jobs:
             echo "No large files found"
           fi
 
-      - name: Create Issue for Large Files
+      - name: Create Individual Issues for Large Files
         if: steps.find-large.outputs.file_count > 0
         uses: actions/github-script@v7
         with:
@@ -91,69 +92,168 @@ jobs:
               return { path, lines: parseInt(lines) };
             });
 
-            // Create issue body
-            const maxLines = Math.max(...files.map(f => f.lines));
-            const issueTitle = `Large File Alert: ${fileCount} file${fileCount > 1 ? 's' : ''} exceed 400 lines (max: ${maxLines} lines)`;
+            console.log(`Processing ${files.length} large files for individual issues`);
 
-            let issueBody = `## [SIZE] Large File Detection Report
-
-            **Trigger**: ${context.eventName === 'pull_request' ? `PR #${context.payload.number}` : `Push to ${context.ref.replace('refs/heads/', '')}`}
-            **Commit**: ${context.sha.substring(0, 7)}
-            **Date**: ${new Date().toISOString().split('T')[0]}
-
-            ### Files Over 400 Lines:
-
-            `;
-
-            files.forEach(file => {
-              const percentage = Math.round((file.lines / 400) * 100);
-              const severity = file.lines > 1000 ? '[CRITICAL]' : file.lines > 600 ? '[WARNING]' : '[LARGE]';
-              issueBody += `${severity} **\`${file.path}\`** - ${file.lines} lines (${percentage}% of limit)\n`;
-            });
-
-            issueBody += `
-
-            ### Recommendations:
-
-            Consider refactoring large files by:
-            - Splitting into smaller, focused modules
-            - Extracting reusable functions into separate files
-            - Moving configuration or data to external files
-            - Breaking down complex classes or functions
-
-            ### File Size Guidelines:
-            - [GOOD] **Good**: < 200 lines
-            - [OK] **Acceptable**: 200-400 lines
-            - [LARGE] **Large**: 400-600 lines
-            - [CRITICAL] **Too Large**: > 600 lines
-
-            *This issue was automatically created by the Large File Detector workflow.*`;
-
-            // Check for existing open issues
+            // Get existing issues to avoid duplicates
             const existingIssues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
-              labels: 'code-quality,large-files'
+              labels: 'large-file'
             });
 
-            const hasExistingIssue = existingIssues.data.some(issue =>
-              issue.title.includes('Large File Alert')
-            );
+            const existingFilePaths = existingIssues.data
+              .map(issue => issue.title.match(/Refactor large file: `([^`]+)`/)?.[1])
+              .filter(Boolean);
 
-            if (!hasExistingIssue) {
-              // Create new issue
+            let createdCount = 0;
+            let skippedCount = 0;
+
+            for (const file of files) {
+              // Check if issue already exists for this file
+              if (existingFilePaths.includes(file.path)) {
+                console.log(`Skipping ${file.path} - issue already exists`);
+                skippedCount++;
+                continue;
+              }
+
+              // Determine severity and priority
+              const percentage = Math.round((file.lines / 400) * 100);
+              let severity, priority, urgency;
+
+              if (file.lines > 1000) {
+                severity = 'CRITICAL';
+                priority = 'high';
+                urgency = '[CRITICAL] High Priority';
+              } else if (file.lines > 600) {
+                severity = 'WARNING';
+                priority = 'medium';
+                urgency = '[WARNING] Medium Priority';
+              } else {
+                severity = 'LARGE';
+                priority = 'low';
+                urgency = '[LARGE] Normal Priority';
+              }
+
+              // Create issue title and body
+              const issueTitle = `Refactor large file: \`${file.path}\` (${file.lines} lines)`;
+
+              const issueBody = `## ${urgency} Large File Refactoring Required
+
+            **File**: \`${file.path}\`
+            **Current Size**: ${file.lines} lines (${percentage}% over 400-line limit)
+            **Severity**: ${severity}
+            **Priority**: ${priority}
+
+            ### [STATS] Size Analysis
+            - **Target**: < 400 lines
+            - **Current**: ${file.lines} lines
+            - **Reduction needed**: ${file.lines - 400} lines (${Math.round(((file.lines - 400) / file.lines) * 100)}%)
+
+            ### [REFACTOR] Refactoring Strategies
+            ${file.path.endsWith('.py') ? `
+            **For Python files:**
+            - Extract classes into separate modules
+            - Move utility functions to dedicated files
+            - Split large functions into smaller, focused ones
+            - Move configuration/constants to config files
+            - Extract test fixtures and mock data` : ''}
+            ${file.path.endsWith('.yml') || file.path.endsWith('.yaml') ? `
+            **For YAML files:**
+            - Split workflow into multiple files
+            - Extract reusable action steps
+            - Move configuration to separate files
+            - Use matrix strategies for repeated jobs` : ''}
+            ${file.path.endsWith('.md') ? `
+            **For Markdown files:**
+            - Split into multiple focused documents
+            - Move sections to dedicated files
+            - Create table of contents with links
+            - Extract code examples to separate files` : ''}
+
+            ### [PASS] Acceptance Criteria
+            - [ ] File reduced to < 400 lines
+            - [ ] Functionality preserved (all tests pass)
+            - [ ] Clear separation of concerns
+            - [ ] No breaking changes to public APIs
+            - [ ] Documentation updated if needed
+
+            ### [TARGET] Implementation Notes
+            ${file.path.includes('/containers/') ? `
+            **Container Context**: This file is part of the containerized microservices architecture.
+            - Follow FastAPI-native patterns from agent instructions
+            - Maintain standardized API response formats
+            - Preserve backward compatibility for legacy endpoints
+            - Apply ContentRanker refactoring template pattern` : ''}
+
+            ---
+            *Auto-created by Large File Detector workflow*
+            *Commit: ${context.sha.substring(0, 7)} | Date: ${new Date().toISOString().split('T')[0]}*`;
+
+              // Create the issue
+              try {
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: issueTitle,
+                  body: issueBody,
+                  labels: ['large-file', 'code-quality', 'technical-debt', priority]
+                });
+
+                console.log(`Created issue for ${file.path}`);
+                createdCount++;
+              } catch (error) {
+                console.error(`Failed to create issue for ${file.path}:`, error.message);
+              }
+            }
+
+            console.log(`Summary: Created ${createdCount} issues, Skipped ${skippedCount} existing issues`);
+
+            // Create summary issue if we created multiple individual issues
+            if (createdCount > 1) {
+              const summaryTitle = `Large File Refactoring Sprint: ${createdCount} files need attention`;
+              const summaryBody = `## [STATS] Large File Refactoring Sprint Summary
+
+            **Created**: ${new Date().toISOString().split('T')[0]}
+            **Files identified**: ${files.length}
+            **New issues created**: ${createdCount}
+            **Already tracked**: ${skippedCount}
+
+            ### [TARGET] Sprint Overview
+            This sprint tracks the systematic refactoring of ${createdCount} large files to improve code maintainability and follow the project's architectural guidelines.
+
+            ### [LIST] Files by Priority
+
+            **[CRITICAL] Critical (>1000 lines):**
+            ${files.filter(f => f.lines > 1000).map(f => `- \`${f.path}\` (${f.lines} lines)`).join('\n') || 'None'}
+
+            **[WARNING] High (600-1000 lines):**
+            ${files.filter(f => f.lines > 600 && f.lines <= 1000).map(f => `- \`${f.path}\` (${f.lines} lines)`).join('\n') || 'None'}
+
+            **[LARGE] Normal (400-600 lines):**
+            ${files.filter(f => f.lines > 400 && f.lines <= 600).map(f => `- \`${f.path}\` (${f.lines} lines)`).join('\n') || 'None'}
+
+            ### [PLAN] Getting Started
+            1. Start with Critical priority files (>1000 lines)
+            2. Follow the ContentRanker refactoring pattern from recent work
+            3. Use FastAPI-native patterns for container services
+            4. Maintain backward compatibility and test coverage
+
+            ### [PROGRESS] Progress Tracking
+            Individual issues have been created for each file. Close them as refactoring is completed.
+
+            ---
+            *Auto-created by Large File Detector workflow*`;
+
               await github.rest.issues.create({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                title: issueTitle,
-                body: issueBody,
-                labels: ['code-quality', 'large-files', 'technical-debt']
+                title: summaryTitle,
+                body: summaryBody,
+                labels: ['large-file', 'code-quality', 'technical-debt', 'epic']
               });
 
-              console.log('Created new large file issue');
-            } else {
-              console.log('Large file issue already exists, skipping creation');
+              console.log('Created sprint summary issue');
             }
 
       - name: Comment on PR
