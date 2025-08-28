@@ -1,5 +1,13 @@
 # Azure Container Apps infrastructure for AI Content Farm
 
+# Local values for access control
+locals {
+  # Allow access from your static IP for development/monitoring
+  allowed_ips = [
+    "81.2.90.47/32" # Your current static IP
+  ]
+}
+
 # Container Apps Environment - reusing main Log Analytics workspace for cost efficiency
 resource "azurerm_container_app_environment" "main" {
   name                       = "${var.resource_prefix}-env"
@@ -215,6 +223,13 @@ resource "azurerm_container_app" "site_generator" {
     target_port      = 8000
     transport        = "http"
 
+    # IP restrictions for secure access
+    ip_security_restriction {
+      action           = "Allow"
+      ip_address_range = "81.2.90.47/32"
+      name             = "AllowStaticIP"
+    }
+
     traffic_weight {
       percentage      = 100
       latest_revision = true
@@ -273,6 +288,24 @@ resource "azurerm_container_app" "content_collector" {
     value = azurerm_key_vault_secret.reddit_client_secret.value
   }
 
+  ingress {
+    external_enabled = true
+    target_port      = 8000
+    transport        = "http"
+
+    # IP restrictions for secure access
+    ip_security_restriction {
+      action           = "Allow"
+      ip_address_range = "81.2.90.47/32"
+      name             = "AllowStaticIP"
+    }
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
   template {
     container {
       name   = "content-collector"
@@ -318,6 +351,24 @@ resource "azurerm_container_app" "content_ranker" {
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 8000
+    transport        = "http"
+
+    # IP restrictions for secure access
+    ip_security_restriction {
+      action           = "Allow"
+      ip_address_range = "81.2.90.47/32"
+      name             = "AllowStaticIP"
+    }
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
   }
 
   template {
@@ -420,6 +471,13 @@ resource "azurerm_container_app" "content_generator" {
     external_enabled           = true
     target_port                = 8000
 
+    # IP restrictions for secure access
+    ip_security_restriction {
+      action           = "Allow"
+      ip_address_range = "81.2.90.47/32"
+      name             = "AllowStaticIP"
+    }
+
     traffic_weight {
       latest_revision = true
       percentage      = 100
@@ -444,6 +502,24 @@ resource "azurerm_container_app" "content_enricher" {
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 8000
+    transport        = "http"
+
+    # IP restrictions for secure access
+    ip_security_restriction {
+      action           = "Allow"
+      ip_address_range = "81.2.90.47/32"
+      name             = "AllowStaticIP"
+    }
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
   }
 
   template {
@@ -492,6 +568,24 @@ resource "azurerm_container_app" "content_processor" {
     identity_ids = [azurerm_user_assigned_identity.containers.id]
   }
 
+  ingress {
+    external_enabled = true
+    target_port      = 8000
+    transport        = "http"
+
+    # IP restrictions for secure access
+    ip_security_restriction {
+      action           = "Allow"
+      ip_address_range = "81.2.90.47/32"
+      name             = "AllowStaticIP"
+    }
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
   template {
     container {
       name   = "content-processor"
@@ -538,6 +632,24 @@ resource "azurerm_container_app" "markdown_generator" {
     identity_ids = [azurerm_user_assigned_identity.containers.id]
   }
 
+  ingress {
+    external_enabled = true
+    target_port      = 8000
+    transport        = "http"
+
+    # IP restrictions for secure access
+    ip_security_restriction {
+      action           = "Allow"
+      ip_address_range = "81.2.90.47/32"
+      name             = "AllowStaticIP"
+    }
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
   template {
     container {
       name   = "markdown-generator"
@@ -582,6 +694,24 @@ resource "azurerm_container_app" "collector_scheduler" {
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 8000
+    transport        = "http"
+
+    # IP restrictions for secure access
+    ip_security_restriction {
+      action           = "Allow"
+      ip_address_range = "81.2.90.47/32"
+      name             = "AllowStaticIP"
+    }
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
   }
 
   template {

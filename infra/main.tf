@@ -119,7 +119,10 @@ resource "azurerm_key_vault_secret" "reddit_client_id" {
   key_vault_id = azurerm_key_vault.main.id
   content_type = "text/plain"
 
-  expiration_date = timeadd(timestamp(), "2160h") # 90 days
+  # External secret - don't auto-update expiration date
+  lifecycle {
+    ignore_changes = [expiration_date]
+  }
 
   tags = {
     Environment = var.environment
@@ -133,11 +136,16 @@ resource "azurerm_key_vault_secret" "reddit_client_id" {
 }
 
 resource "azurerm_key_vault_secret" "reddit_client_secret" {
-  name            = "reddit-client-secret"
-  value           = var.reddit_client_secret != "" ? var.reddit_client_secret : "placeholder-change-me"
-  key_vault_id    = azurerm_key_vault.main.id
-  content_type    = "text/plain"
-  expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
+  name         = "reddit-client-secret"
+  value        = var.reddit_client_secret != "" ? var.reddit_client_secret : "placeholder-change-me"
+  key_vault_id = azurerm_key_vault.main.id
+  content_type = "text/plain"
+
+  # External secret - don't auto-update expiration date
+  lifecycle {
+    ignore_changes = [expiration_date]
+  }
+
   depends_on = [
     azurerm_key_vault_access_policy.developer_user,
     azurerm_key_vault_access_policy.github_actions_user
@@ -150,11 +158,16 @@ resource "azurerm_key_vault_secret" "reddit_client_secret" {
 }
 
 resource "azurerm_key_vault_secret" "reddit_user_agent" {
-  name            = "reddit-user-agent"
-  value           = var.reddit_user_agent != "" ? var.reddit_user_agent : "ai-content-farm:v1.0 (by /u/your-username)"
-  key_vault_id    = azurerm_key_vault.main.id
-  content_type    = "text/plain"
-  expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
+  name         = "reddit-user-agent"
+  value        = var.reddit_user_agent != "" ? var.reddit_user_agent : "ai-content-farm:v1.0 (by /u/your-username)"
+  key_vault_id = azurerm_key_vault.main.id
+  content_type = "text/plain"
+
+  # External secret - don't auto-update expiration date
+  lifecycle {
+    ignore_changes = [expiration_date]
+  }
+
   depends_on = [
     azurerm_key_vault_access_policy.developer_user,
     azurerm_key_vault_access_policy.github_actions_user
@@ -168,11 +181,16 @@ resource "azurerm_key_vault_secret" "reddit_user_agent" {
 
 # CI/CD secrets for GitHub Actions
 resource "azurerm_key_vault_secret" "infracost_api_key" {
-  name            = "infracost-api-key"
-  value           = var.infracost_api_key != "" ? var.infracost_api_key : "placeholder-get-from-infracost-io"
-  key_vault_id    = azurerm_key_vault.main.id
-  content_type    = "text/plain"
-  expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
+  name         = "infracost-api-key"
+  value        = var.infracost_api_key != "" ? var.infracost_api_key : "placeholder-get-from-infracost-io"
+  key_vault_id = azurerm_key_vault.main.id
+  content_type = "text/plain"
+
+  # External secret - don't auto-update expiration date
+  lifecycle {
+    ignore_changes = [expiration_date]
+  }
+
   depends_on = [
     azurerm_key_vault_access_policy.developer_user,
     azurerm_key_vault_access_policy.github_actions_user

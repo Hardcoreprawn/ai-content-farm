@@ -1,32 +1,45 @@
-# TODO - AI Content Farm
+# TODO - AI Content Farm Refactor
 
-**Status**: Working system that needs simplification
-**Goal**: Reduce costs from $77-110/month to $40-62/month while making it easier to maintain
+**Status**: ✅ **Topic Intelligence Collector Complete & Deploying!**  
+**Goal**: Daily digest at jablab.com with 5 most interesting topics + deep dives
 
-## 🎯 Current Status: API Standardization ~90% Complete!
+## � **MAJOR BREAKTHROUGH - Phase 1 Complete!**
 
-✅ **Good News**: Your containers are working and have FastAPI docs!
-❌ **Issue Found**: Response format inconsistencies causing Pydantic validation errors
+### ✅ **What We Just Accomplished:**
+1. **✅ Topic Intelligence Collector Built** - Focus on trend analysis, not content scraping
+2. **✅ Production Code Committed** - All validation checks pass 
+3. **✅ CI/CD Pipeline Running** - Deploying to Azure Container Apps
+4. **✅ Reddit API Integration** - PRAW with Azure Key Vault for production
+5. **✅ Clean Architecture** - Standardized FastAPI responses throughout
 
-### API Standardization Status:
-- ✅ **FastAPI docs working**: All containers have `/docs` endpoints
-- ✅ **Health endpoints**: All containers respond to `/health`
-- ✅ **StandardResponse imported**: Using `libs/shared_models.py`
-- ❌ **Pydantic validation failing**: Response objects not matching schema
-- ❌ **Inconsistent formats**: Different containers return different response structures
+### 🚀 **The New Collector Does:**
+- **🎯 Listens to conversations** across Reddit, LinkedIn, etc.
+- **📊 Identifies trending topics** using engagement clustering
+- **🔬 Generates research recommendations** with credible sources
+- **📝 Creates original analysis** rather than content aggregation
+- **🏗️ Standardized APIs** ready for the next pipeline stage
 
-### Site Generation Status:
-- ✅ **Local sites working**: Preview at http://localhost:8005/preview/site_XXXXXX
-- ✅ **Generation API working**: Can trigger new site generation
-- ❌ **Blob upload issue**: Sites not uploading to storage (local or Azure)
-- ❌ **Status endpoint broken**: Pydantic validation errors on status checks
+## 🔄 **Current Status: Deploying**
 
-## 🚧 Immediate Fixes Needed (Complete API Standardization)
+**CI/CD Pipeline**: Rerunning after Docker timeout (common issue)
+**Next**: Once deployed, the collector will be live in Azure at:
+- `https://ai-content-prod-collector.victoriousbeach-e62a5683.uksouth.azurecontainerapps.io/`
 
-### 1. Fix Pydantic Response Validation (High Priority)
-- [ ] **Site Generator**: Fix `/generate/status/{site_id}` endpoint response format
-- [ ] **All Containers**: Ensure all endpoints return proper `StandardResponse` format
-- [ ] **Health Endpoints**: Standardize health response format across all containers
+## 📋 **Phase 2: Processor (Next 1-2 weeks)**
+**Goal**: Transform trending topics into research-ready content
+
+- [ ] **Research Engine**: Fact-check and find credible sources for topics
+- [ ] **Content Prioritization**: Rank topics by research value and timeliness  
+- [ ] **Reference Gathering**: Build citation networks for deep-dive articles
+- [ ] **Quality Scoring**: Filter topics suitable for jablab.com audience
+
+## 📋 **Phase 3: Publisher (Following 1-2 weeks)**
+**Goal**: Generate beautiful static site at jablab.com
+
+- [ ] **Article Generation**: Create briefing + deep-dive versions
+- [ ] **Static Site Builder**: Clean, fast website generation
+- [ ] **Domain Integration**: Configure jablab.com to serve content
+- [ ] **Automated Pipeline**: Full topic-to-publication flow
 
 **Example Issue Found:**
 ```python
