@@ -337,7 +337,7 @@ jobs:
     name: Deploy (Full Terraform)
     runs-on: ubuntu-latest
     needs: [plan-pipeline, prepare-deployment]
-    if: needs.plan-pipeline.outputs.deployment-method == 'terraform'
+    if: needs.plan-pipeline.outputs.needs-infrastructure == 'true'
     outputs:
       deployment-url: ${{ steps.terraform-deploy.outputs.deployment-url }}
     steps:
@@ -374,7 +374,9 @@ jobs:
     name: Deploy (Container Update)
     runs-on: ubuntu-latest
     needs: [plan-pipeline, prepare-deployment]
-    if: needs.plan-pipeline.outputs.deployment-method == 'container-update'
+    if: |
+      needs.plan-pipeline.outputs.deployment-method == 'container-update' &&
+      needs.plan-pipeline.outputs.needs-infrastructure == 'false'
     outputs:
       deployment-url: ${{ steps.fast-deploy.outputs.deployment-url }}
     steps:
