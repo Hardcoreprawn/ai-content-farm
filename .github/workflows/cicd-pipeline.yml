@@ -316,7 +316,7 @@ jobs:
     if: |
       always() &&
       needs.plan-pipeline.outputs.skip-deployment == 'false' &&
-      (needs.build-containers.result == 'success' || needs.build-containers.result == 'skipped') &&
+      (needs.build-containers.result == 'success' || needs.build-containers.result == 'skipped' || needs.plan-pipeline.outputs.changed-containers == '[]') &&
       (needs.infrastructure-quality.result == 'success' || needs.infrastructure-quality.result == 'skipped')
     outputs:
       registry-images: ${{ steps.collect.outputs.registry-images }}

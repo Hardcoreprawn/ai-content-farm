@@ -43,7 +43,8 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          echo "🔍 Scanning for security issues..."
+          {
+            echo "[SCAN] Scanning for security issues..."
 
           # Check Dependabot alerts
           dependabot_alerts=$(gh api "repos/$REPO/dependabot/alerts" --jq '[.[] | select(.state == "open")] | length')
@@ -61,10 +62,10 @@ jobs:
           total_alerts=$((dependabot_alerts + codeql_alerts + security_advisories))
 
           if [ $total_alerts -gt 0 ]; then
-            echo "⚠️ Found $total_alerts security issues requiring attention"
+            echo "[WARN] Found $total_alerts security issues requiring attention"
             summary="Security scan found: $dependabot_alerts Dependabot, $codeql_alerts CodeQL, $security_advisories Security Advisories"
           else
-            echo "✅ No open security issues found"
+            echo "[PASS] No open security issues found"
             summary="All security scans clear - no open issues"
           fi
 
@@ -73,11 +74,7 @@ jobs:
           echo "has-codeql-alerts=$([[ $codeql_alerts -gt 0 ]] && echo 'true' || echo 'false')"
           echo "has-security-advisories=$([[ $security_advisories -gt 0 ]] && echo 'true' || echo 'false')"
           echo "alert-summary=$summary"
-
-          echo "has-dependabot-alerts=$([[ $dependabot_alerts -gt 0 ]] && echo 'true' || echo 'false')" >> "$GITHUB_OUTPUT"
-          echo "has-codeql-alerts=$([[ $codeql_alerts -gt 0 ]] && echo 'true' || echo 'false')" >> "$GITHUB_OUTPUT"
-          echo "has-security-advisories=$([[ $security_advisories -gt 0 ]] && echo 'true' || echo 'false')" >> "$GITHUB_OUTPUT"
-          echo "alert-summary=$summary" >> "$GITHUB_OUTPUT"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create Security Issue
         if: steps.scan.outputs.has-dependabot-alerts == 'true' || steps.scan.outputs.has-codeql-alerts == 'true' || steps.scan.outputs.has-security-advisories == 'true'
@@ -90,7 +87,7 @@ jobs:
           existing_issue=$(gh issue list --label "security" --state "open" --search "Security Alert Summary" --json number --jq '.[0].number // empty')
 
           if [ -z "$existing_issue" ]; then
-            echo "📝 Creating new security tracking issue..."
+            echo "[CREATE] Creating new security tracking issue..."
 
             cat > issue_body.md << EOF
           # Security Alert Summary
@@ -116,12 +113,12 @@ jobs:
           EOF
 
             gh issue create \
-              --title "🔒 Security Alert Summary - $(date +%Y-%m-%d)" \
+              --title "[SECURITY] Security Alert Summary - $(date +%Y-%m-%d)" \
               --body-file issue_body.md \
               --label "security,automated" \
               --assignee "@me"
           else
-            echo "📋 Updating existing security issue #$existing_issue..."
+            echo "[UPDATE] Updating existing security issue #$existing_issue..."
 
             cat > update_body.md << 'EOF'
           ## Updated Status
@@ -130,7 +127,7 @@ jobs:
           *Last updated: $(date -u +"%Y-%m-%d %H:%M:%S UTC")*
           EOF
 
-            gh issue comment $existing_issue --body-file update_body.md
+            gh issue comment "$existing_issue" --body-file update_body.md
           fi
 
   dependabot-resolution:
@@ -148,7 +145,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          echo "🔍 Analyzing Dependabot alerts for auto-resolution..."
+          echo "[SCAN] Analyzing Dependabot alerts for auto-resolution..."
 
           # Get open alerts with details
           gh api "repos/$REPO/dependabot/alerts" \
@@ -158,7 +155,7 @@ jobs:
           cat dependabot_alerts.json
 
           # TODO: Implement auto-merge logic for low/medium severity alerts
-          echo "📋 Found $(wc -l < dependabot_alerts.json) Dependabot alerts to process"
+          echo "[INFO] Found $(wc -l < dependabot_alerts.json) Dependabot alerts to process"
 
   codeql-resolution:
     name: Auto-resolve CodeQL Issues
@@ -175,7 +172,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         run: |
-          echo "🔍 Analyzing CodeQL alerts for auto-resolution..."
+          echo "[SCAN] Analyzing CodeQL alerts for auto-resolution..."
 
           # Get open CodeQL alerts
           gh api "repos/$REPO/code-scanning/alerts" \
@@ -188,11 +185,11 @@ jobs:
           stack_trace_alerts=$(jq '[.[] | select(.rule == "py/stack-trace-exposure")]' codeql_alerts.json)
 
           if [ "$(echo "$stack_trace_alerts" | jq 'length')" -gt 0 ]; then
-            echo "🔧 Found stack trace exposure alerts that can be auto-fixed"
+            echo "[FIX] Found stack trace exposure alerts that can be auto-fixed"
             echo "$stack_trace_alerts" | jq -r '.[] | "Alert #\(.number): \(.file):\(.line)"'
 
             # TODO: Create PR with stack trace exposure fixes
-            echo "📋 Ready to create automated fix PR"
+            echo "[INFO] Ready to create automated fix PR"
           fi
 
   create-fix-pr:
@@ -217,12 +214,12 @@ jobs:
       - name: Apply Security Fixes
         shell: bash
         run: |
-          echo "🔧 Applying security fixes..."
+          echo "[FIX] Applying security fixes..."
 
           # Example: Apply the stack trace exposure fix we just implemented
           # This would be expanded to handle different types of security issues
 
-          echo "✅ Security fixes applied to branch $BRANCH_NAME"
+          echo "[PASS] Security fixes applied to branch $BRANCH_NAME"
 
       - name: Create Pull Request
         shell: bash
@@ -230,7 +227,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git add -A
-          git commit -m "🔒 Security: Fix stack trace exposure in content-ranker
+          git commit -m "[SECURITY] Security: Fix stack trace exposure in content-ranker
 
           - Implement secure error handling in health endpoint
           - Log detailed errors server-side only
@@ -243,17 +240,17 @@ jobs:
 
           # Create PR with security fix template
           cat > pr_body.md << 'EOF'
-          ## 🔒 Security Fix: Stack Trace Exposure
+          ## [SECURITY] Security Fix: Stack Trace Exposure
 
           **Alert Type**: CodeQL py/stack-trace-exposure
           **Severity**: Medium
           **Risk**: Information exposure through exception details
 
           ### Changes Made
-          - ✅ Enhanced error handling in content-ranker health endpoint
-          - ✅ Implemented secure logging with `exc_info=True`
-          - ✅ Return structured error responses without sensitive data
-          - ✅ Maintain debugging capability in server logs
+          - [PASS] Enhanced error handling in content-ranker health endpoint
+          - [PASS] Implemented secure logging with `exc_info=True`
+          - [PASS] Return structured error responses without sensitive data
+          - [PASS] Maintain debugging capability in server logs
 
           ### Security Validation
           - [x] No sensitive information exposed in HTTP responses
@@ -271,7 +268,7 @@ jobs:
           EOF
 
           gh pr create \
-            --title "🔒 Security: Fix stack trace exposure in content-ranker" \
+            --title "[SECURITY] Security: Fix stack trace exposure in content-ranker" \
             --body-file pr_body.md \
             --label "security,automated" \
             --reviewer "@me"
@@ -285,7 +282,7 @@ jobs:
       - name: Generate Security Report
         shell: bash
         run: |
-          echo "# 🔒 Security Auto-Resolution Summary"
+          echo "# [SECURITY] Security Auto-Resolution Summary"
           echo ""
           echo "**Date**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
           echo "**Status**: ${{ needs.security-monitoring.outputs.alert-summary }}"
@@ -293,12 +290,12 @@ jobs:
           echo "## Actions Taken"
 
           if [ "${{ needs.security-monitoring.outputs.has-dependabot-alerts }}" = "true" ]; then
-            echo "- 🔍 Analyzed Dependabot alerts for auto-resolution"
+            echo "- [SCAN] Analyzed Dependabot alerts for auto-resolution"
           fi
 
           if [ "${{ needs.security-monitoring.outputs.has-codeql-alerts }}" = "true" ]; then
-            echo "- 🔍 Analyzed CodeQL alerts for auto-resolution"
-            echo "- 🔧 Prepared automated fixes for resolvable issues"
+            echo "- [SCAN] Analyzed CodeQL alerts for auto-resolution"
+            echo "- [FIX] Prepared automated fixes for resolvable issues"
           fi
 
           echo ""
