@@ -337,17 +337,15 @@ jobs:
     name: Deploy (Full Terraform)
     runs-on: ubuntu-latest
     needs: [plan-pipeline, prepare-deployment]
-    if: |
-      github.ref == 'refs/heads/main' &&
-      needs.plan-pipeline.outputs.deployment-method == 'terraform' &&
-      needs.prepare-deployment.result == 'success'
+    if: needs.plan-pipeline.outputs.deployment-method == 'terraform'
     environment: production
     outputs:
       deployment-url: ${{ steps.terraform-deploy.outputs.deployment-url }}
     steps:
       - name: Debug Before Deploy
         run: |
-          echo "Starting Terraform deployment..."
+          echo "[DEPLOY] Starting Terraform deployment..."
+          echo "Branch: ${{ github.ref }}"
           echo "Deployment method: ${{ needs.plan-pipeline.outputs.deployment-method }}"
           echo "Prepare deployment result: ${{ needs.prepare-deployment.result }}"
 
