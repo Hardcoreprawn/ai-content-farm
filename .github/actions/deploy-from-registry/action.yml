@@ -173,17 +173,23 @@ runs:
         export ARM_SUBSCRIPTION_ID="$ARM_SUBSCRIPTION_ID"
         export ARM_USE_OIDC="$ARM_USE_OIDC"
 
-        # Create a terraform variables file with registry image URLs
-        echo "[CONFIG] Generating container image variables..."
-        echo "# Container registry images - generated automatically" > container_images.auto.tfvars
-        echo "container_images = {" >> container_images.auto.tfvars
+        # Create a terraform variables file with registry image URLs only if we have new images
+        if [ "$REGISTRY_IMAGES" = "[]" ] || [ -z "$REGISTRY_IMAGES" ]; then
+          echo "[CONFIG] No new container images provided - using defaults from variables.tf"
+          # Remove any existing auto.tfvars file to use defaults
+          rm -f container_images.auto.tfvars
+        else
+          echo "[CONFIG] Generating container image variables..."
+          echo "# Container registry images - generated automatically" > container_images.auto.tfvars
+          echo "container_images = {" >> container_images.auto.tfvars
 
-        echo "$REGISTRY_IMAGES" | jq -r 'to_entries[] | "  \(.key) = \"\(.value.image)\""' >> container_images.auto.tfvars
+          echo "$REGISTRY_IMAGES" | jq -r 'to_entries[] | "  \(.key) = \"\(.value.image)\""' >> container_images.auto.tfvars
 
-        echo "}" >> container_images.auto.tfvars
+          echo "}" >> container_images.auto.tfvars
 
-        echo "[CONFIG] Container images configuration:"
-        cat container_images.auto.tfvars
+          echo "[CONFIG] Container images configuration:"
+          cat container_images.auto.tfvars
+        fi
 
         # Run terraform apply with the new container images
         echo "[DEPLOY] Applying Terraform configuration with registry images..."
