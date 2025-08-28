@@ -4,15 +4,8 @@ resource "random_string" "suffix" {
   length  = 6
   upper   = false
   special = false
+  # Test: Simplified deployment conditions (Aug 28, 2025)
 }
-
-# Fix Azure OIDC permissions issue - trigger deploy test
-# Test: Verify infrastructure deployment fix works (Aug 28, 2025)
-# Debug: Check deployment conditions evaluation
-# Test: Final deployment attempt with fixed workflow
-# Test: Simplified condition deployment attempt
-# Trigger: Test Terraform deployment after pipeline fix (Aug 28, 2025)
-# Test: Terraform deployment without environment protection (Aug 28, 2025)
 
 resource "azurerm_resource_group" "main" {
   name     = "${local.resource_prefix}-rg"
