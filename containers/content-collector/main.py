@@ -5,13 +5,12 @@ Discovers trending topics across platforms for research and analysis.
 Uses Reddit API with PRAW in Azure (with Key Vault), anonymous locally.
 """
 
-import asyncio
 import logging
 import os
 import time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List
 
 import praw
 from azure.identity import DefaultAzureCredential
