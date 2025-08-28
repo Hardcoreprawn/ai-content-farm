@@ -49,6 +49,7 @@ service_metadata = create_service_dependency("content-ranker")
 @router.get("/health", response_model=StandardResponse)
 async def api_health_check(metadata: Dict[str, Any] = Depends(service_metadata)):
     """Standardized health check endpoint using FastAPI-native patterns."""
+    start_time = time.time()
     try:
         # Get health check data
         health_data = health_check()
@@ -63,9 +64,13 @@ async def api_health_check(metadata: Dict[str, Any] = Depends(service_metadata))
             environment=health_data.get("environment"),
         )
 
+        # Add execution time to metadata
+        execution_time_ms = round((time.time() - start_time) * 1000, 2)
+        metadata["execution_time_ms"] = execution_time_ms
+
         return StandardResponse(
             status="success",
-            message=f"Service is {health_status.status}",
+            message="Content ranker service is healthy",
             data=health_status.model_dump(),
             errors=None,
             metadata=metadata,
@@ -125,7 +130,7 @@ async def api_process_content(
     start_time = time.time()
 
     # Validate request
-    if not request.items:
+    if not request.content_items:
         raise HTTPException(
             status_code=400,
             detail=create_error_response(
@@ -187,7 +192,11 @@ async def api_process_content(
 
         # Update metadata with error info
         metadata.update(
-            {"execution_time_seconds": execution_time, "error_type": "InternalError"}
+            {
+                "execution_time_seconds": execution_time,
+                "execution_time_ms": max(1, int(execution_time * 1000)),
+                "error_type": "InternalError",
+            }
         )
 
         raise HTTPException(

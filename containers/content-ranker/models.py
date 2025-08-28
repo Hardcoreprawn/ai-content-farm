@@ -57,7 +57,7 @@ class RankingOptions(BaseModel):
 class RankingRequest(BaseModel):
     """Request to rank content items."""
 
-    items: List[ContentItem] = Field(
+    content_items: List[ContentItem] = Field(
         ..., description="List of enriched content items to rank"
     )
     options: Optional[RankingOptions] = Field(
