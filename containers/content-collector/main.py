@@ -17,6 +17,7 @@ from azure.identity import DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 from fastapi import Depends, FastAPI, HTTPException
 from pydantic import BaseModel, Field
+from service_logic import ContentCollectorService
 
 from libs.blob_storage import BlobContainers, BlobStorageClient
 from libs.shared_models import StandardResponse, create_service_dependency
@@ -38,6 +39,9 @@ service_metadata = create_service_dependency("topic-collector")
 
 # Initialize blob storage
 blob_client = BlobStorageClient()
+
+# Initialize collector service
+collector_service = ContentCollectorService()
 
 
 class SourceConfig(BaseModel):
