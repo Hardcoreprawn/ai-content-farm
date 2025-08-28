@@ -337,7 +337,9 @@ jobs:
     name: Deploy (Full Terraform)
     runs-on: ubuntu-latest
     needs: [plan-pipeline, prepare-deployment]
-    if: needs.plan-pipeline.outputs.deployment-method == 'terraform'
+    if: |
+      needs.plan-pipeline.outputs.deployment-method == 'terraform' &&
+      needs.prepare-deployment.result == 'success'
     environment: production
     outputs:
       deployment-url: ${{ steps.terraform-deploy.outputs.deployment-url }}
@@ -376,7 +378,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [plan-pipeline, prepare-deployment]
     if: |
-      github.ref == 'refs/heads/main' &&
       needs.plan-pipeline.outputs.deployment-method == 'container-update' &&
       needs.prepare-deployment.result == 'success'
     environment: production
