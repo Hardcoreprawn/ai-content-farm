@@ -19,27 +19,28 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict
 
 import uvicorn
+from api_endpoints import router as api_router
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from legacy_endpoints import router as legacy_router
+from service_logic import ContentRankerService
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-# Add the project root to the path to import shared libraries
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-
-# Import our API routers
-from api_endpoints import router as api_router
-from legacy_endpoints import router as legacy_router
-
-# Import business logic for app lifecycle
-from service_logic import ContentRankerService
-
-from config import get_config
+from config import get_config, health_check
 from libs.shared_models import (
     ErrorCodes,
     StandardResponseFactory,
     create_error_response,
 )
+
+# Add the project root to the path to import shared libraries
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
+# Import our API routers
+
+# Import business logic for app lifecycle
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -84,30 +85,36 @@ app.include_router(
 app.include_router(legacy_router)  # Legacy endpoints for backward compatibility
 
 
+# Import health_check function for tests
+
 # Basic application endpoints
+
+
 @app.get("/")
 async def root():
     """Root endpoint providing service information and available endpoints."""
     return {
-        "service": "content-ranker",
-        "version": "1.0.0",
-        "description": "Content ranking service with multi-factor scoring algorithms",
-        "status": "running",
-        "endpoints": {
-            # Standardized API endpoints (recommended)
-            "api_health": "/api/content-ranker/health",
-            "api_status": "/api/content-ranker/status",
-            "api_process": "/api/content-ranker/process",
-            "api_docs": "/api/content-ranker/docs",
-            # Legacy endpoints (backward compatibility)
-            "legacy_rank": "/rank",
-            "legacy_rank_batch": "/rank/batch",
-            "legacy_rank_enriched": "/rank/enriched",
-        },
-        "api_categories": {
-            "standardized": "Use /api/content-ranker/* endpoints for new integrations",
-            "legacy": "Existing endpoints maintained for backward compatibility",
-        },
+        "data": {
+            "service": "content-ranker",
+            "version": "1.0.0",
+            "description": "Content ranking service with multi-factor scoring algorithms",
+            "status": "running",
+            "endpoints": {
+                # Standardized API endpoints (recommended)
+                "api_health": "/api/content-ranker/health",
+                "api_status": "/api/content-ranker/status",
+                "api_process": "/api/content-ranker/process",
+                "api_docs": "/api/content-ranker/docs",
+                # Legacy endpoints (backward compatibility)
+                "legacy_rank": "/rank",
+                "legacy_rank_batch": "/rank/batch",
+                "legacy_rank_enriched": "/rank/enriched",
+            },
+            "api_categories": {
+                "standardized": "Use /api/content-ranker/* endpoints for new integrations",
+                "legacy": "Existing endpoints maintained for backward compatibility",
+            },
+        }
     }
 
 
@@ -134,12 +141,8 @@ async def legacy_status():
     """Legacy status endpoint for backward compatibility."""
     try:
         status_data = await ranker_service.get_ranking_status()
-        return {
-            "status": "running",
-            "service": "content-ranker",
-            "data": status_data,
-            "message": "Legacy status endpoint - use /api/content-ranker/status for standardized format",
-        }
+        # Return the status data directly to match test expectations
+        return status_data
     except Exception as e:
         logger.error(f"Legacy status check failed: {e}")
         raise HTTPException(status_code=500, detail="Status check failed")
@@ -171,6 +174,12 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     """Handle HTTP exceptions with standardized error responses."""
     logger.error(f"HTTP {exc.status_code}: {exc.detail}")
 
+    # Check if detail is already a StandardError dictionary
+    if isinstance(exc.detail, dict) and "status" in exc.detail:
+        # Detail is already a properly formatted StandardError, use it directly
+        return JSONResponse(status_code=exc.status_code, content=exc.detail)
+
+    # Otherwise, create a new StandardError response
     error_response = create_error_response(
         message=f"HTTP {exc.status_code} Error",
         errors=[str(exc.detail)],

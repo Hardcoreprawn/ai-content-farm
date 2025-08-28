@@ -63,7 +63,7 @@ class TestContentRankerAPI:
         assert data["status"] == "healthy"
 
     @pytest.mark.unit
-    @patch("main.ranker_service")
+    @patch("legacy_endpoints.ranker_service")
     @pytest.mark.unit
     def test_rank_enriched_endpoint_success(self, mock_service, test_client):
         """Test successful enriched content ranking."""
@@ -99,7 +99,7 @@ class TestContentRankerAPI:
         assert "total_processed" in data
         assert len(data["ranked_items"]) == 2
 
-    @patch("main.ranker_service")
+    @patch("legacy_endpoints.ranker_service")
     @pytest.mark.unit
     def test_rank_batch_endpoint_success(self, mock_service, test_client):
         """Test successful batch ranking."""
@@ -150,7 +150,7 @@ class TestContentRankerAPI:
         assert "ranked_items" in data
         assert len(data["ranked_items"]) > 0
 
-    @patch("main.ranker_service")
+    @patch("legacy_endpoints.ranker_service")
     @pytest.mark.unit
     def test_rank_enriched_endpoint_error(self, mock_service, test_client):
         """Test error handling in enriched content ranking."""
