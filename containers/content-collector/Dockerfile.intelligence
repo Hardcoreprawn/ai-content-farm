@@ -1,0 +1,37 @@
+# Multi-stage Dockerfile for Topic Intelligence Collector
+FROM python:3.11-slim as base
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy shared libraries first (for better caching)
+COPY libs/ ./libs/
+
+# Install Python dependencies
+COPY containers/content-collector/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY containers/content-collector/topic_intelligence_collector.py ./main.py
+COPY containers/content-collector/models.py .
+COPY containers/content-collector/config.py .
+
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose port
+EXPOSE 8000
+
+# Run application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

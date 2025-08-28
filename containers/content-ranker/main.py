@@ -132,8 +132,17 @@ async def legacy_health():
             "message": "Legacy health endpoint - use /api/content-ranker/health for standardized format",
         }
     except Exception as e:
-        logger.error(f"Legacy health check failed: {e}")
-        raise HTTPException(status_code=503, detail="Health check failed")
+        # Log detailed error for debugging (server-side only)
+        logger.error(f"Legacy health check failed: {e}", exc_info=True)
+        # Return generic error message (no sensitive information exposed)
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "error": "Service temporarily unavailable",
+                "message": "Health check failed - please try again later",
+                "service": "content-ranker",
+            },
+        )
 
 
 @app.get("/status")

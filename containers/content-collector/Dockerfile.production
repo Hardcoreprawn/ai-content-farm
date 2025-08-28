@@ -33,8 +33,9 @@ RUN pip install --no-cache-dir -r requirements-unique.txt
 COPY libs /app/libs
 RUN pip install --no-cache-dir /app/libs
 
-# Copy application code
-COPY containers/content-collector/ .
+# Copy application code - production version
+COPY containers/content-collector/main_production.py ./main.py
+COPY containers/content-collector/config.py ./config.py
 
 # Service-specific configuration
 ENV SERVICE_NAME=content-collector

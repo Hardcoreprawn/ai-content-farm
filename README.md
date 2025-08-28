@@ -1,103 +1,147 @@
 # AI Content Farm
 
-**An intelligent, event-driven content aggregation and curation system** that collects interesting articles from various sources and presents them as high-quality static websites. Built with Docker microservices and Azure blob storage for scalability and reliability.
+**An intelligent content aggregation and curation platform** that collects trending topics from Reddit and transforms them into high-quality articles for personal reading and content marketing.
 
-> **Latest Update (Aug 26, 2025)**: Fixed CI/CD pipeline GitHub Container Registry permissions and authentication for successful container deployment.
+## 🎯 What This Does
 
-## 🎯 Vision
+**Current State (Working)**:
+- ✅ **Collects content** from Reddit automatically every 6 hours
+- ✅ **Ranks topics** by engagement and relevance 
+- ✅ **Processes content** through AI pipeline
+- ✅ **Deploys to Azure** with Container Apps (working but expensive)
+- ✅ **Tests locally** with Docker Compose and blob storage emulation
+- ✅ **Security scanning** passes all checks (Checkov, Trivy, Terrascan)
 
-Create a **personal content curation platform** that automatically:
-- **🧹 Aggregates Quality Content**: Collect from Reddit, HackerNews, and other sources
-- **🤖 AI-Enhanced Processing**: Smart ranking, enrichment, and fact-checking  
-- **📚 Generates Static Sites**: Beautiful, fast-loading websites for consumption
-- **🔄 Event-Driven Automation**: Fully automated pipeline with minimal manual intervention
-- **☁️ Cloud-Native Design**: Scalable, secure, and cost-effective with smart deployment routing
-
-## 🏗️ Architecture
-
-**Event-Driven Microservices Pipeline**:
-```
-Sources → Collector → Processor → Enricher → Ranker → Generator → SSG → Website
-   ↓         ↓          ↓          ↓         ↓         ↓        ↓        ↓
-[Reddit]  [collected] [processed] [enriched] [ranked] [markdown] [sites] [preview]
-```
-
-### Core Components
-- **6 Microservices**: Each stage runs in its own Docker container
-- **Azure Blob Storage**: All data persistence through standardized blob containers
-- **Event-Driven Triggers**: Services automatically trigger when new content is available
-- **Standard APIs**: FastAPI-based services with health checks and monitoring
-- **Local Development**: Full stack runs locally with Azurite blob storage emulation
+**Current Architecture**: 8 containers doing content processing pipeline
+**Current Problem**: Over-engineered, expensive (~$77-110/month), confusing
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- Docker and Docker Compose
-- Python 3.11+
-- Azure CLI (for production deployment)
-
-### Development Setup
+### Test Locally
 ```bash
-# 1. Clone and setup environment
-git clone https://github.com/Hardcoreprawn/ai-content-farm.git
-cd ai-content-farm
-./scripts/setup-local-dev.sh
-
-# 2. Start the development stack
+# Start the development stack
 docker-compose up -d
 
-# 3. Test the pipeline
-./scripts/test-pipeline.sh
+# Test the pipeline works
+make process-content
 
-# 4. View generated content
-open http://localhost:8002  # SSG preview service
+# Check status
+curl http://localhost:8001/health  # Content services
+```
+
+### Deploy to Azure
+```bash
+# Deploy infrastructure and containers
+make deploy-staging   # For testing
+make deploy-production # For production (main branch only)
+```
+
+### Visit Your Website
+- **Local**: http://localhost:8006 (static site generator)
+- **Azure**: Check Container Apps in Azure portal for public URL
+
+## 📋 What's Next - The Plan
+
+We have a **good plan** to simplify and reduce costs. Here's what we're doing:
+
+### Phase 1: API Standardization (2 weeks)
+**Goal**: Make all containers use consistent FastAPI patterns and responses
+
+- ✅ **Plan exists**: FastAPI-native approach in `docs/FASTAPI_NATIVE_MODERNIZATION_PLAN.md`
+- 🚧 **Status**: Need to implement shared response models across containers
+- 🎯 **Benefit**: Easier monitoring, debugging, and integration
+
+### Phase 2: Container Reduction (2 weeks) 
+**Goal**: Reduce from 8 containers down to 4 essential ones
+
+- ✅ **Plan exists**: Container consolidation strategy in `docs/CONTAINER_APPS_COST_OPTIMIZATION.md`
+- 🚧 **Status**: Need to merge similar functions and eliminate redundancy
+- 🎯 **Benefit**: 40-50% cost reduction (~$40-62/month instead of $77-110)
+
+### Phase 3: Remove Service Bus (1 week)
+**Goal**: Replace complex event system with simple polling or HTTP calls
+
+- ✅ **Plan exists**: Multiple options analyzed (webhooks, polling, orchestrator)
+- 🚧 **Status**: Choose polling approach based on actual usage patterns
+- 🎯 **Benefit**: Eliminate $10/month Service Bus cost, simplify architecture
+
+## 🏗️ Current Architecture
+
+**Working Pipeline**:
+```
+Reddit → Collector → Ranker → Enricher → Generator → Site → Website
+```
+
+**8 Current Containers** (too many):
+1. `collector-scheduler` - Timer triggers
+2. `content-collector` - Fetch Reddit data  
+3. `content-processor` - Clean and format
+4. `content-enricher` - Research and fact-check
+5. `content-ranker` - Score and prioritize
+6. `content-generator` - Write articles
+7. `markdown-generator` - Convert to markdown
+8. `site-generator` - Build static site
+
+**Proposed 4 Containers** (simpler):
+1. **Collector** - Fetch and clean data
+2. **Processor** - Rank, enrich, generate content  
+3. **Publisher** - Generate markdown and static site
+4. **Scheduler** - Timer triggers and orchestration
+
+## � Project Structure
+
+```
+├── README.md                 # This file - main overview
+├── TODO.md                   # Simple task list (create this)
+├── containers/               # 8 container services (current)
+├── functions/               # Azure Functions (alternative approach)
+├── infra/                   # Terraform infrastructure
+├── docs/                    # Detailed documentation
+├── scripts/                 # Utility scripts
+└── docker-compose.yml       # Local development
+```
+
+## 🔧 Common Tasks
+
+```bash
+# Development
+docker-compose up -d          # Start local stack
+make test                     # Run tests
+make security-scan           # Security validation
+
+# Content Processing  
+make collect-topics          # Fetch from Reddit
+make process-content         # Full pipeline
+make content-status          # Check pipeline status
+
+# Deployment
+make deploy-staging          # Deploy to test environment
+make deploy-production       # Deploy to production
+make cost-estimate           # Check Azure costs
 ```
 
 ## 📚 Documentation
 
-### 🚀 Getting Started
-- **[Quick Start Guide](docs/QUICK_START_GUIDE.md)** - Get productive in 30 minutes
-- **[System Architecture](docs/SYSTEM_ARCHITECTURE.md)** - Complete system design
+**Main Documents**:
+- `TODO.md` - Simple task list and priorities (need to create)
+- `docs/FASTAPI_NATIVE_MODERNIZATION_PLAN.md` - API standardization plan
+- `docs/CONTAINER_APPS_COST_OPTIMIZATION.md` - Container reduction plan
+- `.github/agent-instructions.md` - Development guidelines
 
-### 👨‍💻 Development
-- **[Container Standards](docs/CONTAINER_DEVELOPMENT_STANDARDS.md)** - Development patterns and templates
-- **[Implementation Roadmap](docs/IMPLEMENTATION_ROADMAP.md)** - Current development plan
-- **[Testing Guide](docs/testing-guide.md)** - Quality assurance practices
+**Key Reference**:
+- Container patterns: `docs/development/CONTAINER_DEVELOPMENT_STANDARDS.md`
+- System design: `docs/SYSTEM_ARCHITECTURE.md`
 
-### 🚀 Deployment
-- **[Deployment Guide](docs/deployment-guide.md)** - Production deployment
-- **[Security Policy](docs/security-policy.md)** - Security best practices
+## 🎯 Immediate Next Steps
 
-## 🔧 Development
+1. **Create TODO.md** - Simple task tracking
+2. **Choose approach** - Start with API standardization OR container reduction
+3. **Test Azure site** - Find your actual website URL
+4. **Document cleanup** - Remove redundant docs in `/docs`
 
-### Container Services
-```bash
-# Individual service endpoints (when running)
-curl http://localhost:8001/health   # Content Collector
-curl http://localhost:8002/health   # Content Processor  
-curl http://localhost:8003/health   # Content Enricher
-curl http://localhost:8004/health   # Content Ranker
-curl http://localhost:8005/health   # Markdown Generator
-curl http://localhost:8006/health   # Static Site Generator
-```
+---
 
-### Development Workflow
-```bash
-# Make changes to a container
-code containers/ssg/main.py
-
-# Rebuild and restart
-docker-compose up -d --build ssg
-
-# Test changes
-curl http://localhost:8006/health
-pytest containers/ssg/tests/
-```
-
-## 🧪 Testing
-
-```bash
-# Run all tests
+**Bottom Line**: You have a working system that's over-engineered. The plan to simplify it is solid and will cut costs in half while making it easier to maintain. Pick a phase and start implementing!
 pytest tests/
 
 # Run integration tests
