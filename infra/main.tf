@@ -8,6 +8,7 @@ resource "random_string" "suffix" {
 
 # Fix Azure OIDC permissions issue - trigger deploy test
 # Test: Verify infrastructure deployment fix works (Aug 28, 2025)
+# Debug: Check deployment conditions evaluation
 
 resource "azurerm_resource_group" "main" {
   name     = "${local.resource_prefix}-rg"
