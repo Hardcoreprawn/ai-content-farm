@@ -3,9 +3,19 @@ name: Individual Large File Issue Creator
 on:
   push:
     branches: [main, develop]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.github/workflows/**'
   pull_request:
     branches: [main, develop]
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '.github/workflows/**'
   workflow_dispatch:  # Allow manual triggering
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly on Monday at 6 AM UTC
 
 permissions:
   contents: read
@@ -99,19 +109,28 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
-              labels: 'large-file'
+              labels: 'large-file',
+              per_page: 100
             });
 
-            const existingFilePaths = existingIssues.data
-              .map(issue => issue.title.match(/Refactor large file: `([^`]+)`/)?.[1])
-              .filter(Boolean);
+            // Extract file paths from existing issue titles
+            const existingFilePaths = new Set();
+            for (const issue of existingIssues.data) {
+              // Match the exact pattern: "Refactor large file: `filepath` (N lines)"
+              const match = issue.title.match(/^Refactor large file: `([^`]+)` \(\d+ lines\)$/);
+              if (match) {
+                existingFilePaths.add(match[1]);
+              }
+            }
+
+            console.log(`Found ${existingFilePaths.size} existing large file issues:`, Array.from(existingFilePaths));
 
             let createdCount = 0;
             let skippedCount = 0;
 
             for (const file of files) {
               // Check if issue already exists for this file
-              if (existingFilePaths.includes(file.path)) {
+              if (existingFilePaths.has(file.path)) {
                 console.log(`Skipping ${file.path} - issue already exists`);
                 skippedCount++;
                 continue;
@@ -211,8 +230,15 @@ jobs:
 
             // Create summary issue if we created multiple individual issues
             if (createdCount > 1) {
-              const summaryTitle = `Large File Refactoring Sprint: ${createdCount} files need attention`;
-              const summaryBody = `## [STATS] Large File Refactoring Sprint Summary
+              // Check if a recent sprint summary already exists (within last 7 days)
+              const recentSummaries = existingIssues.data.filter(issue =>
+                issue.title.includes('Large File Refactoring Sprint:') &&
+                new Date(issue.created_at) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+              );
+
+              if (recentSummaries.length === 0) {
+                const summaryTitle = `Large File Refactoring Sprint: ${createdCount} files need attention`;
+                const summaryBody = `## [STATS] Large File Refactoring Sprint Summary
 
             **Created**: ${new Date().toISOString().split('T')[0]}
             **Files identified**: ${files.length}
@@ -254,6 +280,9 @@ jobs:
               });
 
               console.log('Created sprint summary issue');
+              } else {
+                console.log(`Skipping sprint summary - found ${recentSummaries.length} recent sprint summaries`);
+              }
             }
 
       - name: Comment on PR
