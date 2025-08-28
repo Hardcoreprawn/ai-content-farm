@@ -12,6 +12,7 @@ resource "random_string" "suffix" {
 # Test: Final deployment attempt with fixed workflow
 # Test: Simplified condition deployment attempt
 # Trigger: Test Terraform deployment after pipeline fix (Aug 28, 2025)
+# Test: Terraform deployment without environment protection (Aug 28, 2025)
 
 resource "azurerm_resource_group" "main" {
   name     = "${local.resource_prefix}-rg"
