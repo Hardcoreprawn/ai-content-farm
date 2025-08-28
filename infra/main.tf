@@ -4,7 +4,7 @@ resource "random_string" "suffix" {
   length  = 6
   upper   = false
   special = false
-  # Test: Simplified deployment conditions (Aug 28, 2025)
+  # Test: Corrected deployment conditions (Aug 28, 2025) - needs-infrastructure trigger
 }
 
 resource "azurerm_resource_group" "main" {
