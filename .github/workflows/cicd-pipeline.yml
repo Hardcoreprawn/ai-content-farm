@@ -316,6 +316,7 @@ jobs:
     if: |
       always() &&
       needs.plan-pipeline.outputs.skip-deployment == 'false' &&
+      needs.plan-pipeline.outputs.deployment-method == 'container-update' &&
       (needs.build-containers.result == 'success' || needs.build-containers.result == 'skipped' || needs.plan-pipeline.outputs.changed-containers == '[]') &&
       (needs.infrastructure-quality.result == 'success' || needs.infrastructure-quality.result == 'skipped')
     outputs:
@@ -356,8 +357,11 @@ jobs:
   deploy-infrastructure:
     name: Deploy (Full Terraform)
     runs-on: ubuntu-latest
-    needs: [plan-pipeline, prepare-deployment]
-    if: needs.plan-pipeline.outputs.needs-infrastructure == 'true'
+    needs: [plan-pipeline, infrastructure-quality]
+    if: |
+      needs.plan-pipeline.outputs.needs-infrastructure == 'true' &&
+      needs.plan-pipeline.outputs.deployment-method == 'terraform' &&
+      needs.infrastructure-quality.result == 'success'
     outputs:
       deployment-url: ${{ steps.terraform-deploy.outputs.deployment-url }}
     steps:
@@ -366,7 +370,7 @@ jobs:
           echo "[DEPLOY] Starting Terraform deployment..."
           echo "Branch: ${{ github.ref }}"
           echo "Deployment method: ${{ needs.plan-pipeline.outputs.deployment-method }}"
-          echo "Prepare deployment result: ${{ needs.prepare-deployment.result }}"
+          echo "Infrastructure quality result: ${{ needs.infrastructure-quality.result }}"
 
       - name: Checkout code
         uses: actions/checkout@v5
@@ -386,7 +390,7 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           environment: production
-          registry-images: ${{ needs.prepare-deployment.outputs.registry-images }}
+          registry-images: "[]"
           terraform-storage-account: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT_PROD || 'aicontentfarmtfstate' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
