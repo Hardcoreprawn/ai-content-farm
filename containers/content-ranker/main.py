@@ -3,811 +3,226 @@
 Content Ranker - Main FastAPI Application
 
 Ranks enriched content using multi-factor scoring algorithms.
-API endpoints for content ranking and health monitoring.
-Updated to use standardized response formats and endpoint patterns.
+Simplified main application that assembles routers for legacy and standardized API endpoints.
+
+The business logic is in service_logic.py
+Legacy endpoints are in legacy_endpoints.py
+Standardized API endpoints are in api_endpoints.py
 """
 
 import json
 import logging
 import os
-
-# Import standardized models
 import sys
 import time
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from models import (
-    BatchRankingRequest,
-    ContentItem,
-    HealthResponse,
-    RankedItem,
-    RankingOptions,
-    RankingRequest,
-    RankingResponse,
-    SpecificRankingRequest,
-)
-from pydantic import BaseModel, Field, ValidationError
-
-# Import our business logic
-from ranker import rank_content_items
-from service_logic import ContentRankerService
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from config import get_config, health_check
+# Add the project root to the path to import shared libraries
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
+# Import our API routers
+from api_endpoints import router as api_router
+from legacy_endpoints import router as legacy_router
+
+# Import business logic for app lifecycle
+from service_logic import ContentRankerService
+
+from config import get_config
 from libs.shared_models import (
-    APIError,
     ErrorCodes,
-    HealthStatus,
-    ServiceStatus,
-    StandardError,
-    StandardResponse,
     StandardResponseFactory,
     create_error_response,
-    create_service_dependency,
-    create_success_response,
-    wrap_legacy_response,
 )
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize service
+# Initialize service for app lifecycle
 ranker_service = ContentRankerService()
 
 # Function name for standardized responses
 FUNCTION_NAME = "content-ranker"
 
-# Create service-specific dependency for automatic metadata injection
-service_metadata = create_service_dependency("content-ranker")
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage application lifespan events."""
+    """Application lifespan manager for startup and shutdown events."""
     # Startup
+    logger.info(f"Starting {FUNCTION_NAME} service...")
     try:
         await ranker_service.ensure_containers()
-        logger.info("Content ranker service initialized successfully")
+        logger.info("Service startup completed successfully")
     except Exception as e:
-        logger.error(f"Failed to initialize service: {e}")
-        raise
+        logger.error(f"Service startup failed: {e}")
 
     yield
 
-    # Shutdown (if needed)
-    logger.info("Content ranker service shutting down")
+    # Shutdown
+    logger.info(f"Shutting down {FUNCTION_NAME} service...")
 
 
-# Create FastAPI app
+# Create FastAPI application
 app = FastAPI(
-    title="Content Ranker",
-    description="Ranks enriched content using multi-factor scoring algorithms",
+    title="Content Ranker Service",
+    description="Ranks content using multi-factor scoring algorithms with both legacy and standardized API endpoints",
     version="1.0.0",
     lifespan=lifespan,
 )
 
-# Exception handlers for standardized error responses
+# Include API routers
+app.include_router(
+    api_router
+)  # Standardized API endpoints with /api/content-ranker prefix
+app.include_router(legacy_router)  # Legacy endpoints for backward compatibility
 
 
+# Basic application endpoints
+@app.get("/")
+async def root():
+    """Root endpoint providing service information and available endpoints."""
+    return {
+        "service": "content-ranker",
+        "version": "1.0.0",
+        "description": "Content ranking service with multi-factor scoring algorithms",
+        "status": "running",
+        "endpoints": {
+            # Standardized API endpoints (recommended)
+            "api_health": "/api/content-ranker/health",
+            "api_status": "/api/content-ranker/status",
+            "api_process": "/api/content-ranker/process",
+            "api_docs": "/api/content-ranker/docs",
+            # Legacy endpoints (backward compatibility)
+            "legacy_rank": "/rank",
+            "legacy_rank_batch": "/rank/batch",
+            "legacy_rank_enriched": "/rank/enriched",
+        },
+        "api_categories": {
+            "standardized": "Use /api/content-ranker/* endpoints for new integrations",
+            "legacy": "Existing endpoints maintained for backward compatibility",
+        },
+    }
+
+
+@app.get("/health")
+async def legacy_health():
+    """Legacy health check endpoint for backward compatibility."""
+    try:
+        from config import health_check
+
+        health_data = health_check()
+        return {
+            "status": health_data.get("status", "healthy"),
+            "service": "content-ranker",
+            "version": "1.0.0",
+            "message": "Legacy health endpoint - use /api/content-ranker/health for standardized format",
+        }
+    except Exception as e:
+        logger.error(f"Legacy health check failed: {e}")
+        raise HTTPException(status_code=503, detail="Health check failed")
+
+
+@app.get("/status")
+async def legacy_status():
+    """Legacy status endpoint for backward compatibility."""
+    try:
+        status_data = await ranker_service.get_ranking_status()
+        return {
+            "status": "running",
+            "service": "content-ranker",
+            "data": status_data,
+            "message": "Legacy status endpoint - use /api/content-ranker/status for standardized format",
+        }
+    except Exception as e:
+        logger.error(f"Legacy status check failed: {e}")
+        raise HTTPException(status_code=500, detail="Status check failed")
+
+
+@app.get("/docs")
+async def legacy_docs():
+    """Legacy documentation endpoint for backward compatibility."""
+    return {
+        "service": "content-ranker",
+        "version": "1.0.0",
+        "message": "Legacy docs endpoint - use /api/content-ranker/docs for standardized format",
+        "migration_info": {
+            "recommendation": "Migrate to standardized API endpoints under /api/content-ranker/",
+            "legacy_support": "Legacy endpoints will be maintained for backward compatibility",
+            "new_endpoints": {
+                "health": "/api/content-ranker/health",
+                "status": "/api/content-ranker/status",
+                "process": "/api/content-ranker/process",
+                "docs": "/api/content-ranker/docs",
+            },
+        },
+    }
+
+
+# Global exception handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
-    """Handle HTTP exceptions with standardized format."""
-    logger.error(f"HTTP error {exc.status_code}: {exc.detail}")
+    """Handle HTTP exceptions with standardized error responses."""
+    logger.error(f"HTTP {exc.status_code}: {exc.detail}")
 
-    if exc.status_code == 401:
-        error = ErrorCodes.unauthorized(str(exc.detail))
-    elif exc.status_code == 403:
-        error = ErrorCodes.forbidden(str(exc.detail))
-    elif exc.status_code == 404:
-        error = ErrorCodes.not_found("endpoint")
-    elif exc.status_code == 400:
-        error = ErrorCodes.validation_error("request", str(exc.detail))
-    else:
-        error = ErrorCodes.internal_error(str(exc.detail))
-
-    error.function_name = FUNCTION_NAME
-    response = error.to_standard_response()
-    return JSONResponse(status_code=exc.status_code, content=response.model_dump())
-
-
-@app.exception_handler(StarletteHTTPException)
-async def starlette_exception_handler(request: Request, exc: StarletteHTTPException):
-    """Handle Starlette HTTP exceptions with standardized format."""
-    logger.error(f"Starlette HTTP error {exc.status_code}: {exc.detail}")
-
-    if exc.status_code == 404:
-        error = ErrorCodes.not_found("endpoint")
-    elif exc.status_code == 405:
-        error = ErrorCodes.validation_error(
-            "method", "Method not allowed for this endpoint"
-        )
-    elif exc.status_code == 401:
-        error = ErrorCodes.unauthorized(str(exc.detail))
-    elif exc.status_code == 403:
-        error = ErrorCodes.forbidden(str(exc.detail))
-    elif exc.status_code == 400:
-        error = ErrorCodes.validation_error("request", str(exc.detail))
-    else:
-        error = ErrorCodes.internal_error(str(exc.detail))
-
-    error.function_name = FUNCTION_NAME
-    response = error.to_standard_response()
-    return JSONResponse(status_code=exc.status_code, content=response.model_dump())
-
-
-@app.exception_handler(Exception)
-async def general_exception_handler(request: Request, exc: Exception):
-    """Handle unexpected exceptions with standardized format."""
-    error = ErrorCodes.internal_error(
-        str(exc), "Please check your request and try again"
+    error_response = create_error_response(
+        message=f"HTTP {exc.status_code} Error",
+        errors=[str(exc.detail)],
+        metadata={
+            "timestamp": time.time(),
+            "function": FUNCTION_NAME,
+            "path": str(request.url.path),
+            "method": request.method,
+        },
     )
-    error.function_name = FUNCTION_NAME
-    response = error.to_standard_response()
-    return JSONResponse(status_code=500, content=response.model_dump())
+
+    return JSONResponse(
+        status_code=exc.status_code, content=error_response.model_dump()
+    )
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """Handle Pydantic validation errors with standardized format."""
-    # Extract first error for main message
-    first_error = exc.errors()[0] if exc.errors() else {}
-    field_name = (
-        first_error.get("loc", ["unknown"])[-1] if first_error.get("loc") else "unknown"
+    """Handle request validation errors with standardized error responses."""
+    logger.error(f"Validation error: {exc}")
+
+    error_response = create_error_response(
+        message="Request validation failed",
+        errors=[str(error) for error in exc.errors()],
+        metadata={
+            "timestamp": time.time(),
+            "function": FUNCTION_NAME,
+            "path": str(request.url.path),
+            "method": request.method,
+        },
     )
 
-    error = ErrorCodes.validation_error(
-        str(field_name), first_error.get("msg", "Validation failed")
-    )
-    error.function_name = FUNCTION_NAME
-    response = error.to_standard_response()
-
-    # Add all validation errors to the response
-    all_errors = [
-        f"Field '{'.'.join(map(str, err.get('loc', [])))}': {err.get('msg', 'Invalid')}"
-        for err in exc.errors()
-    ]
-    response.errors = all_errors
-
-    return JSONResponse(status_code=422, content=response.model_dump())
+    return JSONResponse(status_code=422, content=error_response.model_dump())
 
 
-# API Routes
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    """Handle all other exceptions with standardized error responses."""
+    logger.error(f"Unhandled exception: {exc}", exc_info=True)
 
-
-@app.get("/")
-async def root():
-    """Root endpoint with service information."""
-    start_time = time.time()
-
-    service_data = {
-        "service": "content-ranker",
-        "version": "1.0.0",
-        "description": "Content ranking service with multi-factor scoring",
-        "status": "running",
-        "endpoints": {
-            # Legacy endpoints
-            "health": "/health",
-            "status": "/status",
-            "rank_enriched": "/rank/enriched",
-            "rank_batch": "/rank/batch",
-            "rank": "/rank",
-            # Standardized API endpoints
-            "api_health": "/api/content-ranker/health",
-            "api_status": "/api/content-ranker/status",
-            "api_process": "/api/content-ranker/process",
-            "api_docs": "/api/content-ranker/docs",
+    error_response = create_error_response(
+        message="Internal server error",
+        errors=["An unexpected error occurred"],
+        metadata={
+            "timestamp": time.time(),
+            "function": FUNCTION_NAME,
+            "path": str(request.url.path),
+            "method": request.method,
         },
-    }
-
-    execution_time = max(1, int((time.time() - start_time) * 1000))
-
-    response = StandardResponseFactory.success(
-        message="Content Ranker API running", data=service_data
-    )
-    response.metadata["execution_time_ms"] = execution_time
-    response.metadata["function"] = FUNCTION_NAME
-    response.metadata["version"] = "1.0.0"
-
-    return response.model_dump()
-
-
-@app.get("/health", response_model=HealthResponse)
-async def health():
-    """
-    Health check endpoint.
-
-    Returns service health status and Azure connectivity.
-    """
-    try:
-        # Perform health checks
-        health_status = health_check()
-
-        return HealthResponse(
-            status=health_status["status"],
-            service="content-ranker",
-            azure_connectivity=health_status.get("azure_connectivity") == "connected",
-        )
-
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        raise HTTPException(status_code=503, detail="Service unhealthy")
-
-
-@app.get("/status")
-async def get_status():
-    """
-    Get detailed service status including content statistics.
-
-    Returns:
-        Service status with content counts and container information
-    """
-    try:
-        status = await ranker_service.get_ranking_status()
-        return status
-    except Exception as e:
-        logger.error(f"Status check failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to get service status")
-
-
-@app.post("/rank/enriched")
-async def rank_enriched_content(request: BatchRankingRequest):
-    """
-    Rank all enriched content using multi-factor scoring.
-
-    Retrieves all enriched content from blob storage and ranks it
-    based on the specified weights and criteria.
-    """
-    try:
-        result = await ranker_service.rank_content_batch(
-            weights=request.weights,
-            target_topics=request.target_topics,
-            limit=request.limit,
-        )
-        return result
-    except Exception as e:
-        logger.error(f"Enriched content ranking failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to rank enriched content")
-
-
-@app.post("/rank/batch")
-async def rank_content_batch_endpoint(request: BatchRankingRequest):
-    """
-    Rank content using batch processing.
-
-    Args:
-        request: Batch ranking request with weights and options
-
-    Returns:
-        Ranked content items with metadata
-    """
-    try:
-        result = await ranker_service.rank_content_batch(
-            weights=request.weights,
-            target_topics=request.target_topics,
-            limit=request.limit,
-        )
-        return result
-    except Exception as e:
-        logger.error(f"Batch ranking failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to process batch ranking")
-
-
-@app.post("/rank", response_model=RankingResponse)
-async def rank_content(request: SpecificRankingRequest):
-    """
-    Rank specific content items using multi-factor scoring.
-
-    Combines engagement scores, recency factors, and topic relevance
-    to provide intelligent content ranking.
-
-    Args:
-        request: Ranking request with content items and options
-
-    Returns:
-        Ranked content items with scoring metadata
-
-    Raises:
-        HTTPException: If ranking fails
-    """
-    try:
-        # Rank the provided content items
-        ranked_items = await ranker_service.rank_specific_content(
-            content_items=request.content_items,
-            weights=request.weights,
-            target_topics=request.target_topics,
-            limit=request.limit,
-        )
-
-        # Create response metadata
-        metadata = {
-            "total_items_processed": len(request.content_items),
-            "items_returned": len(ranked_items),
-            "ranking_algorithm": "multi_factor_composite",
-            "factors_used": ["engagement", "recency", "topic_relevance"],
-        }
-
-        return RankingResponse(ranked_items=ranked_items, metadata=metadata)
-
-    except Exception as e:
-        logger.error(f"Content ranking failed: {e}")
-        raise HTTPException(status_code=500, detail="Failed to rank content items")
-
-
-# ========================================
-# STANDARDIZED API ENDPOINTS
-# ========================================
-
-
-@app.get("/api/content-ranker/health")
-async def api_health():
-    """Standardized health check endpoint."""
-    start_time = time.time()
-
-    try:
-        # Perform health checks
-        health_status = health_check()
-
-        health_data = HealthStatus(
-            status=health_status["status"],
-            service="content-ranker",
-            version="1.0.0",
-            dependencies={
-                "azure_connectivity": health_status.get("azure_connectivity")
-                == "connected"
-            },
-            uptime_seconds=None,  # Could be calculated if needed
-            environment="container",
-        )
-
-        execution_time = max(1, int((time.time() - start_time) * 1000))
-
-        response = StandardResponseFactory.success(
-            message="Content ranker service is healthy", data=health_data.model_dump()
-        )
-        response.metadata["execution_time_ms"] = execution_time
-        response.metadata["function"] = FUNCTION_NAME
-        response.metadata["version"] = "1.0.0"
-
-        return response.model_dump()
-
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        execution_time = max(1, int((time.time() - start_time) * 1000))
-
-        error = ErrorCodes.internal_error(
-            "Health check failed", "Service may be experiencing issues"
-        )
-        error.function_name = FUNCTION_NAME
-        response = error.to_standard_response()
-        response.metadata["execution_time_ms"] = execution_time
-
-        return JSONResponse(status_code=503, content=response.model_dump())
-
-
-@app.get("/api/content-ranker/status")
-async def legacy_api_status():
-    """Standardized status endpoint."""
-    start_time = time.time()
-
-    try:
-        status = await ranker_service.get_ranking_status()
-
-        status_data = ServiceStatus(
-            service="content-ranker",
-            status="running",
-            uptime_seconds=None,  # Could be calculated if needed
-            stats=status if isinstance(status, dict) else {"raw_status": str(status)},
-            last_operation=None,  # Could be set to last ranking operation
-        )
-
-        execution_time = max(1, int((time.time() - start_time) * 1000))
-
-        response = StandardResponseFactory.success(
-            message="Content ranker status retrieved successfully",
-            data=status_data.model_dump(),
-        )
-        response.metadata["execution_time_ms"] = execution_time
-        response.metadata["function"] = FUNCTION_NAME
-        response.metadata["version"] = "1.0.0"
-
-        return response.model_dump()
-
-    except Exception as e:
-        logger.error(f"Status check failed: {e}")
-        execution_time = max(1, int((time.time() - start_time) * 1000))
-
-        error = ErrorCodes.internal_error(str(e), "Failed to retrieve service status")
-        error.function_name = FUNCTION_NAME
-        response = error.to_standard_response()
-        response.metadata["execution_time_ms"] = execution_time
-
-        return JSONResponse(status_code=500, content=response.model_dump())
-
-
-@app.post("/api/content-ranker/process")
-async def api_process(request: SpecificRankingRequest):
-    """Standardized content ranking endpoint."""
-    start_time = time.time()
-
-    try:
-        # Rank the provided content items using the same logic as /rank
-        ranked_items = await ranker_service.rank_specific_content(
-            content_items=request.content_items,
-            weights=request.weights,
-            target_topics=request.target_topics,
-            limit=request.limit,
-        )
-
-        # Create result data - convert items to dict safely
-        items_list = []
-        for item in ranked_items:
-            if isinstance(item, dict):
-                items_list.append(item)
-            elif hasattr(item, "model_dump"):
-                items_list.append(item.model_dump())
-            elif hasattr(item, "dict"):
-                items_list.append(item.dict())
-            else:
-                # Convert to dict representation
-                items_list.append({"item": str(item)})
-
-        result_data = {
-            "ranked_items": items_list,
-            "metadata": {
-                "total_items_processed": len(request.content_items),
-                "items_returned": len(ranked_items),
-                "ranking_algorithm": "multi_factor_composite",
-                "factors_used": ["engagement", "recency", "topic_relevance"],
-            },
-        }
-
-        execution_time = max(1, int((time.time() - start_time) * 1000))
-
-        response = StandardResponseFactory.success(
-            message=f"Successfully ranked {len(ranked_items)} content items",
-            data=result_data,
-        )
-        response.metadata["execution_time_ms"] = execution_time
-        response.metadata["function"] = FUNCTION_NAME
-        response.metadata["version"] = "1.0.0"
-
-        return response.model_dump()
-
-    except Exception as e:
-        logger.error(f"Content ranking failed: {e}")
-        execution_time = max(1, int((time.time() - start_time) * 1000))
-
-        error = ErrorCodes.internal_error(str(e), "Failed to rank content items")
-        error.function_name = FUNCTION_NAME
-        response = error.to_standard_response()
-        response.metadata["execution_time_ms"] = execution_time
-
-        return JSONResponse(status_code=500, content=response.model_dump())
-
-
-@app.get("/api/content-ranker/docs")
-async def legacy_api_docs():
-    """API documentation and usage information."""
-    docs_data = {
-        "service": "content-ranker",
-        "version": "1.0.0",
-        "description": "Ranks content using multi-factor scoring algorithms",
-        "endpoints": {
-            "/api/content-ranker/health": {
-                "method": "GET",
-                "description": "Health check with dependency status",
-                "response": "StandardResponse with HealthStatus data",
-            },
-            "/api/content-ranker/status": {
-                "method": "GET",
-                "description": "Service status and ranking statistics",
-                "response": "StandardResponse with ServiceStatus data",
-            },
-            "/api/content-ranker/process": {
-                "method": "POST",
-                "description": "Rank content items using multi-factor scoring",
-                "body": "SpecificRankingRequest",
-                "response": "StandardResponse with ranking results",
-            },
-        },
-        "ranking_factors": [
-            {
-                "name": "engagement",
-                "description": "User engagement metrics (scores, comments, shares)",
-                "weight_range": "0.0 - 1.0",
-            },
-            {
-                "name": "recency",
-                "description": "Content freshness and time-based relevance",
-                "weight_range": "0.0 - 1.0",
-            },
-            {
-                "name": "topic_relevance",
-                "description": "Relevance to specified target topics",
-                "weight_range": "0.0 - 1.0",
-            },
-        ],
-        "sample_request": {
-            "content_items": [
-                {
-                    "id": "item_001",
-                    "title": "Sample Content",
-                    "content": "Content text...",
-                    "enrichment": {
-                        "sentiment": {"compound": 0.5},
-                        "topics": ["technology"],
-                        "summary": "Brief summary",
-                    },
-                }
-            ],
-            "weights": {"engagement": 0.4, "recency": 0.3, "topic_relevance": 0.3},
-            "target_topics": ["technology"],
-            "limit": 10,
-        },
-    }
-
-    response = StandardResponseFactory.success(
-        message="Content ranker API documentation", data=docs_data
-    )
-    response.metadata["function"] = FUNCTION_NAME
-    response.metadata["version"] = "1.0.0"
-
-    return response.model_dump()
-
-
-# FastAPI-Native Standardized Endpoints
-
-
-@app.get("/", response_model=StandardResponse)
-async def api_root(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Root endpoint providing service information - FastAPI-native."""
-    data = {
-        "service": "content-ranker",
-        "version": "1.0.0",
-        "description": "Content ranking service with multi-factor scoring",
-        "status": "running",
-        "endpoints": {
-            "health": "/health",
-            "status": "/status",
-            "rank_enriched": "/rank/enriched",
-            "rank_batch": "/rank/batch",
-            "rank": "/rank",
-            # New standardized endpoints
-            "api_health": "/api/content-ranker/health",
-            "api_status": "/api/content-ranker/status",
-            "api_process": "/api/content-ranker/process",
-            "api_docs": "/api/content-ranker/docs",
-        },
-    }
-
-    return StandardResponse(
-        status="success",
-        message="Content Ranker API running",
-        data=data,
-        errors=None,
-        metadata=metadata,
     )
 
-
-@app.get("/api/content-ranker/health", response_model=StandardResponse)
-async def api_health_check(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Standardized health check endpoint using FastAPI-native patterns."""
-    try:
-        # Get health check data
-        health_data = health_check()
-
-        health_status = HealthStatus(
-            status=health_data.get("status", "healthy"),
-            service="content-ranker",
-            version="1.0.0",
-            dependencies=health_data.get("dependencies", {}),
-            issues=health_data.get("issues", []),
-            uptime_seconds=health_data.get("uptime_seconds"),
-            environment=health_data.get("environment"),
-        )
-
-        return StandardResponse(
-            status="success",
-            message=f"Service is {health_status.status}",
-            data=health_status.model_dump(),
-            errors=None,
-            metadata=metadata,
-        )
-    except Exception as e:
-        logger.error(f"Health check failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=503,
-            detail=create_error_response(
-                message="Health check failed",
-                errors=["Service health check unavailable"],
-                metadata=metadata,
-            ).model_dump(),
-        )
-
-
-@app.get("/api/content-ranker/status", response_model=StandardResponse)
-async def api_status(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Standardized status endpoint using FastAPI-native patterns."""
-    try:
-        # Get current status from the ranker service
-        status_data = await ranker_service.get_ranking_status()
-
-        service_status = ServiceStatus(
-            service="content-ranker",
-            status="running",
-            uptime_seconds=status_data.get("uptime_seconds"),
-            stats=status_data.get("stats", {}),
-            last_operation=status_data.get("last_operation"),
-            configuration=status_data.get("configuration", {}),
-        )
-
-        return StandardResponse(
-            status="success",
-            message="Service status retrieved",
-            data=service_status.model_dump(),
-            errors=None,
-            metadata=metadata,
-        )
-    except Exception as e:
-        logger.error(f"Status check failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500,
-            detail=create_error_response(
-                message="Status check failed",
-                errors=["Unable to retrieve service status"],
-                metadata=metadata,
-            ).model_dump(),
-        )
-
-
-@app.post("/api/content-ranker/process", response_model=StandardResponse)
-async def api_process_content(
-    request: RankingRequest, metadata: Dict[str, Any] = Depends(service_metadata)
-):
-    """Standardized content ranking endpoint using FastAPI-native patterns."""
-    start_time = time.time()
-
-    # Validate request
-    if not request.items:
-        raise HTTPException(
-            status_code=400,
-            detail=create_error_response(
-                message="Validation failed",
-                errors=["At least one content item must be provided"],
-                metadata=metadata,
-            ).model_dump(),
-        )
-
-    try:
-        # Extract parameters for the service call
-        weights = request.options.weights if request.options else None
-        target_topics = request.options.target_topics if request.options else None
-        limit = request.options.limit if request.options else None
-
-        # Perform ranking using the service
-        ranking_result = await ranker_service.rank_content_batch(
-            weights=weights, target_topics=target_topics, limit=limit
-        )
-        execution_time = time.time() - start_time
-
-        # Get ranked items from the result
-        ranked_items = ranking_result.get("ranked_items", [])
-
-        # Prepare response data
-        response_data = {
-            "ranked_items": ranked_items,
-            "items_processed": len(ranked_items),
-            "execution_time_seconds": execution_time,
-            "ranking_criteria": target_topics or [],
-            "ranking_summary": {
-                "total_items": len(ranked_items),
-                "algorithm": "multi-factor",
-                "processing_time": execution_time,
-                "weights_used": weights or {},
-            },
-        }
-
-        # Update metadata with execution info
-        metadata.update(
-            {
-                "execution_time_seconds": execution_time,
-                "execution_time_ms": max(1, int(execution_time * 1000)),
-                "items_processed": len(ranked_items),
-            }
-        )
-
-        return StandardResponse(
-            status="success",
-            message=f"Content ranking completed successfully. Ranked {len(ranked_items)} items.",
-            data=response_data,
-            errors=None,
-            metadata=metadata,
-        )
-
-    except Exception as e:
-        execution_time = time.time() - start_time
-        logger.error(f"Error in content ranking: {e}", exc_info=True)
-
-        # Update metadata with error info
-        metadata.update(
-            {"execution_time_seconds": execution_time, "error_type": "InternalError"}
-        )
-
-        raise HTTPException(
-            status_code=500,
-            detail=create_error_response(
-                message="Content ranking failed",
-                errors=["An unexpected error occurred during ranking"],
-                metadata=metadata,
-            ).model_dump(),
-        )
-
-
-@app.get("/api/content-ranker/docs", response_model=StandardResponse)
-async def api_docs(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """API documentation endpoint using FastAPI-native patterns."""
-    docs_data = {
-        "service": "content-ranker",
-        "version": "1.0.0",
-        "description": "Content ranking service with multi-factor scoring algorithms",
-        "supported_algorithms": ["relevance", "engagement", "quality", "hybrid"],
-        "authentication": "Azure AD / Managed Identity (when deployed)",
-        "rate_limiting": "Applied at Azure Container Apps level",
-        "endpoints": {
-            "/api/content-ranker/health": "Standardized health check",
-            "/api/content-ranker/status": "Standardized status",
-            "/api/content-ranker/process": "Standardized content ranking",
-            "/api/content-ranker/docs": "This documentation",
-            # Legacy endpoints
-            "/": "Service information",
-            "/health": "Legacy health check",
-            "/status": "Legacy status",
-            "/rank": "Legacy content ranking",
-            "/rank/enriched": "Legacy enriched content ranking",
-            "/rank/batch": "Legacy batch ranking",
-            "/docs": "Legacy documentation",
-        },
-        "endpoint_categories": {
-            "legacy": {
-                "GET /": "Service information",
-                "GET /health": "Legacy health check",
-                "GET /status": "Legacy status",
-                "POST /rank": "Legacy content ranking",
-                "POST /rank/enriched": "Legacy enriched content ranking",
-                "POST /rank/batch": "Legacy batch ranking",
-                "GET /docs": "Legacy documentation",
-            },
-            "standardized": {
-                "GET /api/content-ranker/health": "Standardized health check",
-                "GET /api/content-ranker/status": "Standardized status",
-                "POST /api/content-ranker/process": "Standardized content ranking",
-                "GET /api/content-ranker/docs": "This documentation",
-            },
-        },
-        "response_format": {
-            "status": "success|error|processing",
-            "message": "Human-readable description",
-            "data": "Response data (optional)",
-            "errors": "Error details (optional)",
-            "metadata": "Request metadata including timestamp, function, version",
-        },
-    }
-
-    return StandardResponse(
-        status="success",
-        message="API documentation retrieved",
-        data=docs_data,
-        errors=None,
-        metadata=metadata,
-    )
+    return JSONResponse(status_code=500, content=error_response.model_dump())
 
 
 if __name__ == "__main__":
@@ -815,6 +230,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=8000,
-        reload=config.get("environment") == "development",
+        port=config.port,
+        reload=config.debug,
+        log_level="info",
     )
