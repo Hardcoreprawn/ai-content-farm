@@ -333,6 +333,26 @@ jobs:
           commit-sha: ${{ github.sha }}
 
   # Stage 9: Conditional Deployment
+  # Debug: Test deployment job conditions
+  debug-deployment:
+    name: Debug Deployment Conditions
+    runs-on: ubuntu-latest
+    needs: [plan-pipeline]
+    if: always()
+    steps:
+      - name: Debug Deployment Conditions
+        run: |
+          echo "=== DEPLOYMENT CONDITION DEBUG ==="
+          echo "needs-infrastructure: '${{ needs.plan-pipeline.outputs.needs-infrastructure }}'"
+          echo "deployment-method: '${{ needs.plan-pipeline.outputs.deployment-method }}'"
+          echo "skip-deployment: '${{ needs.plan-pipeline.outputs.skip-deployment }}'"
+          echo ""
+          echo "=== CONDITION EVALUATIONS ==="
+          echo "needs-infrastructure == 'true': ${{ needs.plan-pipeline.outputs.needs-infrastructure == 'true' }}"
+          echo "deployment-method == 'terraform': ${{ needs.plan-pipeline.outputs.deployment-method == 'terraform' }}"
+          echo ""
+          echo "Should deploy-infrastructure run? ${{ needs.plan-pipeline.outputs.needs-infrastructure == 'true' }}"
+
   deploy-infrastructure:
     name: Deploy (Full Terraform)
     runs-on: ubuntu-latest
