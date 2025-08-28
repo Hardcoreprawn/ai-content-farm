@@ -116,15 +116,35 @@ class RedditClient:
     def _initialize_reddit(self):
         """Initialize Reddit client based on environment."""
         try:
-            if self.environment == "production":
-                # Azure environment - use Key Vault
+            # Check for environment variables first (Container Apps secrets)
+            client_id = os.getenv("REDDIT_CLIENT_ID")
+            client_secret = os.getenv("REDDIT_CLIENT_SECRET")
+            user_agent = os.getenv("REDDIT_USER_AGENT")
+
+            if client_id and client_secret and user_agent:
+                # Use environment variables (Container Apps secrets)
+                self._init_reddit_with_creds(client_id, client_secret, user_agent)
+                logger.info("Reddit client initialized with Container Apps secrets")
+            elif self.environment == "production":
+                # Azure environment - use Key Vault directly
                 self._init_azure_reddit()
             else:
                 # Local development - anonymous access
                 self._init_local_reddit()
         except Exception as e:
-            logger.error(f"Failed to initialize Reddit client: {e}")
-            self.reddit = None
+            logger.error(f"Failed to initialize Reddit: {e}")
+            raise
+
+    def _init_reddit_with_creds(
+        self, client_id: str, client_secret: str, user_agent: str
+    ):
+        """Initialize Reddit with provided credentials."""
+        self.reddit = praw.Reddit(
+            client_id=client_id,
+            client_secret=client_secret,
+            user_agent=user_agent,
+            check_for_async=False,
+        )
 
     def _init_azure_reddit(self):
         """Initialize Reddit with Azure Key Vault credentials."""
@@ -293,6 +313,7 @@ async def root(metadata: Dict[str, Any] = Depends(service_metadata)):
             "environment": os.getenv("ENVIRONMENT", "development"),
             "endpoints": ["/discover", "/health", "/topics/recent"],
         },
+        errors=[],
         metadata=metadata,
     )
 
@@ -320,6 +341,7 @@ async def health(metadata: Dict[str, Any] = Depends(service_metadata)):
                 "environment": os.getenv("ENVIRONMENT", "development"),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
+            errors=[],
             metadata=metadata,
         )
 
@@ -329,6 +351,7 @@ async def health(metadata: Dict[str, Any] = Depends(service_metadata)):
             status="error",
             message="Health check failed",
             data={"error": str(e)},
+            errors=[str(e)],
             metadata=metadata,
         )
 
@@ -377,6 +400,7 @@ async def discover_topics(
             status="success",
             message=f"Discovered {len(trending_topics)} trending topics for research",
             data=discovery_result.model_dump(),
+            errors=[],
             metadata=metadata,
         )
 

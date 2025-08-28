@@ -288,6 +288,11 @@ resource "azurerm_container_app" "content_collector" {
     value = azurerm_key_vault_secret.reddit_client_secret.value
   }
 
+  secret {
+    name  = "reddit-user-agent"
+    value = azurerm_key_vault_secret.reddit_user_agent.value
+  }
+
   ingress {
     external_enabled = true
     target_port      = 8000
@@ -331,6 +336,16 @@ resource "azurerm_container_app" "content_collector" {
       env {
         name        = "REDDIT_CLIENT_SECRET"
         secret_name = "reddit-client-secret"
+      }
+
+      env {
+        name        = "REDDIT_USER_AGENT"
+        secret_name = "reddit-user-agent" # pragma: allowlist secret
+      }
+
+      env {
+        name  = "ENVIRONMENT"
+        value = "production"
       }
     }
 

@@ -22,15 +22,14 @@ This is a **personal content aggregation and curation platform** that collects i
 - **Security Results**: Use `security-results/` directory for local scans - it's gitignored to prevent tracking temporary outputs
 
 ## AI Agent Working Principles
-- **Relentless Focus on Simplification**: Always ask "Can this be simpler?" Remove unnecessary complexity, redundant steps, and over-engineering. Prefer native tool capabilities over custom workarounds. Question every abstraction layer and manual process.
-- **Code Quality First**: Always consider linting, formatting, and best practices
-- **Test Integrity**: Never skip or remove tests - fix them to work properly, or replace them. Tests prove code works.
-- **Think Before Acting**: Research and discuss solutions before implementing
-- **No Unnatural Acts**: Use tools as designed. If it's not working, reconsider the approach or tool choice
-- **Bad News Early**: Stop and explain issues/errors immediately when discovered, then collaborate on resolution
-- **Slow is Smooth, Smooth is Fast**: Steady incremental progress over rushed changes. Avoid massive refactors or unexpected diversions without strong justification
-- **Incremental & Safe**: Prefer staged rollouts and targeted changes when appropriate
-- **Security-Conscious**: Apply principle of least privilege, scope permissions appropriately
+- **Relentless Focus on Simplification**: Always ask "Can this be simpler?" Use standard libraries instead of custom solutions
+- **Standard Libraries First**: Prefer `requests`, `fastapi`, `praw`, `openai` over custom implementations
+- **Direct Azure Development**: Work in live Azure environment, not local development
+- **Cost-Conscious**: Target ~$30-40/month total system cost
+- **Three Container Architecture**: Collector → Processor → Publisher (no over-engineering)
+- **Test Integrity**: Never skip or remove tests - fix them to work properly, or replace them
+- **Bad News Early**: Stop and explain issues/errors immediately when discovered
+- **Incremental & Safe**: Prefer staged rollouts and targeted changes
 
 ## GitHub Issues Workflow
 Use GitHub Issues for specific, actionable tasks while keeping TODO.md for high-level roadmap.
@@ -82,17 +81,11 @@ Link to existing working examples or documentation
 - `enhancement` - New features or improvements
 
 ## Documentation Rules - CRITICAL
-- **NO ROOT POLLUTION** - Never create status/log files in project root
-- **Use `/docs` folder** for detailed documentation, NOT root directory
-- **Single source of truth** - README.md is main entry point, avoid duplicates
-- **Temporary files** go in `.temp/` (gitignored) or are deleted after session
-- **No session logs** in git - use temporary files or `.github/` for agent notes
-- **Consolidate redundancy** - merge duplicate information, don't create new files
-- **One TODO list** - TODO.md only, not multiple planning docs
-- **No excessive documentation** - prefer working code over documentation theater
-- **NO DOC SPRAWL** - Update existing files rather than creating new ones
-- **Implementation logs** - Add to existing docs with date prefixes (YYYY-MM-DD)
-- **Planning documents** - Use TODO.md, don't create separate planning files
+- **THREE DOCUMENTS ONLY**: README.md (current state), TODO.md (next steps), agent-instructions.md (AI behavior)
+- **NO DOCUMENT SPRAWL** - Archive completed plans in `/docs/` folder, never create new root-level docs
+- **Update existing files** - Don't create new documentation files
+- **Working directly in Azure** - No local development complexity for portfolio project
+- **Standard libraries preferred** - Use proven Python libraries instead of custom solutions
 
 ## Coding Standards - CRITICAL
 
