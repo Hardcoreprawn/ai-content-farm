@@ -278,5 +278,5 @@ class ContentRankerService:
                 "service": "content-ranker",
                 "status": "error",
                 "timestamp": datetime.utcnow().isoformat(),
-                "error": str(e),
+                "error": "Failed to get ranking status",
             }
