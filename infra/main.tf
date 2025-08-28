@@ -10,6 +10,7 @@ resource "random_string" "suffix" {
 # Test: Verify infrastructure deployment fix works (Aug 28, 2025)
 # Debug: Check deployment conditions evaluation
 # Test: Final deployment attempt with fixed workflow
+# Test: Simplified condition deployment attempt
 
 resource "azurerm_resource_group" "main" {
   name     = "${local.resource_prefix}-rg"
