@@ -106,7 +106,12 @@ class BlobStorageClient:
 
             # Test token acquisition by listing containers
             # This will force the credential to acquire a bearer token
-            containers = list(self.blob_service_client.list_containers(max_results=1))
+            # Just get the first container to test the connection
+            try:
+                next(iter(self.blob_service_client.list_containers()))
+            except StopIteration:
+                # No containers exist, but connection worked
+                pass
 
             return {
                 "status": "healthy",
