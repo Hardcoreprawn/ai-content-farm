@@ -413,6 +413,142 @@ async def discover_topics(
         raise HTTPException(status_code=500, detail=f"Discovery failed: {str(e)}")
 
 
+# Legacy endpoints for backward compatibility
+@app.post("/collect", response_model=StandardResponse)
+async def collect_content(
+    request: DiscoveryRequest, metadata: Dict[str, Any] = Depends(service_metadata)
+):
+    """Legacy endpoint for content collection (alias for /discover)."""
+    return await discover_topics(request, metadata)
+
+
+@app.get("/status", response_model=StandardResponse)
+async def get_status(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Get service status for monitoring."""
+    start_time = time.time()
+
+    try:
+        # Check Reddit API connection
+        reddit_available = reddit_client.is_available()
+
+        # Check blob storage connection
+        storage_health = blob_client.health_check()
+        storage_connected = storage_health.get("status") == "healthy"
+
+        status_data = {
+            "service": "content-collector",
+            "reddit_available": reddit_available,
+            "storage_connected": storage_connected,
+            "environment": os.getenv("ENVIRONMENT", "unknown"),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+
+        # Determine overall status
+        if reddit_available and storage_connected:
+            status = "healthy"
+            message = "All systems operational"
+        elif storage_connected:
+            status = "degraded"
+            message = "Reddit API unavailable"
+        else:
+            status = "unhealthy"
+            message = "Storage unavailable"
+
+        return StandardResponse(
+            status="success",
+            message=message,
+            data=status_data,
+            errors=[],
+            metadata=metadata,
+        )
+
+    except Exception as e:
+        logger.error(f"Status check failed: {e}")
+        raise HTTPException(status_code=500, detail=f"Status check failed: {str(e)}")
+
+
+@app.get("/sources", response_model=StandardResponse)
+async def get_available_sources(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Get available content sources."""
+    sources_data = {
+        "supported_platforms": ["reddit"],
+        "reddit_sources": [
+            "MachineLearning",
+            "programming",
+            "technology",
+            "science",
+            "artificial",
+            "datascience",
+        ],
+        "source_types": ["reddit"],
+        "collection_methods": ["trending", "hot", "new"],
+    }
+
+    return StandardResponse(
+        status="success",
+        message="Available content sources",
+        data=sources_data,
+        errors=[],
+        metadata=metadata,
+    )
+
+
+@app.get("/api/content-collector/health", response_model=StandardResponse)
+async def api_health_check(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Standardized health check endpoint."""
+    return await health(metadata)
+
+
+@app.get("/api/content-collector/status", response_model=StandardResponse)
+async def api_get_status(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Standardized status endpoint."""
+    return await get_status(metadata)
+
+
+@app.post("/api/content-collector/process", response_model=StandardResponse)
+async def api_process_content(
+    request: DiscoveryRequest, metadata: Dict[str, Any] = Depends(service_metadata)
+):
+    """Standardized content processing endpoint."""
+    return await discover_topics(request, metadata)
+
+
+@app.get("/api/content-collector/docs", response_model=StandardResponse)
+async def api_documentation(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """API documentation endpoint."""
+    docs_data = {
+        "service": "content-collector",
+        "version": "2.0.0",
+        "endpoints": {
+            "legacy": {
+                "/": "Service information",
+                "/health": "Health check",
+                "/collect": "Collect content",
+                "/status": "Service status",
+                "/sources": "Available sources",
+            },
+            "standardized": {
+                "/api/content-collector/health": "Health check",
+                "/api/content-collector/status": "Service status",
+                "/api/content-collector/process": "Process content",
+                "/api/content-collector/docs": "API documentation",
+            },
+        },
+        "schemas": {
+            "request": "DiscoveryRequest",
+            "response": "StandardResponse",
+        },
+    }
+
+    return StandardResponse(
+        status="success",
+        message="Content Collector API Documentation",
+        data=docs_data,
+        errors=[],
+        metadata=metadata,
+    )
+
+
 def _analyze_trending_topics(
     posts: List[Dict[str, Any]], min_mentions: int
 ) -> List[TrendingTopic]:
