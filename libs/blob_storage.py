@@ -13,7 +13,8 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, BinaryIO, Dict, List, Optional, Union
+from typing import Any, BinaryIO, Dict, List, Optional, Union, cast
+from unittest.mock import MagicMock
 
 from azure.core.exceptions import AzureError, ResourceNotFoundError
 from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
@@ -232,9 +233,9 @@ class BlobStorageClient:
             if self._mock:
                 # Create container namespace if missing
                 _MOCK_CONTAINERS.setdefault(container_name, {})
-                # Return a mock container client for type safety
-                # This will never be used since all mock methods check self._mock first
-                raise RuntimeError("Mock mode - container client should not be used")
+                # For mock mode, return a mock client to satisfy the type checker
+                # The actual value won't be used since methods check self._mock first
+                return cast(ContainerClient, MagicMock())
 
             container_client = self.blob_service_client.get_container_client(
                 container_name
