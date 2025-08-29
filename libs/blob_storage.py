@@ -17,7 +17,11 @@ from typing import Any, BinaryIO, Dict, List, Optional, Union, cast
 from unittest.mock import MagicMock
 
 from azure.core.exceptions import AzureError, ResourceNotFoundError
-from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
+from azure.identity import (
+    DefaultAzureCredential,
+    ManagedIdentityCredential,
+    WorkloadIdentityCredential,
+)
 from azure.storage.blob import (
     BlobClient,
     BlobProperties,
@@ -69,25 +73,48 @@ class BlobStorageClient:
                 logger.info("=== AUTHENTICATION DEBUG ===")
                 logger.info(f"AZURE_CLIENT_ID: {azure_client_id}")
                 logger.info(f"AZURE_FEDERATED_TOKEN_FILE: {federated_token_file}")
+                logger.info(f"AZURE_TENANT_ID: {os.getenv('AZURE_TENANT_ID', '')}")
                 logger.info(f"Storage Account: {self.storage_account_name}")
 
                 if federated_token_file:
                     logger.info("Detected Workload Identity (federated token) setup")
+                    if azure_client_id:
+                        # Try WorkloadIdentityCredential directly for better control
+                        try:
+                            credential = WorkloadIdentityCredential(
+                                client_id=azure_client_id,
+                                tenant_id=os.getenv("AZURE_TENANT_ID", ""),
+                                token_file_path=federated_token_file,
+                            )
+                            logger.info(
+                                f"Using WorkloadIdentityCredential directly with client: {azure_client_id}"
+                            )
+                        except Exception as e:
+                            logger.warning(
+                                f"WorkloadIdentityCredential failed: {e}, falling back to DefaultAzureCredential"
+                            )
+                            credential = DefaultAzureCredential(
+                                managed_identity_client_id=azure_client_id
+                            )
+                    else:
+                        credential = DefaultAzureCredential()
+                        logger.info(
+                            "Using DefaultAzureCredential for workload identity"
+                        )
                 else:
                     logger.info("Detected traditional Managed Identity setup")
-
-                if azure_client_id:
-                    credential = DefaultAzureCredential(
-                        managed_identity_client_id=azure_client_id
-                    )
-                    logger.info(
-                        f"Using DefaultAzureCredential with user-assigned managed identity: {azure_client_id}"
-                    )
-                else:
-                    credential = DefaultAzureCredential()
-                    logger.info(
-                        "Using DefaultAzureCredential for blob storage authentication"
-                    )
+                    if azure_client_id:
+                        credential = DefaultAzureCredential(
+                            managed_identity_client_id=azure_client_id
+                        )
+                        logger.info(
+                            f"Using DefaultAzureCredential with user-assigned managed identity: {azure_client_id}"
+                        )
+                    else:
+                        credential = DefaultAzureCredential()
+                        logger.info(
+                            "Using DefaultAzureCredential for blob storage authentication"
+                        )
 
                 account_url = (
                     f"https://{self.storage_account_name}.blob.core.windows.net"
