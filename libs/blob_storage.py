@@ -54,42 +54,14 @@ class BlobStorageClient:
 
             elif self.storage_account_name:
                 # Production/Azure environment - use managed identity
-                # Use explicit ManagedIdentityCredential with client_id for better token handling
+                # Use the same authentication pattern as Key Vault (which is working)
                 client_id = os.getenv("AZURE_CLIENT_ID")
                 if client_id:
-                    # Try user-assigned managed identity first with explicit configuration
-                    try:
-                        credential = ManagedIdentityCredential(
-                            client_id=client_id,
-                            # Add timeout and retry configuration for Container Apps
-                            timeout=30,
-                            connection_timeout=30,
-                            read_timeout=30,
-                        )
-                        logger.info(
-                            f"Using user-assigned managed identity: {client_id}"
-                        )
-                    except Exception as e:
-                        logger.warning(
-                            f"Failed to create user-assigned managed identity credential: {e}"
-                        )
-                        # Fallback to DefaultAzureCredential
-                        credential = DefaultAzureCredential(
-                            exclude_interactive_browser_credential=True,
-                            exclude_visual_studio_code_credential=True,
-                            exclude_shared_token_cache_credential=True,
-                            exclude_azure_cli_credential=False,  # Keep CLI for local dev
-                            logging_enable=True,
-                        )
-                        logger.info("Falling back to DefaultAzureCredential")
+                    # Use simple managed identity credential like Key Vault does
+                    credential = ManagedIdentityCredential(client_id=client_id)
+                    logger.info(f"Using user-assigned managed identity: {client_id}")
                 else:
-                    credential = DefaultAzureCredential(
-                        exclude_interactive_browser_credential=True,
-                        exclude_visual_studio_code_credential=True,
-                        exclude_shared_token_cache_credential=True,
-                        exclude_azure_cli_credential=False,  # Keep CLI for local dev
-                        logging_enable=True,
-                    )
+                    credential = DefaultAzureCredential()
                     logger.info(
                         "Using DefaultAzureCredential (system-assigned managed identity)"
                     )
@@ -98,13 +70,7 @@ class BlobStorageClient:
                     f"https://{self.storage_account_name}.blob.core.windows.net"
                 )
                 self.blob_service_client = BlobServiceClient(
-                    account_url=account_url,
-                    credential=credential,
-                    # Add retry configuration for better reliability
-                    retry_total=3,
-                    retry_read=3,
-                    retry_connect=3,
-                    retry_status=3,
+                    account_url=account_url, credential=credential
                 )
                 logger.info(
                     f"Blob storage client initialized with managed identity for account: {self.storage_account_name}"
