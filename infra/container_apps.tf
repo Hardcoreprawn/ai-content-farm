@@ -96,13 +96,25 @@ resource "azurerm_key_vault_access_policy" "containers" {
   depends_on = [azurerm_user_assigned_identity.containers]
 }
 
-# Grant container identity access to Storage Account
-resource "azurerm_role_assignment" "containers_storage_blob_data_contributor" {
+# Grant container identity read access to Storage Account (for listing containers)
+resource "azurerm_role_assignment" "containers_storage_blob_data_reader" {
   scope                = azurerm_storage_account.main.id
-  role_definition_name = "Storage Blob Data Contributor"
+  role_definition_name = "Storage Blob Data Reader"
   principal_id         = azurerm_user_assigned_identity.containers.principal_id
 
   depends_on = [azurerm_user_assigned_identity.containers]
+}
+
+# Grant container identity write access to collected-content container only
+resource "azurerm_role_assignment" "containers_storage_blob_data_contributor" {
+  scope                = "${azurerm_storage_account.main.id}/blobServices/default/containers/${azurerm_storage_container.collected_content.name}"
+  role_definition_name = "Storage Blob Data Contributor"
+  principal_id         = azurerm_user_assigned_identity.containers.principal_id
+
+  depends_on = [
+    azurerm_user_assigned_identity.containers,
+    azurerm_storage_container.collected_content
+  ]
 }
 
 # Grant container identity access to Azure OpenAI
@@ -502,6 +514,7 @@ resource "azurerm_container_app" "content_generator" {
   tags = local.common_tags
 
   depends_on = [
+    azurerm_role_assignment.containers_storage_blob_data_reader,
     azurerm_role_assignment.containers_storage_blob_data_contributor,
     azurerm_key_vault_access_policy.containers
   ]

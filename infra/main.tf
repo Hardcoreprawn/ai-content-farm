@@ -289,7 +289,10 @@ resource "azurerm_storage_account" "main" {
     default_action = "Deny"
     bypass         = ["AzureServices"] # This is the recommended configuration for Microsoft services
     # Allow access from Container Apps and development environments
-    ip_rules = [] # Add specific IP ranges in production
+    ip_rules = [
+      "81.2.90.47",                                            # Current development IP
+      azurerm_container_app_environment.main.static_ip_address # Container Apps outbound IP
+    ]
   }
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"
@@ -318,6 +321,14 @@ resource "azurerm_monitor_diagnostic_setting" "storage_logging" {
 resource "azurerm_storage_container" "topics" {
   # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
   name                  = "content-topics"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+}
+
+# Container for collected content from content-collector service
+resource "azurerm_storage_container" "collected_content" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "collected-content"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
 }

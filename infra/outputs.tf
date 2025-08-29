@@ -21,6 +21,10 @@ output "storage_container_name" {
   value = azurerm_storage_container.topics.name
 }
 
+output "storage_collected_content_container_name" {
+  value = azurerm_storage_container.collected_content.name
+}
+
 output "key_vault_name" {
   value = azurerm_key_vault.main.name
 }
