@@ -57,10 +57,39 @@ class BlobStorageClient:
                 # Use explicit ManagedIdentityCredential with client_id for better token handling
                 client_id = os.getenv("AZURE_CLIENT_ID")
                 if client_id:
-                    credential = ManagedIdentityCredential(client_id=client_id)
-                    logger.info(f"Using user-assigned managed identity: {client_id}")
+                    # Try user-assigned managed identity first with explicit configuration
+                    try:
+                        credential = ManagedIdentityCredential(
+                            client_id=client_id,
+                            # Add timeout and retry configuration for Container Apps
+                            timeout=30,
+                            connection_timeout=30,
+                            read_timeout=30,
+                        )
+                        logger.info(
+                            f"Using user-assigned managed identity: {client_id}"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to create user-assigned managed identity credential: {e}"
+                        )
+                        # Fallback to DefaultAzureCredential
+                        credential = DefaultAzureCredential(
+                            exclude_interactive_browser_credential=True,
+                            exclude_visual_studio_code_credential=True,
+                            exclude_shared_token_cache_credential=True,
+                            exclude_azure_cli_credential=False,  # Keep CLI for local dev
+                            logging_enable=True,
+                        )
+                        logger.info("Falling back to DefaultAzureCredential")
                 else:
-                    credential = DefaultAzureCredential()
+                    credential = DefaultAzureCredential(
+                        exclude_interactive_browser_credential=True,
+                        exclude_visual_studio_code_credential=True,
+                        exclude_shared_token_cache_credential=True,
+                        exclude_azure_cli_credential=False,  # Keep CLI for local dev
+                        logging_enable=True,
+                    )
                     logger.info(
                         "Using DefaultAzureCredential (system-assigned managed identity)"
                     )
@@ -69,7 +98,13 @@ class BlobStorageClient:
                     f"https://{self.storage_account_name}.blob.core.windows.net"
                 )
                 self.blob_service_client = BlobServiceClient(
-                    account_url=account_url, credential=credential
+                    account_url=account_url,
+                    credential=credential,
+                    # Add retry configuration for better reliability
+                    retry_total=3,
+                    retry_read=3,
+                    retry_connect=3,
+                    retry_status=3,
                 )
                 logger.info(
                     f"Blob storage client initialized with managed identity for account: {self.storage_account_name}"
@@ -104,14 +139,47 @@ class BlobStorageClient:
                     "message": "Mock storage client is working",
                 }
 
-            # Test token acquisition by listing containers
+            # Test token acquisition by listing containers with explicit timeout
             # This will force the credential to acquire a bearer token
-            # Just get the first container to test the connection
             try:
-                next(iter(self.blob_service_client.list_containers()))
+                # Try to get account properties first (lighter operation)
+                account_info = self.blob_service_client.get_account_information()
+                logger.info(
+                    f"Successfully connected to storage account, account kind: {account_info.get('account_kind', 'unknown')}"
+                )
+
+                # Then try listing containers to verify full access
+                containers = list(self.blob_service_client.list_containers(timeout=30))
+                logger.info(f"Successfully listed {len(containers)} containers")
+
             except StopIteration:
                 # No containers exist, but connection worked
+                logger.info("No containers found, but connection is working")
                 pass
+            except Exception as auth_error:
+                logger.error(f"Authentication/connection error: {auth_error}")
+                # Try to provide more specific error information
+                error_msg = str(auth_error)
+                if "AuthorizationFailure" in error_msg:
+                    return {
+                        "status": "unhealthy",
+                        "connection_type": (
+                            "managed_identity"
+                            if self.storage_account_name
+                            else "connection_string"
+                        ),
+                        "environment": self.environment,
+                        "storage_account": self.storage_account_name,
+                        "error": error_msg,
+                        "message": "Authorization failed - check managed identity permissions and network access",
+                        "troubleshooting": {
+                            "check_rbac": "Verify Storage Blob Data Contributor role is assigned",
+                            "check_network": "Verify storage account network rules allow Container Apps",
+                            "check_identity": "Verify managed identity is properly configured",
+                        },
+                    }
+                else:
+                    raise auth_error
 
             return {
                 "status": "healthy",
