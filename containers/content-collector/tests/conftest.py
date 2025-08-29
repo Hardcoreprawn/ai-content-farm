@@ -23,19 +23,21 @@ def setup_test_environment():
 
     with patch.dict(os.environ, test_env):
         # Mock Azure storage and other external dependencies
-        with patch("libs.blob_storage.BlobStorageClient") as mock_storage_class, patch(
-            "service_logic.ContentCollectorService"
-        ) as mock_service_class, patch(
-            "endpoints.get_blob_client"
-        ) as mock_get_blob, patch(
-            "endpoints.get_collector_service"
-        ) as mock_get_service:  # Setup mock storage client
+        with (
+            patch("libs.blob_storage.BlobStorageClient") as mock_storage_class,
+            patch("service_logic.ContentCollectorService") as mock_service_class,
+            patch("endpoints.get_blob_client") as mock_get_blob,
+            patch("endpoints.get_collector_service") as mock_get_service,
+        ):  # Setup mock storage client
             mock_storage = Mock()
             mock_storage.upload_text = Mock(return_value="mock_blob_url")
             mock_storage.upload_json = Mock(return_value="mock_blob_url")
             mock_storage.download_text = Mock(return_value='{"test": "data"}')
             mock_storage.list_blobs = Mock(return_value=[])
             mock_storage.health_check = Mock(return_value={"status": "healthy"})
+            mock_storage.test_connection = Mock(
+                return_value={"status": "connected", "bearer_token_valid": True}
+            )
             mock_storage_class.return_value = mock_storage
             mock_get_blob.return_value = mock_storage
 

@@ -278,6 +278,36 @@ make clean             # Remove all build artifacts and temp files
 - **Pipeline Integration**: GitHub Actions with test matrix and reporting
 - **Quality Gates**: All tests must pass before deployment
 
+### Monorepo Testing Best Practices
+**Critical for Container Testing**: This is a monorepo with shared libraries in `/libs/` that containers import.
+
+**Local Test Execution**:
+```bash
+# Always run from container directory with PYTHONPATH set to workspace root
+cd containers/[container-name]
+PYTHONPATH=/workspaces/ai-content-farm python -m pytest tests/ -v
+
+# For specific test types
+PYTHONPATH=/workspaces/ai-content-farm python -m pytest tests/ -m unit -v
+PYTHONPATH=/workspaces/ai-content-farm python -m pytest tests/ -m integration -v
+```
+
+**Test Mock Requirements**:
+- Mock shared library dependencies in `conftest.py` test fixtures
+- Ensure mocked methods return proper data structures, not Mock objects
+- Example: `mock_storage.test_connection = Mock(return_value={"status": "connected"})`
+- Never leave Mock objects in response data that gets serialized by Pydantic
+
+**CI/CD Pipeline**:
+- GitHub Actions automatically sets `PYTHONPATH="$GITHUB_WORKSPACE"` for all container tests
+- Tests run from container directory: `cd "containers/${CONTAINER_NAME}"`
+- Both unit and integration tests use same PYTHONPATH pattern
+
+**Common Issues & Solutions**:
+- **ImportError for 'libs'**: Missing PYTHONPATH - always set to workspace root
+- **PydanticSerializationError with Mock**: Mock objects in test responses - add explicit return values to mocks
+- **Test isolation**: Use autouse fixtures in conftest.py to ensure clean test environment
+
 ### Deployment Process
 1. **Local Development**: Implement and test locally
 2. **Security Validation**: `make security-scan` must pass
