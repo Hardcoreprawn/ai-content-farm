@@ -61,10 +61,20 @@ class BlobStorageClient:
             elif self.storage_account_name:
                 # Production/Azure environment - use Microsoft's recommended pattern
                 # Use DefaultAzureCredential as recommended in Microsoft docs
-                credential = DefaultAzureCredential()
-                logger.info(
-                    "Using DefaultAzureCredential for blob storage authentication"
-                )
+                # For user-assigned managed identity, specify client_id if available
+                azure_client_id = os.getenv("AZURE_CLIENT_ID")
+                if azure_client_id:
+                    credential = DefaultAzureCredential(
+                        managed_identity_client_id=azure_client_id
+                    )
+                    logger.info(
+                        f"Using DefaultAzureCredential with user-assigned managed identity: {azure_client_id}"
+                    )
+                else:
+                    credential = DefaultAzureCredential()
+                    logger.info(
+                        "Using DefaultAzureCredential for blob storage authentication"
+                    )
 
                 account_url = (
                     f"https://{self.storage_account_name}.blob.core.windows.net"
