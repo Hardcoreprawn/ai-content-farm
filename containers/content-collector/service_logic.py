@@ -10,9 +10,8 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
-from collector import collect_content_batch, deduplicate_content
+from content_processing import collect_content_batch, deduplicate_content
 
-from config import Config
 from libs.blob_storage import BlobContainers, BlobStorageClient
 
 
@@ -94,13 +93,13 @@ class ContentCollectorService:
         )
 
         try:
-            # Apply default criteria to Reddit sources
+            # Apply default criteria to Reddit sources (if needed)
             for source_dict in sources_data:
                 if source_dict["type"] == "reddit" and not source_dict.get("criteria"):
-                    source_dict["criteria"] = Config.get_default_criteria()
+                    source_dict["criteria"] = {}  # Default empty criteria
 
             # Collect content
-            result = collect_content_batch(sources_data)
+            result = await collect_content_batch(sources_data)
             collected_items = result["collected_items"]
             metadata = result["metadata"]
 

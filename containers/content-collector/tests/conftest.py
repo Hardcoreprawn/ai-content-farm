@@ -1,150 +1,68 @@
 """
-Pytest configuration and fixtures for content-collector tests.
+Pytest configuration and fixtures for Content Womble tests.
 
-Provides mocks and fixtures for isolated unit testing.
+Provides mocks and fixtures for isolated unit testing of the standardized API.
 """
 
+import os
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from fastapi.testclient import TestClient
-
-
-@pytest.fixture
-def mock_blob_storage():
-    """Create a mock blob storage client."""
-    mock_storage = Mock()
-    mock_storage.upload_text = Mock(return_value="mock_blob_url")
-    mock_storage.upload_json = Mock(return_value="mock_blob_url")
-    mock_storage.download_text = Mock(return_value='{"test": "data"}')
-    mock_storage.list_blobs = Mock(return_value=[])
-    return mock_storage
-
-
-@pytest.fixture
-def mock_reddit_api():
-    """Create a mock Reddit API response."""
-    return [
-        {
-            "id": "test_id_1",
-            "title": "Test Post 1",
-            "url": "https://reddit.com/r/test/test1",
-            "score": 100,
-            "num_comments": 10,
-            "created_utc": 1629800000,
-            "author": "test_author",
-            "selftext": "Test content",
-            "subreddit": "test",
-        },
-        {
-            "id": "test_id_2",
-            "title": "Test Post 2",
-            "url": "https://reddit.com/r/test/test2",
-            "score": 50,
-            "num_comments": 5,
-            "created_utc": 1629800100,
-            "author": "test_author2",
-            "selftext": "More test content",
-            "subreddit": "test",
-        },
-    ]
 
 
 @pytest.fixture(autouse=True)
-def setup_test_environment(mock_blob_storage, mock_reddit_api):
-    """Set up test environment with mocked dependencies."""
-    # Patch external dependencies
-    with patch("collector.fetch_from_subreddit", return_value=mock_reddit_api), patch(
-        "main.collector_service"
-    ) as mock_service:
+def setup_test_environment():
+    """Set up test environment with mocked dependencies and required env vars."""
+    # Set required environment variables for tests
+    test_env = {
+        "AZURE_STORAGE_ACCOUNT_NAME": "test_storage_account",
+        "AZURE_STORAGE_CONNECTION_STRING": "test_connection_string",
+        "ENVIRONMENT": "test",
+        "KEY_VAULT_URL": "https://test-keyvault.vault.azure.net/",
+    }
 
-        # Mock the service methods with smarter responses
-        mock_service.storage = mock_blob_storage
+    with patch.dict(os.environ, test_env):
+        # Mock Azure storage and other external dependencies
+        with patch("libs.blob_storage.BlobStorageClient") as mock_storage_class, patch(
+            "service_logic.ContentCollectorService"
+        ) as mock_service_class, patch(
+            "endpoints.get_blob_client"
+        ) as mock_get_blob, patch(
+            "endpoints.get_collector_service"
+        ) as mock_get_service:  # Setup mock storage client
+            mock_storage = Mock()
+            mock_storage.upload_text = Mock(return_value="mock_blob_url")
+            mock_storage.upload_json = Mock(return_value="mock_blob_url")
+            mock_storage.download_text = Mock(return_value='{"test": "data"}')
+            mock_storage.list_blobs = Mock(return_value=[])
+            mock_storage.health_check = Mock(return_value={"status": "healthy"})
+            mock_storage_class.return_value = mock_storage
+            mock_get_blob.return_value = mock_storage
 
-        def smart_collect_response(*args, **kwargs):
-            """Smart mock that responds based on request content."""
-            # Extract request data from args or kwargs
-            sources_data = []
-            if args and len(args) > 0:
-                sources_data = args[0]
-            elif "sources_data" in kwargs:
-                sources_data = kwargs["sources_data"]
-
-            # Handle empty sources
-            if not sources_data or len(sources_data) == 0:
-                return {
-                    "collection_id": "empty_collection",
-                    "collected_items": [],
-                    "metadata": {
-                        "total_collected": 0,
-                        "total_sources": 0,
-                        "processing_time": 0.1,
-                        "timestamp": "2025-08-23T12:00:00Z",
-                    },
-                    "timestamp": "2025-08-23T12:00:00Z",
-                    "storage_location": None,
+            # Setup mock service
+            mock_service = Mock()
+            mock_service.collect_and_store_content = AsyncMock(
+                return_value={
+                    "sources_processed": 1,
+                    "total_items_collected": 5,
+                    "items_saved": 5,
+                    "storage_location": "container://test/data.json",
+                    "processing_time_ms": 1000,
+                    "summary": "Collected 5 items from 1 Reddit source",
                 }
-
-            # Handle invalid source types
-            has_valid_sources = any(
-                source.get("type") == "reddit" for source in sources_data
             )
-            if not has_valid_sources:
-                return {
-                    "collection_id": "invalid_sources",
-                    "collected_items": [],
-                    "metadata": {
-                        "total_collected": 0,
-                        "total_sources": len(sources_data),
-                        "processing_time": 0.1,
-                        "timestamp": "2025-08-23T12:00:00Z",
-                        "errors": 1,
-                    },
-                    "timestamp": "2025-08-23T12:00:00Z",
-                    "storage_location": None,
+            mock_service.get_status = Mock(
+                return_value={
+                    "service": "content-womble",
+                    "version": "2.0.0",
+                    "environment": "test",
+                    "reddit_available": True,
+                    "storage_available": True,
+                    "last_collection": None,
+                    "total_collections": 0,
                 }
+            )
+            mock_service_class.return_value = mock_service
+            mock_get_service.return_value = mock_service
 
-            # Default successful response
-            return {
-                "collection_id": "test_collection_123",
-                "collected_items": [
-                    {
-                        "id": "test_id_1",
-                        "title": "Test Post 1",
-                        "url": "https://reddit.com/r/test/test1",
-                        "score": 100,
-                        "source": "reddit",
-                        "metadata": {"comments": 10, "created_utc": 1629800000},
-                    },
-                    {
-                        "id": "test_id_2",
-                        "title": "Test Post 2",
-                        "url": "https://reddit.com/r/test/test2",
-                        "score": 50,
-                        "source": "reddit",
-                        "metadata": {"comments": 5, "created_utc": 1629800100},
-                    },
-                ],
-                "metadata": {
-                    "total_collected": 2,
-                    "total_sources": 1,
-                    "processing_time": 1.5,
-                    "timestamp": "2025-08-23T12:00:00Z",
-                },
-                "timestamp": "2025-08-23T12:00:00Z",
-                "storage_location": "mock://blob/collection_test_123.json",
-            }
-
-        mock_service.collect_and_store_content = AsyncMock(
-            side_effect=smart_collect_response
-        )
-        mock_service.get_stats = Mock(
-            return_value={
-                "total_collections": 1,
-                "successful_collections": 1,
-                "failed_collections": 0,
-                "last_collection": "test_collection_123",
-            }
-        )
-
-        yield
+            yield

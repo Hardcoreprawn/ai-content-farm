@@ -1,124 +1,150 @@
 """
-Content Collector Data Models
+Content Womble API Models
 
-Pydantic models for the content collector API.
+Pydantic models for request/response validation and data structures.
 """
 
-from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field
 
 
 class SourceConfig(BaseModel):
     """Configuration for a content source."""
 
-    type: str = Field(..., description="Type of source (e.g., 'reddit', 'web')")
+    type: str = Field(..., description="Type of source (reddit, web, etc.)")
     subreddits: Optional[List[str]] = Field(
-        default=None, description="List of subreddits (for Reddit)"
+        None, description="List of subreddits for reddit sources"
     )
-    sites: Optional[List[str]] = Field(
-        default=None, description="List of web sites (for web sources)"
+    websites: Optional[List[str]] = Field(
+        None, description="List of websites for web sources"
     )
-    limit: Optional[int] = Field(
-        default=10, ge=1, le=100, description="Number of items to collect"
-    )
-    criteria: Optional[Dict[str, Any]] = Field(
-        default_factory=dict, description="Filtering criteria"
+    limit: int = Field(10, description="Maximum number of items to collect")
+    criteria: Dict[str, Any] = Field(
+        default_factory=dict, description="Additional filtering criteria"
     )
 
-    @field_validator("type")
-    @classmethod
-    def validate_type(cls, v):
-        # Allow any type, will be handled gracefully in processing
-        return v
 
-    @model_validator(mode="after")
-    def validate_source_requirements(self):
-        """Validate that required fields are present based on source type."""
-        if self.type == "reddit":
-            if self.subreddits is None:
-                raise ValueError("subreddits field is required for Reddit sources")
-        elif self.type == "web":
-            if self.sites is None:
-                raise ValueError("sites field is required for web sources")
-        return self
+class DiscoveryRequest(BaseModel):
+    """Request model for content discovery endpoint."""
+
+    sources: List[SourceConfig] = Field(..., description="List of sources to analyze")
+    keywords: Optional[List[str]] = Field(
+        None, description="Keywords to focus analysis on"
+    )
+    analysis_depth: str = Field(
+        "standard", description="Depth of analysis: basic, standard, detailed"
+    )
+    include_trending: bool = Field(True, description="Include trending topic analysis")
+    include_recommendations: bool = Field(
+        True, description="Include research recommendations"
+    )
+
+
+class LegacyCollectionRequest(BaseModel):
+    """Legacy request format for backward compatibility."""
+
+    sources: List[Dict[str, Any]]
+    deduplicate: bool = True
+    similarity_threshold: float = 0.8
+    save_to_storage: bool = True
 
 
 class CollectionRequest(BaseModel):
-    """Request for collecting content."""
+    """Standardized request model for content collection."""
 
-    sources: List[SourceConfig] = Field(..., description="Sources to collect from")
-    deduplicate: bool = Field(default=True, description="Enable deduplication")
+    sources: List[SourceConfig] = Field(
+        ..., description="List of sources to collect from"
+    )
+    deduplicate: bool = Field(True, description="Remove duplicate content")
     similarity_threshold: float = Field(
-        default=0.8,
-        ge=0.0,
-        le=1.0,
-        description="Similarity threshold for deduplication",
+        0.8, description="Similarity threshold for deduplication (0.0-1.0)"
     )
     save_to_storage: bool = Field(
-        default=True, description="Save collected content to blob storage"
-    )
-    output_format: str = Field(default="json", description="Output format (json, csv)")
-
-
-class CollectionResponse(BaseModel):
-    """Response from content collection."""
-
-    collection_id: str = Field(..., description="Unique collection identifier")
-    collected_items: List[Dict[str, Any]] = Field(
-        ..., description="Collected content items"
-    )
-    metadata: Dict[str, Any] = Field(..., description="Collection metadata")
-    timestamp: str = Field(..., description="Collection timestamp")
-    storage_location: Optional[str] = Field(
-        default=None, description="Blob storage location if saved"
+        True, description="Save collected content to blob storage"
     )
 
 
-class HealthResponse(BaseModel):
-    """Health check response."""
+class CollectionResult(BaseModel):
+    """Result model for content collection operations."""
 
-    status: str = Field(..., description="Health status (healthy/warning/unhealthy)")
-    timestamp: str = Field(..., description="Health check timestamp")
+    sources_processed: int = Field(..., description="Number of sources processed")
+    total_items_collected: int = Field(..., description="Total items found")
+    items_saved: int = Field(..., description="Number of items successfully saved")
+    storage_location: str = Field(..., description="Where the content was stored")
+    processing_time_ms: int = Field(..., description="Processing time in milliseconds")
+    summary: str = Field(..., description="Human-readable summary of collection")
+
+
+class ServiceStatus(BaseModel):
+    """Service status information."""
+
     service: str = Field(..., description="Service name")
     version: str = Field(..., description="Service version")
-    dependencies: Optional[Dict[str, Any]] = Field(
-        default=None, description="Dependency health status"
-    )
-    config_issues: Optional[List[str]] = Field(
-        default=None, description="Configuration issues"
-    )
-    environment: Optional[str] = Field(default=None, description="Environment name")
-
-
-class StatusResponse(BaseModel):
-    """Service status response."""
-
-    service: str = Field(..., description="Service name")
-    status: str = Field(..., description="Service status")
-    timestamp: str = Field(..., description="Status timestamp")
-    uptime: float = Field(..., description="Service uptime in seconds")
+    status: str = Field(..., description="Current status")
+    storage_healthy: bool = Field(..., description="Storage connectivity status")
+    reddit_healthy: bool = Field(..., description="Reddit API connectivity status")
     last_collection: Optional[str] = Field(
-        default=None, description="Last successful collection timestamp"
+        None, description="Last successful collection timestamp"
     )
-    stats: Dict[str, Any] = Field(..., description="Service statistics")
-    config: Dict[str, Any] = Field(..., description="Service configuration")
-
-
-class SourceInfo(BaseModel):
-    """Information about a content source."""
-
-    type: str = Field(..., description="Source type")
-    name: str = Field(..., description="Source name")
-    description: str = Field(..., description="Source description")
-    status: str = Field(..., description="Source availability status")
-    parameters: List[str] = Field(..., description="Required parameters")
-
-
-class SourcesResponse(BaseModel):
-    """Response containing available sources."""
-
-    available_sources: List[SourceInfo] = Field(
-        ..., description="Available content sources"
+    active_processes: int = Field(
+        ..., description="Number of active collection processes"
     )
+
+
+class TrendingTopic(BaseModel):
+    """A trending topic discovered from content analysis."""
+
+    topic: str = Field(..., description="The trending topic or keyword")
+    mentions: int = Field(..., description="Number of mentions found")
+    growth_rate: float = Field(..., description="Rate of growth in mentions")
+    confidence: float = Field(..., description="Confidence score (0.0-1.0)")
+    related_keywords: List[str] = Field(..., description="Related keywords and phrases")
+    sample_content: List[str] = Field(
+        ..., description="Sample content mentioning this topic"
+    )
+    source_breakdown: Dict[str, int] = Field(..., description="Mentions per source")
+    sentiment_score: Optional[float] = Field(
+        None, description="Average sentiment score"
+    )
+    engagement_metrics: Dict[str, float] = Field(
+        default_factory=dict, description="Engagement data"
+    )
+
+
+class ResearchRecommendation(BaseModel):
+    """Research recommendation based on trending topics."""
+
+    topic: TrendingTopic = Field(
+        ..., description="The trending topic this recommendation is for"
+    )
+    research_potential: float = Field(
+        ..., description="Potential value score (0.0-1.0)"
+    )
+    recommended_approach: str = Field(..., description="Suggested research approach")
+    key_questions: List[str] = Field(..., description="Key questions to investigate")
+    suggested_sources: List[str] = Field(
+        ..., description="Recommended sources for research"
+    )
+    estimated_depth: str = Field(..., description="Estimated research depth needed")
+
+
+class DiscoveryResult(BaseModel):
+    """Result model for content discovery operations."""
+
+    trending_topics: List[TrendingTopic] = Field(
+        ..., description="Discovered trending topics"
+    )
+    research_recommendations: List[ResearchRecommendation] = Field(
+        ..., description="Research suggestions"
+    )
+    analysis_summary: str = Field(..., description="Summary of discovery analysis")
+    sources_analyzed: int = Field(..., description="Number of sources analyzed")
+    total_content_analyzed: int = Field(
+        ..., description="Total pieces of content analyzed"
+    )
+    analysis_time_ms: int = Field(..., description="Analysis processing time")
+    keywords_focus: List[str] = Field(
+        default_factory=list, description="Keywords that guided the analysis"
+    )
+    confidence_score: float = Field(..., description="Overall confidence in results")

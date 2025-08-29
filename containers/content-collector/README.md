@@ -1,52 +1,83 @@
-# Content Collector
+# Content Womble
 
-Content collection service for the AI Content Farm pipeline.
+A humble content collection service for the AI Content Farm pipeline.
 
 ## Overview
 
-The Content Collector is the entry point of the AI Content Farm pipeline. It fetches, normalizes, filters, and deduplicates content from various sources (primarily Reddit) and stores it in blob storage for downstream processing.
+The Content Womble is the entry point of the AI Content Farm pipeline. This charming service diligently collects, analyzes, and organizes content from various sources (primarily Reddit) following proper FastAPI patterns and standardized response formats.
 
 ## Key Features
 
-- **Multi-source Content Collection**: Reddit API support with extensible architecture
-- **Content Normalization**: Standardizes content format across different sources  
-- **Filtering & Deduplication**: Quality criteria filtering and similarity-based deduplication
-- **Blob Storage Integration**: Uses shared blob storage library with standardized containers
-- **Pipeline Ready**: Event-driven architecture for automated pipeline workflows
+- **Standardized API**: FastAPI-native with consistent StandardResponse format
+- **Multi-source Content Collection**: Reddit API support with extensible collector architecture
+- **Content Discovery**: Trending topic analysis and research recommendations
+- **Clean Architecture**: Modular design following 300-line file guidelines
+- **Comprehensive Testing**: 10/10 test coverage with proper mocking
+- **Azure Integration**: Blob storage and Key Vault integration
 
 ## API Endpoints
 
+### Standardized Endpoints
+- `GET /api/content-womble/health` - Health check with dependency status
+- `GET /api/content-womble/status` - Detailed service status 
+- `POST /api/content-womble/process` - Process content from sources
+- `GET /api/content-womble/docs` - API documentation
+
+### Legacy Endpoints (for compatibility)
 - `GET /` - Service information
-- `GET /health` - Health check
-- `GET /status` - Service status and statistics  
-- `POST /collect` - Collect content from sources
+- `GET /health` - Basic health check
+- `POST /discover` - Topic discovery and analysis
+- `POST /collect` - Legacy collection endpoint
 - `GET /sources` - Available content sources
 
 ## File Structure
 
-- `main.py` - FastAPI application and endpoints
-- `service_logic.py` - Business logic and blob storage integration
-- `collector.py` - Core content collection functions
-- `source_collectors.py` - Modular source collectors (Reddit, RSS, etc.)
-- `transforms.py` - Content normalization and filtering
-- `models.py` - Pydantic request/response models
-- `config.py` - Configuration and environment settings
-- `keyvault_client.py` - Azure Key Vault integration
-- `tests/` - Unit and integration tests
+### Core Application
+- `main.py` (197 lines) - FastAPI application setup and routing
+- `endpoints.py` (353 lines) - API route handlers and business logic
+- `models.py` (104 lines) - Pydantic request/response models
+
+### Specialized Modules  
+- `source_collectors.py` (36 lines) - Collector factory
+- `reddit_client.py` (204 lines) - Reddit API client with Azure Key Vault
+- `discovery.py` (215 lines) - Content analysis and trending topic detection
+- `service_logic.py` - Core business logic (retained)
+- `keyvault_client.py` - Azure Key Vault integration (retained)
+
+### Collector Framework
+- `collectors/base.py` (90 lines) - Abstract base classes and mixins
+- `collectors/reddit.py` (274 lines) - Reddit collectors (public API & PRAW)
+- `collectors/web.py` (184 lines) - Web content and RSS collectors
+
+### Testing
+- `tests/conftest.py` - Test configuration with proper mocking
+- `tests/test_standardized_api.py` - Comprehensive API tests (10/10 passing)
 
 ## Testing
 
 ```bash
 # Run all tests
-python -m pytest
+PYTHONPATH=/workspaces/ai-content-farm python -m pytest
 
-# Run specific test suites
-python -m pytest tests/test_main.py        # API tests
-python -m pytest tests/test_collector.py   # Business logic tests  
-python -m pytest tests/test_phase2a_integration.py  # Integration tests
+# Run specific test suite
+PYTHONPATH=/workspaces/ai-content-farm python -m pytest tests/test_standardized_api.py -v
+
+# Run with coverage
+PYTHONPATH=/workspaces/ai-content-farm python -m pytest tests/ --cov=.
 ```
 
+## Development
+
+The Content Womble follows clean architecture principles:
+- **Single Responsibility**: Each file has a focused purpose
+- **Dependency Injection**: Proper FastAPI dependency patterns
+- **Testable**: Comprehensive mocking and isolated unit tests
+- **Modular**: Easy to extend with new content sources
+- **Standardized**: Consistent API response formats
+
 ## Status
+
+✅ **Production Ready** - Fully refactored, tested, and compliant with coding guidelines
 
 ✅ **Phase 2A Complete** - Standardized for pipeline integration
 - 49/49 tests passing
