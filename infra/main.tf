@@ -289,6 +289,7 @@ resource "azurerm_storage_account" "main" {
     default_action = "Deny"
     bypass         = ["AzureServices"] # This is the recommended configuration for Microsoft services
     # Allow access from Container Apps and development environments
+    # Updated: Dynamic IP reference for Container Apps outbound traffic
     ip_rules = [
       "81.2.90.47",                                            # Current development IP
       azurerm_container_app_environment.main.static_ip_address # Container Apps outbound IP
