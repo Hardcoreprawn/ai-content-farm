@@ -54,7 +54,17 @@ class BlobStorageClient:
 
             elif self.storage_account_name:
                 # Production/Azure environment - use managed identity
-                credential = DefaultAzureCredential()
+                # Use explicit ManagedIdentityCredential with client_id for better token handling
+                client_id = os.getenv("AZURE_CLIENT_ID")
+                if client_id:
+                    credential = ManagedIdentityCredential(client_id=client_id)
+                    logger.info(f"Using user-assigned managed identity: {client_id}")
+                else:
+                    credential = DefaultAzureCredential()
+                    logger.info(
+                        "Using DefaultAzureCredential (system-assigned managed identity)"
+                    )
+
                 account_url = (
                     f"https://{self.storage_account_name}.blob.core.windows.net"
                 )
@@ -83,6 +93,47 @@ class BlobStorageClient:
         except Exception as e:
             logger.error(f"Failed to initialize blob storage client: {e}")
             raise
+
+    def test_connection(self) -> Dict[str, Any]:
+        """Test the blob storage connection and bearer token acquisition."""
+        try:
+            if self._mock:
+                return {
+                    "status": "healthy",
+                    "connection_type": "mock",
+                    "message": "Mock storage client is working",
+                }
+
+            # Test token acquisition by listing containers
+            # This will force the credential to acquire a bearer token
+            containers = list(self.blob_service_client.list_containers(max_results=1))
+
+            return {
+                "status": "healthy",
+                "connection_type": (
+                    "managed_identity"
+                    if self.storage_account_name
+                    else "connection_string"
+                ),
+                "environment": self.environment,
+                "storage_account": self.storage_account_name,
+                "message": "Bearer token acquired successfully",
+            }
+
+        except Exception as e:
+            logger.error(f"Blob storage connection test failed: {e}")
+            return {
+                "status": "unhealthy",
+                "connection_type": (
+                    "managed_identity"
+                    if self.storage_account_name
+                    else "connection_string"
+                ),
+                "environment": self.environment,
+                "storage_account": self.storage_account_name,
+                "error": str(e),
+                "message": "Failed to acquire bearer token or connect to storage",
+            }
 
     def ensure_container(self, container_name: str) -> Optional[ContainerClient]:
         """Ensure container exists and return container client."""

@@ -77,8 +77,8 @@ async def root_endpoint(metadata: Dict[str, Any] = Depends(service_metadata)):
 async def health_endpoint(metadata: Dict[str, Any] = Depends(service_metadata)):
     """Health check endpoint."""
     try:
-        # Test storage connectivity
-        storage_health = get_blob_client().health_check()
+        # Test storage connectivity with better bearer token error handling
+        storage_health = get_blob_client().test_connection()
         reddit_health = reddit_client.is_available()
 
         health_status = (
