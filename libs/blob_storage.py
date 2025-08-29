@@ -17,7 +17,12 @@ from typing import Any, BinaryIO, Dict, List, Optional, Union
 
 from azure.core.exceptions import AzureError, ResourceNotFoundError
 from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
-from azure.storage.blob import BlobClient, BlobServiceClient, ContainerClient
+from azure.storage.blob import (
+    BlobClient,
+    BlobProperties,
+    BlobServiceClient,
+    ContainerClient,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -53,18 +58,12 @@ class BlobStorageClient:
                 )
 
             elif self.storage_account_name:
-                # Production/Azure environment - use managed identity
-                # Use the same authentication pattern as Key Vault (which is working)
-                client_id = os.getenv("AZURE_CLIENT_ID")
-                if client_id:
-                    # Use simple managed identity credential like Key Vault does
-                    credential = ManagedIdentityCredential(client_id=client_id)
-                    logger.info(f"Using user-assigned managed identity: {client_id}")
-                else:
-                    credential = DefaultAzureCredential()
-                    logger.info(
-                        "Using DefaultAzureCredential (system-assigned managed identity)"
-                    )
+                # Production/Azure environment - use Microsoft's recommended pattern
+                # Use DefaultAzureCredential as recommended in Microsoft docs
+                credential = DefaultAzureCredential()
+                logger.info(
+                    "Using DefaultAzureCredential for blob storage authentication"
+                )
 
                 account_url = (
                     f"https://{self.storage_account_name}.blob.core.windows.net"
@@ -96,37 +95,99 @@ class BlobStorageClient:
             raise
 
     def test_connection(self) -> Dict[str, Any]:
-        """Test the blob storage connection and bearer token acquisition."""
-        try:
-            if self._mock:
-                return {
-                    "status": "healthy",
-                    "connection_type": "mock",
-                    "message": "Mock storage client is working",
-                }
+        """Test the blob storage connection with retry logic for authentication failures."""
+        import random
+        import time
 
-            # Test token acquisition by listing containers with explicit timeout
-            # This will force the credential to acquire a bearer token
+        if self._mock:
+            return {
+                "status": "healthy",
+                "connection_type": "mock",
+                "message": "Mock storage client is working",
+            }
+
+        max_retries = 3
+        base_delay = 2.0  # Start with 2 seconds
+        max_delay = 30.0  # Cap at 30 seconds
+
+        for attempt in range(max_retries):
             try:
-                # Try to get account properties first (lighter operation)
+                # Test token acquisition with lighter operation first
+                start_time = time.time()
                 account_info = self.blob_service_client.get_account_information()
+                token_time = time.time() - start_time
+
                 logger.info(
-                    f"Successfully connected to storage account, account kind: {account_info.get('account_kind', 'unknown')}"
+                    f"Token acquired in {token_time:.2f}s, account kind: {account_info.get('account_kind', 'unknown')}"
                 )
 
-                # Then try listing containers to verify full access
+                # Then verify full access by listing containers
                 containers = list(self.blob_service_client.list_containers(timeout=30))
                 logger.info(f"Successfully listed {len(containers)} containers")
+
+                return {
+                    "status": "healthy",
+                    "connection_type": (
+                        "managed_identity"
+                        if self.storage_account_name
+                        else "connection_string"
+                    ),
+                    "environment": self.environment,
+                    "storage_account": self.storage_account_name,
+                    "message": f"Authentication successful (token acquired in {token_time:.2f}s)",
+                    "attempt": attempt + 1,
+                    "token_acquisition_time": token_time,
+                }
 
             except StopIteration:
                 # No containers exist, but connection worked
                 logger.info("No containers found, but connection is working")
-                pass
+                return {
+                    "status": "healthy",
+                    "connection_type": (
+                        "managed_identity"
+                        if self.storage_account_name
+                        else "connection_string"
+                    ),
+                    "environment": self.environment,
+                    "storage_account": self.storage_account_name,
+                    "message": "Authentication successful (no containers found)",
+                    "attempt": attempt + 1,
+                }
+
             except Exception as auth_error:
-                logger.error(f"Authentication/connection error: {auth_error}")
-                # Try to provide more specific error information
                 error_msg = str(auth_error)
-                if "AuthorizationFailure" in error_msg:
+                is_last_attempt = attempt == max_retries - 1
+
+                # Check if this is a retryable authentication error
+                retryable_errors = [
+                    "AuthorizationFailure",
+                    "TokenUnavailable",
+                    "CredentialUnavailableError",
+                    "timeout",
+                    "Connection",
+                ]
+
+                is_retryable = any(err in error_msg for err in retryable_errors)
+
+                if is_retryable and not is_last_attempt:
+                    # Calculate exponential backoff with jitter
+                    delay = min(base_delay * (2**attempt), max_delay)
+                    jitter = random.uniform(0.1, 0.3) * delay  # 10-30% jitter
+                    total_delay = delay + jitter
+
+                    logger.warning(
+                        f"Authentication attempt {attempt + 1} failed: {error_msg}. "
+                        f"Retrying in {total_delay:.1f}s..."
+                    )
+                    time.sleep(total_delay)
+                    continue
+                else:
+                    # Final attempt or non-retryable error
+                    logger.error(
+                        f"Authentication failed after {attempt + 1} attempts: {error_msg}"
+                    )
+
                     return {
                         "status": "unhealthy",
                         "connection_type": (
@@ -137,50 +198,43 @@ class BlobStorageClient:
                         "environment": self.environment,
                         "storage_account": self.storage_account_name,
                         "error": error_msg,
-                        "message": "Authorization failed - check managed identity permissions and network access",
+                        "attempts": attempt + 1,
+                        "message": (
+                            "Authentication failed - RBAC propagation can take up to 8 minutes"
+                            if "AuthorizationFailure" in error_msg
+                            else "Authentication error occurred"
+                        ),
                         "troubleshooting": {
                             "check_rbac": "Verify Storage Blob Data Contributor role is assigned",
+                            "check_timing": "Role assignment propagation can take up to 8 minutes",
                             "check_network": "Verify storage account network rules allow Container Apps",
                             "check_identity": "Verify managed identity is properly configured",
+                            "credential_chain": "DefaultAzureCredential tries: Environment → Workload Identity → Managed Identity → Local",
                         },
                     }
-                else:
-                    raise auth_error
 
-            return {
-                "status": "healthy",
-                "connection_type": (
-                    "managed_identity"
-                    if self.storage_account_name
-                    else "connection_string"
-                ),
-                "environment": self.environment,
-                "storage_account": self.storage_account_name,
-                "message": "Bearer token acquired successfully",
-            }
+        # Should never reach here, but just in case
+        return {
+            "status": "unhealthy",
+            "connection_type": (
+                "managed_identity" if self.storage_account_name else "connection_string"
+            ),
+            "environment": self.environment,
+            "storage_account": self.storage_account_name,
+            "error": "Maximum retry attempts exceeded",
+            "attempts": max_retries,
+            "message": "Authentication failed after all retry attempts",
+        }
 
-        except Exception as e:
-            logger.error(f"Blob storage connection test failed: {e}")
-            return {
-                "status": "unhealthy",
-                "connection_type": (
-                    "managed_identity"
-                    if self.storage_account_name
-                    else "connection_string"
-                ),
-                "environment": self.environment,
-                "storage_account": self.storage_account_name,
-                "error": str(e),
-                "message": "Failed to acquire bearer token or connect to storage",
-            }
-
-    def ensure_container(self, container_name: str) -> Optional[ContainerClient]:
+    def ensure_container(self, container_name: str) -> ContainerClient:
         """Ensure container exists and return container client."""
         try:
             if self._mock:
                 # Create container namespace if missing
                 _MOCK_CONTAINERS.setdefault(container_name, {})
-                return None  # Not used by mock methods
+                # Return a mock container client for type safety
+                # This will never be used since all mock methods check self._mock first
+                raise RuntimeError("Mock mode - container client should not be used")
 
             container_client = self.blob_service_client.get_container_client(
                 container_name
@@ -453,8 +507,8 @@ class BlobStorageClient:
                                 else 0
                             ),
                             "last_modified": (
-                                blob.get("last_modified").isoformat()
-                                if blob.get("last_modified")
+                                last_mod.isoformat()
+                                if (last_mod := blob.get("last_modified")) is not None
                                 else None
                             ),
                             "content_type": blob.get("content_type"),
@@ -466,22 +520,23 @@ class BlobStorageClient:
             container_client = self.ensure_container(container_name)
 
             blobs = []
-            for blob in container_client.list_blobs(name_starts_with=prefix):
+            blob_properties: BlobProperties
+            for blob_properties in container_client.list_blobs(name_starts_with=prefix):
                 blobs.append(
                     {
-                        "name": blob.name,
-                        "size": blob.size,
+                        "name": blob_properties.name,
+                        "size": blob_properties.size,
                         "last_modified": (
-                            blob.last_modified.isoformat()
-                            if blob.last_modified
+                            blob_properties.last_modified.isoformat()
+                            if blob_properties.last_modified
                             else None
                         ),
                         "content_type": (
-                            blob.content_settings.content_type
-                            if blob.content_settings
+                            blob_properties.content_settings.content_type
+                            if blob_properties.content_settings
                             else None
                         ),
-                        "metadata": blob.metadata or {},
+                        "metadata": blob_properties.metadata or {},
                     }
                 )
 

@@ -105,28 +105,6 @@ class ErrorCodes:
         )
 
 
-class HealthStatus(BaseModel):
-    """Health status model for health check endpoints"""
-
-    status: str = Field(..., description="Health status: healthy|warning|error")
-    service: str = Field(..., description="Service name")
-    version: str = Field(..., description="Service version")
-    issues: Optional[List[str]] = Field(
-        default_factory=list, description="Any health issues"
-    )
-
-
-class ServiceStatus(BaseModel):
-    """Service status model for status endpoints"""
-
-    service: str = Field(..., description="Service name")
-    status: str = Field(..., description="Service status: running|stopped|error")
-    uptime_seconds: Optional[float] = Field(
-        None, description="Service uptime in seconds"
-    )
-    stats: Optional[Dict[str, Any]] = Field(None, description="Service statistics")
-
-
 class StandardResponse(BaseModel):
     """
     FastAPI-native standard response format using Pydantic response models.
@@ -261,7 +239,7 @@ class HealthStatus(BaseModel):
     dependencies: Dict[str, bool] = Field(
         default_factory=dict, description="Dependency health"
     )
-    issues: List[str] = Field(default_factory=list, description="Health issues")
+    issues: List[str] = Field(default_factory=lambda: [], description="Health issues")
     uptime_seconds: Optional[float] = Field(None, description="Service uptime")
     environment: Optional[str] = Field(None, description="Environment name")
 
