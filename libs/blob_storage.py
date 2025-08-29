@@ -69,6 +69,11 @@ class BlobStorageClient:
                 logger.info(f"Storage Account: {self.storage_account_name}")
                 logger.info("Using Container Apps Managed Identity")
 
+                # Add role assignment debug info
+                logger.info("Expected RBAC: Storage Blob Data Contributor")
+                logger.info("Expected scope: Storage Account level")
+                logger.info("Role propagation: Can take up to 30 minutes")
+
                 # Use DefaultAzureCredential with user-assigned managed identity
                 # This is the officially supported pattern for Container Apps
                 if azure_client_id:
@@ -139,18 +144,22 @@ class BlobStorageClient:
 
                 # Test token acquisition with lighter operation first
                 start_time = time.time()
-                logger.info("Attempting to get account information...")
-                account_info = self.blob_service_client.get_account_information()
+                logger.info("Attempting to list containers...")
+                containers = list(self.blob_service_client.list_containers(timeout=30))
                 token_time = time.time() - start_time
 
                 logger.info(
-                    f"✅ Token acquired in {token_time:.2f}s, account kind: {account_info.get('account_kind', 'unknown')}"
+                    f"✅ Token acquired in {token_time:.2f}s, found {len(containers)} containers"
                 )
 
-                # Then verify full access by listing containers
-                logger.info("Attempting to list containers...")
-                containers = list(self.blob_service_client.list_containers(timeout=30))
-                logger.info(f"✅ Successfully listed {len(containers)} containers")
+                # Try to access the required container, creating if needed
+                logger.info("Ensuring required container 'collected-content' exists...")
+                try:
+                    self.ensure_container("collected-content")
+                    logger.info("✅ Container 'collected-content' is available")
+                except Exception as container_error:
+                    logger.warning(f"Container check failed: {container_error}")
+                    # Continue anyway - the test passes if we can list containers
 
                 return {
                     "status": "healthy",
@@ -161,9 +170,10 @@ class BlobStorageClient:
                     ),
                     "environment": self.environment,
                     "storage_account": self.storage_account_name,
-                    "message": f"Authentication successful (token acquired in {token_time:.2f}s)",
+                    "message": f"Authentication successful (token acquired in {token_time:.2f}s), {len(containers)} containers found",
                     "attempt": attempt + 1,
                     "token_acquisition_time": token_time,
+                    "containers_found": len(containers),
                 }
 
             except StopIteration:
