@@ -39,8 +39,8 @@ class BlobStorageClient:
     def __init__(self):
         self.environment = os.getenv("ENVIRONMENT", "development").lower()
         self._mock = os.getenv("BLOB_STORAGE_MOCK", "false").lower() == "true"
-        self.storage_account_name = os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
-        self.connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+        self.storage_account_name = os.getenv("AZURE_STORAGE_ACCOUNT_NAME", "")
+        self.connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING", "")
 
         try:
             if self._mock:
@@ -62,8 +62,8 @@ class BlobStorageClient:
                 # Production/Azure environment - use Microsoft's recommended pattern
                 # Use DefaultAzureCredential as recommended in Microsoft docs
                 # For user-assigned managed identity, specify client_id if available
-                azure_client_id = os.getenv("AZURE_CLIENT_ID")
-                federated_token_file = os.getenv("AZURE_FEDERATED_TOKEN_FILE")
+                azure_client_id = os.getenv("AZURE_CLIENT_ID", "")
+                federated_token_file = os.getenv("AZURE_FEDERATED_TOKEN_FILE", "")
 
                 # Enhanced debugging for authentication setup
                 logger.info("=== AUTHENTICATION DEBUG ===")
@@ -160,7 +160,7 @@ class BlobStorageClient:
                     "status": "healthy",
                     "connection_type": (
                         "workload_identity"
-                        if os.getenv("AZURE_FEDERATED_TOKEN_FILE")
+                        if os.getenv("AZURE_FEDERATED_TOKEN_FILE", "")
                         else (
                             "managed_identity"
                             if self.storage_account_name
@@ -245,7 +245,7 @@ class BlobStorageClient:
                         "status": "unhealthy",
                         "connection_type": (
                             "workload_identity"
-                            if os.getenv("AZURE_FEDERATED_TOKEN_FILE")
+                            if os.getenv("AZURE_FEDERATED_TOKEN_FILE", "")
                             else (
                                 "managed_identity"
                                 if self.storage_account_name
@@ -257,8 +257,10 @@ class BlobStorageClient:
                         "error": error_msg,
                         "error_type": error_type,
                         "attempts": attempt + 1,
-                        "azure_client_id": os.getenv("AZURE_CLIENT_ID"),
-                        "federated_token_file": os.getenv("AZURE_FEDERATED_TOKEN_FILE"),
+                        "azure_client_id": os.getenv("AZURE_CLIENT_ID", ""),
+                        "federated_token_file": os.getenv(
+                            "AZURE_FEDERATED_TOKEN_FILE", ""
+                        ),
                         "message": (
                             "Authentication failed - RBAC propagation can take up to 8 minutes"
                             if "AuthorizationFailure" in error_msg
