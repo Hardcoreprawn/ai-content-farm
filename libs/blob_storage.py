@@ -63,6 +63,19 @@ class BlobStorageClient:
                 # Use DefaultAzureCredential as recommended in Microsoft docs
                 # For user-assigned managed identity, specify client_id if available
                 azure_client_id = os.getenv("AZURE_CLIENT_ID")
+                federated_token_file = os.getenv("AZURE_FEDERATED_TOKEN_FILE")
+
+                # Enhanced debugging for authentication setup
+                logger.info("=== AUTHENTICATION DEBUG ===")
+                logger.info(f"AZURE_CLIENT_ID: {azure_client_id}")
+                logger.info(f"AZURE_FEDERATED_TOKEN_FILE: {federated_token_file}")
+                logger.info(f"Storage Account: {self.storage_account_name}")
+
+                if federated_token_file:
+                    logger.info("Detected Workload Identity (federated token) setup")
+                else:
+                    logger.info("Detected traditional Managed Identity setup")
+
                 if azure_client_id:
                     credential = DefaultAzureCredential(
                         managed_identity_client_id=azure_client_id
@@ -83,8 +96,9 @@ class BlobStorageClient:
                     account_url=account_url, credential=credential
                 )
                 logger.info(
-                    f"Blob storage client initialized with managed identity for account: {self.storage_account_name}"
+                    f"Blob storage client initialized for account: {self.storage_account_name}"
                 )
+                logger.info("=== END AUTHENTICATION DEBUG ===")
 
             else:
                 # Fallback to connection string if provided
@@ -123,25 +137,35 @@ class BlobStorageClient:
 
         for attempt in range(max_retries):
             try:
+                logger.info(
+                    f"=== AUTHENTICATION TEST ATTEMPT {attempt + 1}/{max_retries} ==="
+                )
+
                 # Test token acquisition with lighter operation first
                 start_time = time.time()
+                logger.info("Attempting to get account information...")
                 account_info = self.blob_service_client.get_account_information()
                 token_time = time.time() - start_time
 
                 logger.info(
-                    f"Token acquired in {token_time:.2f}s, account kind: {account_info.get('account_kind', 'unknown')}"
+                    f"✅ Token acquired in {token_time:.2f}s, account kind: {account_info.get('account_kind', 'unknown')}"
                 )
 
                 # Then verify full access by listing containers
+                logger.info("Attempting to list containers...")
                 containers = list(self.blob_service_client.list_containers(timeout=30))
-                logger.info(f"Successfully listed {len(containers)} containers")
+                logger.info(f"✅ Successfully listed {len(containers)} containers")
 
                 return {
                     "status": "healthy",
                     "connection_type": (
-                        "managed_identity"
-                        if self.storage_account_name
-                        else "connection_string"
+                        "workload_identity"
+                        if os.getenv("AZURE_FEDERATED_TOKEN_FILE")
+                        else (
+                            "managed_identity"
+                            if self.storage_account_name
+                            else "connection_string"
+                        )
                     ),
                     "environment": self.environment,
                     "storage_account": self.storage_account_name,
@@ -168,7 +192,25 @@ class BlobStorageClient:
 
             except Exception as auth_error:
                 error_msg = str(auth_error)
+                error_type = type(auth_error).__name__
                 is_last_attempt = attempt == max_retries - 1
+
+                logger.error(f"❌ Authentication error (attempt {attempt + 1}):")
+                logger.error(f"   Error type: {error_type}")
+                logger.error(f"   Error message: {error_msg}")
+
+                # Enhanced debugging for authentication failures
+                if hasattr(auth_error, "response"):
+                    response = getattr(auth_error, "response", None)
+                    if response:
+                        logger.error(
+                            f"   HTTP Status: {getattr(response, 'status_code', 'N/A')}"
+                        )
+                        headers = getattr(response, "headers", {})
+                        if headers:
+                            logger.error(
+                                f"   Request ID: {headers.get('x-ms-request-id', 'N/A')}"
+                            )
 
                 # Check if this is a retryable authentication error
                 retryable_errors = [
@@ -202,18 +244,25 @@ class BlobStorageClient:
                     return {
                         "status": "unhealthy",
                         "connection_type": (
-                            "managed_identity"
-                            if self.storage_account_name
-                            else "connection_string"
+                            "workload_identity"
+                            if os.getenv("AZURE_FEDERATED_TOKEN_FILE")
+                            else (
+                                "managed_identity"
+                                if self.storage_account_name
+                                else "connection_string"
+                            )
                         ),
                         "environment": self.environment,
                         "storage_account": self.storage_account_name,
                         "error": error_msg,
+                        "error_type": error_type,
                         "attempts": attempt + 1,
+                        "azure_client_id": os.getenv("AZURE_CLIENT_ID"),
+                        "federated_token_file": os.getenv("AZURE_FEDERATED_TOKEN_FILE"),
                         "message": (
                             "Authentication failed - RBAC propagation can take up to 8 minutes"
                             if "AuthorizationFailure" in error_msg
-                            else "Authentication error occurred"
+                            else f"Authentication error occurred: {error_type}"
                         ),
                         "troubleshooting": {
                             "check_rbac": "Verify Storage Blob Data Contributor role is assigned",
