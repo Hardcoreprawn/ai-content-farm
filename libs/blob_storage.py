@@ -193,11 +193,18 @@ class BlobStorageClient:
                         if hasattr(response, "text"):
                             import re
 
-                            error_code_match = re.search(
-                                r"<Code>([^<]+)</Code>", response.text
+                            # Handle both text property and text() method
+                            response_text = (
+                                response.text()
+                                if callable(response.text)
+                                else response.text
                             )
-                            if error_code_match:
-                                error_code = error_code_match.group(1)
+                            if isinstance(response_text, str):
+                                error_code_match = re.search(
+                                    r"<Code>([^<]+)</Code>", response_text
+                                )
+                                if error_code_match:
+                                    error_code = error_code_match.group(1)
 
                 # Categorize the error type for better diagnostics
                 if (
