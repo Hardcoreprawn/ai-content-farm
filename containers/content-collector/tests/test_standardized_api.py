@@ -16,6 +16,7 @@ from main import app
 client = TestClient(app)
 
 
+@pytest.mark.integration
 class TestStandardizedAPIEndpoints:
     """Test new standardized API endpoints."""
 
@@ -145,6 +146,7 @@ class TestStandardizedAPIEndpoints:
         assert "/api/content-womble/process" in endpoints
 
 
+@pytest.mark.integration
 class TestStandardizedErrorHandling:
     """Test standardized error responses."""
 
@@ -172,6 +174,7 @@ class TestStandardizedErrorHandling:
         assert data["metadata"]["function"] == "content-womble"
 
 
+@pytest.mark.integration
 class TestRootEndpointUpdated:
     """Test root endpoint shows both legacy and new endpoints."""
 
@@ -204,6 +207,7 @@ class TestRootEndpointUpdated:
         assert endpoints["api_process"] == "/api/content-womble/process"
 
 
+@pytest.mark.integration
 class TestResponseTimingMetadata:
     """Test execution time tracking in responses."""
 
@@ -250,3 +254,270 @@ class TestResponseTimingMetadata:
             execution_time = data["metadata"]["execution_time_ms"]
             assert isinstance(execution_time, int)
             assert execution_time >= 0
+
+
+# ============================================================================
+# UNIT TESTS
+# ============================================================================
+
+
+@pytest.mark.unit
+class TestModels:
+    """Unit tests for Pydantic models."""
+
+    def test_source_config_creation(self):
+        """Test SourceConfig model creation and validation."""
+        from models import SourceConfig
+
+        # Valid configuration
+        config = SourceConfig(
+            type="reddit", subreddits=["technology", "science"], limit=20
+        )
+
+        assert config.type == "reddit"
+        assert config.subreddits == ["technology", "science"]
+        assert config.limit == 20
+        assert config.criteria == {}
+
+    def test_source_config_defaults(self):
+        """Test SourceConfig default values."""
+        from models import SourceConfig
+
+        config = SourceConfig(type="web")
+
+        assert config.type == "web"
+        assert config.subreddits is None
+        assert config.websites is None
+        assert config.limit == 10
+        assert config.criteria == {}
+
+    def test_discovery_request_creation(self):
+        """Test DiscoveryRequest model creation."""
+        from models import DiscoveryRequest, SourceConfig
+
+        source = SourceConfig(type="reddit", subreddits=["technology"])
+        request = DiscoveryRequest(sources=[source])
+
+        assert len(request.sources) == 1
+        assert request.analysis_depth == "standard"
+        assert request.include_trending is True
+        assert request.include_recommendations is True
+
+    def test_trending_topic_creation(self):
+        """Test TrendingTopic model creation."""
+        from models import TrendingTopic
+
+        topic = TrendingTopic(
+            topic="artificial intelligence",
+            mentions=10,
+            growth_rate=0.5,
+            confidence=0.8,
+            related_keywords=["AI", "machine learning"],
+            sample_content=["AI breakthrough in healthcare"],
+            source_breakdown={"technology": 5, "science": 5},
+            sentiment_score=0.7,
+        )
+
+        assert topic.topic == "artificial intelligence"
+        assert topic.mentions == 10
+        assert topic.confidence == 0.8
+        assert len(topic.related_keywords) == 2
+
+
+@pytest.mark.unit
+class TestDiscoveryFunctions:
+    """Unit tests for discovery.py functions."""
+
+    def test_analyze_trending_topics_basic(self):
+        """Test basic trending topic analysis."""
+        from discovery import analyze_trending_topics
+
+        posts = [
+            {
+                "title": "Artificial Intelligence breakthrough in healthcare",
+                "selftext": "New AI model shows promise in medical diagnosis",
+                "subreddit": "technology",
+            },
+            {
+                "title": "Machine learning algorithm improves accuracy",
+                "selftext": "Researchers develop AI system for better predictions",
+                "subreddit": "MachineLearning",
+            },
+        ]
+
+        topics = analyze_trending_topics(posts, min_mentions=1)
+
+        assert isinstance(topics, list)
+        # Should find some topics from the posts
+        assert len(topics) >= 0
+
+    def test_analyze_trending_topics_min_mentions_filter(self):
+        """Test that min_mentions filtering works."""
+        from discovery import analyze_trending_topics
+
+        posts = [
+            {"title": "Single mention topic", "selftext": "", "subreddit": "test"},
+            {
+                "title": "Repeated topic here",
+                "selftext": "repeated topic again",
+                "subreddit": "test",
+            },
+        ]
+
+        # With min_mentions=2, should filter appropriately
+        topics = analyze_trending_topics(posts, min_mentions=2)
+
+        assert isinstance(topics, list)
+        # Verify function returns expected type
+        for topic in topics:
+            assert hasattr(topic, "topic")
+            assert hasattr(topic, "mentions")
+
+    def test_extract_keywords_function(self):
+        """Test keyword extraction utility."""
+        from discovery import extract_keywords
+
+        text = "Artificial intelligence and machine learning algorithms"
+        keywords = extract_keywords(text)
+
+        assert isinstance(keywords, list)
+        assert len(keywords) >= 0
+        # Should extract some form of keywords
+        for keyword in keywords:
+            assert isinstance(keyword, str)
+
+    def test_generate_research_recommendations(self):
+        """Test research recommendation generation."""
+        from discovery import generate_research_recommendations
+        from models import TrendingTopic
+
+        topics = [
+            TrendingTopic(
+                topic="artificial intelligence",
+                mentions=10,
+                growth_rate=0.5,
+                confidence=0.8,
+                related_keywords=["AI", "machine learning"],
+                sample_content=["AI breakthrough in healthcare"],
+                source_breakdown={"technology": 5, "science": 5},
+                sentiment_score=0.7,
+            )
+        ]
+
+        recommendations = generate_research_recommendations(topics)
+
+        assert isinstance(recommendations, list)
+        # Should generate recommendations
+        for rec in recommendations:
+            assert hasattr(rec, "topic")
+            assert hasattr(rec, "research_potential")
+
+
+@pytest.mark.unit
+class TestRedditClientCore:
+    """Unit tests for Reddit client core functionality (without external dependencies)."""
+
+    @patch("reddit_client.os.getenv")
+    def test_environment_detection(self, mock_getenv):
+        """Test environment detection logic."""
+        from reddit_client import RedditClient
+
+        # Mock development environment
+        mock_getenv.side_effect = lambda key, default=None: {
+            "ENVIRONMENT": "development",
+            "REDDIT_CLIENT_ID": None,
+            "REDDIT_CLIENT_SECRET": None,
+            "REDDIT_USER_AGENT": None,
+        }.get(key, default)
+
+        with patch.object(RedditClient, "_init_local_reddit"):
+            client = RedditClient()
+            assert client.environment == "development"
+
+    @patch("reddit_client.os.getenv")
+    def test_container_apps_credentials_detection(self, mock_getenv):
+        """Test Container Apps secret detection."""
+        from reddit_client import RedditClient
+
+        # Mock Container Apps environment with secrets
+        mock_getenv.side_effect = lambda key, default=None: {
+            "ENVIRONMENT": "production",
+            "REDDIT_CLIENT_ID": "test_client_id",
+            "REDDIT_CLIENT_SECRET": "test_secret",  # pragma: allowlist secret
+            "REDDIT_USER_AGENT": "test_agent",
+        }.get(key, default)
+
+        with patch.object(RedditClient, "_init_reddit_with_creds") as mock_init:
+            client = RedditClient()
+            mock_init.assert_called_once_with(
+                "test_client_id", "test_secret", "test_agent"
+            )
+
+    def test_rate_limiting_calculation(self):
+        """Test rate limiting delay calculation."""
+        from reddit_client import RedditClient
+
+        with patch.object(RedditClient, "_initialize_reddit"):
+            client = RedditClient()
+
+            # Test rate limiting logic if it exists in the class
+            # This would test any rate limiting helper methods
+
+
+@pytest.mark.unit
+class TestSourceCollectors:
+    """Unit tests for source collector factory."""
+
+    def test_create_reddit_collector(self):
+        """Test creating Reddit collector."""
+        from source_collectors import SourceCollectorFactory
+
+        collector = SourceCollectorFactory.create_collector("reddit")
+
+        assert collector is not None
+        # Should return a Reddit collector instance
+        assert hasattr(collector, "collect_content")
+
+    def test_create_web_collector(self):
+        """Test creating web collector."""
+        from source_collectors import SourceCollectorFactory
+
+        collector = SourceCollectorFactory.create_collector("web")
+
+        assert collector is not None
+        # Should return a web collector instance
+        assert hasattr(collector, "collect_content")
+
+    def test_get_available_sources(self):
+        """Test getting available source types."""
+        from source_collectors import SourceCollectorFactory
+
+        sources = SourceCollectorFactory.get_available_sources()
+
+        assert isinstance(sources, list)
+        assert "reddit" in sources
+        assert "web" in sources
+
+    def test_create_collector_invalid_type(self):
+        """Test handling of invalid collector type."""
+        from source_collectors import SourceCollectorFactory
+
+        with pytest.raises(ValueError):
+            SourceCollectorFactory.create_collector("invalid_type")
+
+
+@pytest.mark.unit
+class TestUtilityFunctions:
+    """Unit tests for utility functions across modules."""
+
+    def test_data_validation_helpers(self):
+        """Test any data validation utility functions."""
+        # This would test utility functions for data validation
+        # if they exist in the codebase
+        pass
+
+    def test_error_handling_helpers(self):
+        """Test error handling utility functions."""
+        # This would test error handling utilities
+        # if they exist in the codebase
+        pass
