@@ -98,15 +98,16 @@ runs:
           pytest_args="$pytest_args -x"
         fi
 
-        # Run unit tests for specific container
+        # Run unit tests for specific container from the container directory
+        cd "containers/${CONTAINER_NAME}" && \
         python -m pytest \
           $pytest_args \
           -m "unit or not integration" \
-          --cov="containers/${CONTAINER_NAME}" \
-          --cov-report=xml:"coverage-${CONTAINER_NAME}-unit.xml" \
+          --cov="." \
+          --cov-report=xml:"../../coverage-${CONTAINER_NAME}-unit.xml" \
           --cov-report=term-missing \
-          --junit-xml="test-results-${CONTAINER_NAME}-unit.xml" \
-          "containers/${CONTAINER_NAME}/" \
+          --junit-xml="../../test-results-${CONTAINER_NAME}-unit.xml" \
+          . \
           || echo "unit_test_failed=true" >> $GITHUB_ENV
 
     - name: Run Integration Tests
@@ -123,15 +124,16 @@ runs:
           pytest_args="$pytest_args -x"
         fi
 
-        # Run integration tests for specific container
+        # Run integration tests for specific container from the container directory
+        cd "containers/${CONTAINER_NAME}" && \
         python -m pytest \
           $pytest_args \
           -m integration \
-          --cov="containers/${CONTAINER_NAME}" \
-          --cov-report=xml:"coverage-${CONTAINER_NAME}-integration.xml" \
+          --cov="." \
+          --cov-report=xml:"../../coverage-${CONTAINER_NAME}-integration.xml" \
           --cov-report=term-missing \
-          --junit-xml="test-results-${CONTAINER_NAME}-integration.xml" \
-          "containers/${CONTAINER_NAME}/" \
+          --junit-xml="../../test-results-${CONTAINER_NAME}-integration.xml" \
+          . \
           || echo "integration_test_failed=true" >> $GITHUB_ENV
 
     - name: Run Smoke Tests
@@ -142,13 +144,14 @@ runs:
       run: |
         echo "[SMOKE] Running smoke tests for ${CONTAINER_NAME}..."
 
-        # Run quick health check tests
+        # Run quick health check tests from the container directory
+        cd "containers/${CONTAINER_NAME}" && \
         python -m pytest \
           -m "unit and not slow" \
           --maxfail=1 \
           --tb=short \
           -q \
-          "containers/${CONTAINER_NAME}/" \
+          . \
           || echo "smoke_test_failed=true" >> $GITHUB_ENV
 
     - name: Calculate Coverage

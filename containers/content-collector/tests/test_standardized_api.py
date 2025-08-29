@@ -10,8 +10,6 @@ from unittest.mock import Mock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-
-# Import the FastAPI app we're going to test
 from main import app
 
 # Create test client

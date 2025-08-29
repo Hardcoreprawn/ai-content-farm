@@ -331,7 +331,7 @@ async def api_process_content_endpoint(
 
 
 async def api_documentation_endpoint(
-    metadata: Dict[str, Any] = Depends(service_metadata)
+    metadata: Dict[str, Any] = Depends(service_metadata),
 ):
     """API documentation endpoint."""
     docs_data = {
