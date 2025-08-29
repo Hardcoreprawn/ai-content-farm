@@ -177,30 +177,74 @@ class BlobStorageClient:
                 error_type = type(auth_error).__name__
                 is_last_attempt = attempt == max_retries - 1
 
-                logger.error(f"❌ Authentication error (attempt {attempt + 1}):")
-                logger.error(f"   Error type: {error_type}")
-                logger.error(f"   Error message: {error_msg}")
+                # Detailed error analysis for better diagnostics
+                http_status = None
+                request_id = None
+                error_code = None
 
-                # Enhanced debugging for authentication failures
                 if hasattr(auth_error, "response"):
                     response = getattr(auth_error, "response", None)
                     if response:
-                        logger.error(
-                            f"   HTTP Status: {getattr(response, 'status_code', 'N/A')}"
-                        )
+                        http_status = getattr(response, "status_code", None)
                         headers = getattr(response, "headers", {})
-                        if headers:
-                            logger.error(
-                                f"   Request ID: {headers.get('x-ms-request-id', 'N/A')}"
-                            )
+                        request_id = headers.get("x-ms-request-id", "N/A")
 
-                # Check if this is a retryable authentication error
+                        # Extract Azure error code from response content
+                        if hasattr(response, "text"):
+                            import re
+
+                            error_code_match = re.search(
+                                r"<Code>([^<]+)</Code>", response.text
+                            )
+                            if error_code_match:
+                                error_code = error_code_match.group(1)
+
+                # Categorize the error type for better diagnostics
+                if (
+                    "AuthorizationFailure" in error_msg
+                    or error_code == "AuthorizationFailure"
+                ):
+                    error_category = "AUTHORIZATION_FAILURE"
+                    diagnostic_msg = "Container has valid authentication but lacks required RBAC permissions"
+                elif (
+                    "AuthenticationFailed" in error_msg
+                    or error_code == "AuthenticationFailed"
+                ):
+                    error_category = "AUTHENTICATION_FAILURE"
+                    diagnostic_msg = (
+                        "Failed to authenticate with Azure - managed identity issue"
+                    )
+                elif "Forbidden" in error_msg or http_status == 403:
+                    error_category = "ACCESS_FORBIDDEN"
+                    diagnostic_msg = (
+                        "Access forbidden - check network rules and IP allowlist"
+                    )
+                elif (
+                    "TokenUnavailable" in error_msg
+                    or "CredentialUnavailable" in error_msg
+                ):
+                    error_category = "TOKEN_UNAVAILABLE"
+                    diagnostic_msg = "Cannot acquire authentication token - managed identity not configured"
+                else:
+                    error_category = "UNKNOWN_ERROR"
+                    diagnostic_msg = f"Unexpected error type: {error_type}"
+
+                logger.error(f"❌ Storage access error (attempt {attempt + 1}):")
+                logger.error(f"   Category: {error_category}")
+                logger.error(f"   Error type: {error_type}")
+                logger.error(f"   HTTP Status: {http_status or 'N/A'}")
+                logger.error(f"   Azure Error Code: {error_code or 'N/A'}")
+                logger.error(f"   Request ID: {request_id}")
+                logger.error(f"   Error message: {error_msg}")
+                logger.error(f"   Diagnosis: {diagnostic_msg}")
+
+                # Check if this is a retryable error
                 retryable_errors = [
-                    "AuthorizationFailure",
-                    "TokenUnavailable",
-                    "CredentialUnavailableError",
-                    "timeout",
-                    "Connection",
+                    "AuthorizationFailure",  # RBAC propagation delay
+                    "TokenUnavailable",  # Temporary token issues
+                    "CredentialUnavailableError",  # Temporary credential issues
+                    "timeout",  # Network timeouts
+                    "Connection",  # Connection issues
                 ]
 
                 is_retryable = any(err in error_msg for err in retryable_errors)
@@ -238,21 +282,38 @@ class BlobStorageClient:
                         "storage_account": self.storage_account_name,
                         "error": error_msg,
                         "error_type": error_type,
+                        "error_category": error_category,
+                        "http_status": http_status,
+                        "azure_error_code": error_code,
+                        "request_id": request_id,
                         "attempts": attempt + 1,
                         "azure_client_id": os.getenv("AZURE_CLIENT_ID", ""),
                         "federated_token_file": os.getenv(
                             "AZURE_FEDERATED_TOKEN_FILE", ""
                         ),
-                        "message": (
-                            "Authentication failed - RBAC propagation can take up to 8 minutes"
-                            if "AuthorizationFailure" in error_msg
-                            else f"Authentication error occurred: {error_type}"
-                        ),
+                        "message": diagnostic_msg,
                         "troubleshooting": {
-                            "check_rbac": "Verify Storage Blob Data Contributor role is assigned",
-                            "check_timing": "Role assignment propagation can take up to 8 minutes",
-                            "check_network": "Verify storage account network rules allow Container Apps",
-                            "check_identity": "Verify managed identity is properly configured",
+                            "error_category": error_category,
+                            "next_steps": (
+                                "Wait 5-10 minutes for RBAC propagation"
+                                if error_category == "AUTHORIZATION_FAILURE"
+                                else (
+                                    "Check managed identity configuration"
+                                    if error_category == "AUTHENTICATION_FAILURE"
+                                    else (
+                                        "Verify network rules and IP allowlist"
+                                        if error_category == "ACCESS_FORBIDDEN"
+                                        else (
+                                            "Check managed identity setup in Container Apps"
+                                            if error_category == "TOKEN_UNAVAILABLE"
+                                            else "Check logs for detailed error information"
+                                        )
+                                    )
+                                )
+                            ),
+                            "check_rbac": f"az role assignment list --assignee {os.getenv('AZURE_CLIENT_ID', 'UNKNOWN')}",
+                            "check_network": f"Verify Container Apps IP is allowed in storage account network rules",
+                            "check_identity": f"Verify managed identity {os.getenv('AZURE_CLIENT_ID', 'UNKNOWN')} exists and is assigned to Container App",
                             "credential_chain": "DefaultAzureCredential tries: Environment → Workload Identity → Managed Identity → Local",
                         },
                     }
