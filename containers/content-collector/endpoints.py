@@ -19,7 +19,6 @@ from models import (
     DiscoveryRequest,
     DiscoveryResult,
     LegacyCollectionRequest,
-    ServiceStatus,
 )
 from reddit_client import RedditClient
 from service_logic import ContentCollectorService
@@ -59,12 +58,9 @@ async def root_endpoint(metadata: Dict[str, Any] = Depends(service_metadata)):
             "version": "2.0.0",
             "purpose": "Collect and process content from various sources",
             "endpoints": {
-                "health": "/health",
                 "collect": "/collect",
-                "status": "/status",
                 "sources": "/sources",
                 "api_health": "/api/content-womble/health",
-                "api_status": "/api/content-womble/status",
                 "api_process": "/api/content-womble/process",
                 "api_docs": "/api/content-womble/docs",
             },
@@ -173,60 +169,6 @@ async def discover_topics_endpoint(
         return StandardResponse(
             status="error",
             message="Topic discovery failed",
-            data={},
-            errors=[str(e)],
-            metadata=metadata,
-        )
-
-
-async def get_status_endpoint(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Get service status and health information."""
-    try:
-        service = get_collector_service()
-        # Mock status data since get_status might not exist yet
-        status_data = {
-            "status": "running",
-            "storage_healthy": True,
-            "reddit_healthy": True,
-            "last_collection": None,
-            "active_processes": 0,
-        }
-
-        service_status = ServiceStatus(
-            service="content-womble",
-            version="2.0.0",
-            status=status_data.get("status", "running"),
-            storage_healthy=status_data.get("storage_healthy", True),
-            reddit_healthy=status_data.get("reddit_healthy", True),
-            last_collection=status_data.get("last_collection"),
-            active_processes=status_data.get("active_processes", 0),
-        )
-
-        # Add uptime_seconds and stats for test compatibility
-        response_data = service_status.model_dump()
-        response_data["uptime_seconds"] = 0  # Mock value
-        response_data["stats"] = {
-            "total_collections": 0,
-            "successful_collections": 0,
-            "failed_collections": 0,
-        }
-        response_data["configuration"] = {
-            "environment": "test",
-            "storage_enabled": True,
-            "reddit_enabled": True,
-        }
-
-        return StandardResponse(
-            status="success",
-            message="Service status retrieved",
-            data=response_data,
-            errors=[],
-            metadata=metadata,
-        )
-    except Exception as e:
-        return StandardResponse(
-            status="error",
-            message="Failed to get service status",
             data={},
             errors=[str(e)],
             metadata=metadata,

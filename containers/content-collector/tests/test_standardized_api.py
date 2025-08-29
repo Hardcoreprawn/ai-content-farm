@@ -49,26 +49,6 @@ class TestStandardizedAPIEndpoints:
         assert "dependencies" in health_data
         assert "uptime_seconds" in health_data
 
-    def test_api_status_endpoint_format(self):
-        """Test standardized status endpoint returns StandardResponse format."""
-        response = client.get("/api/content-womble/status")
-
-        assert response.status_code == 200
-        data = response.json()
-
-        # Verify StandardResponse format
-        assert data["status"] == "success"
-        assert data["message"] == "Service status retrieved"
-        assert data["metadata"]["function"] == "content-womble"
-
-        # Verify status data structure
-        status_data = data["data"]
-        assert status_data["service"] == "content-womble"
-        assert status_data["status"] == "running"
-        assert "uptime_seconds" in status_data
-        assert "stats" in status_data
-        assert "configuration" in status_data
-
     def test_api_process_endpoint_success(self):
         """Test standardized process endpoint with successful collection."""
         test_data = {
@@ -190,14 +170,14 @@ class TestRootEndpointUpdated:
         assert data["message"] == "Content Collector API running"
         assert data["metadata"]["function"] == "content-womble"
 
-        # Verify endpoint listing includes both legacy and new
+        # Verify endpoint listing includes legacy and standardized endpoints
         endpoints = data["data"]["endpoints"]
 
-        # Legacy endpoints
-        assert "health" in endpoints
+        # Legacy endpoints (kept for backward compatibility)
         assert "collect" in endpoints
+        assert "sources" in endpoints
 
-        # New standardized endpoints
+        # Standardized endpoints
         assert "api_health" in endpoints
         assert "api_process" in endpoints
         assert "api_docs" in endpoints

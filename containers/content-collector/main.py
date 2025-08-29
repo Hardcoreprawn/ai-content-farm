@@ -13,7 +13,6 @@ from endpoints import (
     api_process_content_endpoint,
     discover_topics_endpoint,
     get_sources_endpoint,
-    get_status_endpoint,
     health_endpoint,
     root_endpoint,
 )
@@ -134,12 +133,6 @@ async def root(metadata: Dict[str, Any] = Depends(service_metadata)):
     return await root_endpoint(metadata)
 
 
-@app.get("/health", response_model=StandardResponse)
-async def health(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Health check endpoint."""
-    return await health_endpoint(metadata)
-
-
 @app.post("/discover", response_model=StandardResponse)
 async def discover_topics(
     request: DiscoveryRequest, metadata: Dict[str, Any] = Depends(service_metadata)
@@ -164,12 +157,6 @@ async def collect_content(
     return await api_process_content_endpoint(standardized_request, metadata)
 
 
-@app.get("/status", response_model=StandardResponse)
-async def get_status(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Get service status and health information."""
-    return await get_status_endpoint(metadata)
-
-
 @app.get("/sources", response_model=StandardResponse)
 async def get_available_sources(metadata: Dict[str, Any] = Depends(service_metadata)):
     """Get available content sources and their capabilities."""
@@ -181,12 +168,6 @@ async def get_available_sources(metadata: Dict[str, Any] = Depends(service_metad
 async def api_health_check(metadata: Dict[str, Any] = Depends(service_metadata)):
     """Standardized health check endpoint."""
     return await health_endpoint(metadata)
-
-
-@app.get("/api/content-womble/status", response_model=StandardResponse)
-async def api_get_status(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Standardized status endpoint."""
-    return await get_status_endpoint(metadata)
 
 
 @app.post("/api/content-womble/process", response_model=StandardResponse)
