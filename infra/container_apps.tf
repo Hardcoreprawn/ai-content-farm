@@ -366,6 +366,11 @@ resource "azurerm_container_app" "content_collector" {
   }
 
   tags = local.common_tags
+
+  depends_on = [
+    azurerm_storage_container.collected_content,
+    azurerm_role_assignment.containers_storage_blob_data_contributor
+  ]
 }
 
 # Content Ranker Container App

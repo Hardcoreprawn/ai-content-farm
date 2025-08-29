@@ -142,25 +142,21 @@ class BlobStorageClient:
                     f"=== AUTHENTICATION TEST ATTEMPT {attempt + 1}/{max_retries} ==="
                 )
 
-                # Test token acquisition with lighter operation first
+                # Test access to the specific container we need (created by Terraform)
                 start_time = time.time()
-                logger.info("Attempting to list containers...")
-                containers = list(self.blob_service_client.list_containers(timeout=30))
+                logger.info("Testing access to container 'collected-content'...")
+
+                # Get container client and test access
+                container_client = self.ensure_container("collected-content")
+
+                # Test that we can access the container properties
+                container_props = container_client.get_container_properties()
                 token_time = time.time() - start_time
 
                 logger.info(
-                    f"✅ Token acquired in {token_time:.2f}s, found {len(containers)} containers"
+                    f"✅ Container access successful in {token_time:.2f}s, container: {container_props.name}"
                 )
 
-                # Try to access the required container, creating if needed
-                logger.info("Ensuring required container 'collected-content' exists...")
-                try:
-                    self.ensure_container("collected-content")
-                    logger.info("✅ Container 'collected-content' is available")
-                except Exception as container_error:
-                    logger.warning(f"Container check failed: {container_error}")
-                    # Continue anyway - the test passes if we can list containers
-
                 return {
                     "status": "healthy",
                     "connection_type": (
@@ -170,26 +166,10 @@ class BlobStorageClient:
                     ),
                     "environment": self.environment,
                     "storage_account": self.storage_account_name,
-                    "message": f"Authentication successful (token acquired in {token_time:.2f}s), {len(containers)} containers found",
+                    "message": f"Container access successful (token acquired in {token_time:.2f}s), container: collected-content",
                     "attempt": attempt + 1,
                     "token_acquisition_time": token_time,
-                    "containers_found": len(containers),
-                }
-
-            except StopIteration:
-                # No containers exist, but connection worked
-                logger.info("No containers found, but connection is working")
-                return {
-                    "status": "healthy",
-                    "connection_type": (
-                        "managed_identity"
-                        if self.storage_account_name
-                        else "connection_string"
-                    ),
-                    "environment": self.environment,
-                    "storage_account": self.storage_account_name,
-                    "message": "Authentication successful (no containers found)",
-                    "attempt": attempt + 1,
+                    "container_name": "collected-content",
                 }
 
             except Exception as auth_error:
@@ -291,7 +271,7 @@ class BlobStorageClient:
         }
 
     def ensure_container(self, container_name: str) -> ContainerClient:
-        """Ensure container exists and return container client."""
+        """Get container client for existing container (containers are created by Terraform)."""
         try:
             if self._mock:
                 # Create container namespace if missing
@@ -300,23 +280,19 @@ class BlobStorageClient:
                 # The actual value won't be used since methods check self._mock first
                 return cast(ContainerClient, MagicMock())
 
+            # Container is guaranteed to exist via Terraform infrastructure
+            # No need to check existence or create - just get the client
             container_client = self.blob_service_client.get_container_client(
                 container_name
             )
 
-            # Try to get container properties to check if it exists
-            try:
-                container_client.get_container_properties()
-                logger.debug(f"Container '{container_name}' already exists")
-            except ResourceNotFoundError:
-                # Container doesn't exist, create it
-                container_client.create_container()
-                logger.info(f"Created container '{container_name}'")
-
+            logger.debug(
+                f"Using existing container '{container_name}' (created by Terraform)"
+            )
             return container_client
 
         except Exception as e:
-            logger.error(f"Failed to ensure container '{container_name}': {e}")
+            logger.error(f"Failed to get container client for '{container_name}': {e}")
             raise
 
     def upload_json(
