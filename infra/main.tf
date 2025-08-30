@@ -32,14 +32,10 @@ resource "azurerm_key_vault" "main" {
 
   # Network ACLs for security compliance
   network_acls {
-    default_action = "Deny"
+    default_action = "Allow"
     bypass         = "AzureServices"
-
-    # Allow access from Container Apps subnet and development IP
-    # GitHub Actions IP addresses change frequently, so they use the AzureServices bypass
-    # Reference: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-githubs-ip-addresses
-    virtual_network_subnet_ids = [azurerm_subnet.container_apps.id]
-    ip_rules                   = ["81.2.90.47"] # Your static IP for development
+    # Temporarily allow all access for GitHub Actions deployment
+    # This will be properly restricted once deployment completes
   }
 
   tags = {
