@@ -113,7 +113,7 @@ async def health_endpoint(metadata: Dict[str, Any] = Depends(service_metadata)):
 
 
 async def reddit_diagnostics_endpoint(
-    metadata: Dict[str, Any] = Depends(service_metadata)
+    metadata: Dict[str, Any] = Depends(service_metadata),
 ):
     """Detailed Reddit API diagnostics endpoint."""
     try:

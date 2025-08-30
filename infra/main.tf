@@ -40,14 +40,14 @@ resource "azurerm_key_vault" "main" {
 
   # Network ACLs for security compliance
   network_acls {
-    default_action = "Allow"
+    default_action = "Deny"
     bypass         = "AzureServices"
 
-    # Allow access from all sources - rely on RBAC and access policies for security
-    # GitHub Actions IP addresses change frequently, so IP-based filtering is not reliable
+    # Allow access from Container Apps subnet and development IP
+    # GitHub Actions IP addresses change frequently, so they use the AzureServices bypass
     # Reference: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-githubs-ip-addresses
-    virtual_network_subnet_ids = []
-    ip_rules                   = []
+    virtual_network_subnet_ids = [azurerm_subnet.container_apps.id]
+    ip_rules                   = ["81.2.90.47"] # Your static IP for development
   }
 
   tags = {
@@ -287,13 +287,12 @@ resource "azurerm_storage_account" "main" {
   shared_access_key_enabled     = true
   # nosemgrep: terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass
   network_rules {
-    default_action = "Allow"
+    default_action = "Deny"
     bypass         = ["AzureServices"] # This is the recommended configuration for Microsoft services
-    # Allow access from all networks for Container Apps compatibility
-    # Container Apps outbound IPs are dynamic and managed by Azure
+    # Allow access only from Container Apps subnet and approved IPs
     # Security is enforced through RBAC and managed identity authentication
-    ip_rules                   = []
-    virtual_network_subnet_ids = []
+    ip_rules                   = ["81.2.90.47"] # Your static IP for development access
+    virtual_network_subnet_ids = [azurerm_subnet.container_apps.id]
   }
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"
@@ -364,10 +363,13 @@ resource "azurerm_cognitive_account" "openai" {
   network_acls {
     default_action = "Deny"
 
-    # Allow access from Container Apps subnet when implemented
-    # virtual_network_rules {
-    #   subnet_id = azurerm_subnet.container_apps.id
-    # }
+    # Allow access from Container Apps subnet
+    virtual_network_rules {
+      subnet_id = azurerm_subnet.container_apps.id
+    }
+
+    # Allow access from your development IP
+    ip_rules = ["81.2.90.47"]
   }
 
   tags = local.common_tags

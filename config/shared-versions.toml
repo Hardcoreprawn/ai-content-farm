@@ -45,6 +45,6 @@ types-requests = "~=2.31.0.10"
 
 [security]
 # Security scanning tools
-safety = "~=3.2.7"
+safety = "~=3.2.5"  # Using earlier version due to typer compatibility issues
 bandit = "~=1.8.0"
 semgrep = "~=1.91.0"
