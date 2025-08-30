@@ -5,7 +5,7 @@ API route handlers for the Content Womble service.
 """
 
 import time
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from discovery import (
     analyze_trending_topics,
@@ -22,6 +22,7 @@ from models import (
 )
 from reddit_client import RedditClient
 from service_logic import ContentCollectorService
+from source_collectors import SourceCollectorFactory
 
 from libs.blob_storage import BlobStorageClient
 from libs.shared_models import StandardResponse, create_service_dependency
@@ -109,6 +110,91 @@ async def health_endpoint(metadata: Dict[str, Any] = Depends(service_metadata)):
             errors=[str(e)],
             metadata=metadata,
         )
+
+
+async def reddit_diagnostics_endpoint(
+    metadata: Dict[str, Any] = Depends(service_metadata)
+):
+    """Detailed Reddit API diagnostics endpoint."""
+    try:
+        # Get collector information
+        collector_info = SourceCollectorFactory.get_reddit_collector_info()
+
+        # Create the recommended collector for testing
+        collector = SourceCollectorFactory.create_collector("reddit")
+
+        # Test connectivity and authentication
+        connectivity_test = await collector.check_connectivity()
+        auth_test = await collector.check_authentication()
+
+        # If it's a PRAW collector, get credential status
+        credential_status = {}
+        if hasattr(collector, "credential_status"):
+            credential_status = collector.credential_status
+
+        return StandardResponse(
+            status="success",
+            message="Reddit diagnostics completed",
+            data={
+                "collector_selection": collector_info,
+                "selected_collector": collector.__class__.__name__,
+                "connectivity": {
+                    "available": connectivity_test[0],
+                    "message": connectivity_test[1],
+                },
+                "authentication": {"valid": auth_test[0], "message": auth_test[1]},
+                "credential_status": credential_status,
+                "recommendations": _get_reddit_recommendations(
+                    collector_info, connectivity_test, auth_test
+                ),
+            },
+            errors=[],
+            metadata=metadata,
+        )
+    except Exception as e:
+        return StandardResponse(
+            status="error",
+            message="Reddit diagnostics failed",
+            data={},
+            errors=[str(e)],
+            metadata=metadata,
+        )
+
+
+def _get_reddit_recommendations(
+    collector_info, connectivity_test, auth_test
+) -> List[str]:
+    """Generate recommendations based on Reddit diagnostics."""
+    recommendations = []
+
+    if not connectivity_test[0]:
+        recommendations.append("Check internet connectivity and network firewall rules")
+
+    if not auth_test[0]:
+        if "placeholder" in auth_test[1].lower():
+            recommendations.append(
+                "Replace placeholder Reddit credentials in Key Vault with real Reddit app credentials"
+            )
+        elif "missing" in auth_test[1].lower():
+            recommendations.append(
+                "Add Reddit API credentials to Key Vault: reddit-client-id, reddit-client-secret, reddit-user-agent"
+            )
+        elif "invalid" in auth_test[1].lower() or "401" in auth_test[1]:
+            recommendations.append(
+                "Verify Reddit app credentials are correct and app is approved"
+            )
+        else:
+            recommendations.append("Check Reddit API status and rate limiting")
+
+    if (
+        collector_info["recommended_collector"] == "RedditPublicCollector"
+        and collector_info["credentials_source"] != "none"
+    ):
+        recommendations.append(
+            "Reddit public API has limited functionality - consider fixing credentials for full PRAW access"
+        )
+
+    return recommendations
 
 
 async def discover_topics_endpoint(

@@ -1,7 +1,7 @@
 """
 Reddit Content Collectors
 
-Collectors for Reddit content using public API and PRAW.
+Collectors for Reddit content using public API and PRAW with enhanced error handling.
 """
 
 import asyncio
@@ -14,6 +14,17 @@ from collectors.base import InternetConnectivityMixin, SourceCollector
 from keyvault_client import get_reddit_credentials_with_fallback
 
 logger = logging.getLogger(__name__)
+
+
+class RedditError(Exception):
+    """Custom exception for Reddit-related errors."""
+
+    def __init__(
+        self, message: str, error_type: str = "UNKNOWN", details: Optional[Dict] = None
+    ):
+        super().__init__(message)
+        self.error_type = error_type
+        self.details = details or {}
 
 
 class RedditPublicCollector(SourceCollector, InternetConnectivityMixin):
@@ -98,7 +109,7 @@ class RedditPublicCollector(SourceCollector, InternetConnectivityMixin):
 
 
 class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
-    """Collector for Reddit using PRAW (requires API credentials)."""
+    """Collector for Reddit using PRAW (requires API credentials) with enhanced error handling."""
 
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         super().__init__(config)
@@ -116,9 +127,79 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
             or "ai-content-farm-collector/1.0"
         )
 
+        # Enhanced credential validation
+        self.credential_status = self._validate_credentials()
+
         logger.info(
-            f"RedditPRAWCollector initialized with credentials: client_id={'***' if self.client_id else None}, client_secret={'***' if self.client_secret else None}, user_agent={self.user_agent}"
+            f"RedditPRAWCollector initialized - Status: {self.credential_status['status']}, "
+            f"Has client_id: {bool(self.client_id)}, Has client_secret: {bool(self.client_secret)}, "
+            f"User agent: {self.user_agent}"
         )
+
+    def _validate_credentials(self) -> Dict[str, Any]:
+        """Validate and diagnose credential configuration."""
+        status = {
+            "status": "unknown",
+            "message": "",
+            "details": {},
+            "recommendations": [],
+        }
+
+        # Check credential presence
+        if not self.client_id:
+            status["status"] = "missing_credentials"
+            status["message"] = "Reddit client_id is missing"
+            status["details"]["missing_client_id"] = True
+            status["recommendations"].append(
+                "Set REDDIT_CLIENT_ID environment variable or add to Key Vault as 'reddit-client-id'"
+            )
+
+        if not self.client_secret:
+            status["status"] = "missing_credentials"
+            status["message"] = "Reddit client_secret is missing"
+            status["details"]["missing_client_secret"] = True
+            status["recommendations"].append(
+                "Set REDDIT_CLIENT_SECRET environment variable or add to Key Vault as 'reddit-client-secret'"
+            )
+
+        if not self.client_id or not self.client_secret:
+            return status
+
+        # Check credential format
+        if len(self.client_id) < 10:
+            status["status"] = "invalid_credentials"
+            status["message"] = (
+                "Reddit client_id appears to be too short (possible placeholder)"
+            )
+            status["details"]["client_id_length"] = len(self.client_id)
+            status["recommendations"].append(
+                "Verify reddit-client-id in Key Vault contains real Reddit app credentials"
+            )
+
+        if len(self.client_secret) < 20:
+            status["status"] = "invalid_credentials"
+            status["message"] = (
+                "Reddit client_secret appears to be too short (possible placeholder)"
+            )
+            status["details"]["client_secret_length"] = len(self.client_secret)
+            status["recommendations"].append(
+                "Verify reddit-client-secret in Key Vault contains real Reddit app credentials"
+            )
+
+        if (
+            "placeholder" in str(self.client_id).lower()
+            or "placeholder" in str(self.client_secret).lower()
+        ):
+            status["status"] = "placeholder_credentials"
+            status["message"] = "Reddit credentials contain placeholder values"
+            status["recommendations"].append(
+                "Replace placeholder credentials in Key Vault with real Reddit app credentials"
+            )
+            return status
+
+        status["status"] = "valid"
+        status["message"] = "Reddit credentials appear valid"
+        return status
 
     def get_source_name(self) -> str:
         return "reddit_praw"
@@ -150,53 +231,117 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
             return False, f"Reddit API not accessible: {str(e)}"
 
     async def check_authentication(self) -> Tuple[bool, str]:
-        """Check if PRAW credentials are configured and valid."""
-        if not self.client_id or not self.client_secret:
-            missing_creds = []
-            if not self.client_id:
-                missing_creds.append("client_id")
-            if not self.client_secret:
-                missing_creds.append("client_secret")
+        """Check if PRAW credentials are configured and valid with detailed diagnostics."""
 
-            return (
-                False,
-                f"Reddit API credentials not configured: missing {', '.join(missing_creds)} (check Key Vault and environment variables)",
+        # First check credential validation
+        if self.credential_status["status"] != "valid":
+            error_msg = (
+                f"Credential validation failed: {self.credential_status['message']}"
             )
+            if self.credential_status["recommendations"]:
+                error_msg += f" | Recommendations: {'; '.join(self.credential_status['recommendations'])}"
+            return False, error_msg
 
         try:
             # Test authentication with Reddit API using asyncpraw
-            import asyncpraw
+            try:
+                import asyncpraw
+            except ImportError as e:
+                return (
+                    False,
+                    f"AsyncPRAW library not installed: {e}. Install with: pip install asyncpraw",
+                )
 
+            logger.info("Testing Reddit API authentication...")
             reddit = asyncpraw.Reddit(
                 client_id=self.client_id,
                 client_secret=self.client_secret,
                 user_agent=self.user_agent,
             )
 
-            # Try to access a subreddit to verify credentials
-            test_subreddit = await reddit.subreddit("test")
-            # This will fail if credentials are invalid
-            async for _ in test_subreddit.hot(limit=1):
-                break
+            # Try to access a public subreddit to verify credentials
+            try:
+                test_subreddit = await reddit.subreddit("test")
+                post_count = 0
+                async for post in test_subreddit.hot(limit=1):
+                    post_count += 1
+                    break
 
-            await reddit.close()
-            return (
-                True,
-                "Reddit API credentials valid (retrieved from Key Vault or environment)",
-            )
+                await reddit.close()
+
+                logger.info(
+                    f"Reddit API authentication successful (retrieved {post_count} test posts)"
+                )
+                return (
+                    True,
+                    f"Reddit API credentials valid - successfully retrieved test content",
+                )
+
+            except Exception as auth_error:
+                await reddit.close()
+
+                # Analyze the specific authentication error
+                error_str = str(auth_error).lower()
+                if "401" in error_str or "unauthorized" in error_str:
+                    return (
+                        False,
+                        f"Reddit API authentication failed: Invalid credentials (401 Unauthorized). Check reddit-client-id and reddit-client-secret in Key Vault",
+                    )
+                elif "403" in error_str or "forbidden" in error_str:
+                    return (
+                        False,
+                        f"Reddit API authentication failed: Access forbidden (403). App may not be approved or rate limited",
+                    )
+                elif "timeout" in error_str:
+                    return (
+                        False,
+                        f"Reddit API authentication failed: Connection timeout. Check network connectivity",
+                    )
+                elif "429" in error_str or "rate" in error_str:
+                    return (
+                        False,
+                        f"Reddit API authentication failed: Rate limited (429). Try again later",
+                    )
+                else:
+                    return (
+                        False,
+                        f"Reddit API authentication failed: {auth_error}. Check credentials in Key Vault",
+                    )
 
         except ImportError:
-            return False, "AsyncPRAW library not installed"
+            return (
+                False,
+                "AsyncPRAW library not installed. Install with: pip install asyncpraw~=7.8.1",
+            )
         except Exception as e:
             return (
                 False,
-                f"Reddit API authentication failed: {str(e)} (check Key Vault secrets: reddit-client-id, reddit-client-secret)",
+                f"Reddit API authentication check failed: {str(e)}. Verify network connectivity and credentials",
             )
 
     async def collect_content(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Collect content using AsyncPRAW."""
+        """Collect content using AsyncPRAW with comprehensive error handling."""
+        collection_errors = []
+
         try:
-            import asyncpraw
+            try:
+                import asyncpraw
+            except ImportError as e:
+                logger.warning(
+                    f"AsyncPRAW not available: {e}, falling back to public API"
+                )
+                fallback_collector = RedditPublicCollector(self.config)
+                return await fallback_collector.collect_content(params)
+
+            # Validate credentials before attempting collection
+            if self.credential_status["status"] != "valid":
+                error_msg = (
+                    f"Cannot collect content: {self.credential_status['message']}"
+                )
+                logger.error(error_msg)
+                raise RedditError(
+                    error_msg, "INVALID_CREDENTIALS", self.credential_status
+                )
 
             reddit = asyncpraw.Reddit(
                 client_id=self.client_id,
@@ -205,71 +350,141 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
             )
 
             items = []
+            collection_errors = []  # Track errors per subreddit
             subreddits = params.get("subreddits", ["technology"])
             limit = params.get("limit", 10)
             sort_type = params.get("sort", "hot")  # hot, new, top, rising
 
+            logger.info(
+                f"Collecting Reddit content from {len(subreddits)} subreddits: {subreddits} (limit: {limit}, sort: {sort_type})"
+            )
+
             for subreddit_name in subreddits:
-                subreddit = await reddit.subreddit(subreddit_name)
+                try:
+                    logger.debug(f"Processing subreddit: r/{subreddit_name}")
+                    subreddit = await reddit.subreddit(subreddit_name)
 
-                # Get posts based on sort type
-                if sort_type == "hot":
-                    posts = subreddit.hot(limit=limit)
-                elif sort_type == "new":
-                    posts = subreddit.new(limit=limit)
-                elif sort_type == "top":
-                    posts = subreddit.top(limit=limit)
-                elif sort_type == "rising":
-                    posts = subreddit.rising(limit=limit)
-                else:
-                    posts = subreddit.hot(limit=limit)
+                    # Get posts based on sort type
+                    if sort_type == "hot":
+                        posts = subreddit.hot(limit=limit)
+                    elif sort_type == "new":
+                        posts = subreddit.new(limit=limit)
+                    elif sort_type == "top":
+                        posts = subreddit.top(limit=limit)
+                    elif sort_type == "rising":
+                        posts = subreddit.rising(limit=limit)
+                    else:
+                        posts = subreddit.hot(limit=limit)
 
-                async for post in posts:
-                    # Convert post to our standard format
-                    item = {
-                        "id": f"reddit_{post.id}",
-                        "source": "reddit",
-                        "subreddit": subreddit_name,
-                        "title": post.title,
-                        "content": post.selftext or "",
-                        "url": post.url,
-                        "author": str(post.author) if post.author else "[deleted]",
-                        "score": post.score,
-                        "num_comments": post.num_comments,
-                        "content_type": "self" if post.is_self else "link",
-                        "created_at": datetime.fromtimestamp(
-                            post.created_utc, tz=timezone.utc
-                        ).isoformat(),
-                        "collected_at": datetime.now(timezone.utc).isoformat(),
-                        "raw_data": {
-                            "id": post.id,
-                            "permalink": post.permalink,
-                            "ups": post.ups,
-                            "downs": 0,  # Reddit doesn't provide downvotes
-                            "upvote_ratio": post.upvote_ratio,
-                            "gilded": getattr(post, "gilded", 0),
-                            "over_18": post.over_18,
-                            "spoiler": post.spoiler,
-                            "locked": post.locked,
-                            "stickied": post.stickied,
-                            "domain": post.domain,
-                            "source": "reddit",
-                            "source_type": "subreddit",
-                            "collected_at": datetime.now(timezone.utc).isoformat(),
-                        },
-                    }
-                    items.append(item)
+                    subreddit_items = []
+                    post_count = 0
+
+                    # Check if posts is None (the source of our original error)
+                    if posts is None:
+                        error_msg = f"Reddit API returned None for r/{subreddit_name} {sort_type} posts - possible rate limiting or invalid subreddit"
+                        logger.error(error_msg)
+                        collection_errors.append(f"r/{subreddit_name}: {error_msg}")
+                        continue
+
+                    async for post in posts:
+                        if post is None:
+                            logger.warning(
+                                f"Received None post in r/{subreddit_name}, skipping"
+                            )
+                            continue
+
+                        try:
+                            # Convert post to our standard format
+                            item = {
+                                "id": f"reddit_{post.id}",
+                                "source": "reddit",
+                                "subreddit": subreddit_name,
+                                "title": post.title,
+                                "content": post.selftext or "",
+                                "url": post.url,
+                                "author": (
+                                    str(post.author) if post.author else "[deleted]"
+                                ),
+                                "score": post.score,
+                                "num_comments": post.num_comments,
+                                "content_type": "self" if post.is_self else "link",
+                                "created_at": datetime.fromtimestamp(
+                                    post.created_utc, tz=timezone.utc
+                                ).isoformat(),
+                                "collected_at": datetime.now(timezone.utc).isoformat(),
+                                "raw_data": {
+                                    "id": post.id,
+                                    "permalink": post.permalink,
+                                    "ups": post.ups,
+                                    "downs": 0,  # Reddit doesn't provide downvotes
+                                    "upvote_ratio": post.upvote_ratio,
+                                    "gilded": getattr(post, "gilded", 0),
+                                    "over_18": post.over_18,
+                                    "spoiler": post.spoiler,
+                                    "locked": post.locked,
+                                    "stickied": post.stickied,
+                                    "domain": post.domain,
+                                    "source": "reddit",
+                                    "source_type": "subreddit",
+                                    "collected_at": datetime.now(
+                                        timezone.utc
+                                    ).isoformat(),
+                                },
+                            }
+                            subreddit_items.append(item)
+                            post_count += 1
+
+                        except Exception as post_error:
+                            logger.warning(
+                                f"Error processing post in r/{subreddit_name}: {post_error}"
+                            )
+                            continue
+
+                    logger.info(f"Collected {post_count} posts from r/{subreddit_name}")
+                    items.extend(subreddit_items)
+
+                except Exception as subreddit_error:
+                    error_str = str(subreddit_error).lower()
+                    if "404" in error_str or "not found" in error_str:
+                        error_msg = f"Subreddit r/{subreddit_name} not found or private"
+                    elif "403" in error_str or "forbidden" in error_str:
+                        error_msg = f"Access forbidden to r/{subreddit_name} - may be private or banned"
+                    elif "429" in error_str or "rate" in error_str:
+                        error_msg = f"Rate limited while accessing r/{subreddit_name}"
+                    else:
+                        error_msg = (
+                            f"Error accessing r/{subreddit_name}: {subreddit_error}"
+                        )
+
+                    logger.error(error_msg)
+                    collection_errors.append(f"r/{subreddit_name}: {error_msg}")
 
             await reddit.close()
+
+            if items:
+                logger.info(
+                    f"Successfully collected {len(items)} total items from Reddit"
+                )
+            else:
+                error_summary = (
+                    "; ".join(collection_errors)
+                    if collection_errors
+                    else "No items found"
+                )
+                logger.warning(
+                    f"No items collected from Reddit. Errors: {error_summary}"
+                )
+
             return items
 
-        except ImportError:
-            logger.warning("AsyncPRAW not available, falling back to public API")
-            # Fallback to public API
-            fallback_collector = RedditPublicCollector(self.config)
-            return await fallback_collector.collect_content(params)
+        except RedditError:
+            # Re-raise our custom errors
+            raise
         except Exception as e:
-            logger.error(f"Error collecting Reddit content with AsyncPRAW: {str(e)}")
+            logger.error(
+                f"Unexpected error collecting Reddit content with AsyncPRAW: {str(e)}"
+            )
             # Fallback to public API
+            logger.info("Falling back to Reddit public API")
             fallback_collector = RedditPublicCollector(self.config)
             return await fallback_collector.collect_content(params)

@@ -14,6 +14,7 @@ from endpoints import (
     discover_topics_endpoint,
     get_sources_endpoint,
     health_endpoint,
+    reddit_diagnostics_endpoint,
     root_endpoint,
 )
 from fastapi import Depends, FastAPI, Request
@@ -97,6 +98,7 @@ async def not_found_handler(request: Request, exc):
                     "/api/content-womble/status",
                     "/api/content-womble/process",
                     "/api/content-womble/docs",
+                    "/api/content-womble/reddit-diagnostics",
                 ],
             },
             errors=["The requested endpoint does not exist"],
@@ -182,6 +184,12 @@ async def api_process_content(
 async def api_documentation(metadata: Dict[str, Any] = Depends(service_metadata)):
     """API documentation endpoint."""
     return await api_documentation_endpoint(metadata)
+
+
+@app.get("/api/content-womble/reddit-diagnostics", response_model=StandardResponse)
+async def api_reddit_diagnostics(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Reddit API diagnostics endpoint."""
+    return await reddit_diagnostics_endpoint(metadata)
 
 
 if __name__ == "__main__":

@@ -287,14 +287,13 @@ resource "azurerm_storage_account" "main" {
   shared_access_key_enabled     = true
   # nosemgrep: terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass
   network_rules {
-    default_action = "Deny"
+    default_action = "Allow"
     bypass         = ["AzureServices"] # This is the recommended configuration for Microsoft services
-    # Allow access from Container Apps and development environments
-    # Updated: Dynamic IP reference for Container Apps outbound traffic
-    ip_rules = [
-      "81.2.90.47",                                            # Current development IP
-      azurerm_container_app_environment.main.static_ip_address # Container Apps outbound IP
-    ]
+    # Allow access from all networks for Container Apps compatibility
+    # Container Apps outbound IPs are dynamic and managed by Azure
+    # Security is enforced through RBAC and managed identity authentication
+    ip_rules                   = []
+    virtual_network_subnet_ids = []
   }
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"

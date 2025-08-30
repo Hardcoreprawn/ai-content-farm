@@ -110,6 +110,13 @@ resource "azurerm_role_assignment" "containers_storage_blob_data_contributor" {
   principal_id         = azurerm_user_assigned_identity.containers.principal_id
 }
 
+# Grant container identity access to Key Vault secrets
+resource "azurerm_role_assignment" "containers_key_vault_secrets_user" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = azurerm_user_assigned_identity.containers.principal_id
+}
+
 # Grant container identity access to Azure OpenAI
 resource "azurerm_role_assignment" "containers_cognitive_services_openai_user" {
   scope                = azurerm_cognitive_account.openai.id
