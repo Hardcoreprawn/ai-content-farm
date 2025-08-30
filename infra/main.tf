@@ -32,7 +32,7 @@ resource "azurerm_key_vault" "main" {
 
   # Network ACLs for security compliance
   network_acls {
-    default_action = "Allow" # Temporarily allow all access for GitHub Actions compatibility
+    default_action = "Deny"
     bypass         = "AzureServices"
 
     # Allow access from Container Apps subnet and development IP
