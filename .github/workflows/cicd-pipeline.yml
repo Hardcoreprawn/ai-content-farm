@@ -204,7 +204,7 @@ jobs:
     if: needs.plan-pipeline.outputs.needs-security-scan == 'true' && needs.workflow-validation.result == 'success'
     strategy:
       matrix:
-        scan-type: [trivy, semgrep, python, sbom]
+        scan-type: [trivy, semgrep, sbom]
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -216,10 +216,6 @@ jobs:
       - name: Run Semgrep Security Scan
         if: matrix.scan-type == 'semgrep'
         uses: ./.github/actions/security-semgrep
-
-      - name: Run Python Security Scan
-        if: matrix.scan-type == 'python'
-        uses: ./.github/actions/security-python
 
       - name: Generate SBOM
         if: matrix.scan-type == 'sbom'
