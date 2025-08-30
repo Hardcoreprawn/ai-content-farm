@@ -16,14 +16,6 @@ resource "azurerm_resource_group" "main" {
   tags = local.common_tags
 }
 
-# Resource lock to prevent accidental deletion
-resource "azurerm_management_lock" "resource_group_lock" {
-  name       = "resource-group-lock"
-  scope      = azurerm_resource_group.main.id
-  lock_level = "CanNotDelete"
-  notes      = "Prevents accidental deletion of the resource group and all its resources"
-}
-
 
 # Key Vault
 resource "azurerm_key_vault" "main" {
@@ -389,4 +381,42 @@ resource "azurerm_key_vault_secret" "openai_endpoint" {
   ]
 
   tags = local.common_tags
+}
+
+# Resource lock to prevent accidental deletion
+# Created LAST to avoid blocking infrastructure updates during deployment
+resource "azurerm_management_lock" "resource_group_lock" {
+  name       = "resource-group-lock"
+  scope      = azurerm_resource_group.main.id
+  lock_level = "CanNotDelete"
+  notes      = "Prevents accidental deletion of the resource group and all its resources"
+
+  # Ensure all major infrastructure is created before applying the lock
+  depends_on = [
+    # Core infrastructure
+    azurerm_key_vault.main,
+    azurerm_storage_account.main,
+    azurerm_cognitive_account.openai,
+    azurerm_log_analytics_workspace.main,
+    azurerm_application_insights.main,
+
+    # Networking (from networking.tf)
+    azurerm_virtual_network.main,
+    azurerm_subnet.container_apps,
+    azurerm_network_security_group.container_apps,
+
+    # Container Apps (from container_apps.tf)
+    azurerm_container_app_environment.main,
+    azurerm_user_assigned_identity.containers,
+    azurerm_user_assigned_identity.github_actions,
+
+    # Storage containers
+    azurerm_storage_container.topics,
+    azurerm_storage_container.collected_content,
+
+    # Key Vault secrets and policies
+    azurerm_key_vault_secret.openai_endpoint,
+    azurerm_key_vault_access_policy.developer_user,
+    azurerm_key_vault_access_policy.github_actions_user
+  ]
 }

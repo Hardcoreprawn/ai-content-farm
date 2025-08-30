@@ -47,7 +47,10 @@ runs:
             import toml
         except ImportError:
             import subprocess
-            subprocess.check_call(['pip', 'install', 'toml'])
+            import sys
+            subprocess.check_call(['pip', 'install', 'toml'],
+                                stdout=subprocess.DEVNULL,
+                                stderr=subprocess.DEVNULL)
             import toml
 
         with open('config/shared-versions.toml', 'r') as f:
