@@ -1,6 +1,7 @@
 # Docker Compose for AI Content Farm Local Development
 # Using official Microsoft Azure Functions Python base images
 # Automatically loads environment variables from .env file
+# Trigger pipeline: Test full CI/CD including container builds
 
 services:
   # Azurite - Azure Storage Emulator for local development

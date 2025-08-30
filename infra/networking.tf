@@ -1,6 +1,7 @@
 # Virtual Network infrastructure for secure Container Apps deployment
 # Using service endpoints instead of private endpoints for cost optimization
 # Service endpoints provide secure access to Azure services at no additional cost
+# Trigger pipeline: Test subnet delegation and Key Vault access fixes
 
 # Virtual Network for Container Apps
 resource "azurerm_virtual_network" "main" {

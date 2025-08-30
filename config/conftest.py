@@ -3,6 +3,8 @@ import sys
 from pathlib import Path
 from typing import Optional
 
+# Trigger pipeline: Test security and infrastructure fixes
+
 # Add repo root first so shared top-level imports (like `libs`) are resolvable.
 # Keep repo root on sys.path but do NOT globally add individual container dirs.
 root = Path(__file__).parent.resolve()
