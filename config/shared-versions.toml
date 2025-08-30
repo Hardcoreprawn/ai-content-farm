@@ -1,5 +1,8 @@
-# Shared version configuration for all containers
-# Use ~= for compatible release (allows patch updates)
+# Shared version configuration for all contai[security]
+# Security scanning tools
+safety = "~=3.0.1"  # Using stable version compatible with available typer
+bandit = "~=1.8.0"
+semgrep = "~=1.91.0"# Use ~= for compatible release (allows patch updates)
 
 [production]
 # Core FastAPI/web dependencies
@@ -45,6 +48,6 @@ types-requests = "~=2.31.0.10"
 
 [security]
 # Security scanning tools
-safety = "~=3.2.5"  # Using earlier version due to typer compatibility issues
+safety = "~=3.0.1"  # Using much earlier version to avoid typer compatibility issues
 bandit = "~=1.8.0"
 semgrep = "~=1.91.0"

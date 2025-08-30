@@ -41,15 +41,22 @@ runs:
       run: |
         # Load Safety version from shared-versions.toml
         if [ -f "config/shared-versions.toml" ]; then
+          # Install toml module if not available, then parse
           safety_version=$(python3 -c "
-        import toml
+        try:
+            import toml
+        except ImportError:
+            import subprocess
+            subprocess.check_call(['pip', 'install', 'toml'])
+            import toml
+
         with open('config/shared-versions.toml', 'r') as f:
             config = toml.load(f)
-        version = config.get('security', {}).get('safety', '~=3.2.7')
+        version = config.get('security', {}).get('safety', '~=3.0.1')
         print(version)
-        " 2>/dev/null || echo "~=3.2.7")
+        " 2>/dev/null || echo "~=3.0.1")
         else
-          safety_version="~=3.2.7"
+          safety_version="~=3.0.1"
         fi
 
         echo "safety-version=$safety_version" >> $GITHUB_OUTPUT
