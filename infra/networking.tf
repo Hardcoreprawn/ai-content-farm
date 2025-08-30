@@ -27,16 +27,8 @@ resource "azurerm_subnet" "container_apps" {
     "Microsoft.CognitiveServices"
   ]
 
-  # Delegate subnet to Container Apps
-  delegation {
-    name = "container-apps-delegation"
-    service_delegation {
-      name = "Microsoft.App/environments"
-      actions = [
-        "Microsoft.Network/virtualNetworks/subnets/join/action",
-      ]
-    }
-  }
+  # Note: Do NOT delegate subnet for Consumption-only Container Apps environments
+  # Delegation is only required for Workload profiles environments
 }
 
 # Network Security Group for Container Apps subnet

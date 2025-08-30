@@ -25,6 +25,9 @@ outputs:
   safety-version:
     description: 'Version of Safety tool that was installed/used'
     value: ${{ steps.config.outputs.safety-version }}
+  typer-version:
+    description: 'Version of Typer library that was configured'
+    value: ${{ steps.config.outputs.typer-version }}
   scan-results:
     description: 'JSON array of scan results for each file'
     value: ${{ steps.scan.outputs.results }}
@@ -42,7 +45,7 @@ runs:
         # Load Safety version from shared-versions.toml
         if [ -f "config/shared-versions.toml" ]; then
           # Install toml module if not available, then parse
-          safety_version=$(python3 -c "
+          versions=$(python3 -c "
         try:
             import toml
         except ImportError:
@@ -55,22 +58,28 @@ runs:
 
         with open('config/shared-versions.toml', 'r') as f:
             config = toml.load(f)
-        version = config.get('security', {}).get('safety', '~=3.0.1')
-        print(version)
-        " 2>/dev/null || echo "~=3.0.1")
+        safety_version = config.get('security', {}).get('safety', '~=2.4.0')
+        typer_version = config.get('security', {}).get('typer', '~=0.12.0')
+        print(f'{safety_version}|{typer_version}')
+        " 2>/dev/null || echo "~=2.4.0|~=0.12.0")
+          safety_version=$(echo "$versions" | cut -d'|' -f1)
+          typer_version=$(echo "$versions" | cut -d'|' -f2)
         else
-          safety_version="~=3.0.1"
+          safety_version="~=2.4.0"
+          typer_version="~=0.12.0"
         fi
 
         echo "safety-version=$safety_version" >> $GITHUB_OUTPUT
+        echo "typer-version=$typer_version" >> $GITHUB_OUTPUT
         echo "[INFO] Safety version configured: $safety_version"
+        echo "[INFO] Typer version configured: $typer_version"
 
     - name: Install Safety
       if: ${{ inputs.mode == 'install' || inputs.mode == 'scan' }}
       shell: bash
       run: |
         echo "[INFO] Installing Safety dependency scanner..."
-        pip install --upgrade pip "safety${{ steps.config.outputs.safety-version }}"
+        pip install --upgrade pip "typer${{ steps.config.outputs.typer-version }}" "safety${{ steps.config.outputs.safety-version }}"
         safety --version
 
     - name: Safety Scan
