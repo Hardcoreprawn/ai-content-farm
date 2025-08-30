@@ -1,20 +1,12 @@
 # Azure Container Apps infrastructure for AI Content Farm
 
-# Local values for access control
-locals {
-  # Allow access from your static IP for development/monitoring
-  allowed_ips = [
-    "81.2.90.47/32" # Your current static IP
-  ]
-}
-
 # Container Apps Environment - reusing main Log Analytics workspace for cost efficiency
+# Using Consumption plan without VNet integration for simplicity and cost optimization
 resource "azurerm_container_app_environment" "main" {
   name                       = "${var.resource_prefix}-env"
   location                   = var.location
   resource_group_name        = azurerm_resource_group.main.name
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id # Reuse main workspace
-  infrastructure_subnet_id   = azurerm_subnet.container_apps.id
 
   tags = local.common_tags
 }

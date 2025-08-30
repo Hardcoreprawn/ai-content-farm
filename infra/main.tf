@@ -275,12 +275,13 @@ resource "azurerm_storage_account" "main" {
   shared_access_key_enabled     = true
   # nosemgrep: terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass
   network_rules {
-    default_action = "Deny"
+    default_action = "Allow"
     bypass         = ["AzureServices"] # This is the recommended configuration for Microsoft services
-    # Allow access only from Container Apps subnet and approved IPs
+    # Allow access from all networks for Container Apps Consumption compatibility
+    # Container Apps Consumption tier uses dynamic IPs managed by Azure
     # Security is enforced through RBAC and managed identity authentication
-    ip_rules                   = ["81.2.90.47"] # Your static IP for development access
-    virtual_network_subnet_ids = [azurerm_subnet.container_apps.id]
+    ip_rules                   = []
+    virtual_network_subnet_ids = []
   }
   allow_nested_items_to_be_public = false
   min_tls_version                 = "TLS1_2"
@@ -347,17 +348,11 @@ resource "azurerm_cognitive_account" "openai" {
     type = "SystemAssigned"
   }
 
-  # Network access restrictions
+  # Network access restrictions - simplified for Container Apps Consumption
   network_acls {
-    default_action = "Deny"
-
-    # Allow access from Container Apps subnet
-    virtual_network_rules {
-      subnet_id = azurerm_subnet.container_apps.id
-    }
-
-    # Allow access from your development IP
-    ip_rules = ["81.2.90.47"]
+    default_action = "Allow"
+    # Container Apps Consumption tier uses dynamic IPs
+    # Security is enforced through managed identity authentication
   }
 
   tags = local.common_tags
@@ -395,11 +390,6 @@ resource "azurerm_management_lock" "resource_group_lock" {
     azurerm_cognitive_account.openai,
     azurerm_log_analytics_workspace.main,
     azurerm_application_insights.main,
-
-    # Networking (from networking.tf)
-    azurerm_virtual_network.main,
-    azurerm_subnet.container_apps,
-    azurerm_network_security_group.container_apps,
 
     # Container Apps (from container_apps.tf)
     azurerm_container_app_environment.main,
