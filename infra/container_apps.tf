@@ -99,22 +99,15 @@ resource "azurerm_key_vault_access_policy" "containers" {
 # Grant container identity read access to Storage Account (for listing containers)
 resource "azurerm_role_assignment" "containers_storage_blob_data_reader" {
   scope                = azurerm_storage_account.main.id
-  role_definition_name = "Storage Blob Data Reader"
+  role_definition_name = "Reader"
   principal_id         = azurerm_user_assigned_identity.containers.principal_id
-
-  depends_on = [azurerm_user_assigned_identity.containers]
 }
 
 # Grant container identity write access to collected-content container only
 resource "azurerm_role_assignment" "containers_storage_blob_data_contributor" {
-  scope                = "${azurerm_storage_account.main.id}/blobServices/default/containers/${azurerm_storage_container.collected_content.name}"
+  scope                = azurerm_storage_account.main.id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = azurerm_user_assigned_identity.containers.principal_id
-
-  depends_on = [
-    azurerm_user_assigned_identity.containers,
-    azurerm_storage_container.collected_content
-  ]
 }
 
 # Grant container identity access to Azure OpenAI
@@ -122,8 +115,6 @@ resource "azurerm_role_assignment" "containers_cognitive_services_openai_user" {
   scope                = azurerm_cognitive_account.openai.id
   role_definition_name = "Cognitive Services OpenAI User"
   principal_id         = azurerm_user_assigned_identity.containers.principal_id
-
-  depends_on = [azurerm_user_assigned_identity.containers]
 }
 
 # Grant GitHub Actions identity access to subscription (for deployments)
@@ -131,8 +122,6 @@ resource "azurerm_role_assignment" "github_actions_contributor" {
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
   role_definition_name = "Contributor"
   principal_id         = azurerm_user_assigned_identity.github_actions.principal_id
-
-  depends_on = [azurerm_user_assigned_identity.github_actions]
 }
 
 # Grant GitHub Actions identity access to Key Vault
