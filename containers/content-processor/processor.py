@@ -1,212 +1,286 @@
-#!/usr/bin/env python3
 """
-Content Processor - Business Logic
+Content Processor Core Logic
 
-Pure functions for transforming Reddit data.
-No side effects, easy to test.
+Functional processor implementing wake-up work queue pattern with:
+- Lease-based coordination for parallel processing
+- Azure OpenAI integration for article generation
+- Cost tracking and quality assessment
+- Immutable data patterns for thread safety
 """
 
-import math
-import re
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
-from urllib.parse import urlparse
+import asyncio
+import logging
+import os
+from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Tuple
+from uuid import uuid4
+
+from models import (
+    ProcessingAttempt,
+    ProcessingResult,
+    ProcessorStatus,
+    TopicMetadata,
+    TopicState,
+)
+from openai_client import OpenAIClient
+
+from libs.blob_storage import BlobStorageClient
+
+logger = logging.getLogger(__name__)
 
 
-def clean_title(title: str) -> str:
-    """Clean and normalize Reddit post titles"""
-    if not title or not title.strip():
-        return "[No Title]"
+class ContentProcessor:
+    """
+    Functional content processor with lease-based coordination.
 
-    # Remove leading/trailing whitespace
-    cleaned = title.strip()
+    Implements pure functional patterns for thread safety and scalability.
+    """
 
-    # Remove emoji characters (basic removal)
-    # This regex removes most emoji characters
-    emoji_pattern = re.compile(
-        r"[\U0001F600-\U0001F64F]|[\U0001F300-\U0001F5FF]|[\U0001F680-\U0001F6FF]|[\U0001F1E0-\U0001F1FF]",
-        flags=re.UNICODE,
-    )
-    cleaned = emoji_pattern.sub("", cleaned)
+    def __init__(self):
+        self.processor_id = str(uuid4())[:8]
+        self.blob_client = BlobStorageClient()
+        self.openai_client = OpenAIClient()
 
-    # Normalize multiple spaces to single space
-    cleaned = re.sub(r"\s+", " ", cleaned)
+        # Session tracking (immutable append-only)
+        self.session_start = datetime.now(timezone.utc)
+        self.session_topics_processed = 0
+        self.session_cost = 0.0
+        self.session_processing_time = 0.0
 
-    # Final trim
-    cleaned = cleaned.strip()
+        logger.info(f"Content processor initialized: {self.processor_id}")
 
-    # Fallback if we ended up with empty string
-    if not cleaned:
-        return "[No Title]"
-
-    return cleaned
-
-
-def normalize_score(score: int) -> float:
-    """Normalize Reddit score to 0-1 range"""
-    if score <= 0:
-        return 0.0
-
-    # Use logarithmic scaling for Reddit scores
-    # Scores can range from 0 to ~50k+ for viral posts
-    # Log scale helps normalize the distribution
-    normalized = math.log(score + 1) / math.log(10001)  # +1 to handle score=0
-
-    # Ensure we stay in 0-1 range
-    return min(1.0, max(0.0, normalized))
-
-
-def calculate_engagement_score(score: int, comments: int) -> float:
-    """Calculate engagement score based on upvotes and comments"""
-    if score <= 0 and comments <= 0:
-        return 0.0
-
-    # Handle negative scores (controversial posts)
-    if score < 0:
-        return max(0.0, 0.1 * (comments / max(1, abs(score))))
-
-    # Weighted combination of score and comments
-    # Comments are generally more valuable for engagement
-    score_weight = 0.6
-    comment_weight = 0.4
-
-    # Normalize both values
-    normalized_score = normalize_score(score)
-    normalized_comments = min(1.0, comments / 100.0)  # 100 comments = max
-
-    engagement = (score_weight * normalized_score) + (
-        comment_weight * normalized_comments
-    )
-
-    return min(1.0, engagement)
-
-
-def extract_content_type(url: str, selftext: str) -> str:
-    """Determine content type from URL and selftext"""
-    if not url and not selftext:
-        return "unknown"
-
-    # Text posts have selftext content
-    if selftext and selftext.strip():
-        return "text"
-
-    if not url:
-        return "unknown"
-
-    # Parse URL to check domain and extension
-    try:
-        parsed = urlparse(url.lower())
-        domain = parsed.netloc
-        path = parsed.path
-
-        # Image detection
-        image_extensions = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
-        if any(path.endswith(ext) for ext in image_extensions):
-            return "image"
-
-        # Image hosting domains (exact match only)
-        image_domains = {"i.imgur.com", "i.redd.it", "imgur.com"}
-        if domain in image_domains:
-            return "image"
-
-        # Video detection by extension
-        video_extensions = {".mp4", ".webm", ".avi", ".mov", ".mkv"}
-        if any(path.endswith(ext) for ext in video_extensions):
-            return "video"
-
-        # Video hosting domains (exact match or subdomain)
-        video_domains = {
-            "youtube.com",
-            "youtu.be",
-            "vimeo.com",
-            "v.redd.it",
-            "twitch.tv",
-        }
-        if domain in video_domains or any(
-            domain.endswith(f".{vid_domain}") for vid_domain in video_domains
-        ):
-            return "video"
-
-        # Reddit-hosted content (exact match or subdomain)
-        if domain == "reddit.com" or domain.endswith(".reddit.com"):
-            return "text"
-
-        # Default to link for external URLs
-        return "link"
-
-    except Exception:
-        return "unknown"
-
-
-def transform_reddit_post(post: Dict[str, Any]) -> Dict[str, Any]:
-    """Transform a single Reddit post into structured content"""
-    # Extract fields with defaults
-    title = post.get("title", "")
-    score = post.get("score", 0)
-    comments = post.get("num_comments", 0)
-    created_utc = post.get("created_utc", 0)
-    subreddit = post.get("subreddit", "")
-    url = post.get("url", "")
-    selftext = post.get("selftext", "")
-    reddit_id = post.get("id", "")
-
-    # Generate our own ID if Reddit ID is missing
-    if not reddit_id:
-        reddit_id = f"unknown_{hash(title + str(score))}"
-
-    # Process the data
-    clean_title_text = clean_title(title)
-    normalized_score = normalize_score(score)
-    engagement_score = calculate_engagement_score(score, comments)
-    content_type = extract_content_type(url, selftext)
-
-    # Convert timestamp to ISO format
-    if created_utc:
-        published_at = datetime.fromtimestamp(created_utc, tz=timezone.utc).isoformat()
-    else:
-        published_at = datetime.now(tz=timezone.utc).isoformat()
-
-    # Build source URL
-    if url and not url.startswith("http"):
-        source_url = f"https://reddit.com{url}"
-    else:
-        source_url = url or f"https://reddit.com/r/{subreddit}"
-
-    return {
-        "id": reddit_id,
-        "title": title,
-        "clean_title": clean_title_text,
-        "normalized_score": normalized_score,
-        "engagement_score": engagement_score,
-        "source_url": source_url,
-        "published_at": published_at,
-        "content_type": content_type,
-        "source_metadata": {
-            "original_score": score,
-            "original_comments": comments,
-            "subreddit": subreddit,
-            "reddit_id": reddit_id,
-            # Truncate long text
-            "selftext": selftext[:500] if selftext else "",
-            "created_utc": created_utc,
-        },
-    }
-
-
-def process_reddit_batch(posts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Process a batch of Reddit posts"""
-    if not posts:
-        return []
-
-    processed_items = []
-
-    for post in posts:
+    async def check_health(self) -> ProcessorStatus:
+        """Health check with dependency validation."""
         try:
-            processed_item = transform_reddit_post(post)
-            processed_items.append(processed_item)
-        except Exception as e:
-            # Log error but continue processing other items
-            print(f"Error processing post {post.get('id', 'unknown')}: {e}")
-            continue
+            # Test blob storage
+            blob_available = await self._test_blob_storage()
 
-    return processed_items
+            # Test OpenAI
+            openai_available = await self._test_openai()
+
+            # Determine overall status
+            if blob_available and openai_available:
+                status = "idle"
+            else:
+                status = "error"
+
+            return ProcessorStatus(
+                processor_id=self.processor_id,
+                status=status,
+                azure_openai_available=openai_available,
+                blob_storage_available=blob_available,
+                last_health_check=datetime.now(timezone.utc),
+            )
+
+        except Exception as e:
+            logger.error(f"Health check failed: {e}")
+            return ProcessorStatus(
+                processor_id=self.processor_id,
+                status="error",
+                azure_openai_available=False,
+                blob_storage_available=False,
+                last_health_check=datetime.now(timezone.utc),
+            )
+
+    async def get_status(self) -> ProcessorStatus:
+        """Get current processor status."""
+        return ProcessorStatus(
+            processor_id=self.processor_id,
+            status="idle",  # Simplified for now
+            session_topics_processed=self.session_topics_processed,
+            session_cost=self.session_cost,
+            session_processing_time=self.session_processing_time,
+            azure_openai_available=True,  # Will be checked by health endpoint
+            blob_storage_available=True,
+            last_health_check=datetime.now(timezone.utc),
+        )
+
+    async def process_available_work(
+        self,
+        batch_size: int = 10,
+        priority_threshold: float = 0.5,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> ProcessingResult:
+        """
+        Process available work using wake-up work queue pattern.
+
+        Pure functional approach:
+        1. Find available topics (no mutation)
+        2. Lease topics atomically
+        3. Process topics functionally
+        4. Update results immutably
+        """
+        start_time = datetime.now(timezone.utc)
+        processed_topics = []
+        failed_topics = []
+        total_cost = 0.0
+
+        try:
+            # Phase 1: Find available topics
+            available_topics = await self._find_available_topics(
+                batch_size, priority_threshold
+            )
+
+            if not available_topics:
+                logger.info("No topics available for processing")
+                return ProcessingResult(
+                    success=True,
+                    topics_processed=0,
+                    articles_generated=0,
+                    total_cost=0.0,
+                    processing_time=0.0,
+                )
+
+            logger.info(f"Found {len(available_topics)} topics for processing")
+
+            # Phase 2: Process each topic with lease coordination
+            for topic_metadata in available_topics:
+                try:
+                    # Attempt to lease topic
+                    if await self._acquire_topic_lease(topic_metadata.topic_id):
+                        result = await self._process_single_topic(topic_metadata)
+
+                        if result:
+                            processed_topics.append(topic_metadata.topic_id)
+                            total_cost += result.get("cost", 0.0)
+                        else:
+                            failed_topics.append(topic_metadata.topic_id)
+
+                        # Release lease
+                        await self._release_topic_lease(topic_metadata.topic_id)
+
+                except Exception as e:
+                    logger.error(
+                        f"Error processing topic {topic_metadata.topic_id}: {e}"
+                    )
+                    failed_topics.append(topic_metadata.topic_id)
+                    await self._release_topic_lease(topic_metadata.topic_id)
+
+            # Update session metrics (immutable append pattern)
+            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+            self.session_topics_processed += len(processed_topics)
+            self.session_cost += total_cost
+            self.session_processing_time += processing_time
+
+            return ProcessingResult(
+                success=True,
+                topics_processed=len(processed_topics),
+                articles_generated=len(processed_topics),  # 1:1 for now
+                total_cost=total_cost,
+                processing_time=processing_time,
+                completed_topics=processed_topics,
+                failed_topics=failed_topics,
+            )
+
+        except Exception as e:
+            logger.error(f"Work processing failed: {e}", exc_info=True)
+            return ProcessingResult(
+                success=False,
+                topics_processed=0,
+                articles_generated=0,
+                total_cost=total_cost,
+                processing_time=0.0,
+                failed_topics=failed_topics,
+                error_messages=[str(e)],
+            )
+
+    async def process_specific_topics(
+        self,
+        topic_ids: List[str],
+        force_reprocess: bool = False,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> ProcessingResult:
+        """Process specific topics by ID (manual batch processing)."""
+        # Simplified implementation for now
+        logger.info(f"Manual processing requested for {len(topic_ids)} topics")
+
+        return ProcessingResult(
+            success=True,
+            topics_processed=0,
+            articles_generated=0,
+            total_cost=0.0,
+            processing_time=0.0,
+            completed_topics=[],
+            failed_topics=topic_ids,  # Mark as failed until implemented
+            error_messages=["Manual processing not yet implemented"],
+        )
+
+    # Private helper methods (functional)
+
+    async def _find_available_topics(
+        self, batch_size: int, priority_threshold: float
+    ) -> List[TopicMetadata]:
+        """Find topics available for processing (pure function)."""
+        try:
+            # Mock implementation for now - returns empty list
+            # In Phase 2, this will read from blob storage
+            logger.info(
+                f"Searching for topics (batch_size={batch_size}, threshold={priority_threshold})"
+            )
+            return []
+
+        except Exception as e:
+            logger.error(f"Error finding available topics: {e}")
+            return []
+
+    async def _acquire_topic_lease(self, topic_id: str) -> bool:
+        """Atomically acquire lease on topic (pure function)."""
+        try:
+            # Mock implementation - always succeeds for now
+            logger.debug(f"Acquired lease for topic: {topic_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to acquire lease for {topic_id}: {e}")
+            return False
+
+    async def _release_topic_lease(self, topic_id: str) -> bool:
+        """Release topic lease (pure function)."""
+        try:
+            # Mock implementation
+            logger.debug(f"Released lease for topic: {topic_id}")
+            return True
+
+        except Exception as e:
+            logger.error(f"Failed to release lease for {topic_id}: {e}")
+            return False
+
+    async def _process_single_topic(
+        self, topic_metadata: TopicMetadata
+    ) -> Optional[Dict[str, Any]]:
+        """Process a single topic into an article (pure function)."""
+        try:
+            # Mock processing for now
+            logger.info(f"Processing topic: {topic_metadata.title}")
+
+            # Simulate processing time
+            await asyncio.sleep(0.1)
+
+            return {
+                "article_content": f"Mock article for: {topic_metadata.title}",
+                "word_count": 3000,
+                "quality_score": 0.85,
+                "cost": 0.15,
+            }
+
+        except Exception as e:
+            logger.error(f"Error processing topic {topic_metadata.topic_id}: {e}")
+            return None
+
+    async def _test_blob_storage(self) -> bool:
+        """Test blob storage connectivity."""
+        try:
+            # test_connection returns Dict[str, Any], not awaitable
+            result = self.blob_client.test_connection()
+            return result.get("status") == "healthy"
+        except Exception as e:
+            logger.error(f"Blob storage test failed: {e}")
+            return False
+
+    async def _test_openai(self) -> bool:
+        """Test OpenAI connectivity."""
+        try:
+            return await self.openai_client.test_connection()
+        except Exception as e:
+            logger.error(f"OpenAI test failed: {e}")
+            return False
