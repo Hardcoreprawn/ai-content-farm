@@ -109,9 +109,9 @@ resource "azurerm_key_vault_secret" "reddit_client_id" {
   key_vault_id = azurerm_key_vault.main.id
   content_type = "text/plain"
 
-  # External secret - don't auto-update expiration date
+  # External secret - don't auto-update expiration date or manually set values
   lifecycle {
-    ignore_changes = [expiration_date]
+    ignore_changes = [expiration_date, value]
   }
 
   tags = {
@@ -131,9 +131,9 @@ resource "azurerm_key_vault_secret" "reddit_client_secret" {
   key_vault_id = azurerm_key_vault.main.id
   content_type = "text/plain"
 
-  # External secret - don't auto-update expiration date
+  # External secret - don't auto-update expiration date or manually set values
   lifecycle {
-    ignore_changes = [expiration_date]
+    ignore_changes = [expiration_date, value]
   }
 
   depends_on = [
@@ -153,9 +153,9 @@ resource "azurerm_key_vault_secret" "reddit_user_agent" {
   key_vault_id = azurerm_key_vault.main.id
   content_type = "text/plain"
 
-  # External secret - don't auto-update expiration date
+  # External secret - don't auto-update expiration date or manually set values
   lifecycle {
-    ignore_changes = [expiration_date]
+    ignore_changes = [expiration_date, value]
   }
 
   depends_on = [
