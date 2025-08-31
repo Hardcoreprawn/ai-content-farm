@@ -1,3 +1,0 @@
-# Test dependencies for site-generator
-# Auto-generated from requirements.txt - do not edit manually
-

@@ -1,5 +1,0 @@
-# UNIQUE dependencies for collector-scheduler only
-# Most deps come from ai-content-farm-base:scheduler tier  
-# (includes APScheduler, httpx, fastapi, etc.)
-
-# No unique dependencies needed - everything is in scheduler tier!

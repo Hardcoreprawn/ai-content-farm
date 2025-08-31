@@ -1,4 +1,0 @@
-# Test dependencies for collector-scheduler
-# Auto-generated from requirements.txt - do not edit manually
-
-pytest~=8.4.1
