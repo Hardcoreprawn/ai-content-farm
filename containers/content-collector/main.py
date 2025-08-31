@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Content Womble API",
     description="A humble service for collecting and analyzing digital content",
-    version="2.0.0",
+    version="2.0.1",
     lifespan=lifespan,
 )
 
