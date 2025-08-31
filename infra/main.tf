@@ -7,6 +7,7 @@ resource "random_string" "suffix" {
   # Test: Debug deployment conditions - needs-infrastructure trigger (Aug 28, 2025)
   # Test: Simplified routing fix - direct dependency path (Aug 28, 2025)
   # Fix: Update network rules with correct Container Apps IP and deploy latest containers (Aug 29, 2025)
+  # Trigger: Pipeline test after network simplification (Aug 31, 2025)
 }
 
 resource "azurerm_resource_group" "main" {
