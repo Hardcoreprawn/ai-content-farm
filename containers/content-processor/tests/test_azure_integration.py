@@ -259,7 +259,7 @@ class TestBlobStorageIntegration:
         assert connection_ok is True
 
     @pytest.mark.integration
-    @patch("libs.blob_storage.BlobStorageClient")
+    @patch("processor.BlobStorageClient")
     async def test_blob_storage_error_handling(self, mock_blob_class):
         """Test blob storage error handling."""
         mock_blob = MagicMock()
@@ -277,13 +277,11 @@ class TestBlobStorageIntegration:
 class TestEndToEndWorkflow:
     """Test complete processing workflow."""
 
-    @patch("processor.BlobStorageClient")
-    @patch("processor.OpenAIClient")
     @pytest.mark.integration
     @patch("processor.BlobStorageClient")
     @patch("processor.OpenAIClient")
     async def test_complete_processing_workflow(
-        self, mock_openai_class, mock_blob_class, sample_topic
+        self, mock_openai_class, mock_blob_class
     ):
         """Test complete topic → article workflow."""
         # Setup mocks
