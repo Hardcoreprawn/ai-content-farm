@@ -301,3 +301,74 @@ resource "azurerm_container_app" "content_collector" {
     azurerm_role_assignment.containers_storage_blob_data_contributor
   ]
 }
+
+# Content Processor Container App
+resource "azurerm_container_app" "content_processor" {
+  name                         = "${var.resource_prefix}-processor"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 8000
+    transport        = "http"
+
+    # IP restrictions for secure access
+    ip_security_restriction {
+      action           = "Allow"
+      ip_address_range = "81.2.90.47/32"
+      name             = "AllowStaticIP"
+    }
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
+  template {
+    container {
+      name   = "content-processor"
+      image  = var.container_images["content-processor"]
+      cpu    = 0.5
+      memory = "1Gi"
+
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.containers.client_id
+      }
+
+      env {
+        name  = "AZURE_STORAGE_ACCOUNT_NAME"
+        value = azurerm_storage_account.main.name
+      }
+
+      env {
+        name  = "AZURE_OPENAI_ENDPOINT"
+        value = azurerm_cognitive_account.openai.endpoint
+      }
+
+      env {
+        name  = "ENVIRONMENT"
+        value = "production"
+      }
+    }
+
+    min_replicas = 0
+    max_replicas = 3
+  }
+
+  tags = local.common_tags
+
+  depends_on = [
+    azurerm_storage_container.collected_content,
+    azurerm_role_assignment.containers_storage_blob_data_contributor,
+    azurerm_cognitive_account.openai
+  ]
+}

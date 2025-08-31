@@ -378,11 +378,37 @@ curl http://localhost:8001/api/processor/health
 
 ## ⚙️ Environment Variables
 
-- `OPENAI_API_KEY` - Required for article generation
-- `AZURE_STORAGE_CONNECTION_STRING` - Required for blob storage access
-- `PROCESSOR_LOG_LEVEL` - Optional (default: INFO)
-- `PROCESSOR_BATCH_SIZE` - Optional (default: 10)
-- `PROCESSOR_CONFIDENCE_THRESHOLD` - Optional (default: 0.8)
+### Required Configuration
+- `AZURE_OPENAI_ENDPOINT` - Azure OpenAI service endpoint
+- `AZURE_STORAGE_ACCOUNT_NAME` - Azure storage account name
+- `AZURE_CLIENT_ID` - Managed identity client ID (provided by Azure Container Apps)
+
+### Optional Configuration  
+- `AZURE_OPENAI_API_VERSION` - OpenAI API version (default: 2024-07-01-preview)
+- `AZURE_OPENAI_MODEL_NAME` - Deployment name (not model name) - (default: gpt-4)
+- `PROCESSOR_LOG_LEVEL` - Logging level (default: INFO)
+- `PROCESSOR_BATCH_SIZE` - Processing batch size (default: 10)
+- `PROCESSOR_CONFIDENCE_THRESHOLD` - Quality threshold (default: 0.8)
+- `ENVIRONMENT` - Deployment environment (production/staging)
+
+### 🔐 Security & Authentication
+
+**Managed Identity Authentication**: The container uses Azure Managed Identity for secure, keyless authentication to Azure services:
+
+- **Azure OpenAI**: Authenticated via `Cognitive Services OpenAI User` role
+- **Azure Storage**: Authenticated via `Storage Blob Data Contributor` role  
+- **Azure Key Vault**: No longer required for API keys
+
+**Azure OpenAI Configuration Notes**:
+- Uses Microsoft-recommended `get_bearer_token_provider` for managed identity authentication
+- Model parameter refers to **deployment name**, not the underlying model name
+- Latest API version `2024-07-01-preview` for newest features and security updates
+
+**Benefits of Managed Identity**:
+- ✅ **No API Keys**: Eliminates key rotation and lifecycle management
+- ✅ **Automatic Authentication**: Azure handles token refresh automatically
+- ✅ **Principle of Least Privilege**: Container identity has only required permissions
+- ✅ **Audit Trail**: All access logged through Azure Active Directory
 
 ## 💰 Cost Monitoring
 

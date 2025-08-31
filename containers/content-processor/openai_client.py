@@ -3,6 +3,7 @@ OpenAI Client for Content Generation
 
 Clean, functional wrapper around Azure OpenAI for article generation.
 Includes cost tracking and error handling following agent instructions.
+Uses Azure Managed Identity for secure authentication.
 """
 
 import logging
@@ -10,6 +11,7 @@ import os
 from typing import Any, Dict, Optional, Tuple
 
 import openai
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from openai import AzureOpenAI
 
 logger = logging.getLogger(__name__)
@@ -24,9 +26,10 @@ class OpenAIClient:
     """
 
     def __init__(self):
-        self.api_key = os.getenv("AZURE_OPENAI_API_KEY")
-        self.api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-01")
+        # Azure configuration
+        self.api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-07-01-preview")
         self.endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+        # Note: For Azure OpenAI, this should be the deployment name, not the model name
         self.model_name = os.getenv("AZURE_OPENAI_MODEL_NAME", "gpt-4")
 
         # Cost tracking (approximate pricing)
@@ -38,18 +41,26 @@ class OpenAIClient:
         }
 
         self.client = None
-        if self.api_key and self.endpoint:
+        if self.endpoint:
             try:
+                # Use Azure Managed Identity for authentication (Microsoft recommended pattern)
+                token_provider = get_bearer_token_provider(
+                    DefaultAzureCredential(),
+                    "https://cognitiveservices.azure.com/.default",
+                )
+
                 self.client = AzureOpenAI(
-                    api_key=self.api_key,
                     api_version=self.api_version,
                     azure_endpoint=self.endpoint,
+                    azure_ad_token_provider=token_provider,
                 )
-                logger.info("Azure OpenAI client initialized")
+                logger.info("Azure OpenAI client initialized with managed identity")
             except Exception as e:
-                logger.error(f"Failed to initialize OpenAI client: {e}")
+                logger.error(
+                    f"Failed to initialize OpenAI client with managed identity: {e}"
+                )
         else:
-            logger.warning("Azure OpenAI credentials not available - using mock mode")
+            logger.warning("Azure OpenAI endpoint not available - using mock mode")
 
     async def test_connection(self) -> bool:
         """Test OpenAI connectivity with minimal request."""
@@ -108,8 +119,9 @@ class OpenAIClient:
 
             # Extract results
             article_content = response.choices[0].message.content
-            tokens_used = response.usage.total_tokens
-            cost_usd = self._calculate_cost(tokens_used, response.usage.prompt_tokens)
+            tokens_used = response.usage.total_tokens if response.usage else 0
+            prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+            cost_usd = self._calculate_cost(tokens_used, prompt_tokens)
 
             logger.info(f"Article generated: {tokens_used} tokens, ${cost_usd:.4f}")
             return article_content, cost_usd, tokens_used
