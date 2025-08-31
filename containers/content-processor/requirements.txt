@@ -8,7 +8,7 @@ python-dateutil~=2.9.0
 
 # HTTP client for health checks and web scraping
 requests~=2.32.5
-aiohttp~=3.10.5
+aiohttp~=3.12.15
 
 # AI/ML for content analysis and generation
 openai~=1.51.4
