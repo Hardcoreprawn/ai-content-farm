@@ -2,7 +2,9 @@
 
 This folder contains Terraform code to provision:
 - Azure Resource Group
-- Azure Container Registry (ACR)
+- Azure Container Apps (consumption tier, public network)
+- Azure Key Vault (public access)
+- Azure Storage Account (public access)
 - Azure Container Instance (ACI) to run the content pipeline
 
 ## Steps
@@ -13,3 +15,4 @@ This folder contains Terraform code to provision:
 ## Notes
 - The container will run your Python pipeline on a schedule or on demand.
 - You can add more environment variables as needed for secrets/config.
+- Network configuration simplified for Container Apps Consumption tier compatibility.

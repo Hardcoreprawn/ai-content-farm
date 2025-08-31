@@ -1,36 +1,46 @@
-# TODO - Clean Restart Approach
+# TODO - Personal Content Curation Platform
 
-**Status**: 🔄 Updating Tests for Standardized APIs  
-**Goal**: Simple, cost-effective content pipeline that works
+**Status**: ✅ Core Collection Pipeline Working
+**Goal**: Complete content pipeline from collection to publication
 
 ## 🎯 Current Status
 
 ### ✅ What's Working
-- **8 containers deployed** in Azure Container Apps (all running)
-- **CI/CD pipeline** with Terraform deployment working
-- **Authentication** via OIDC and managed identity set up
+- **Content Collection**: Reddit API + 4 web sources (Ars Technica, The Register, Slashdot, The New Stack)
+- **Infrastructure**: Azure Container Apps deployed with public access, Key Vault configured
+- **Deduplication**: Working within collection sessions (MD5 hash-based)
+- **CI/CD pipeline**: Terraform deployment with OIDC authentication working
+- **Security**: All critical vulnerabilities resolved, security gates passing
 
-### 🚀 Current Fix: Update Tests for Modern APIs
-- **✅ Collector Key Vault issue**: Fixed environment variables and credential access
-- **✅ Clean API design**: Modern FastAPI with proper models (SourceConfig, DiscoveryRequest)
-- **🔄 Test compatibility**: Updating tests to match standardized API patterns instead of legacy formats
+### 🚀 Recently Completed
+- **✅ Reddit collection**: PRAW authentication working, content retrieval functional
+- **✅ Web content collection**: RSS-based collection from 4 tech news sources
+- **✅ Simplified networking**: Removed VNet restrictions, using public access model
+- **✅ Container rebuilds**: Fixed deployment issues with version management
+- **✅ Deduplication**: Validated working within collection sessions
 
-### 🎯 Smart Approach
-Instead of making our clean API backward compatible with old tests, we're updating the tests to match our standardized API design. This gives us:
-- Clean, modern FastAPI patterns
-- Consistent models across all containers  
-- Standard `/api/collector/*` endpoints
-- Proper request/response validation
+### 🎯 Next Priorities
+**Core Content Pipeline Completion**:
+1. **Content Processing**: Topics → ranked/enriched articles
+2. **Content Publishing**: Articles → formatted website
+3. **Scheduling**: Automated collection orchestration
+4. **Cross-session deduplication**: Prevent duplicate articles across runs
 
-### 📋 Clean Architecture Target (2-3 weeks)
+### 📋 Target Architecture
 
-**4 Simple Containers**:
-1. **Collector** - Reddit API → topics (merge scheduler + collector)
-2. **Processor** - Topics → articles (merge ranker + enricher + generator)  
-3. **Publisher** - Articles → website (merge markdown + site generator)
-4. **Scheduler** - Timer orchestration
+**3 Core Containers** (Simplified from 8):
+1. **Content Collector** - Reddit API + Web sources → collected topics
+2. **Content Processor** - Topics → ranked/enriched articles
+3. **Content Publisher** - Articles → website (markdown + static site)
 
 **Benefits**:
-- 50% cost reduction (~$40/month vs $80/month)
-- Simpler to understand and maintain
+- Reduced complexity: 3 containers vs 8
+- Cost optimization: ~$30-40/month target
 - Standard FastAPI patterns throughout
+- Clear data flow and responsibilities
+
+### 🔧 Technical Debt & Improvements
+- **Testing**: Update remaining tests to match standardized APIs
+- **Monitoring**: Enhanced observability and error handling
+- **Documentation**: API contracts and deployment guides
+- **Performance**: Optimize collection and processing efficiency
