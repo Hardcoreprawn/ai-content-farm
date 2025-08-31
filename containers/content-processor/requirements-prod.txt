@@ -1,0 +1,23 @@
+# Production dependencies for content-processor container
+# This file contains only the dependencies needed for production runtime
+# Test and development dependencies are in requirements.txt
+
+# Core web framework
+fastapi~=0.116.1
+uvicorn[standard]~=0.35.0
+
+# Data processing
+pydantic~=2.11.7
+python-dateutil~=2.9.0
+
+# HTTP client for health checks and web scraping
+requests~=2.32.5
+aiohttp~=3.12.15
+
+# AI/ML for content analysis and generation
+openai~=1.102.0
+
+# Azure integration
+azure-keyvault-secrets~=4.10.0
+azure-storage-blob~=12.26.0
+azure-identity~=1.24.0
