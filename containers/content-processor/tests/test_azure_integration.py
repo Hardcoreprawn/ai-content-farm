@@ -56,6 +56,7 @@ class TestAzureIntegration:
             mock.return_value = mock_instance
             yield mock_instance
 
+    @pytest.mark.integration
     @patch("processor.BlobStorageClient")
     @patch("processor.OpenAIClient")
     async def test_health_check_with_azure_services(
@@ -79,6 +80,7 @@ class TestAzureIntegration:
         assert status.processor_id is not None
         assert status.last_health_check is not None
 
+    @pytest.mark.integration
     async def test_process_available_work_integration(
         self, mock_blob_client, mock_openai_client, sample_topic
     ):
@@ -98,6 +100,7 @@ class TestAzureIntegration:
         assert result.topics_processed >= 0
         assert result.total_cost >= 0.0
 
+    @pytest.mark.integration
     async def test_topic_lease_coordination(self, mock_blob_client, mock_openai_client):
         """Test lease-based coordination for parallel processing."""
         processor = ContentProcessor()
@@ -110,6 +113,7 @@ class TestAzureIntegration:
         lease_released = await processor._release_topic_lease("test-topic")
         assert lease_released is True
 
+    @pytest.mark.integration
     async def test_openai_article_generation(self):
         """Test OpenAI article generation with cost tracking."""
         client = OpenAIClient()
@@ -124,6 +128,7 @@ class TestAzureIntegration:
         assert cost >= 0.0
         assert tokens >= 0
 
+    @pytest.mark.integration
     async def test_error_handling_azure_failures(
         self, mock_blob_client, mock_openai_client
     ):
@@ -144,6 +149,7 @@ class TestAzureIntegration:
         assert status.blob_storage_available is False
         assert status.status == "error"
 
+    @pytest.mark.integration
     async def test_cost_tracking_accuracy(
         self, mock_blob_client, mock_openai_client, sample_topic
     ):
@@ -164,8 +170,9 @@ class TestAzureIntegration:
         assert result.total_cost > 0.0
         assert processor.session_cost >= result.total_cost
 
+    @pytest.mark.integration
     async def test_functional_immutability_parallel_processing(
-        self, mock_blob_client, mock_openai_client
+        self, mock_blob_client, mock_openai_client, sample_topic
     ):
         """Test that parallel processors don't interfere with each other."""
         # Create multiple processor instances
@@ -190,6 +197,7 @@ class TestAzureIntegration:
 class TestOpenAIIntegration:
     """Focused tests for OpenAI integration."""
 
+    @pytest.mark.integration
     def test_prompt_generation(self):
         """Test article prompt generation."""
         client = OpenAIClient()
@@ -206,6 +214,7 @@ class TestOpenAIIntegration:
         assert "Research shows AI improves diagnostics" in prompt
         assert "bias_check" in prompt
 
+    @pytest.mark.integration
     def test_cost_calculation(self):
         """Test OpenAI cost calculation accuracy."""
         client = OpenAIClient()
@@ -218,6 +227,7 @@ class TestOpenAIIntegration:
         expected_cost = (500 * 0.03 / 1000) + (1500 * 0.06 / 1000)
         assert abs(cost - expected_cost) < 0.001
 
+    @pytest.mark.integration
     def test_mock_article_generation(self):
         """Test mock article generation when OpenAI unavailable."""
         client = OpenAIClient()
@@ -234,6 +244,7 @@ class TestOpenAIIntegration:
 class TestBlobStorageIntegration:
     """Tests for blob storage patterns."""
 
+    @pytest.mark.integration
     @patch("libs.blob_storage.BlobStorageClient")
     async def test_topic_storage_patterns(self, mock_blob_class):
         """Test blob storage patterns for topic data."""
@@ -247,7 +258,8 @@ class TestBlobStorageIntegration:
         connection_ok = await processor._test_blob_storage()
         assert connection_ok is True
 
-    @patch("processor.BlobStorageClient")
+    @pytest.mark.integration
+    @patch("libs.blob_storage.BlobStorageClient")
     async def test_blob_storage_error_handling(self, mock_blob_class):
         """Test blob storage error handling."""
         mock_blob = MagicMock()
@@ -267,8 +279,11 @@ class TestEndToEndWorkflow:
 
     @patch("processor.BlobStorageClient")
     @patch("processor.OpenAIClient")
+    @pytest.mark.integration
+    @patch("processor.BlobStorageClient")
+    @patch("processor.OpenAIClient")
     async def test_complete_processing_workflow(
-        self, mock_openai_class, mock_blob_class
+        self, mock_openai_class, mock_blob_class, sample_topic
     ):
         """Test complete topic → article workflow."""
         # Setup mocks
