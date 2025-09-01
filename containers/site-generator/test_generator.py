@@ -9,6 +9,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+import pytest
 from site_generator import SiteGenerator
 
 from config import Config
@@ -17,6 +18,7 @@ sys.path.append("/workspaces/ai-content-farm/containers/site-generator")
 sys.path.append("/workspaces/ai-content-farm")
 
 
+@pytest.mark.unit
 def test_markdown_generation():
     """Test markdown generation with sample article (without Azure connectivity)."""
 

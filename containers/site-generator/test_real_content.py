@@ -10,6 +10,8 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 
+import pytest
+
 from libs.blob_storage import BlobStorageClient
 
 # Test with our real Azure environment
@@ -20,6 +22,7 @@ os.environ["AZURE_STORAGE_CONNECTION_STRING"] = (
 sys.path.append("/workspaces/ai-content-farm")
 
 
+@pytest.mark.integration
 def test_real_content_to_markdown():
     """Test converting real processed content to markdown."""
 
