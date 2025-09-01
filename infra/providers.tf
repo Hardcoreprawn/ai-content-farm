@@ -10,6 +10,7 @@ terraform {
     }
   }
   required_version = ">= 1.3.0"
+  # Updated 2025-09-01: Testing security scanning pipeline
 }
 
 provider "azurerm" {
