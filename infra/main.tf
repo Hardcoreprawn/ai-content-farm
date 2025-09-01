@@ -600,3 +600,4 @@ resource "azurerm_static_web_app_custom_domain" "jablab" {
     azurerm_dns_a_record.jablab_apex
   ]
 }
+# Force infrastructure deployment trigger
