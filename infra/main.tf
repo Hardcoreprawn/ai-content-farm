@@ -109,9 +109,9 @@ resource "azurerm_key_vault_secret" "reddit_client_id" {
   key_vault_id = azurerm_key_vault.main.id
   content_type = "text/plain"
 
-  # External secret - don't auto-update expiration date or manually set values
+  # External secret - don't auto-update activation date or manually set values
   lifecycle {
-    ignore_changes = [expiration_date, value]
+    ignore_changes = [not_before_date, expiration_date, value]
   }
 
   tags = {
@@ -133,7 +133,7 @@ resource "azurerm_key_vault_secret" "reddit_client_secret" {
 
   # External secret - don't auto-update expiration date or manually set values
   lifecycle {
-    ignore_changes = [expiration_date, value]
+    ignore_changes = [not_before_date, expiration_date, value]
   }
 
   depends_on = [
@@ -155,7 +155,7 @@ resource "azurerm_key_vault_secret" "reddit_user_agent" {
 
   # External secret - don't auto-update expiration date or manually set values
   lifecycle {
-    ignore_changes = [expiration_date, value]
+    ignore_changes = [not_before_date, expiration_date, value]
   }
 
   depends_on = [
@@ -178,7 +178,7 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
 
   # External secret - don't auto-update expiration date
   lifecycle {
-    ignore_changes = [expiration_date]
+    ignore_changes = [not_before_date, expiration_date, value]
   }
 
   depends_on = [
@@ -338,7 +338,7 @@ resource "azurerm_cognitive_account" "openai" {
   sku_name            = "S0"
 
   # Security settings
-  public_network_access_enabled = false
+  public_network_access_enabled = true  # Enable for Container Apps access with managed identity
   local_auth_enabled            = false # Disable local authentication for security
 
   # Custom subdomain required for private endpoints
@@ -373,6 +373,67 @@ resource "azurerm_key_vault_secret" "openai_endpoint" {
   ]
 
   tags = local.common_tags
+}
+
+# GPT-3.5-turbo deployment for text generation
+resource "azurerm_cognitive_deployment" "gpt_35_turbo" {
+  name                 = "gpt-35-turbo"
+  cognitive_account_id = azurerm_cognitive_account.openai.id
+  model {
+    format  = "OpenAI"
+    name    = "gpt-35-turbo"
+    version = "0125"
+  }
+  sku {
+    name     = "Standard"
+    capacity = 10
+  }
+}
+
+# Text embedding model deployment for content analysis
+resource "azurerm_cognitive_deployment" "text_embedding_ada_002" {
+  name                 = "text-embedding-ada-002"
+  cognitive_account_id = azurerm_cognitive_account.openai.id
+  model {
+    format  = "OpenAI"
+    name    = "text-embedding-ada-002"
+    version = "2"
+  }
+  sku {
+    name     = "Standard"
+    capacity = 10
+  }
+}
+
+# Store model deployment names in Key Vault for container apps
+resource "azurerm_key_vault_secret" "openai_chat_model" {
+  name         = "azure-openai-chat-model"
+  value        = azurerm_cognitive_deployment.gpt_35_turbo.name
+  key_vault_id = azurerm_key_vault.main.id
+  content_type = "text/plain"
+  depends_on = [
+    azurerm_key_vault_access_policy.developer_user,
+    azurerm_key_vault_access_policy.github_actions_user
+  ]
+  tags = local.common_tags
+}
+
+resource "azurerm_key_vault_secret" "openai_embedding_model" {
+  name         = "azure-openai-embedding-model"
+  value        = azurerm_cognitive_deployment.text_embedding_ada_002.name
+  key_vault_id = azurerm_key_vault.main.id
+  content_type = "text/plain"
+  depends_on = [
+    azurerm_key_vault_access_policy.developer_user,
+    azurerm_key_vault_access_policy.github_actions_user
+  ]
+  tags = local.common_tags
+}
+
+resource "azurerm_storage_container" "prompts" {
+  name                  = "prompts"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
 }
 
 # Resource lock to prevent accidental deletion

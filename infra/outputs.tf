@@ -77,3 +77,7 @@ output "container_apps_environment_id" {
   description = "ID of the Container Apps Environment"
   value       = azurerm_container_app_environment.main.id
 }
+
+output "storage_prompts_container_name" {
+  value = azurerm_storage_container.prompts.name
+}

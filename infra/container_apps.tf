@@ -314,6 +314,16 @@ resource "azurerm_container_app" "content_processor" {
     identity_ids = [azurerm_user_assigned_identity.containers.id]
   }
 
+  secret {
+    name  = "openai-chat-model"
+    value = azurerm_key_vault_secret.openai_chat_model.value
+  }
+
+  secret {
+    name  = "openai-embedding-model"
+    value = azurerm_key_vault_secret.openai_embedding_model.value
+  }
+
   ingress {
     external_enabled = true
     target_port      = 8000
@@ -352,6 +362,16 @@ resource "azurerm_container_app" "content_processor" {
       env {
         name  = "AZURE_OPENAI_ENDPOINT"
         value = azurerm_cognitive_account.openai.endpoint
+      }
+
+      env {
+        name        = "AZURE_OPENAI_CHAT_MODEL"
+        secret_name = "openai-chat-model" # pragma: allowlist secret
+      }
+
+      env {
+        name        = "AZURE_OPENAI_EMBEDDING_MODEL"
+        secret_name = "openai-embedding-model" # pragma: allowlist secret
       }
 
       env {
