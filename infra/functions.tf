@@ -1,5 +1,6 @@
 # Azure Functions for Event-Driven Processing
 # Static Site Deployment Function
+# Updated: Security fixes applied to Function App code
 
 # Storage Account for Function App (separate from main storage for isolation)
 resource "azurerm_storage_account" "functions" {
