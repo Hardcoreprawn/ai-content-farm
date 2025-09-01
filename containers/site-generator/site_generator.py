@@ -415,13 +415,28 @@ published: true
 
     async def _create_site_archive(self, site_dir: Path, theme: str) -> Path:
         """Create tar.gz archive of generated site."""
+        # Sanitize theme name to prevent path injection
+        safe_theme = self._sanitize_filename(theme)
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        archive_path = site_dir.parent / f"site_{theme}_{timestamp}.tar.gz"
+        archive_path = site_dir.parent / f"site_{safe_theme}_{timestamp}.tar.gz"
 
         with tarfile.open(archive_path, "w:gz") as tar:
             tar.add(site_dir, arcname=".")
 
         return archive_path
+
+    def _sanitize_filename(self, filename: str) -> str:
+        """Sanitize filename to prevent path injection."""
+        # Remove any path separators and ensure safe filename
+        safe_name = os.path.basename(filename)
+        # Remove any unsafe characters, keeping only alphanumeric, dots, hyphens, underscores
+        safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", safe_name)
+        # Ensure it doesn't start with dots or special chars
+        safe_name = re.sub(r"^[._-]+", "", safe_name)
+        # Limit length
+        if not safe_name or len(safe_name) > 50:
+            safe_name = "default"
+        return safe_name
 
     def _sanitize_blob_name(self, name: str) -> str:
         """Sanitize blob name to prevent path injection."""
@@ -442,7 +457,7 @@ published: true
         safe_blob_name = self._sanitize_blob_name(archive_path.name)
 
         with open(archive_path, "rb") as f:
-            await self.blob_client.upload_blob(
+            self.blob_client.upload_binary(
                 container_name=self.config.STATIC_SITES_CONTAINER,
                 blob_name=safe_blob_name,
                 data=f.read(),

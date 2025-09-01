@@ -463,6 +463,62 @@ class BlobStorageClient:
             logger.error(f"Failed to upload text to {container_name}/{blob_name}: {e}")
             raise
 
+    def upload_binary(
+        self,
+        container_name: str,
+        blob_name: str,
+        data: bytes,
+        content_type: str = "application/octet-stream",
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> str:
+        """Upload binary data to blob storage."""
+        try:
+            if self._mock:
+                self.ensure_container(container_name)
+                key = f"{container_name}/{blob_name}"
+                blob_metadata = {
+                    "uploaded_at": datetime.now(timezone.utc).isoformat(),
+                    "service": "ai-content-farm",
+                }
+                if metadata:
+                    blob_metadata.update(metadata)
+                _MOCK_BLOBS[key] = {
+                    "content": data,
+                    "content_type": content_type,
+                    "metadata": blob_metadata,
+                    "last_modified": datetime.now(timezone.utc),
+                }
+                return f"mock://{key}"
+
+            container_client = self.ensure_container(container_name)
+
+            # Prepare metadata
+            blob_metadata = {
+                "uploaded_at": datetime.now(timezone.utc).isoformat(),
+                "service": "ai-content-farm",
+            }
+            if metadata:
+                blob_metadata.update(metadata)
+
+            # Upload blob
+            blob_client = container_client.get_blob_client(blob_name)
+            blob_client.upload_blob(
+                data,
+                overwrite=True,
+                content_type=content_type,
+                metadata=blob_metadata,
+            )
+
+            blob_url = blob_client.url
+            logger.info(f"Uploaded binary data to blob: {container_name}/{blob_name}")
+            return blob_url
+
+        except Exception as e:
+            logger.error(
+                f"Failed to upload binary data to {container_name}/{blob_name}: {e}"
+            )
+            raise
+
     def upload_html_site(
         self,
         container_name: str,
