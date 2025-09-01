@@ -137,6 +137,23 @@ output "static_web_app_name" {
   value       = azurerm_static_web_app.jablab.name
 }
 
+# Function App outputs
+output "function_app_name" {
+  description = "Name of the static site deployer Function App"
+  value       = azurerm_linux_function_app.static_site_deployer.name
+}
+
+output "function_app_url" {
+  description = "URL of the static site deployer Function App"
+  value       = "https://${azurerm_linux_function_app.static_site_deployer.default_hostname}"
+}
+
+output "function_app_identity_client_id" {
+  description = "Client ID of the Function App managed identity"
+  value       = azurerm_user_assigned_identity.functions.client_id
+  sensitive   = true
+}
+
 # DNS Zone outputs
 output "dns_zone_name_servers" {
   description = "Name servers for jablab.com DNS zone"
