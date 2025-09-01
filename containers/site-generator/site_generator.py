@@ -431,8 +431,13 @@ published: true
         safe_name = os.path.basename(filename)
         # Remove any unsafe characters, keeping only alphanumeric, dots, hyphens, underscores
         safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", safe_name)
+        # Remove directory traversal sequences (..)
+        safe_name = re.sub(r"\.\.+", ".", safe_name)
         # Ensure it doesn't start with dots or special chars
         safe_name = re.sub(r"^[._-]+", "", safe_name)
+        # Remove multiple consecutive underscores or dots
+        safe_name = re.sub(r"[_]{2,}", "_", safe_name)
+        safe_name = re.sub(r"[.]{2,}", ".", safe_name)
         # Limit length
         if not safe_name or len(safe_name) > 50:
             safe_name = "default"
@@ -453,10 +458,30 @@ published: true
 
     async def _upload_site_archive(self, archive_path: Path):
         """Upload site archive to blob storage."""
+        # Validate archive path is safe and within expected directory structure
+        try:
+            # Resolve the path to catch any symlinks or relative paths
+            resolved_path = archive_path.resolve()
+            # Check if the file actually exists and is readable
+            if not resolved_path.exists() or not resolved_path.is_file():
+                raise ValueError(
+                    f"Archive file does not exist or is not a file: {resolved_path}"
+                )
+
+            # Ensure it's a .tar.gz file as expected
+            if not resolved_path.name.endswith(".tar.gz"):
+                raise ValueError(
+                    f"Archive file must be a .tar.gz file: {resolved_path.name}"
+                )
+
+        except (OSError, ValueError) as e:
+            logger.error(f"Invalid archive path: {e}")
+            raise ValueError(f"Invalid archive path: {e}")
+
         # Sanitize the blob name to prevent path injection
         safe_blob_name = self._sanitize_blob_name(archive_path.name)
 
-        with open(archive_path, "rb") as f:
+        with open(resolved_path, "rb") as f:
             self.blob_client.upload_binary(
                 container_name=self.config.STATIC_SITES_CONTAINER,
                 blob_name=safe_blob_name,
