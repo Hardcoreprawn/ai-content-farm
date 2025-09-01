@@ -49,4 +49,4 @@ mypy = "~=1.17.1"
 types-requests = "~=2.31.0.10"
 
 # Security scanning tools (moved to [security] section above)
-# safety, bandit, semgrep - see [security] section
+# bandit, semgrep - see [security] section

@@ -27,11 +27,6 @@ runs:
         python-version: ${{ inputs.python-version }}
         cache: 'pip'
 
-    - name: Setup Safety Configuration
-      uses: ./.github/actions/safety-config
-      with:
-        mode: 'install'
-
     - name: Create Results Directory
       shell: bash
       run: mkdir -p security-results
@@ -53,21 +48,19 @@ runs:
           echo "$requirements_files" > security-results/requirements-files.txt
         fi
 
-    - name: Run Safety Scan
-      if: steps.find-requirements.outputs.has-requirements == 'true'
-      uses: ./.github/actions/safety-config
-      with:
-        mode: 'scan'
-        output-format: 'both'
-        output-dir: 'security-results'
-      continue-on-error: ${{ inputs.continue-on-error == 'true' }}
-
     - name: Generate Summary
       if: always() && steps.find-requirements.outputs.has-requirements == 'true'
       shell: bash
       run: |
         echo "# Dependency Security Analysis Summary" > security-results/dependency-summary.md
         echo "Generated on: $(date)" >> security-results/dependency-summary.md
+        echo "" >> security-results/dependency-summary.md
+        echo "## Found Requirements Files" >> security-results/dependency-summary.md
+        if [ -f security-results/requirements-files.txt ]; then
+          cat security-results/requirements-files.txt >> security-results/dependency-summary.md
+        fi
+        echo "" >> security-results/dependency-summary.md
+        echo "Note: Dependency vulnerability scanning handled by Dependabot" >> security-results/dependency-summary.md
         echo "" >> security-results/dependency-summary.md
 
         if [ -f security-results/requirements-files.txt ]; then

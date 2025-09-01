@@ -75,27 +75,9 @@ runs:
         chmod +x ./scripts/run-semgrep.sh
         ./scripts/run-semgrep.sh "${WORKSPACE_PATH}" security-results semgrep/semgrep:latest || echo "Semgrep scan completed with warnings"
 
-    - name: Python Security Scan (Safety)
-      shell: bash
-      env:
-        WORKSPACE_PATH: ${{ github.workspace }}
-      continue-on-error: true
-      run: |
-        echo "Running Python security scans..."
-
-        # Use centralized Safety configuration for consistent scanning
-        echo "[INFO] Using centralized Safety configuration"
-
-    - name: Run Safety Dependency Scan
-      uses: ./.github/actions/safety-config
-      with:
-        mode: 'scan'
-        output-format: 'json'
-        output-dir: 'security-results'
-      continue-on-error: true
-
-      # Note: Bandit removed - Semgrep provides superior Python security analysis
-      # with broader language support and more comprehensive rule sets
+    # Note: Safety dependency scanning removed - Dependabot provides superior
+    # dependency vulnerability management with automated PRs and real-time monitoring.
+    # Semgrep provides comprehensive Python security analysis for code patterns.
 
     - name: Generate SBOM and Check Dependencies
       shell: bash
