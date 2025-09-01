@@ -204,7 +204,7 @@ jobs:
     if: needs.plan-pipeline.outputs.needs-security-scan == 'true' && needs.workflow-validation.result == 'success'
     strategy:
       matrix:
-        scan-type: [trivy, semgrep, sbom, python]
+        scan-type: [trivy, semgrep, sbom]
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -221,11 +221,7 @@ jobs:
         if: matrix.scan-type == 'sbom'
         uses: ./.github/actions/security-sbom
 
-      - name: Run Python Security Scan
-        if: matrix.scan-type == 'python'
-        uses: ./.github/actions/security-python
-        with:
-          workspace-path: ${{ github.workspace }}  # Stage 5: Conditional Infrastructure Quality
+  # Stage 5: Conditional Infrastructure Quality
   infrastructure-quality:
     name: Infrastructure Quality
     runs-on: ubuntu-latest

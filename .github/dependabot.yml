@@ -3,7 +3,7 @@
 # - Auto-merge enabled for security updates and minor/patch versions
 # - Manual review required for major version updates
 # - Comprehensive testing via dependabot-automerge.yml workflow
-# - Works with security scanning stack (Safety, Semgrep, Trivy, Checkov)
+# - Works with security scanning stack (Semgrep, Trivy, Checkov)
 #
 # Auto-merge criteria:
 # - Security updates: Always auto-merged after CI validation

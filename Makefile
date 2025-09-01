@@ -18,7 +18,7 @@ help:
 	@echo "  checkov         - Validate Terraform with Checkov best practices"
 	@echo "  terrascan       - Static analysis with Terrascan policies (full scan)"
 	@echo "  terrascan-fast  - Fast Terrascan scan (HIGH severity only)"
-	@echo "  scan-python     - Comprehensive Python security scanning (Safety, Semgrep, Trivy)"
+	@echo "  scan-python     - Comprehensive Python security scanning (Semgrep, Trivy)"
 	@echo "  scan-containers - Scan container images for vulnerabilities"
 	@echo "  cost-estimate   - Full cost analysis with Infracost (auto Key Vault integration)"
 	@echo "  infracost-parallel - Streamlined cost analysis for CI/CD pipelines"
