@@ -30,7 +30,7 @@ class OpenAIClient:
         self.api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-07-01-preview")
         self.endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
         # Note: For Azure OpenAI, this should be the deployment name, not the model name
-        self.model_name = os.getenv("AZURE_OPENAI_MODEL_NAME", "gpt-4")
+        self.model_name = os.getenv("AZURE_OPENAI_CHAT_MODEL", "gpt-35-turbo")
 
         # Cost tracking (approximate pricing)
         self.cost_per_1k_tokens = {
