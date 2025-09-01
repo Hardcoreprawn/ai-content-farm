@@ -38,6 +38,7 @@ class ContentProcessor:
 
     def __init__(self):
         self.processor_id = str(uuid4())[:8]
+        self.session_id = str(uuid4())
         self.blob_client = BlobStorageClient()
         self.openai_client = OpenAIClient()
 
@@ -327,6 +328,9 @@ class ContentProcessor:
                 collected_at=collected_at,
                 priority_score=priority_score,
                 subreddit=item.get("subreddit"),  # Optional field
+                url=item.get("url"),
+                upvotes=item.get("ups") or item.get("upvotes"),
+                comments=item.get("num_comments") or item.get("comments"),
             )
 
         except Exception as e:
@@ -401,24 +405,189 @@ class ContentProcessor:
     async def _process_single_topic(
         self, topic_metadata: TopicMetadata
     ) -> Optional[Dict[str, Any]]:
-        """Process a single topic into an article (pure function)."""
+        """Process a single topic into an article using Azure OpenAI."""
         try:
-            # Mock processing for now
             logger.info(f"Processing topic: {topic_metadata.title}")
+            start_time = datetime.now(timezone.utc)
 
-            # Simulate processing time
-            await asyncio.sleep(0.1)
+            # Prepare research content from the topic
+            research_content = self._prepare_research_content(topic_metadata)
+
+            # Generate article using OpenAI
+            article_content, cost_usd, tokens_used = (
+                await self.openai_client.generate_article(
+                    topic_title=topic_metadata.title,
+                    research_content=research_content,
+                    target_word_count=3000,
+                    quality_requirements={
+                        "source": topic_metadata.source,
+                        "priority_score": topic_metadata.priority_score,
+                        "engagement": f"{topic_metadata.upvotes or 0} upvotes, {topic_metadata.comments or 0} comments",
+                    },
+                )
+            )
+
+            if not article_content:
+                logger.error(
+                    f"Failed to generate article for topic: {topic_metadata.title}"
+                )
+                return None
+
+            # Calculate article metadata
+            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+            word_count = len(article_content.split())
+            quality_score = self._calculate_quality_score(article_content, word_count)
+
+            # Prepare article result
+            article_result = {
+                "topic_id": topic_metadata.topic_id,
+                "title": topic_metadata.title,
+                "article_content": article_content,
+                "word_count": word_count,
+                "quality_score": quality_score,
+                "cost": cost_usd,
+                "tokens_used": tokens_used,
+                "processing_time": processing_time,
+                "source_priority": topic_metadata.priority_score,
+                "source": topic_metadata.source,
+                "original_url": topic_metadata.url,
+                "generated_at": start_time.isoformat(),
+                "metadata": {
+                    "processor_id": self.processor_id,
+                    "session_id": self.session_id,
+                    "openai_model": getattr(
+                        self.openai_client, "model_name", "unknown"
+                    ),
+                    "original_upvotes": topic_metadata.upvotes or 0,
+                    "original_comments": topic_metadata.comments or 0,
+                    "content_type": "generated_article",
+                },
+            }
+
+            # Save to processed-content container
+            await self._save_processed_article(article_result)
+
+            logger.info(
+                f"Article generated successfully: {word_count} words, "
+                f"${cost_usd:.4f} cost, {processing_time:.2f}s processing time"
+            )
 
             return {
-                "article_content": f"Mock article for: {topic_metadata.title}",
-                "word_count": 3000,
-                "quality_score": 0.85,
-                "cost": 0.15,
+                "article_content": article_content,
+                "word_count": word_count,
+                "quality_score": quality_score,
+                "cost": cost_usd,
             }
 
         except Exception as e:
             logger.error(f"Error processing topic {topic_metadata.topic_id}: {e}")
             return None
+
+    def _prepare_research_content(self, topic_metadata: TopicMetadata) -> str:
+        """Prepare research content from topic metadata for article generation."""
+        try:
+            research_parts = []
+
+            # Add basic topic information
+            research_parts.append(f"Title: {topic_metadata.title}")
+            research_parts.append(f"Source: {topic_metadata.source}")
+
+            if topic_metadata.url:
+                research_parts.append(f"Original URL: {topic_metadata.url}")
+
+            if topic_metadata.subreddit:
+                research_parts.append(f"Subreddit: r/{topic_metadata.subreddit}")
+
+            # Add engagement metrics
+            engagement_info = []
+            if topic_metadata.upvotes is not None:
+                engagement_info.append(f"{topic_metadata.upvotes} upvotes")
+            if topic_metadata.comments is not None:
+                engagement_info.append(f"{topic_metadata.comments} comments")
+
+            if engagement_info:
+                research_parts.append(f"Engagement: {', '.join(engagement_info)}")
+
+            research_parts.append(
+                f"Priority Score: {topic_metadata.priority_score:.2f}"
+            )
+            research_parts.append(
+                f"Collected At: {topic_metadata.collected_at.isoformat()}"
+            )
+
+            return "\n".join(research_parts)
+
+        except Exception as e:
+            logger.error(f"Error preparing research content: {e}")
+            return f"Title: {topic_metadata.title}\nSource: {topic_metadata.source}"
+
+    def _calculate_quality_score(self, article_content: str, word_count: int) -> float:
+        """Calculate quality score for generated article."""
+        try:
+            score = 0.0
+
+            # Base score for having content
+            if article_content and word_count > 0:
+                score += 0.3
+
+            # Word count score (target ~3000 words)
+            if word_count >= 2000:
+                score += 0.3
+            elif word_count >= 1000:
+                score += 0.2
+            elif word_count >= 500:
+                score += 0.1
+
+            # Structure score (check for headings and sections)
+            if article_content:
+                # Count headers
+                header_count = article_content.count("#")
+                if header_count >= 3:
+                    score += 0.2
+                elif header_count >= 1:
+                    score += 0.1
+
+                # Check for paragraphs
+                paragraph_count = len(
+                    [p for p in article_content.split("\n\n") if p.strip()]
+                )
+                if paragraph_count >= 5:
+                    score += 0.2
+                elif paragraph_count >= 3:
+                    score += 0.1
+
+            # Ensure score is between 0 and 1
+            return max(0.0, min(score, 1.0))
+
+        except Exception as e:
+            logger.error(f"Error calculating quality score: {e}")
+            return 0.5  # Default score
+
+    async def _save_processed_article(self, article_result: Dict[str, Any]) -> bool:
+        """Save processed article to the processed-content container."""
+        try:
+            # Generate blob name with timestamp and topic ID
+            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            topic_id = article_result.get("topic_id", "unknown")
+            blob_name = f"{timestamp}_{topic_id}.json"
+
+            # Save to processed-content container
+            success = self.blob_client.upload_json(
+                container_name="processed-content",
+                blob_name=blob_name,
+                data=article_result,
+            )
+
+            if success:
+                logger.info(f"Saved processed article to blob: {blob_name}")
+                return True
+            else:
+                logger.error(f"Failed to save processed article: {blob_name}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error saving processed article: {e}")
+            return False
 
     async def _test_blob_storage(self) -> bool:
         """Test blob storage connectivity."""

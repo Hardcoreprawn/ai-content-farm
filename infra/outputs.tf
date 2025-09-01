@@ -25,6 +25,30 @@ output "storage_collected_content_container_name" {
   value = azurerm_storage_container.collected_content.name
 }
 
+output "storage_processed_content_container_name" {
+  value = azurerm_storage_container.processed_content.name
+}
+
+output "storage_enriched_content_container_name" {
+  value = azurerm_storage_container.enriched_content.name
+}
+
+output "storage_ranked_content_container_name" {
+  value = azurerm_storage_container.ranked_content.name
+}
+
+output "storage_markdown_content_container_name" {
+  value = azurerm_storage_container.markdown_content.name
+}
+
+output "storage_static_sites_container_name" {
+  value = azurerm_storage_container.static_sites.name
+}
+
+output "storage_pipeline_logs_container_name" {
+  value = azurerm_storage_container.pipeline_logs.name
+}
+
 output "key_vault_name" {
   value = azurerm_key_vault.main.name
 }

@@ -323,6 +323,54 @@ resource "azurerm_storage_container" "collected_content" {
   container_access_type = "private"
 }
 
+# Container for processed content from content-processor service
+resource "azurerm_storage_container" "processed_content" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "processed-content"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+}
+
+# Container for enriched content from content-enricher service
+resource "azurerm_storage_container" "enriched_content" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "enriched-content"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+}
+
+# Container for ranked content from content-ranker service
+resource "azurerm_storage_container" "ranked_content" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "ranked-content"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+}
+
+# Container for markdown content from markdown generator
+resource "azurerm_storage_container" "markdown_content" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "markdown-content"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+}
+
+# Container for static sites from site generator
+resource "azurerm_storage_container" "static_sites" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "static-sites"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+}
+
+# Container for pipeline logs and monitoring
+resource "azurerm_storage_container" "pipeline_logs" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "pipeline-logs"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+}
+
 # Container services now handle the content processing pipeline
 
 # Azure OpenAI Cognitive Services Account
@@ -461,6 +509,12 @@ resource "azurerm_management_lock" "resource_group_lock" {
     # Storage containers
     azurerm_storage_container.topics,
     azurerm_storage_container.collected_content,
+    azurerm_storage_container.processed_content,
+    azurerm_storage_container.enriched_content,
+    azurerm_storage_container.ranked_content,
+    azurerm_storage_container.markdown_content,
+    azurerm_storage_container.static_sites,
+    azurerm_storage_container.pipeline_logs,
 
     # Key Vault secrets and policies
     azurerm_key_vault_secret.openai_endpoint,
