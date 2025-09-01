@@ -1,7 +1,8 @@
 # Site Generator Container
 # Python-based JAMStack static site generator for AI Content Farm
 
-FROM python:3.11-slim
+# Base stage for shared dependencies
+FROM python:3.11-slim AS base
 
 # Set working directory
 WORKDIR /app
@@ -17,6 +18,9 @@ COPY containers/site-generator/requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Development stage
+FROM base AS development
+
 # Copy application code
 COPY containers/site-generator/ .
 
@@ -29,6 +33,30 @@ RUN mkdir -p /app/templates /app/static /app/output
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV PORT=8000
+ENV ENVIRONMENT=development
+
+# Expose port
+EXPOSE ${PORT}
+
+# Run with auto-reload for development
+CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# Production stage
+FROM base AS production
+
+# Copy application code
+COPY containers/site-generator/ .
+
+# Copy shared libraries
+COPY libs/ /app/libs
+
+# Create necessary directories
+RUN mkdir -p /app/templates /app/static /app/output
+
+# Set environment variables
+ENV PYTHONPATH=/app
+ENV PORT=8000
+ENV ENVIRONMENT=production
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
