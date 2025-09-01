@@ -539,10 +539,8 @@ resource "azurerm_static_web_app" "jablab" {
   sku_tier            = "Free"
   sku_size            = "Free"
 
-  identity {
-    type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.containers.id]
-  }
+  # Note: Free tier doesn't support managed identities
+  # Deployment will use deployment tokens via Function App
 
   app_settings = {
     "ENVIRONMENT"                = "production"

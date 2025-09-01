@@ -1,23 +1,15 @@
 {
     "name": "static-site-deployer",
     "version": "1.0.0",
-    "description": "Azure Function to deploy static sites from blob storage to Static Web Apps",
-    "main": "index.js",
+    "description": "Azure Function for deploying static sites from blob storage to Static Web Apps (Python runtime)",
+    "main": "function_app.py",
     "scripts": {
-        "start": "func start",
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "echo \"No tests specified\" && exit 0"
     },
     "dependencies": {
-        "@azure/functions": "^4.5.0",
-        "@azure/storage-blob": "^12.21.0",
-        "@azure/arm-appservice": "^14.1.0",
-        "@azure/identity": "^4.4.1",
-        "@azure/static-web-apps-cli": "^1.1.9",
-        "axios": "^1.7.4"
+        "@azure/static-web-apps-cli": "^1.1.9"
     },
-    "devDependencies": {
-        "@azure/functions-core-tools": "^4.0.6"
-    },
+    "devDependencies": {},
     "engines": {
         "node": ">=18.0.0"
     }

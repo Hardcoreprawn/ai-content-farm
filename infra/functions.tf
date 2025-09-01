@@ -49,7 +49,7 @@ resource "azurerm_linux_function_app" "static_site_deployer" {
 
   site_config {
     application_stack {
-      node_version = "20"
+      python_version = "3.11"
     }
 
     # Enable CORS for local testing
@@ -61,21 +61,22 @@ resource "azurerm_linux_function_app" "static_site_deployer" {
   app_settings = {
     "WEBSITE_RUN_FROM_PACKAGE"    = "1"
     "FUNCTIONS_EXTENSION_VERSION" = "~4"
-    "FUNCTIONS_WORKER_RUNTIME"    = "node"
+    "FUNCTIONS_WORKER_RUNTIME"    = "python"
 
     # Static Web App Configuration
-    "STATIC_WEB_APP_ID"             = azurerm_static_web_app.jablab.id
-    "STATIC_WEB_APP_NAME"           = azurerm_static_web_app.jablab.name
-    "STATIC_WEB_APP_RESOURCE_GROUP" = azurerm_resource_group.main.name
+    "STATIC_WEB_APP_ID"     = azurerm_static_web_app.jablab.id
+    "STATIC_WEB_APP_NAME"   = azurerm_static_web_app.jablab.name
+    "RESOURCE_GROUP_NAME"   = azurerm_resource_group.main.name
+    "AZURE_SUBSCRIPTION_ID" = data.azurerm_client_config.current.subscription_id
 
     # Storage Configuration
-    "CONTENT_STORAGE_ACCOUNT_NAME" = azurerm_storage_account.main.name
-    "STATIC_SITES_CONTAINER"       = "static-sites"
+    "STORAGE_ACCOUNT_URL"    = azurerm_storage_account.main.primary_blob_endpoint
+    "AzureWebJobsStorage"    = azurerm_storage_account.main.primary_connection_string
+    "STATIC_SITES_CONTAINER" = "static-sites"
 
     # Azure Configuration
-    "AZURE_CLIENT_ID"       = azurerm_user_assigned_identity.functions.client_id
-    "AZURE_TENANT_ID"       = data.azurerm_client_config.current.tenant_id
-    "AZURE_SUBSCRIPTION_ID" = data.azurerm_client_config.current.subscription_id
+    "AZURE_CLIENT_ID" = azurerm_user_assigned_identity.functions.client_id
+    "AZURE_TENANT_ID" = data.azurerm_client_config.current.tenant_id
 
     # Environment
     "ENVIRONMENT" = var.environment
