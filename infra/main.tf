@@ -371,6 +371,14 @@ resource "azurerm_storage_container" "pipeline_logs" {
   container_access_type = "private"
 }
 
+# Container for cached pricing data from Azure APIs
+resource "azurerm_storage_container" "pricing_cache" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "pricing-cache"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+}
+
 # Container services now handle the content processing pipeline
 
 # Azure OpenAI Cognitive Services Account

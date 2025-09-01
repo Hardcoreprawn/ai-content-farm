@@ -13,6 +13,7 @@ python-dateutil~=2.9.0
 # HTTP client for health checks and web scraping
 requests~=2.32.5
 aiohttp~=3.12.15
+httpx~=0.28.1  # For Azure pricing API calls
 
 # AI/ML for content analysis and generation
 openai~=1.102.0

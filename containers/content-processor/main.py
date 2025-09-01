@@ -101,6 +101,46 @@ async def docs(metadata: Dict[str, Any] = Depends(service_metadata)):
     return await docs_endpoint(metadata)
 
 
+@app.get("/api/processor/pricing-status", response_model=StandardResponse)
+async def pricing_status(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Get current pricing cache status."""
+    from pricing_service import PricingService
+
+    pricing_service = PricingService()
+    status_data = await pricing_service.get_pricing_status()
+
+    return StandardResponse(
+        status="success",
+        message="Pricing cache status retrieved",
+        data=status_data,
+        metadata=metadata,
+    )
+
+
+@app.post("/api/processor/update-pricing", response_model=StandardResponse)
+async def update_pricing(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Manually update pricing cache (for testing/emergency use)."""
+    from pricing_service import PricingService
+
+    pricing_service = PricingService()
+    success = await pricing_service.update_pricing_cache()
+
+    if success:
+        return StandardResponse(
+            status="success",
+            message="Pricing cache updated successfully",
+            data={"cache_updated": True},
+            metadata=metadata,
+        )
+    else:
+        return StandardResponse(
+            status="error",
+            message="Failed to update pricing cache",
+            data={"cache_updated": False},
+            metadata=metadata,
+        )
+
+
 if __name__ == "__main__":
     import uvicorn
 

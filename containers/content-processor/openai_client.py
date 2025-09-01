@@ -13,6 +13,7 @@ from typing import Any, Dict, Optional, Tuple
 import openai
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from openai import AzureOpenAI
+from pricing_service import PricingService
 
 logger = logging.getLogger(__name__)
 
@@ -32,13 +33,8 @@ class OpenAIClient:
         # Note: For Azure OpenAI, this should be the deployment name, not the model name
         self.model_name = os.getenv("AZURE_OPENAI_CHAT_MODEL", "gpt-35-turbo")
 
-        # Cost tracking (approximate pricing)
-        self.cost_per_1k_tokens = {
-            "gpt-4": 0.03,  # Input tokens
-            "gpt-4-output": 0.06,  # Output tokens
-            "gpt-35-turbo": 0.002,  # Input tokens
-            "gpt-35-turbo-output": 0.002,  # Output tokens
-        }
+        # Initialize pricing service for accurate cost tracking
+        self.pricing_service = PricingService()
 
         self.client = None
         if self.endpoint:
@@ -121,7 +117,7 @@ class OpenAIClient:
             article_content = response.choices[0].message.content
             tokens_used = response.usage.total_tokens if response.usage else 0
             prompt_tokens = response.usage.prompt_tokens if response.usage else 0
-            cost_usd = self._calculate_cost(tokens_used, prompt_tokens)
+            cost_usd = await self._calculate_cost(tokens_used, prompt_tokens)
 
             logger.info(f"Article generated: {tokens_used} tokens, ${cost_usd:.4f}")
             return article_content, cost_usd, tokens_used
@@ -180,32 +176,24 @@ class OpenAIClient:
 
         return "\n".join(prompt_parts)
 
-    def _calculate_cost(self, total_tokens: int, prompt_tokens: int) -> float:
-        """Calculate approximate cost based on token usage."""
+    async def _calculate_cost(self, total_tokens: int, prompt_tokens: int) -> float:
+        """Calculate accurate cost using cached pricing data."""
         try:
             output_tokens = total_tokens - prompt_tokens
 
-            # Get base model name for pricing
-            base_model = self.model_name.lower()
-            if "gpt-4" in base_model:
-                input_cost = (prompt_tokens / 1000) * self.cost_per_1k_tokens["gpt-4"]
-                output_cost = (output_tokens / 1000) * self.cost_per_1k_tokens[
-                    "gpt-4-output"
-                ]
-            else:
-                # Default to GPT-3.5 pricing
-                input_cost = (prompt_tokens / 1000) * self.cost_per_1k_tokens[
-                    "gpt-35-turbo"
-                ]
-                output_cost = (output_tokens / 1000) * self.cost_per_1k_tokens[
-                    "gpt-35-turbo-output"
-                ]
+            # Use pricing service for accurate cost calculation
+            cost = await self.pricing_service.calculate_cost(
+                model_name=self.model_name,
+                input_tokens=prompt_tokens,
+                output_tokens=output_tokens,
+            )
 
-            return input_cost + output_cost
+            return cost
 
         except Exception as e:
             logger.error(f"Cost calculation failed: {e}")
-            return 0.0
+            # Emergency fallback
+            return (total_tokens / 1000) * 0.002
 
     def _generate_mock_article(self, topic_title: str) -> str:
         """Generate mock article for testing when OpenAI unavailable."""

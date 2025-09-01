@@ -49,6 +49,10 @@ output "storage_pipeline_logs_container_name" {
   value = azurerm_storage_container.pipeline_logs.name
 }
 
+output "storage_pricing_cache_container_name" {
+  value = azurerm_storage_container.pricing_cache.name
+}
+
 output "key_vault_name" {
   value = azurerm_key_vault.main.name
 }
