@@ -423,12 +423,28 @@ published: true
 
         return archive_path
 
+    def _sanitize_blob_name(self, name: str) -> str:
+        """Sanitize blob name to prevent path injection."""
+        # Remove any path separators and ensure safe filename
+        safe_name = os.path.basename(name)
+        # Remove any unsafe characters, keeping only alphanumeric, dots, hyphens, underscores
+        safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", safe_name)
+        # Ensure it doesn't start with dots or special chars
+        safe_name = re.sub(r"^[._-]+", "", safe_name)
+        # Limit length and ensure it has an extension
+        if not safe_name or len(safe_name) > 100:
+            safe_name = f"site_archive_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.tar.gz"
+        return safe_name
+
     async def _upload_site_archive(self, archive_path: Path):
         """Upload site archive to blob storage."""
+        # Sanitize the blob name to prevent path injection
+        safe_blob_name = self._sanitize_blob_name(archive_path.name)
+
         with open(archive_path, "rb") as f:
             await self.blob_client.upload_blob(
                 container_name=self.config.STATIC_SITES_CONTAINER,
-                blob_name=archive_path.name,
+                blob_name=safe_blob_name,
                 data=f.read(),
                 content_type="application/gzip",
             )

@@ -5,10 +5,37 @@ const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { exec } = require('child_process');
+const { spawn } = require('child_process');
 const { promisify } = require('util');
 
 const execAsync = promisify(exec);
+
+// Helper function for safe command execution
+const spawnAsync = (command, args, options) => {
+    return new Promise((resolve, reject) => {
+        const child = spawn(command, args, options);
+        let stdout = '';
+        let stderr = '';
+
+        child.stdout.on('data', (data) => {
+            stdout += data;
+        });
+
+        child.stderr.on('data', (data) => {
+            stderr += data;
+        });
+
+        child.on('close', (code) => {
+            if (code === 0) {
+                resolve({ stdout, stderr });
+            } else {
+                reject(new Error(`Command failed with code ${code}: ${stderr}`));
+            }
+        });
+
+        child.on('error', reject);
+    });
+};
 
 /**
  * Azure Function: Static Site Deployer
@@ -114,11 +141,18 @@ async function deployToStaticWebApp(config, sitePath, context) {
         const deploymentToken = response.data.properties.apiKey;
         context.log('Retrieved Static Web App deployment token');
 
-        // Use SWA CLI for deployment (simpler and more reliable)
-        const swaCommand = `npx @azure/static-web-apps-cli deploy "${sitePath}" --deployment-token="${deploymentToken}" --env=production`;
+        // Use SWA CLI for deployment with safe argument handling
+        const swaArgs = [
+            'deploy',
+            sitePath,
+            '--deployment-token',
+            deploymentToken,
+            '--env',
+            'production'
+        ];
 
         context.log('Starting Static Web App deployment...');
-        const { stdout, stderr } = await execAsync(swaCommand, {
+        const { stdout, stderr } = await spawnAsync('npx', ['@azure/static-web-apps-cli', ...swaArgs], {
             cwd: sitePath,
             env: {
                 ...process.env,

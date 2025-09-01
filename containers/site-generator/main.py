@@ -67,7 +67,7 @@ async def health_check():
             status_code=503,
             content={
                 "status": "unhealthy",
-                "error": str(e),
+                "error": "Service temporarily unavailable",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             },
         )
