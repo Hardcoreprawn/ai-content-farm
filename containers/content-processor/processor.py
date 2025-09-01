@@ -212,16 +212,169 @@ class ContentProcessor:
     ) -> List[TopicMetadata]:
         """Find topics available for processing (pure function)."""
         try:
-            # Mock implementation for now - returns empty list
-            # In Phase 2, this will read from blob storage
             logger.info(
                 f"Searching for topics (batch_size={batch_size}, threshold={priority_threshold})"
             )
-            return []
+
+            # List all collections from blob storage
+            blobs = self.blob_client.list_blobs("collected-content")
+            logger.info(f"Found {len(blobs)} total collections")
+
+            valid_collections = []
+            empty_collections = 0
+
+            # Process each collection
+            for blob_info in blobs:
+                blob_name = blob_info["name"]
+
+                try:
+                    # Download and parse collection
+                    collection_data = self.blob_client.download_json(
+                        "collected-content", blob_name
+                    )
+
+                    # Filter out empty collections
+                    if self._is_valid_collection(collection_data):
+                        valid_collections.append((blob_name, collection_data))
+                        logger.debug(
+                            f"Valid collection: {blob_name} ({len(collection_data.get('items', []))} items)"
+                        )
+                    else:
+                        empty_collections += 1
+                        logger.debug(f"Skipping empty collection: {blob_name}")
+
+                except Exception as e:
+                    logger.warning(f"Error processing collection {blob_name}: {e}")
+                    continue
+
+            logger.info(
+                f"Found {len(valid_collections)} valid collections, skipped {empty_collections} empty collections"
+            )
+
+            # Convert collections to TopicMetadata objects
+            topics = []
+            for blob_name, collection_data in valid_collections:
+                for item in collection_data.get("items", []):
+                    topic = self._collection_item_to_topic_metadata(
+                        item, blob_name, collection_data
+                    )
+                    if topic:
+                        topics.append(topic)
+
+            # Sort by priority and limit batch size
+            topics.sort(key=lambda t: t.priority_score, reverse=True)
+            result = topics[:batch_size]
+
+            logger.info(f"Returning {len(result)} topics for processing")
+            return result
 
         except Exception as e:
             logger.error(f"Error finding available topics: {e}")
             return []
+
+    def _is_valid_collection(self, collection_data: Dict[str, Any]) -> bool:
+        """Check if collection contains actual content worth processing."""
+        if not collection_data:
+            return False
+
+        metadata = collection_data.get("metadata", {})
+        items = collection_data.get("items", [])
+
+        # Skip empty collections
+        if metadata.get("total_collected", 0) == 0:
+            return False
+
+        if len(items) == 0:
+            return False
+
+        # Skip collections with only errors (all keys end with "_error")
+        source_breakdown = metadata.get("source_breakdown", {})
+        if source_breakdown and all(
+            key.endswith("_error") for key in source_breakdown.keys()
+        ):
+            return False
+
+        return True
+
+    def _collection_item_to_topic_metadata(
+        self, item: Dict[str, Any], blob_name: str, collection_data: Dict[str, Any]
+    ) -> Optional[TopicMetadata]:
+        """Convert a collection item to TopicMetadata."""
+        try:
+            # Extract basic information
+            topic_id = item.get("id", f"unknown_{blob_name}")
+            title = item.get("title", "Untitled Topic")
+            source = item.get("source", "unknown")
+
+            # Parse collected_at timestamp
+            collected_at_str = item.get("collected_at") or collection_data.get(
+                "metadata", {}
+            ).get("timestamp")
+            if collected_at_str:
+                collected_at = datetime.fromisoformat(
+                    collected_at_str.replace("Z", "+00:00")
+                )
+            else:
+                collected_at = datetime.now(timezone.utc)
+
+            # Calculate priority score based on content characteristics
+            priority_score = self._calculate_priority_score(item)
+
+            return TopicMetadata(
+                topic_id=topic_id,
+                title=title,
+                source=source,
+                collected_at=collected_at,
+                priority_score=priority_score,
+                subreddit=item.get("subreddit"),  # Optional field
+            )
+
+        except Exception as e:
+            logger.warning(f"Error converting item to TopicMetadata: {e}")
+            return None
+
+    def _calculate_priority_score(self, item: Dict[str, Any]) -> float:
+        """Calculate priority score for a topic based on engagement and freshness."""
+        try:
+            score = 0.0
+
+            # Base score from upvotes/score
+            item_score = item.get("score", 0)
+            if item_score > 0:
+                score += min(
+                    item_score / 100.0, 1.0
+                )  # Normalize to 0-1, cap at 100 upvotes
+
+            # Bonus for comments (engagement)
+            num_comments = item.get("num_comments", 0)
+            if num_comments > 0:
+                score += min(
+                    num_comments / 50.0, 0.5
+                )  # Up to 0.5 bonus, cap at 50 comments
+
+            # Freshness bonus (items collected more recently get higher priority)
+            collected_at_str = item.get("collected_at")
+            if collected_at_str:
+                try:
+                    collected_at = datetime.fromisoformat(
+                        collected_at_str.replace("Z", "+00:00")
+                    )
+                    hours_ago = (
+                        datetime.now(timezone.utc) - collected_at
+                    ).total_seconds() / 3600
+                    # Freshness bonus decreases over 24 hours
+                    if hours_ago < 24:
+                        freshness_bonus = (24 - hours_ago) / 24 * 0.3  # Up to 0.3 bonus
+                        score += freshness_bonus
+                except Exception:
+                    pass  # Skip freshness bonus if timestamp parsing fails
+
+            # Ensure score is between 0 and 1
+            return max(0.0, min(score, 1.0))
+
+        except Exception as e:
+            logger.warning(f"Error calculating priority score: {e}")
+            return 0.5  # Default score
 
     async def _acquire_topic_lease(self, topic_id: str) -> bool:
         """Atomically acquire lease on topic (pure function)."""
