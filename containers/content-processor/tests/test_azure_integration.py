@@ -36,7 +36,9 @@ class TestAzureIntegration:
         """Mock blob storage client."""
         with patch("processor.BlobStorageClient") as mock:
             mock_instance = MagicMock()
-            mock_instance.test_connection = AsyncMock(return_value=True)
+            mock_instance.test_connection = MagicMock(
+                return_value={"status": "healthy"}
+            )
             mock.return_value = mock_instance
             yield mock_instance
 
@@ -134,7 +136,7 @@ class TestAzureIntegration:
     ):
         """Test graceful handling of Azure service failures."""
         # Mock Azure failures
-        mock_blob_client.test_connection = AsyncMock(
+        mock_blob_client.test_connection = MagicMock(
             side_effect=Exception("Blob connection failed")
         )
         mock_openai_client.test_connection = AsyncMock(
@@ -215,16 +217,18 @@ class TestOpenAIIntegration:
         assert "bias_check" in prompt
 
     @pytest.mark.integration
-    def test_cost_calculation(self):
+    @pytest.mark.asyncio
+    async def test_cost_calculation(self):
         """Test OpenAI cost calculation accuracy."""
         client = OpenAIClient()
 
         # Test GPT-4 cost calculation
         client.model_name = "gpt-4"
-        cost = client._calculate_cost(total_tokens=2000, prompt_tokens=500)
+        cost = await client._calculate_cost(total_tokens=2000, prompt_tokens=500)
 
-        # Should calculate input (500 * $0.03/1k) + output (1500 * $0.06/1k)
-        expected_cost = (500 * 0.03 / 1000) + (1500 * 0.06 / 1000)
+        # Should calculate input (500 * $0.01/1k) + output (1500 * $0.03/1k)
+        # Using current fallback pricing: input $0.01/1k, output $0.03/1k
+        expected_cost = (500 * 0.01 / 1000) + (1500 * 0.03 / 1000)
         assert abs(cost - expected_cost) < 0.001
 
     @pytest.mark.integration
