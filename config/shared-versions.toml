@@ -2,7 +2,7 @@
 
 [security]
 # Security scanning tools
-safety = "~=2.3.5"  # Latest 2.x version that works with typer
+safety = "~=3.6.1"  # Latest stable Safety version
 typer = "~=0.12.5"  # Pin typer for Safety compatibility
 bandit = "~=1.8.0"
 semgrep = "~=1.91.0"  # Use ~= for compatible release (allows patch updates)

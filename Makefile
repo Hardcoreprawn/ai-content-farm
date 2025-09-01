@@ -1,7 +1,9 @@
 # Makefile for AI Content Farm Project
 # Trigger pipeline for Terraform Docker fix test
 
-.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format terraform-quality terraform-quality-fix apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles scan-containers yamllint actionlint lint-workflows lint-actions check-emojis lint-python lint-python-all flake8 black-check black-format isort-check isort-format mypy pylint format-python lint-container lint-all quality-check
+.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format terraform-quality terraform-quality-fix apply verify destroy security-scan cost-estimate sbom trivy terrascan co	@echo "🔍 Running Safety for dependency vulnerabilities..."
+	@if command -v pip >/dev/null 2>&1; then \
+		pip install -q "safety~=3.6.1" 2>/dev/null || pip install -q safety; \ct-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles scan-containers yamllint actionlint lint-workflows lint-actions check-emojis lint-python lint-python-all flake8 black-check black-format isort-check isort-format mypy pylint format-python lint-container lint-all quality-check
 
 help:
 	@echo "Available targets:"
