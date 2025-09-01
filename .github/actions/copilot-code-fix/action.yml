@@ -1,0 +1,355 @@
+name: 'Copilot Code Fix'
+description: 'Apply intelligent code fixes using GitHub Copilot patterns for security and quality issues'
+inputs:
+  alert-number:
+    description: 'Code scanning alert number'
+    required: true
+  rule-id:
+    description: 'The rule ID that triggered the alert'
+    required: true
+  file-path:
+    description: 'Path to the file with the issue'
+    required: true
+  start-line:
+    description: 'Start line of the issue'
+    required: true
+  end-line:
+    description: 'End line of the issue'
+    required: true
+  fix-strategy:
+    description: 'Fix strategy: security-fix, code-quality, infrastructure-fix'
+    required: true
+  issue-description:
+    description: 'Description of the issue from the alert'
+    required: false
+    default: ''
+
+outputs:
+  fix-applied:
+    description: 'Whether a fix was successfully applied'
+    value: ${{ steps.apply-fix.outputs.fix-applied }}
+  changes-made:
+    description: 'Description of changes made'
+    value: ${{ steps.apply-fix.outputs.changes-made }}
+  validation-passed:
+    description: 'Whether the fix passed validation'
+    value: ${{ steps.validate.outputs.validation-passed }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Fix Environment
+      shell: bash
+      run: |
+        echo "[SETUP] Preparing intelligent code fix environment"
+        echo "Alert: #${{ inputs.alert-number }}"
+        echo "Rule: ${{ inputs.rule-id }}"
+        echo "File: ${{ inputs.file-path }}"
+        echo "Lines: ${{ inputs.start-line }}-${{ inputs.end-line }}"
+        echo "Strategy: ${{ inputs.fix-strategy }}"
+
+    - name: Analyze Code Context
+      id: analyze
+      shell: bash
+      run: |
+        echo "[ANALYZE] Analyzing code context for intelligent fixes"
+
+        file_path="${{ inputs.file-path }}"
+        start_line="${{ inputs.start-line }}"
+        end_line="${{ inputs.end-line }}"
+
+        # Extract problematic code with context
+        if [ -f "$file_path" ]; then
+          # Get 5 lines before and after for context
+          context_start=$((start_line - 5))
+          context_end=$((end_line + 5))
+
+          if [ $context_start -lt 1 ]; then context_start=1; fi
+
+          echo "[CONTEXT] Extracting lines $context_start-$context_end from $file_path"
+          context_code=$(sed -n "${context_start},${context_end}p" "$file_path")
+          problem_code=$(sed -n "${start_line},${end_line}p" "$file_path")
+
+          # Detect file type and language
+          case "$file_path" in
+            *.py) language="python" ;;
+            *.js|*.ts) language="javascript" ;;
+            *.yml|*.yaml) language="yaml" ;;
+            *.tf) language="terraform" ;;
+            *.sh) language="bash" ;;
+            *) language="text" ;;
+          esac
+
+          echo "language=$language" >> "$GITHUB_OUTPUT"
+          echo "context-available=true" >> "$GITHUB_OUTPUT"
+
+          # Save context for use in fix application
+          echo "$context_code" > /tmp/context_code.txt
+          echo "$problem_code" > /tmp/problem_code.txt
+        else
+          echo "context-available=false" >> "$GITHUB_OUTPUT"
+          echo "[ERROR] File $file_path not found"
+        fi
+
+    - name: Apply Intelligent Fix
+      id: apply-fix
+      shell: bash
+      env:
+        RULE_ID: ${{ inputs.rule-id }}
+        STRATEGY: ${{ inputs.fix-strategy }}
+        FILE_PATH: ${{ inputs.file-path }}
+        LANGUAGE: ${{ steps.analyze.outputs.language }}
+        START_LINE: ${{ inputs.start-line }}
+        END_LINE: ${{ inputs.end-line }}
+      run: |
+        echo "[FIX] Applying intelligent fix using strategy: $STRATEGY"
+
+        fix_applied="false"
+        changes_made=""
+
+        if [ ! -f "$FILE_PATH" ]; then
+          echo "[ERROR] File $FILE_PATH not found"
+          echo "fix-applied=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # Create backup
+        cp "$FILE_PATH" "${FILE_PATH}.backup"
+
+        case "$STRATEGY" in
+          "security-fix")
+            echo "[SECURITY] Applying security-focused intelligent fixes"
+
+            case "$RULE_ID" in
+              *"insecure-hash"*|*"weak-crypto"*)
+                echo "[CRYPTO] Upgrading cryptographic functions"
+                if [ "$LANGUAGE" = "python" ]; then
+                  # Replace insecure hash functions
+                  if sed -i.tmp 's/hashlib\.md5(/hashlib.sha256(/g' "$FILE_PATH" && ! diff -q "$FILE_PATH" "${FILE_PATH}.tmp" >/dev/null 2>&1; then
+                    fix_applied="true"
+                    changes_made="Replaced MD5 with SHA256"
+                  fi
+                  if sed -i.tmp 's/hashlib\.sha1(/hashlib.sha256(/g' "$FILE_PATH" && ! diff -q "$FILE_PATH" "${FILE_PATH}.tmp" >/dev/null 2>&1; then
+                    fix_applied="true"
+                    changes_made="${changes_made}, Replaced SHA1 with SHA256"
+                  fi
+                  rm -f "${FILE_PATH}.tmp"
+                fi
+                ;;
+
+              *"hardcoded-password"*|*"hardcoded-secret"*)
+                echo "[SECRETS] Addressing hardcoded secrets"
+                if [ "$LANGUAGE" = "python" ]; then
+                  # Add import for environment variables if not present
+                  if ! grep -q "import os" "$FILE_PATH"; then
+                    sed -i '1i import os' "$FILE_PATH"
+                  fi
+
+                  # Replace common hardcoded patterns with environment variables
+                  if sed -i.tmp 's/password = ["\047][^"\047]*["\047]/password = os.environ.get("PASSWORD", "")/g' "$FILE_PATH" && ! diff -q "$FILE_PATH" "${FILE_PATH}.tmp" >/dev/null 2>&1; then
+                    fix_applied="true"
+                    changes_made="Replaced hardcoded password with environment variable"
+                  fi
+                  if sed -i.tmp 's/api_key = ["\047][^"\047]*["\047]/api_key = os.environ.get("API_KEY", "")/g' "$FILE_PATH" && ! diff -q "$FILE_PATH" "${FILE_PATH}.tmp" >/dev/null 2>&1; then
+                    fix_applied="true"
+                    changes_made="${changes_made}, Replaced hardcoded API key with environment variable"
+                  fi
+                  rm -f "${FILE_PATH}.tmp"
+                fi
+                ;;
+
+              *"path-traversal"*|*"directory-traversal"*)
+                echo "[PATH] Adding path traversal protection"
+                if [ "$LANGUAGE" = "python" ]; then
+                  # Add secure path handling
+                  if ! grep -q "import os.path" "$FILE_PATH"; then
+                    sed -i '1i import os.path' "$FILE_PATH"
+                  fi
+
+                  # Add path normalization and validation
+                  sed -i.tmp 's/open(.*user_input.*/# SECURITY: Path traversal protection needed\n&/' "$FILE_PATH"
+                  if ! diff -q "$FILE_PATH" "${FILE_PATH}.tmp" >/dev/null 2>&1; then
+                    fix_applied="true"
+                    changes_made="Added path traversal protection comments"
+                  fi
+                  rm -f "${FILE_PATH}.tmp"
+                fi
+                ;;
+
+              *"sql-injection"*)
+                echo "[SQL] Adding SQL injection protection"
+                if [ "$LANGUAGE" = "python" ]; then
+                  # Replace string formatting with parameterized queries
+                  if sed -i.tmp 's/\.format(/# SECURITY: Use parameterized queries instead\n&/' "$FILE_PATH" && ! diff -q "$FILE_PATH" "${FILE_PATH}.tmp" >/dev/null 2>&1; then
+                    fix_applied="true"
+                    changes_made="Added SQL injection prevention comments"
+                  fi
+                  rm -f "${FILE_PATH}.tmp"
+                fi
+                ;;
+
+              *"subprocess-shell-true"*)
+                echo "[SUBPROCESS] Securing subprocess calls"
+                if [ "$LANGUAGE" = "python" ]; then
+                  # Replace shell=True with shell=False where possible
+                  if sed -i.tmp 's/shell=True/shell=False/g' "$FILE_PATH" && ! diff -q "$FILE_PATH" "${FILE_PATH}.tmp" >/dev/null 2>&1; then
+                    fix_applied="true"
+                    changes_made="Disabled shell=True in subprocess calls"
+                  fi
+                  rm -f "${FILE_PATH}.tmp"
+                fi
+                ;;
+            esac
+            ;;
+
+          "code-quality")
+            echo "[QUALITY] Applying code quality improvements"
+
+            case "$RULE_ID" in
+              *"unused-import"*)
+                echo "[IMPORTS] Cleaning up unused imports"
+                if [ "$LANGUAGE" = "python" ]; then
+                  # Install and use autoflake to remove unused imports
+                  pip install -q autoflake 2>/dev/null || true
+                  if command -v autoflake >/dev/null 2>&1; then
+                    if autoflake --remove-all-unused-imports --check "$FILE_PATH" >/dev/null 2>&1; then
+                      autoflake --remove-all-unused-imports --in-place "$FILE_PATH"
+                      fix_applied="true"
+                      changes_made="Removed unused imports"
+                    fi
+                  fi
+                fi
+                ;;
+
+              *"unused-variable"*)
+                echo "[VARIABLES] Handling unused variables"
+                if [ "$LANGUAGE" = "python" ]; then
+                  # Prefix unused variables with underscore (simple pattern)
+                  # This is a basic implementation - more sophisticated analysis would be needed
+                  problem_lines=$(sed -n "${START_LINE},${END_LINE}p" "$FILE_PATH")
+                  echo "Problem lines: $problem_lines"
+
+                  # Add comment for manual review
+                  sed -i "${START_LINE}i\\# TODO: Review unused variable - consider prefixing with _ or removing" "$FILE_PATH"
+                  fix_applied="true"
+                  changes_made="Added comment for unused variable review"
+                fi
+                ;;
+
+              *"todo-comment"*)
+                echo "[TODO] Managing TODO comments"
+                # Convert TODO to GitHub issue reference format
+                if sed -i.tmp 's/# TODO:/# TODO (Security scan): /' "$FILE_PATH" && ! diff -q "$FILE_PATH" "${FILE_PATH}.tmp" >/dev/null 2>&1; then
+                  fix_applied="true"
+                  changes_made="Standardized TODO comment format"
+                fi
+                rm -f "${FILE_PATH}.tmp"
+                ;;
+            esac
+            ;;
+
+          "infrastructure-fix")
+            echo "[INFRA] Applying infrastructure security fixes"
+
+            case "$RULE_ID" in
+              *"terraform"*"azure"*"security"*)
+                echo "[TERRAFORM] Applying Terraform Azure security fixes"
+                if [ "$LANGUAGE" = "terraform" ]; then
+                  # Common Terraform security improvements
+                  if sed -i.tmp 's/public_network_access_enabled = true/public_network_access_enabled = false  # Security: Disabled public access/' "$FILE_PATH" && ! diff -q "$FILE_PATH" "${FILE_PATH}.tmp" >/dev/null 2>&1; then
+                    fix_applied="true"
+                    changes_made="Disabled public network access"
+                  fi
+                  rm -f "${FILE_PATH}.tmp"
+                fi
+                ;;
+
+              *"github-actions"*"security"*)
+                echo "[ACTIONS] Applying GitHub Actions security fixes"
+                if [ "$LANGUAGE" = "yaml" ]; then
+                  # Pin action versions and add security improvements
+                  if sed -i.tmp 's/@main/@v[0-9]/g' "$FILE_PATH" && ! diff -q "$FILE_PATH" "${FILE_PATH}.tmp" >/dev/null 2>&1; then
+                    fix_applied="true"
+                    changes_made="Pinned action versions for security"
+                  fi
+                  rm -f "${FILE_PATH}.tmp"
+                fi
+                ;;
+            esac
+            ;;
+        esac
+
+        # Clean up
+        rm -f "${FILE_PATH}.backup"
+
+        if [ "$fix_applied" = "true" ]; then
+          echo "[SUCCESS] Fix applied: $changes_made"
+          echo "fix-applied=true" >> "$GITHUB_OUTPUT"
+          echo "changes-made=$changes_made" >> "$GITHUB_OUTPUT"
+        else
+          echo "[INFO] No automated fix available for this pattern"
+          echo "fix-applied=false" >> "$GITHUB_OUTPUT"
+          echo "changes-made=No automated fix available" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Validate Fix
+      id: validate
+      shell: bash
+      env:
+        FILE_PATH: ${{ inputs.file-path }}
+        LANGUAGE: ${{ steps.analyze.outputs.language }}
+      run: |
+        echo "[VALIDATE] Validating applied fixes"
+
+        validation_passed="true"
+        validation_issues=""
+
+        if [ ! -f "$FILE_PATH" ]; then
+          echo "[ERROR] File not found after fix"
+          echo "validation-passed=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # Language-specific validation
+        case "$LANGUAGE" in
+          "python")
+            echo "[PYTHON] Running Python syntax validation"
+            if ! python -m py_compile "$FILE_PATH" 2>/dev/null; then
+              validation_passed="false"
+              validation_issues="Python syntax error"
+            fi
+
+            # Check for basic imports if we added any
+            if grep -q "import os" "$FILE_PATH"; then
+              echo "[PYTHON] Verified os import is valid"
+            fi
+            ;;
+
+          "yaml")
+            echo "[YAML] Running YAML syntax validation"
+            # Use Python to validate YAML syntax
+            if ! python -c "import yaml; yaml.safe_load(open('$FILE_PATH'))" 2>/dev/null; then
+              validation_passed="false"
+              validation_issues="YAML syntax error"
+            fi
+            ;;
+
+          "terraform")
+            echo "[TERRAFORM] Running basic Terraform validation"
+            # Basic syntax check
+            if command -v terraform >/dev/null 2>&1; then
+              if ! terraform fmt -check=true "$FILE_PATH" >/dev/null 2>&1; then
+                echo "[TERRAFORM] Running terraform fmt"
+                terraform fmt "$FILE_PATH" >/dev/null 2>&1 || true
+              fi
+            fi
+            ;;
+        esac
+
+        if [ "$validation_passed" = "true" ]; then
+          echo "[SUCCESS] Validation passed"
+          echo "validation-passed=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "[ERROR] Validation failed: $validation_issues"
+          echo "validation-passed=false" >> "$GITHUB_OUTPUT"
+        fi

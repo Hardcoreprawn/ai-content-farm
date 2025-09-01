@@ -99,13 +99,23 @@ jobs:
 
           ## Automated Actions Available
           - [ ] Run Dependabot auto-merge workflow
+          - [ ] Run Copilot code scanning auto-resolution
           - [ ] Create PR for CodeQL security fixes
           - [ ] Review security advisories for action items
 
+          ## Copilot Integration
+          This workflow can automatically trigger code scanning fixes using GitHub Copilot.
+
+          **Trigger Copilot Auto-Resolution:**
+          \`\`\`bash
+          gh workflow run copilot-code-scanning-resolution.yml
+          \`\`\`
+
           ## Next Steps
           1. Review each alert type for automated resolution options
-          2. Create targeted PRs for resolvable issues
-          3. Schedule manual review for complex security issues
+          2. Run Copilot auto-resolution for supported code scanning alerts
+          3. Create targeted PRs for resolvable issues
+          4. Schedule manual review for complex security issues
 
           ---
           *This issue was automatically created by the Security Auto-Resolution workflow*
@@ -273,10 +283,33 @@ jobs:
             --label "security,automated" \
             --reviewer "@me"
 
+  copilot-code-scanning-resolution:
+    name: Auto-resolve Code Scanning with Copilot
+    runs-on: ubuntu-latest
+    needs: security-monitoring
+    if: needs.security-monitoring.outputs.has-codeql-alerts == 'true'
+    steps:
+      - name: Trigger Copilot Auto-Resolution
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          echo "[COPILOT] Triggering Copilot code scanning auto-resolution..."
+
+          # Trigger the Copilot workflow with appropriate parameters
+          gh workflow run copilot-code-scanning-resolution.yml \
+            --repo "$REPO" \
+            --field max_alerts="3" \
+            --field force_resolution="false"
+
+          echo "[SUCCESS] Copilot auto-resolution workflow triggered"
+          echo "Check workflow runs for progress: https://github.com/$REPO/actions"
+
   security-summary:
     name: Security Summary Report
     runs-on: ubuntu-latest
-    needs: [security-monitoring, dependabot-resolution, codeql-resolution]
+    needs: [security-monitoring, dependabot-resolution, codeql-resolution, copilot-code-scanning-resolution]
     if: always()
     steps:
       - name: Generate Security Report
@@ -295,6 +328,7 @@ jobs:
 
           if [ "${{ needs.security-monitoring.outputs.has-codeql-alerts }}" = "true" ]; then
             echo "- [SCAN] Analyzed CodeQL alerts for auto-resolution"
+            echo "- [COPILOT] Triggered Copilot auto-resolution workflow"
             echo "- [FIX] Prepared automated fixes for resolvable issues"
           fi
 
