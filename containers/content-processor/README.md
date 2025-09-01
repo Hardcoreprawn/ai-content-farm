@@ -205,7 +205,7 @@ Ran 3 tests in 0.001s
 OK
 
 # Basic Endpoint Tests
-$ python -m pytest test_wake_up_basic.py -v
+$ python -m pytest test_wake_up_basic.py -v  
 test_wake_up_basic.py::test_wake_up_endpoint PASSED
 test_wake_up_basic.py::test_health_endpoint PASSED  
 test_wake_up_basic.py::test_status_endpoint PASSED

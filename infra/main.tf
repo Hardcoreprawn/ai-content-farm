@@ -530,3 +530,73 @@ resource "azurerm_management_lock" "resource_group_lock" {
     azurerm_key_vault_access_policy.github_actions_user
   ]
 }
+
+# Azure Static Web Apps for jablab.com hosting
+resource "azurerm_static_web_app" "jablab" {
+  name                = "${var.resource_prefix}-jablab"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = "West Europe" # Static Web Apps limited regions
+  sku_tier            = "Free"
+  sku_size            = "Free"
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  app_settings = {
+    "ENVIRONMENT"                = "production"
+    "AZURE_STORAGE_ACCOUNT_NAME" = azurerm_storage_account.main.name
+    "STATIC_SITES_CONTAINER"     = "static-sites"
+  }
+
+  tags = merge(local.common_tags, {
+    Service = "static-web-hosting"
+    Domain  = "jablab.com"
+  })
+}
+
+# DNS Zone for jablab.com (if not already existing)
+resource "azurerm_dns_zone" "jablab" {
+  name                = "jablab.com"
+  resource_group_name = azurerm_resource_group.main.name
+
+  tags = merge(local.common_tags, {
+    Service = "dns"
+    Domain  = "jablab.com"
+  })
+}
+
+# DNS CNAME record to point jablab.com to Static Web App
+resource "azurerm_dns_cname_record" "jablab_www" {
+  name                = "www"
+  zone_name           = azurerm_dns_zone.jablab.name
+  resource_group_name = azurerm_resource_group.main.name
+  ttl                 = 300
+  record              = azurerm_static_web_app.jablab.default_host_name
+
+  tags = local.common_tags
+}
+
+# DNS A record for apex domain (jablab.com)
+resource "azurerm_dns_a_record" "jablab_apex" {
+  name                = "@"
+  zone_name           = azurerm_dns_zone.jablab.name
+  resource_group_name = azurerm_resource_group.main.name
+  ttl                 = 300
+  records             = ["185.199.108.153", "185.199.109.153", "185.199.110.153", "185.199.111.153"] # GitHub Pages IPs
+
+  tags = local.common_tags
+}
+
+# Custom domain for Static Web App
+resource "azurerm_static_web_app_custom_domain" "jablab" {
+  static_web_app_id = azurerm_static_web_app.jablab.id
+  domain_name       = "jablab.com"
+  validation_type   = "dns-txt-token"
+
+  depends_on = [
+    azurerm_dns_zone.jablab,
+    azurerm_dns_a_record.jablab_apex
+  ]
+}

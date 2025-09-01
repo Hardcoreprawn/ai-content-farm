@@ -392,3 +392,103 @@ resource "azurerm_container_app" "content_processor" {
     azurerm_cognitive_account.openai
   ]
 }
+
+# Site Generator Container App
+resource "azurerm_container_app" "site_generator" {
+  name                         = "${var.resource_prefix}-site-generator"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  ingress {
+    external_enabled = true
+    target_port      = 8000
+    transport        = "http"
+
+    # IP restrictions for secure access
+    ip_security_restriction {
+      action           = "Allow"
+      ip_address_range = "81.2.90.47/32"
+      name             = "AllowStaticIP"
+    }
+
+    traffic_weight {
+      percentage      = 100
+      latest_revision = true
+    }
+  }
+
+  template {
+    container {
+      name   = "site-generator"
+      image  = var.container_images["site-generator"]
+      cpu    = 0.5
+      memory = "1Gi"
+
+      env {
+        name  = "AZURE_CLIENT_ID"
+        value = azurerm_user_assigned_identity.containers.client_id
+      }
+
+      env {
+        name  = "AZURE_STORAGE_ACCOUNT_NAME"
+        value = azurerm_storage_account.main.name
+      }
+
+      env {
+        name  = "SITE_TITLE"
+        value = "JabLab Tech News"
+      }
+
+      env {
+        name  = "SITE_DESCRIPTION"
+        value = "AI-curated technology news and insights"
+      }
+
+      env {
+        name  = "SITE_DOMAIN"
+        value = "jablab.com"
+      }
+
+      env {
+        name  = "SITE_URL"
+        value = "https://jablab.com"
+      }
+
+      env {
+        name  = "PROCESSED_CONTENT_CONTAINER"
+        value = "processed-content"
+      }
+
+      env {
+        name  = "MARKDOWN_CONTENT_CONTAINER"
+        value = "markdown-content"
+      }
+
+      env {
+        name  = "STATIC_SITES_CONTAINER"
+        value = "static-sites"
+      }
+
+      env {
+        name  = "ENVIRONMENT"
+        value = "production"
+      }
+    }
+
+    min_replicas = 0
+    max_replicas = 2
+  }
+
+  tags = local.common_tags
+
+  depends_on = [
+    azurerm_storage_container.collected_content,
+    azurerm_role_assignment.containers_storage_blob_data_contributor
+  ]
+}

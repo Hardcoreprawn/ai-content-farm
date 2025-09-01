@@ -1,0 +1,35 @@
+# Site Generator Requirements
+# Python-based JAMStack static site generator
+
+# Core Framework
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+pydantic==2.11.7
+
+# Template Engine
+jinja2==3.1.4
+markupsafe==3.0.2
+
+# Async File Operations
+aiofiles==24.1.0
+
+# HTTP Client
+httpx==0.28.1
+
+# Azure Storage Integration
+azure-storage-blob==12.23.1
+
+# Date/Time Utilities
+python-dateutil==2.9.0.post0
+
+# Markdown Processing (if needed)
+markdown==3.7
+
+# RSS Feed Generation
+feedgen==1.0.0
+
+# Development Dependencies (optional)
+pytest==8.3.4
+pytest-asyncio==0.25.0
+black==24.10.0
+flake8==7.1.1

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}{{ site.title }}{% endblock %}</title>
+    <meta name="description" content="{% block description %}{{ site.description }}{% endblock %}">
+
+    <!-- SEO Meta Tags -->
+    <meta property="og:title" content="{% block og_title %}{{ site.title }}{% endblock %}">
+    <meta property="og:description" content="{% block og_description %}{{ site.description }}{% endblock %}">
+    <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+    <meta property="og:url" content="{{ site.url }}{% block og_url %}{% endblock %}">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="{% block twitter_title %}{{ site.title }}{% endblock %}">
+    <meta name="twitter:description" content="{% block twitter_description %}{{ site.description }}{% endblock %}">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="/style.css">
+
+    <!-- RSS Feed -->
+    <link rel="alternate" type="application/rss+xml" title="{{ site.title }}" href="/feed.xml">
+
+    {% block head %}{% endblock %}
+</head>
+
+<body class="{% block body_class %}{% endblock %}">
+    <!-- Header -->
+    <header class="site-header">
+        <div class="container">
+            <nav class="site-nav">
+                <a href="/" class="site-logo">
+                    <h1>{{ site.title }}</h1>
+                </a>
+                <div class="nav-links">
+                    <a href="/" class="nav-link">Home</a>
+                    <a href="/feed.xml" class="nav-link">RSS</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="site-main">
+        <div class="container">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-info">
+                    <p>&copy; {{ current_year }} {{ site.title }}. AI-curated technology news.</p>
+                    <p class="footer-description">{{ site.description }}</p>
+                </div>
+                <div class="footer-links">
+                    <a href="/feed.xml" class="footer-link">RSS Feed</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/script.js"></script>
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

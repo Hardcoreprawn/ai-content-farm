@@ -109,3 +109,36 @@ output "container_apps_environment_id" {
 output "storage_prompts_container_name" {
   value = azurerm_storage_container.prompts.name
 }
+
+# Site Generator Container App outputs
+output "site_generator_url" {
+  description = "URL of the Site Generator Container App"
+  value       = "https://${azurerm_container_app.site_generator.latest_revision_fqdn}"
+}
+
+output "site_generator_name" {
+  description = "Name of the Site Generator Container App"
+  value       = azurerm_container_app.site_generator.name
+}
+
+# Static Web App outputs
+output "static_web_app_url" {
+  description = "Default URL of the Static Web App"
+  value       = "https://${azurerm_static_web_app.jablab.default_host_name}"
+}
+
+output "static_web_app_custom_domain" {
+  description = "Custom domain URL for jablab.com"
+  value       = "https://jablab.com"
+}
+
+output "static_web_app_name" {
+  description = "Name of the Static Web App"
+  value       = azurerm_static_web_app.jablab.name
+}
+
+# DNS Zone outputs
+output "dns_zone_name_servers" {
+  description = "Name servers for jablab.com DNS zone"
+  value       = azurerm_dns_zone.jablab.name_servers
+}

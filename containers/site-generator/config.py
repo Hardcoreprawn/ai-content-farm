@@ -1,0 +1,66 @@
+"""
+Site Generator Configuration
+
+Environment-based configuration for the static site generator.
+"""
+
+import os
+from typing import Optional
+
+
+class Config:
+    """Configuration management for site generator."""
+
+    # Azure Storage Configuration
+    AZURE_STORAGE_CONNECTION_STRING: str = os.environ.get(
+        "AZURE_STORAGE_CONNECTION_STRING", ""
+    )
+
+    # Blob Container Names
+    PROCESSED_CONTENT_CONTAINER: str = os.environ.get(
+        "PROCESSED_CONTENT_CONTAINER", "processed-content"
+    )
+    MARKDOWN_CONTENT_CONTAINER: str = os.environ.get(
+        "MARKDOWN_CONTENT_CONTAINER", "markdown-content"
+    )
+    STATIC_SITES_CONTAINER: str = os.environ.get(
+        "STATIC_SITES_CONTAINER", "static-sites"
+    )
+
+    # Site Configuration
+    SITE_TITLE: str = os.environ.get("SITE_TITLE", "JabLab Tech News")
+    SITE_DESCRIPTION: str = os.environ.get(
+        "SITE_DESCRIPTION", "AI-curated technology news and insights"
+    )
+    SITE_DOMAIN: str = os.environ.get("SITE_DOMAIN", "jablab.com")
+    SITE_URL: str = os.environ.get("SITE_URL", "https://jablab.com")
+
+    # Generation Settings
+    ARTICLES_PER_PAGE: int = int(os.environ.get("ARTICLES_PER_PAGE", "10"))
+    MAX_ARTICLES_TOTAL: int = int(os.environ.get("MAX_ARTICLES_TOTAL", "100"))
+
+    # Theme Settings
+    DEFAULT_THEME: str = os.environ.get("DEFAULT_THEME", "minimal")
+
+    # Performance
+    CONCURRENT_OPERATIONS: int = int(os.environ.get("CONCURRENT_OPERATIONS", "5"))
+
+    @property
+    def azure_storage_configured(self) -> bool:
+        """Check if Azure Storage is properly configured."""
+        return bool(self.AZURE_STORAGE_CONNECTION_STRING)
+
+    def validate(self) -> list[str]:
+        """Validate configuration and return list of errors."""
+        errors = []
+
+        if not self.azure_storage_configured:
+            errors.append("AZURE_STORAGE_CONNECTION_STRING is required")
+
+        if self.ARTICLES_PER_PAGE <= 0:
+            errors.append("ARTICLES_PER_PAGE must be positive")
+
+        if self.MAX_ARTICLES_TOTAL <= 0:
+            errors.append("MAX_ARTICLES_TOTAL must be positive")
+
+        return errors
