@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import re
-
+from werkzeug.utils import secure_filename
 # Import blob storage from libs
 import sys
 import tarfile
@@ -428,12 +428,11 @@ published: true
             logger.error("Site directory is outside allowed path")
             raise ValueError("Invalid site directory path")
 
-        # Create archive in a controlled location
+        # Create archive in a controlled location. Always place in /tmp, not parent directory of site_dir.
         archive_filename = f"site_{safe_theme}_{timestamp}.tar.gz"
-        archive_path = (site_dir.parent / archive_filename).resolve()
-
-        # Defense in depth: ensure archive path is inside temp_base (/tmp)
         temp_base = Path("/tmp").resolve()
+        archive_path = (temp_base / archive_filename).resolve()
+        # Defense in depth: ensure archive path is inside temp_base (/tmp)
         try:
             archive_path.relative_to(temp_base)
         except (ValueError, OSError):
@@ -470,19 +469,12 @@ published: true
 
     def _sanitize_filename(self, filename: str) -> str:
         """Sanitize filename to prevent path injection."""
-        # Remove any path separators and ensure safe filename
-        safe_name = os.path.basename(filename)
-        # Remove any unsafe characters, keeping only alphanumeric, dots, hyphens, underscores
-        safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", safe_name)
-        # Remove directory traversal sequences (..)
-        safe_name = re.sub(r"\.\.+", ".", safe_name)
-        # Ensure it doesn't start with dots or special chars
-        safe_name = re.sub(r"^[._-]+", "", safe_name)
-        # Remove multiple consecutive underscores or dots
-        safe_name = re.sub(r"[_]{2,}", "_", safe_name)
-        safe_name = re.sub(r"[.]{2,}", ".", safe_name)
-        # Limit length
-        if not safe_name or len(safe_name) > 50:
+        # Use werkzeug's secure_filename, which strips dangerous characters
+        safe_name = secure_filename(str(filename))
+        # Remove any remaining path separators (defense in depth)
+        safe_name = safe_name.replace("/", "_").replace("\\", "_")
+        # Ensure it doesn't start with a dot or is empty, and limit length
+        if not safe_name or safe_name.startswith('.') or len(safe_name) > 50:
             safe_name = "default"
         return safe_name
 
