@@ -9,11 +9,7 @@ import asyncio
 import json
 import logging
 import os
-import re
-from werkzeug.utils import secure_filename
-# Import blob storage from libs
 import sys
-import tarfile
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -21,6 +17,10 @@ from typing import Dict, List, Optional, Tuple
 from uuid import uuid4
 
 import aiofiles
+
+# Import our new utility modules
+from content_manager import ContentManager
+from file_operations import ArchiveManager, StaticAssetManager
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from models import (
     ArticleMetadata,
@@ -29,6 +29,7 @@ from models import (
     SiteMetrics,
     SiteStatus,
 )
+from security_utils import SecurityValidator
 
 from config import Config
 from libs.blob_storage import BlobStorageClient
@@ -46,18 +47,14 @@ class SiteGenerator:
         self.config = Config()
         self.blob_client = BlobStorageClient()
 
-        # Initialize Jinja2 environment
-        template_path = Path(__file__).parent / "templates"
-        self.jinja_env = Environment(
-            loader=FileSystemLoader(template_path),
-            autoescape=select_autoescape(["html", "xml"]),
-            trim_blocks=True,
-            lstrip_blocks=True,
-        )
+        # Initialize utility managers
+        self.content_manager = ContentManager()
+        self.archive_manager = ArchiveManager(self.blob_client)
+        self.security_validator = SecurityValidator()
 
-        # Site state
+        # Status tracking
         self.current_status = "idle"
-        self.current_theme = self.config.DEFAULT_THEME
+        self.current_theme = "minimal"
         self.last_generation = None
         self.error_message = None
 
@@ -183,54 +180,25 @@ class SiteGenerator:
 
             if not markdown_articles:
                 logger.info("No markdown articles found for site generation")
-                return GenerationResponse(
-                    generator_id=self.generator_id,
-                    operation_type="site_generation",
-                    files_generated=0,
-                    pages_generated=0,
-                    processing_time=0.0,
-                    output_location=f"blob://{self.config.STATIC_SITES_CONTAINER}",
-                    generated_files=[],
-                )
+                return self._create_empty_response()
 
             # Create temporary directory for site generation
             with tempfile.TemporaryDirectory() as temp_dir:
                 site_dir = Path(temp_dir) / "site"
                 site_dir.mkdir()
 
-                # Generate individual article pages
-                articles_dir = site_dir / "articles"
-                articles_dir.mkdir()
-
-                article_pages = []
-                for article in markdown_articles:
-                    page_path = await self._generate_article_page(
-                        article, articles_dir, theme
-                    )
-                    if page_path:
-                        article_pages.append(page_path)
-                        generated_files.append(f"articles/{page_path.name}")
-
-                # Generate index page
-                index_path = await self._generate_index_page(
+                # Generate content using ContentManager
+                generated_files = await self._generate_site_content(
                     markdown_articles, site_dir, theme
                 )
-                if index_path:
-                    generated_files.append("index.html")
 
-                # Generate RSS feed
-                rss_path = await self._generate_rss_feed(markdown_articles, site_dir)
-                if rss_path:
-                    generated_files.append("feed.xml")
+                # Create and upload archive using ArchiveManager
+                archive_path = await self.archive_manager.create_site_archive(
+                    site_dir, theme
+                )
+                await self.archive_manager.upload_archive(archive_path)
 
-                # Copy static assets
-                await self._copy_static_assets(site_dir, theme)
-                generated_files.extend(["style.css", "script.js"])
-
-                # Create site archive and upload
-                archive_path = await self._create_site_archive(site_dir, theme)
-                await self._upload_site_archive(archive_path)
-
+            # Calculate metrics and return response
             processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
             self.last_generation = datetime.now(timezone.utc)
             self.current_status = "idle"
@@ -243,7 +211,7 @@ class SiteGenerator:
                 generator_id=self.generator_id,
                 operation_type="site_generation",
                 files_generated=len(generated_files),
-                pages_generated=len(article_pages) + 1,  # articles + index
+                pages_generated=len(markdown_articles) + 1,  # articles + index
                 processing_time=processing_time,
                 output_location=f"blob://{self.config.STATIC_SITES_CONTAINER}",
                 generated_files=generated_files,
@@ -254,6 +222,55 @@ class SiteGenerator:
             self.error_message = str(e)
             logger.error(f"Static site generation failed: {e}")
             raise
+
+    def _create_empty_response(self) -> GenerationResponse:
+        """Create response for when no articles are found."""
+        return GenerationResponse(
+            generator_id=self.generator_id,
+            operation_type="site_generation",
+            files_generated=0,
+            pages_generated=0,
+            processing_time=0.0,
+            output_location=f"blob://{self.config.STATIC_SITES_CONTAINER}",
+            generated_files=[],
+        )
+
+    async def _generate_site_content(
+        self, markdown_articles: List[ArticleMetadata], site_dir: Path, theme: str
+    ) -> List[str]:
+        """Generate all site content and return list of generated files."""
+        generated_files = []
+
+        # Generate individual article pages
+        articles_dir = site_dir / "articles"
+        articles_dir.mkdir()
+
+        for article in markdown_articles:
+            page_path = await self.content_manager.generate_article_page(
+                article, articles_dir, theme
+            )
+            if page_path:
+                generated_files.append(f"articles/{page_path.name}")
+
+        # Generate index page
+        index_path = await self.content_manager.generate_index_page(
+            markdown_articles, site_dir, theme
+        )
+        if index_path:
+            generated_files.append("index.html")
+
+        # Generate RSS feed
+        rss_path = await self.content_manager.generate_rss_feed(
+            markdown_articles, site_dir
+        )
+        if rss_path:
+            generated_files.append("feed.xml")
+
+        # Copy static assets
+        static_files = await StaticAssetManager.copy_static_assets(site_dir, theme)
+        generated_files.extend(static_files)
+
+        return generated_files
 
     async def get_preview_url(self, site_id: str) -> str:
         """Get preview URL for a generated site."""
@@ -359,12 +376,7 @@ published: true
 
     def _create_slug(self, title: str) -> str:
         """Create URL-safe slug from title."""
-        slug = title.lower()
-        slug = re.sub(r"[^a-z0-9\s-]", "", slug)
-        slug = re.sub(r"\s+", "-", slug)
-        slug = re.sub(r"-+", "-", slug)
-        slug = slug.strip("-")
-        return slug[:50]
+        return self.content_manager.create_slug(title)
 
     async def _count_markdown_files(self) -> int:
         """Count markdown files in storage."""
@@ -386,157 +398,3 @@ published: true
         # This would download and parse markdown files
         # For now, return empty list - implement based on needs
         return []
-
-    async def _generate_article_page(
-        self, article: ArticleMetadata, output_dir: Path, theme: str
-    ) -> Optional[Path]:
-        """Generate HTML page for single article."""
-        # Implementation would use Jinja2 templates
-        return None
-
-    async def _generate_index_page(
-        self, articles: List[ArticleMetadata], output_dir: Path, theme: str
-    ) -> Optional[Path]:
-        """Generate site index page."""
-        # Implementation would use Jinja2 templates
-        return None
-
-    async def _generate_rss_feed(
-        self, articles: List[ArticleMetadata], output_dir: Path
-    ) -> Optional[Path]:
-        """Generate RSS feed."""
-        # Implementation would create RSS XML
-        return None
-
-    async def _copy_static_assets(self, output_dir: Path, theme: str):
-        """Copy static CSS/JS assets."""
-        # Implementation would copy theme assets
-        pass
-
-    async def _create_site_archive(self, site_dir: Path, theme: str) -> Path:
-        """Create tar.gz archive of generated site."""
-        # Sanitize theme name to prevent path injection
-        safe_theme = self._sanitize_filename(theme)
-        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-
-        # Validate site_dir is within expected temporary directory structure
-        try:
-            resolved_site_dir = site_dir.resolve()
-            temp_base = Path("/tmp")
-            resolved_site_dir.relative_to(temp_base)
-        except (ValueError, OSError):
-            logger.error("Site directory is outside allowed path")
-            raise ValueError("Invalid site directory path")
-
-        # Create archive in a controlled location. Always place in /tmp, not parent directory of site_dir.
-        archive_filename = f"site_{safe_theme}_{timestamp}.tar.gz"
-        temp_base = Path("/tmp").resolve()
-        archive_path = (temp_base / archive_filename).resolve()
-        # Defense in depth: ensure archive path is inside temp_base (/tmp)
-        try:
-            archive_path.relative_to(temp_base)
-        except (ValueError, OSError):
-            logger.error("Archive file path is outside allowed base directory")
-            raise ValueError("Archive file path is outside allowed base directory")
-
-        try:
-            with tarfile.open(archive_path, "w:gz") as tar:
-                # Add files safely with controlled arcname
-                for root, dirs, files in os.walk(site_dir):
-                    # Filter out potentially dangerous files
-                    dirs[:] = [
-                        d
-                        for d in dirs
-                        if not d.startswith(".") and not d.startswith("..")
-                    ]
-                    for file in files:
-                        if not file.startswith(".") and not file.startswith(".."):
-                            file_path = Path(root) / file
-                            try:
-                                # Calculate relative path safely
-                                rel_path = file_path.relative_to(site_dir)
-                                tar.add(file_path, arcname=str(rel_path))
-                            except ValueError:
-                                logger.warning(
-                                    f"Skipping file outside site directory: {file_path}"
-                                )
-                                continue
-        except Exception as e:
-            logger.error("Failed to create site archive")
-            raise ValueError("Archive creation failed")
-
-        return archive_path
-
-    def _sanitize_filename(self, filename: str) -> str:
-        """Sanitize filename to prevent path injection."""
-        # Use werkzeug's secure_filename, which strips dangerous characters
-        safe_name = secure_filename(str(filename))
-        # Remove any remaining path separators (defense in depth)
-        safe_name = safe_name.replace("/", "_").replace("\\", "_")
-        # Ensure it doesn't start with a dot or is empty, and limit length
-        if not safe_name or safe_name.startswith('.') or len(safe_name) > 50:
-            safe_name = "default"
-        return safe_name
-
-    def _sanitize_blob_name(self, name: str) -> str:
-        """Sanitize blob name to prevent path injection."""
-        # Remove any path separators and ensure safe filename
-        safe_name = os.path.basename(name)
-        # Remove any unsafe characters, keeping only alphanumeric, dots, hyphens, underscores
-        safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", safe_name)
-        # Ensure it doesn't start with dots or special chars
-        safe_name = re.sub(r"^[._-]+", "", safe_name)
-        # Limit length and ensure it has an extension
-        if not safe_name or len(safe_name) > 100:
-            safe_name = f"site_archive_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.tar.gz"
-        return safe_name
-
-    async def _upload_site_archive(self, archive_path: Path):
-        """Upload site archive to blob storage."""
-        # Validate archive path is safe and within expected directory structure
-        try:
-            # Validate the original path structure first
-            if not archive_path.name.endswith(".tar.gz"):
-                raise ValueError("Archive file must have .tar.gz extension")
-
-            # Sanitize the archive path to prevent injection
-            sanitized_name = self._sanitize_filename(archive_path.name)
-            if not sanitized_name.endswith(".tar.gz"):
-                sanitized_name += ".tar.gz"
-
-            # Validate the path doesn't escape expected directory structure
-            temp_base = Path("/tmp").resolve()
-            normalized_path = archive_path.resolve()
-            try:
-                normalized_path.relative_to(temp_base)
-            except (ValueError, OSError):
-                raise ValueError("Archive path is outside allowed directory structure")
-
-            # Check if the file actually exists and is readable
-            if not archive_path.exists() or not archive_path.is_file():
-                raise ValueError("Archive file does not exist or is not accessible")
-
-            # Additional validation: check file size is reasonable (prevent DoS)
-            file_size = archive_path.stat().st_size
-            max_size = 100 * 1024 * 1024  # 100MB limit
-            if file_size > max_size:
-                raise ValueError("Archive file exceeds maximum allowed size")
-
-        except (OSError, ValueError) as e:
-            logger.error("Invalid archive path provided")
-            raise ValueError("Invalid archive path")
-
-        # Sanitize the blob name to prevent path injection
-        safe_blob_name = self._sanitize_blob_name(archive_path.name)
-
-        try:
-            with open(archive_path, "rb") as f:
-                self.blob_client.upload_binary(
-                    container_name=self.config.STATIC_SITES_CONTAINER,
-                    blob_name=safe_blob_name,
-                    data=f.read(),
-                    content_type="application/gzip",
-                )
-        except Exception as e:
-            logger.error("Failed to upload site archive")
-            raise ValueError("Upload failed: unable to process archive file")

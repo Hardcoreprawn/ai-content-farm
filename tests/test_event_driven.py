@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
 """
-Test the event-driven blob watching functionality
+Tests for content collection service and event-driven functionality.
 """
 
 import asyncio
 import json
 import os
 import sys
+import tempfile
 from datetime import datetime
+from pathlib import Path
+from unittest.mock import AsyncMock, Mock, patch
+
+# Add the containers path to import the content generator
+sys.path.append(str(Path(__file__).parent.parent / "containers" / "content-generator"))
+
 
 # Add the containers directory to the path
 sys.path.append("/workspaces/ai-content-farm/containers/content-generator")

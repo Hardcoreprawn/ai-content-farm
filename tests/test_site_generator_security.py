@@ -11,11 +11,10 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from site_generator import SiteGenerator
 
 # Add the containers path to import the site generator
-sys.path.insert(0, "/workspaces/ai-content-farm/containers/site-generator")
-
-from site_generator import SiteGenerator
+sys.path.insert(0, str(Path(__file__).parent.parent / "containers" / "site-generator"))
 
 
 class TestSiteGeneratorSecurity:
