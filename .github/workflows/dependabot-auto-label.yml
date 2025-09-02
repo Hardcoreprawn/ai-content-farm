@@ -2,7 +2,7 @@ name: Auto-Label and Approve Dependabot PRs
 
 on:
   pull_request:
-    types: [opened]
+    types: [opened, synchronize, reopened]
 
 permissions:
   pull-requests: write
