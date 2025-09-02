@@ -9,7 +9,11 @@ import asyncio
 import json
 import logging
 import os
+import re
+
+# Import blob storage from libs
 import sys
+import tarfile
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -30,6 +34,7 @@ from models import (
     SiteStatus,
 )
 from security_utils import SecurityValidator
+from werkzeug.utils import secure_filename
 
 from config import Config
 from libs.blob_storage import BlobStorageClient
@@ -398,3 +403,165 @@ published: true
         # This would download and parse markdown files
         # For now, return empty list - implement based on needs
         return []
+
+    async def _generate_article_page(
+        self, article: ArticleMetadata, output_dir: Path, theme: str
+    ) -> Optional[Path]:
+        """Generate HTML page for single article."""
+        # Implementation would use Jinja2 templates
+        return None
+
+    async def _generate_index_page(
+        self, articles: List[ArticleMetadata], output_dir: Path, theme: str
+    ) -> Optional[Path]:
+        """Generate site index page."""
+        # Implementation would use Jinja2 templates
+        return None
+
+    async def _generate_rss_feed(
+        self, articles: List[ArticleMetadata], output_dir: Path
+    ) -> Optional[Path]:
+        """Generate RSS feed."""
+        # Implementation would create RSS XML
+        return None
+
+    async def _copy_static_assets(self, output_dir: Path, theme: str):
+        """Copy static CSS/JS assets."""
+        # Implementation would copy theme assets
+        pass
+
+    async def _create_site_archive(self, site_dir: Path, theme: str) -> Path:
+        """Create tar.gz archive of generated site."""
+        # Sanitize theme name to prevent path injection
+        safe_theme = self._sanitize_filename(theme)
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+
+        # Validate site_dir is within expected temporary directory structure
+        try:
+            resolved_site_dir = site_dir.resolve()
+            temp_base = Path("/tmp")
+            resolved_site_dir.relative_to(temp_base)
+        except (ValueError, OSError):
+            logger.error("Site directory is outside allowed path")
+            raise ValueError("Invalid site directory path")
+
+        # Create archive in a controlled location. Always place in /tmp, not parent directory of site_dir.
+        archive_filename = f"site_{safe_theme}_{timestamp}.tar.gz"
+        temp_base = Path("/tmp").resolve()
+        archive_path = (temp_base / archive_filename).resolve()
+        # Defense in depth: ensure archive path is inside temp_base (/tmp)
+        try:
+            archive_path.relative_to(temp_base)
+        except (ValueError, OSError):
+            logger.error("Archive file path is outside allowed base directory")
+            raise ValueError("Archive file path is outside allowed base directory")
+
+        try:
+            with tarfile.open(archive_path, "w:gz") as tar:
+                # Add files safely with controlled arcname
+                for root, dirs, files in os.walk(site_dir):
+                    # Filter out potentially dangerous files
+                    dirs[:] = [
+                        d
+                        for d in dirs
+                        if not d.startswith(".") and not d.startswith("..")
+                    ]
+                    for file in files:
+                        if not file.startswith(".") and not file.startswith(".."):
+                            file_path = Path(root) / file
+                            try:
+                                # Calculate relative path safely
+                                rel_path = file_path.relative_to(site_dir)
+                                tar.add(file_path, arcname=str(rel_path))
+                            except ValueError:
+                                logger.warning(
+                                    f"Skipping file outside site directory: {file_path}"
+                                )
+                                continue
+        except Exception as e:
+            logger.error("Failed to create site archive")
+            raise ValueError("Archive creation failed")
+
+        return archive_path
+
+    def _sanitize_filename(self, filename: str) -> str:
+        """Sanitize filename to prevent path injection."""
+        # Use werkzeug's secure_filename, which strips dangerous characters
+        safe_name = secure_filename(str(filename))
+        # Remove any remaining path separators (defense in depth)
+        safe_name = safe_name.replace("/", "_").replace("\\", "_")
+        # Remove directory traversal sequences
+        safe_name = safe_name.replace("..", "_")
+        # Remove any remaining dots at the beginning
+        safe_name = safe_name.lstrip(".")
+        # Remove any leading special characters
+        safe_name = safe_name.lstrip("_-")
+        # Ensure it doesn't start with a dot or is empty, and limit length
+        if not safe_name or len(safe_name) > 50:
+            safe_name = "default"
+        return safe_name
+
+    def _sanitize_blob_name(self, name: str) -> str:
+        """Sanitize blob name to prevent path injection."""
+        # Remove any path separators and ensure safe filename
+        safe_name = os.path.basename(name)
+        # Remove any unsafe characters, keeping only alphanumeric, dots, hyphens, underscores
+        safe_name = re.sub(r"[^a-zA-Z0-9._-]", "_", safe_name)
+        # Ensure it doesn't start with dots or special chars
+        safe_name = re.sub(r"^[._-]+", "", safe_name)
+        # Limit length and ensure it has an extension
+        if not safe_name or len(safe_name) > 100:
+            safe_name = f"site_archive_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}.tar.gz"
+        return safe_name
+
+    async def _upload_site_archive(self, archive_path: Path):
+        """Upload site archive to blob storage."""
+        # Validate archive path is safe and within expected directory structure
+        try:
+            # Validate the original path structure first
+            if not archive_path.name.endswith(".tar.gz"):
+                raise ValueError("Archive file must have .tar.gz extension")
+
+            # Sanitize the archive path to prevent injection
+            sanitized_name = self._sanitize_filename(archive_path.name)
+            if not sanitized_name.endswith(".tar.gz"):
+                sanitized_name += ".tar.gz"
+
+            # Validate the path doesn't escape expected directory structure
+            temp_base = Path("/tmp").resolve()
+            normalized_path = archive_path.resolve()
+            try:
+                normalized_path.relative_to(temp_base)
+            except (ValueError, OSError):
+                raise ValueError("Archive path is outside allowed directory structure")
+
+            # Check if the file actually exists and is readable
+            if not archive_path.exists() or not archive_path.is_file():
+                raise ValueError("Archive file does not exist or is not accessible")
+
+            # Additional validation: check file size is reasonable (prevent DoS)
+            file_size = archive_path.stat().st_size
+            max_size = 100 * 1024 * 1024  # 100MB limit
+            if file_size > max_size:
+                raise ValueError("Archive file exceeds maximum allowed size")
+
+        except (OSError, ValueError) as e:
+            logger.error("Invalid archive path provided")
+            # Re-raise the original error to preserve specific error messages for testing
+            raise e
+
+        # Sanitize the blob name to prevent path injection
+        safe_blob_name = self._sanitize_blob_name(archive_path.name)
+
+        try:
+            async with aiofiles.open(archive_path, "rb") as f:
+                data = await f.read()
+                await self.blob_client.upload_binary(
+                    container_name=self.config.STATIC_SITES_CONTAINER,
+                    blob_name=safe_blob_name,
+                    data=data,
+                    content_type="application/gzip",
+                )
+        except Exception as e:
+            logger.error("Failed to upload site archive")
+            raise ValueError("Upload failed: unable to process archive file")

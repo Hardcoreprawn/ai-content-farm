@@ -6,6 +6,9 @@ Uses project standard libraries for consistency.
 """
 
 import logging
+
+# Import from the local models module in the same directory
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -13,6 +16,8 @@ from uuid import uuid4
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from models import ArticleMetadata
+
+sys.path.insert(0, str(Path(__file__).parent))
 
 logger = logging.getLogger(__name__)
 

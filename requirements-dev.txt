@@ -2,6 +2,7 @@
 # This file consolidates dependencies from all containers for unified development
 
 # Base dependencies (from containers/base/requirements-core.txt)
+aiofiles~=24.1.0
 azure-core~=1.32.0
 azure-identity~=1.18.0
 azure-storage-blob~=12.24.0

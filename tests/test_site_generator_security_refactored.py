@@ -16,10 +16,6 @@ from file_operations import ArchiveManager
 from security_utils import SecurityValidator
 from site_generator import SiteGenerator
 
-# Add the containers path to import the site generator
-sys.path.insert(0, str(Path(__file__).parent.parent / "containers" / "site-generator"))
-
-
 # Add the containers path to import the site generator and new modules
 sys.path.insert(
     0, str((Path(__file__).parent.parent / "containers" / "site-generator").resolve())

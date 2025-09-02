@@ -26,7 +26,7 @@ class TestArchiveManager:
     def mock_blob_client(self):
         """Create a mock blob client for testing."""
         mock_client = Mock()
-        mock_client.upload_binary = Mock()
+        mock_client.upload_binary = AsyncMock()
         return mock_client
 
     @pytest.fixture

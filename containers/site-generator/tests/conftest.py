@@ -15,6 +15,9 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 sys.path.insert(0, str((Path(__file__).parent.parent.parent.parent).resolve()))
 
+# Configure pytest-asyncio
+pytest_plugins = ["pytest_asyncio"]
+
 
 @pytest.fixture(autouse=True)
 def setup_test_environment():

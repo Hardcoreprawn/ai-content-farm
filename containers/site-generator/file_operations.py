@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import List
 from uuid import uuid4
 
+import aiofiles
 from security_utils import SecurityValidator
 
 logger = logging.getLogger(__name__)
@@ -130,11 +131,12 @@ class ArchiveManager:
         safe_blob_name = SecurityValidator.sanitize_blob_name(archive_path.name)
 
         try:
-            with open(archive_path, "rb") as f:
-                self.blob_client.upload_binary(
+            async with aiofiles.open(archive_path, "rb") as f:
+                data = await f.read()
+                await self.blob_client.upload_binary(
                     container_name=container_name,
                     blob_name=safe_blob_name,
-                    data=f.read(),
+                    data=data,
                     content_type="application/gzip",
                 )
             logger.info(f"Archive uploaded successfully: {safe_blob_name}")
