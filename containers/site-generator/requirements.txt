@@ -17,19 +17,19 @@ aiofiles==24.1.0
 httpx==0.28.1
 
 # Azure Storage Integration
-azure-storage-blob==12.23.1
+azure-storage-blob==12.26.0
 
 # Date/Time Utilities
 python-dateutil==2.9.0.post0
 
 # Markdown Processing (if needed)
-markdown==3.7
+markdown==3.8.2
 
 # RSS Feed Generation
 feedgen==1.0.0
 
 # Development Dependencies (optional)
-pytest==8.3.4
+pytest==8.4.1
 pytest-asyncio==0.25.0
 black==25.1.0
-flake8==7.1.1
+flake8==7.3.0
