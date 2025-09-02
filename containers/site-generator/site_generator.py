@@ -430,7 +430,15 @@ published: true
 
         # Create archive in a controlled location
         archive_filename = f"site_{safe_theme}_{timestamp}.tar.gz"
-        archive_path = site_dir.parent / archive_filename
+        archive_path = (site_dir.parent / archive_filename).resolve()
+
+        # Defense in depth: ensure archive path is inside temp_base (/tmp)
+        temp_base = Path("/tmp").resolve()
+        try:
+            archive_path.relative_to(temp_base)
+        except (ValueError, OSError):
+            logger.error("Archive file path is outside allowed base directory")
+            raise ValueError("Archive file path is outside allowed base directory")
 
         try:
             with tarfile.open(archive_path, "w:gz") as tar:
@@ -505,11 +513,11 @@ published: true
                 sanitized_name += ".tar.gz"
 
             # Validate the path doesn't escape expected directory structure
-            temp_dir = Path("/tmp")  # Expected base directory for temp files
+            temp_base = Path("/tmp").resolve()
+            normalized_path = archive_path.resolve()
             try:
-                # Use the original path for validation to avoid scanner issues
-                archive_path.resolve().relative_to(temp_dir)
-            except ValueError:
+                normalized_path.relative_to(temp_base)
+            except (ValueError, OSError):
                 raise ValueError("Archive path is outside allowed directory structure")
 
             # Check if the file actually exists and is readable
