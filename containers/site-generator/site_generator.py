@@ -418,10 +418,45 @@ published: true
         # Sanitize theme name to prevent path injection
         safe_theme = self._sanitize_filename(theme)
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        archive_path = site_dir.parent / f"site_{safe_theme}_{timestamp}.tar.gz"
 
-        with tarfile.open(archive_path, "w:gz") as tar:
-            tar.add(site_dir, arcname=".")
+        # Validate site_dir is within expected temporary directory structure
+        try:
+            resolved_site_dir = site_dir.resolve()
+            temp_base = Path("/tmp")
+            resolved_site_dir.relative_to(temp_base)
+        except (ValueError, OSError):
+            logger.error("Site directory is outside allowed path")
+            raise ValueError("Invalid site directory path")
+
+        # Create archive in a controlled location
+        archive_filename = f"site_{safe_theme}_{timestamp}.tar.gz"
+        archive_path = site_dir.parent / archive_filename
+
+        try:
+            with tarfile.open(archive_path, "w:gz") as tar:
+                # Add files safely with controlled arcname
+                for root, dirs, files in os.walk(site_dir):
+                    # Filter out potentially dangerous files
+                    dirs[:] = [
+                        d
+                        for d in dirs
+                        if not d.startswith(".") and not d.startswith("..")
+                    ]
+                    for file in files:
+                        if not file.startswith(".") and not file.startswith(".."):
+                            file_path = Path(root) / file
+                            try:
+                                # Calculate relative path safely
+                                rel_path = file_path.relative_to(site_dir)
+                                tar.add(file_path, arcname=str(rel_path))
+                            except ValueError:
+                                logger.warning(
+                                    f"Skipping file outside site directory: {file_path}"
+                                )
+                                continue
+        except Exception as e:
+            logger.error("Failed to create site archive")
+            raise ValueError("Archive creation failed")
 
         return archive_path
 
@@ -460,31 +495,50 @@ published: true
         """Upload site archive to blob storage."""
         # Validate archive path is safe and within expected directory structure
         try:
+            # Validate the original path structure first
+            if not archive_path.name.endswith(".tar.gz"):
+                raise ValueError("Archive file must have .tar.gz extension")
+
+            # Sanitize the archive path to prevent injection
+            sanitized_name = self._sanitize_filename(archive_path.name)
+            if not sanitized_name.endswith(".tar.gz"):
+                sanitized_name += ".tar.gz"
+
             # Resolve the path to catch any symlinks or relative paths
             resolved_path = archive_path.resolve()
+
+            # Validate the resolved path doesn't escape expected directory
+            temp_dir = Path("/tmp")  # Expected base directory for temp files
+            try:
+                resolved_path.relative_to(temp_dir)
+            except ValueError:
+                raise ValueError("Archive path is outside allowed directory structure")
+
             # Check if the file actually exists and is readable
             if not resolved_path.exists() or not resolved_path.is_file():
-                raise ValueError(
-                    f"Archive file does not exist or is not a file: {resolved_path}"
-                )
+                raise ValueError("Archive file does not exist or is not accessible")
 
-            # Ensure it's a .tar.gz file as expected
-            if not resolved_path.name.endswith(".tar.gz"):
-                raise ValueError(
-                    f"Archive file must be a .tar.gz file: {resolved_path.name}"
-                )
+            # Additional validation: check file size is reasonable (prevent DoS)
+            file_size = resolved_path.stat().st_size
+            max_size = 100 * 1024 * 1024  # 100MB limit
+            if file_size > max_size:
+                raise ValueError("Archive file exceeds maximum allowed size")
 
         except (OSError, ValueError) as e:
-            logger.error(f"Invalid archive path: {e}")
-            raise ValueError(f"Invalid archive path: {e}")
+            logger.error("Invalid archive path provided")
+            raise ValueError("Invalid archive path: file validation failed")
 
         # Sanitize the blob name to prevent path injection
         safe_blob_name = self._sanitize_blob_name(archive_path.name)
 
-        with open(resolved_path, "rb") as f:
-            self.blob_client.upload_binary(
-                container_name=self.config.STATIC_SITES_CONTAINER,
-                blob_name=safe_blob_name,
-                data=f.read(),
-                content_type="application/gzip",
-            )
+        try:
+            with open(resolved_path, "rb") as f:
+                self.blob_client.upload_binary(
+                    container_name=self.config.STATIC_SITES_CONTAINER,
+                    blob_name=safe_blob_name,
+                    data=f.read(),
+                    content_type="application/gzip",
+                )
+        except Exception as e:
+            logger.error("Failed to upload site archive")
+            raise ValueError("Upload failed: unable to process archive file")
