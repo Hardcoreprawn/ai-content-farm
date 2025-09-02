@@ -1,242 +1,234 @@
-# Dependabot configuration for AI Content Farm
-# Features:
-# - Auto-merge enabled for security updates and minor/patch versions
-# - Manual review required for major version updates
-# - Comprehensive testing via dependabot-automerge.yml workflow
-# - Works with security scanning stack (Semgrep, Trivy, Checkov)
+# Dependabot configuration for AI Content Farm (Monorepo Optimized)
 #
-# Auto-merge criteria:
+# MONOREPO STRATEGY:
+# - Consolidated dependency management across /containers/* and /functions/*
+# - Reduced PR volume with strategic grouping
+# - Coordinated with dependabot-automerge.yml workflow
+# - Prevents workflow conflicts through batching and limits
+#
+# Auto-merge criteria (handled by dependabot-automerge.yml):
 # - Security updates: Always auto-merged after CI validation
 # - Patch/minor updates: Auto-merged after CI validation
-# - Major updates: Require manual review
+# - Major updates: Require manual review with risk assessment
 #
 # Ref: https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
 version: 2
 updates:
-  # Python dependencies - main workspace
-  # - package-ecosystem: "pip"
-  #   directory: "/"
-  #   schedule:
-  #     interval: "weekly"
-  #     day: "monday"
-  #     time: "06:00"
-  #   labels:
-  #     - "dependencies"
-  #     - "python"
-  #   reviewers:
-  #     - "Hardcoreprawn"
-  #   assignees:
-  #     - "Hardcoreprawn"
-  #   open-pull-requests-limit: 15
-  #   # Enable auto-merge for security and patch updates
-  #   pull-request-branch-name:
-  #     separator: "/"
-
-  # Python dependencies - container services
-  # Python packages for libs
+  # =============================================================================
+  # SHARED LIBRARIES - Core dependencies used across containers
+  # =============================================================================
   - package-ecosystem: "pip"
     directory: "/libs"
     schedule:
       interval: "weekly"
       day: "monday"
       time: "06:00"
+      timezone: "UTC"
     labels:
       - "dependencies"
       - "python"
       - "libs"
       - "auto-merge"
-    open-pull-requests-limit: 5
-    # Group related updates to reduce PR volume
+    open-pull-requests-limit: 3
+    # Group ALL libs updates to prevent conflicts
     groups:
-      python-minor-patches:
+      libs-all-updates:
         patterns:
           - "*"
         update-types:
+          - "security"
           - "patch"
           - "minor"
+          - "major"
 
-  # Python packages for containers/content-collector
+  # =============================================================================
+  # CONTAINERS - Individual service dependencies
+  # =============================================================================
+
+  # Content Collector - Web scraping and data ingestion
   - package-ecosystem: "pip"
     directory: "/containers/content-collector"
     schedule:
       interval: "weekly"
-      day: "monday"
+      day: "tuesday"
       time: "06:00"
+      timezone: "UTC"
     labels:
       - "dependencies"
       - "python"
       - "content-collector"
       - "auto-merge"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     groups:
-      python-minor-patches:
+      collector-updates:
         patterns:
           - "*"
         update-types:
           - "patch"
           - "minor"
 
-  - package-ecosystem: "pip"
-    directory: "/containers/content-processor"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-    labels:
-      - "dependencies"
-      - "python"
-      - "content-processor"
-      - "auto-merge"
-    open-pull-requests-limit: 5
-    groups:
-      python-minor-patches:
-        patterns:
-          - "*"
-        update-types:
-          - "patch"
-          - "minor"
-
-  - package-ecosystem: "pip"
-    directory: "/containers/content-enricher"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-    labels:
-      - "dependencies"
-      - "python"
-      - "content-enricher"
-      - "auto-merge"
-    open-pull-requests-limit: 5
-    groups:
-      python-minor-patches:
-        patterns:
-          - "*"
-        update-types:
-          - "patch"
-          - "minor"
-
-  - package-ecosystem: "pip"
-    directory: "/containers/content-ranker"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "06:00"
-    labels:
-      - "dependencies"
-      - "python"
-      - "content-ranker"
-      - "auto-merge"
-    open-pull-requests-limit: 5
-    groups:
-      python-minor-patches:
-        patterns:
-          - "*"
-        update-types:
-          - "patch"
-          - "minor"
-
+  # Content Generator - AI content creation
   - package-ecosystem: "pip"
     directory: "/containers/content-generator"
     schedule:
       interval: "weekly"
-      day: "monday"
+      day: "wednesday"
       time: "06:00"
+      timezone: "UTC"
     labels:
       - "dependencies"
       - "python"
       - "content-generator"
       - "auto-merge"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     groups:
-      python-minor-patches:
+      generator-updates:
         patterns:
           - "*"
         update-types:
           - "patch"
           - "minor"
 
+  # Content Processor - Content transformation and optimization
   - package-ecosystem: "pip"
-    directory: "/containers/markdown-generator"
+    directory: "/containers/content-processor"
     schedule:
       interval: "weekly"
-      day: "monday"
+      day: "thursday"
       time: "06:00"
+      timezone: "UTC"
     labels:
       - "dependencies"
       - "python"
-      - "markdown-generator"
+      - "content-processor"
       - "auto-merge"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     groups:
-      python-minor-patches:
+      processor-updates:
         patterns:
           - "*"
         update-types:
           - "patch"
           - "minor"
 
+  # Site Generator - Static site generation
   - package-ecosystem: "pip"
     directory: "/containers/site-generator"
     schedule:
       interval: "weekly"
-      day: "monday"
+      day: "friday"
       time: "06:00"
+      timezone: "UTC"
     labels:
       - "dependencies"
       - "python"
       - "site-generator"
       - "auto-merge"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     groups:
-      python-minor-patches:
+      site-gen-updates:
         patterns:
           - "*"
         update-types:
           - "patch"
           - "minor"
 
+  # =============================================================================
+  # FUNCTIONS - Azure Functions dependencies
+  # =============================================================================
+
+  # Static Site Deployer - Azure deployment function
   - package-ecosystem: "pip"
-    directory: "/containers/collector-scheduler"
+    directory: "/functions/static-site-deployer"
     schedule:
       interval: "weekly"
-      day: "monday"
+      day: "saturday"
       time: "06:00"
+      timezone: "UTC"
     labels:
       - "dependencies"
       - "python"
-      - "collector-scheduler"
+      - "azure-functions"
+      - "static-site-deployer"
       - "auto-merge"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
     groups:
-      python-minor-patches:
+      functions-updates:
         patterns:
           - "*"
         update-types:
           - "patch"
           - "minor"
 
-  # # Docker base images
-  # - package-ecosystem: "docker"
-  #   directory: "/containers"
-  #   schedule:
-  #     interval: "monthly"
-  #     day: "monday"
-  #     time: "06:00"
-  #   labels:
-  #     - "dependencies"
-  #     - "docker"
-  #   open-pull-requests-limit: 10
+  # =============================================================================
+  # INFRASTRUCTURE - Actions and Docker images
+  # =============================================================================
 
-  # GitHub Actions
+  # GitHub Actions - Workflow dependencies
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "monthly"
       day: "monday"
       time: "06:00"
+      timezone: "UTC"
     labels:
       - "dependencies"
       - "github-actions"
-    open-pull-requests-limit: 5
+      - "infrastructure"
+    open-pull-requests-limit: 3
+    groups:
+      actions-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
+
+  # Docker base images - Commented out for now as these tend to be noisy
+  # Uncomment when ready for Docker dependency management
+  # - package-ecosystem: "docker"
+  #   directory: "/containers/base"
+  #   schedule:
+  #     interval: "monthly"
+  #     day: "sunday"
+  #     time: "06:00"
+  #     timezone: "UTC"
+  #   labels:
+  #     - "dependencies"
+  #     - "docker"
+  #     - "base-images"
+  #   open-pull-requests-limit: 2
+  #   groups:
+  #     docker-updates:
+  #       patterns:
+  #         - "*"
+  #       update-types:
+  #         - "patch"
+  #         - "minor"
+
+# =============================================================================
+# MONOREPO OPTIMIZATION NOTES:
+# =============================================================================
+#
+# 1. STAGGERED SCHEDULING: Each component updates on different days to prevent
+#    workflow conflicts and allow sequential processing
+#
+# 2. REDUCED PR LIMITS: Lower limits (2-3) prevent overwhelming the CI/CD system
+#    and ensure the dependabot-automerge.yml workflow can handle them properly
+#
+# 3. STRATEGIC GROUPING:
+#    - /libs: Groups ALL updates (including major) for coordinated shared deps
+#    - Containers: Only group patch/minor to allow major version review
+#    - Functions: Similar grouping strategy as containers
+#
+# 4. TIMEZONE CONSISTENCY: All scheduled in UTC for predictable timing
+#
+# 5. WORKFLOW ALIGNMENT: Works specifically with our streamlined
+#    dependabot-automerge.yml workflow that handles version detection and
+#    auto-merge logic
+#
+# 6. FUTURE EXTENSIBILITY: Easy to add new containers/functions by following
+#    the established pattern
+# =============================================================================
