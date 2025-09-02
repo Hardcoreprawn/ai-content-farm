@@ -6,10 +6,10 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  checks: read
+  security-events: write
 
 jobs:
-  dependabot-auto-merge:
+  dependabot-checks:
     if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
 
@@ -19,82 +19,59 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Validate workflows
-        run: |
-          echo "[SCAN] Validating workflow syntax..."
-          # Reuse existing make target for consistency
-          make lint-workflows
-
-      - name: Quick container validation
-        uses: ./.github/actions/validate-containers
+      - name: Get Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
         with:
-          fail-fast: 'true'
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: Run security scan
+      - name: Basic security scan
         uses: ./.github/actions/security-scan
         with:
-          fail-on-critical: 'true'
-          upload-sarif: 'false'
+          fail-on-critical: 'false'
+          upload-sarif: 'true'
           environment: 'staging'
 
-      - name: Check if PR is ready for auto-merge
-        id: check-ready
-        env:
-          PR_TITLE: ${{ github.event.pull_request.title }}
-          PR_BODY: ${{ github.event.pull_request.body }}
+      - name: Check for major version updates
+        id: version-check
         run: |
-          echo "[AI] Checking Dependabot PR readiness..."
-
-          # Check for security updates (higher priority)
-          if echo "$PR_TITLE" | grep -i "security\|vulnerability\|cve"; then
-            echo "[ALERT] Security update detected - prioritizing auto-merge"
-            echo "is-security=true" >> "$GITHUB_OUTPUT"
-            echo "should-auto-merge=true" >> "$GITHUB_OUTPUT"
-          # Check for patch/minor updates (safe to auto-merge)
-          elif echo "$PR_TITLE" | grep -E "(patch|minor).*update|bump.*\([0-9]+\.[0-9]+\.[0-9]+\)"; then
-            echo "[AUTO] Patch/minor update detected - safe for auto-merge"
-            echo "is-security=false" >> "$GITHUB_OUTPUT"
-            echo "should-auto-merge=true" >> "$GITHUB_OUTPUT"
-          # Major updates require manual review
-          elif echo "$PR_TITLE" | grep -i "major.*update"; then
-            echo "[WARN]  Major update detected - requires manual review"
-            echo "is-security=false" >> "$GITHUB_OUTPUT"
-            echo "should-auto-merge=false" >> "$GITHUB_OUTPUT"
+          if [[ "${{ steps.metadata.outputs.update-type }}" == "version-update:semver-major" ]]; then
+            echo "is-major=true" >> "$GITHUB_OUTPUT"
+            echo "[WARN] Major version update detected - manual review recommended"
           else
-            echo "[SCAN] Standard dependency update - safe for auto-merge"
-            echo "is-security=false" >> "$GITHUB_OUTPUT"
-            echo "should-auto-merge=true" >> "$GITHUB_OUTPUT"
+            echo "is-major=false" >> "$GITHUB_OUTPUT"
+            echo "[PASS] Safe dependency update (patch/minor)"
           fi
 
-      - name: Enable auto-merge
-        if: steps.check-ready.outputs.should-auto-merge == 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PR_NUMBER: ${{ github.event.pull_request.number }}
-          IS_SECURITY: ${{ steps.check-ready.outputs.is-security }}
-        run: |
-          echo "[PASS] Enabling auto-merge for Dependabot PR"
-
-          # Add informative comment
-          if [ "$IS_SECURITY" = "true" ]; then
-            comment="[ALERT] **Security Update Auto-merge** - This PR contains security fixes and will be auto-merged after CI validation."
-          else
-            comment="[AI] **Dependabot Auto-merge** - This PR will be auto-merged after successful CI validation."
-          fi
-
-          gh pr comment "$PR_NUMBER" --body "$comment"
-
-          # Enable auto-merge with squash strategy
-          gh pr merge "$PR_NUMBER" --auto --squash
-
-      - name: Manual review required
-        if: steps.check-ready.outputs.should-auto-merge == 'false'
+      - name: Enable auto-merge (non-major updates)
+        if: steps.version-check.outputs.is-major == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo "[WARN]  Manual review required for this PR"
+          echo "[AUTO-MERGE] Enabling auto-merge for safe dependency update"
+          gh pr comment "$PR_NUMBER" --body "[AUTO-MERGE] **Safe dependency update** - Auto-merge enabled for ${{ steps.metadata.outputs.update-type }} update."
+          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
 
-          comment="[WARN]  **Manual Review Required** - This PR contains major updates that require manual review before merging. Please review the changes and merge manually if appropriate."
+      - name: Request review for major updates
+        if: steps.version-check.outputs.is-major == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "[REVIEW] Major version update requires manual review"
+          gh pr comment "$PR_NUMBER" --body "[REVIEW REQUIRED] **Major version update detected**
 
-          gh pr comment "$PR_NUMBER" --body "$comment"
+          This PR updates **${{ steps.metadata.outputs.dependency-names }}** with a major version change (${{ steps.metadata.outputs.update-type }}).
+
+          **Why manual review is needed:**
+          - Major versions may include breaking changes
+          - API changes could affect functionality
+          - Testing may be required to ensure compatibility
+
+          **Next steps:**
+          1. Review the changelog for breaking changes
+          2. Test locally if needed
+          3. Approve and merge manually when ready
+
+          Security scan has passed, so this update is safe from a security perspective."

@@ -158,13 +158,20 @@ runs:
           semgrep_error_findings="$(jq -r '.results[] | select(.extra.severity == "ERROR") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || semgrep_error_findings="0"
           semgrep_warning_findings="$(jq -r '.results[] | select(.extra.severity == "WARNING") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || semgrep_warning_findings="0"
 
-          # Count acceptable infrastructure findings (documented in docs/SECURITY_EXCEPTIONS.md)
+          # Count acceptable infrastructure findings (documented in docs/SECURITY_STRATEGY.md)
           acceptable_bypass="$(jq -r '.results[] | select(.check_id == "terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_bypass="0"
           acceptable_queue="$(jq -r '.results[] | select(.check_id == "terraform.azure.security.storage.storage-queue-services-logging.storage-queue-services-logging") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_queue="0"
+          acceptable_keyvault_acl="$(jq -r '.results[] | select(.check_id == "terraform.azure.security.keyvault.keyvault-specify-network-acl.keyvault-specify-network-acl") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_keyvault_acl="0"
+          acceptable_secret_expiry="$(jq -r '.results[] | select(.check_id == "terraform.azure.security.keyvault.keyvault-ensure-secret-expires.keyvault-ensure-secret-expires") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_secret_expiry="0"
+          acceptable_jinja2="$(jq -r '.results[] | select(.check_id == "python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_jinja2="0"
+          acceptable_docker_user="$(jq -r '.results[] | select(.check_id == "dockerfile.security.missing-user.missing-user") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_docker_user="0"
+
+          # Calculate total acceptable exceptions
+          total_exceptions=$((acceptable_bypass + acceptable_queue + acceptable_keyvault_acl + acceptable_secret_expiry + acceptable_jinja2 + acceptable_docker_user))
 
           # Only ERROR severity findings are critical, subtract acceptable infrastructure warnings
           total_semgrep=$((semgrep_error_findings + semgrep_warning_findings))
-          semgrep_critical=$((semgrep_error_findings + semgrep_warning_findings - acceptable_bypass - acceptable_queue))
+          semgrep_critical=$((semgrep_error_findings + semgrep_warning_findings - total_exceptions))
 
           # Ensure critical count doesn't go negative
           if [ "$semgrep_critical" -lt 0 ]; then
@@ -173,7 +180,7 @@ runs:
 
           total_critical=$((total_critical + semgrep_critical))
 
-          echo "[SEARCH] Semgrep SAST: $total_semgrep total findings ($semgrep_error_findings error, $semgrep_warning_findings warning), $((acceptable_bypass + acceptable_queue)) acceptable exceptions, $semgrep_critical critical"
+          echo "[SEARCH] Semgrep SAST: $total_semgrep total findings ($semgrep_error_findings error, $semgrep_warning_findings warning), $total_exceptions acceptable exceptions, $semgrep_critical critical"
         elif [ -f "security-results/semgrep.sarif" ]; then
           # Fallback to SARIF format if JSON not available
           semgrep_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/semgrep.sarif 2>/dev/null | wc -l)" || semgrep_critical="0"
@@ -272,9 +279,13 @@ runs:
           *Specialized Python package vulnerability detection*
 
         ## Acceptable Exceptions
-        As documented in \`docs/SECURITY_EXCEPTIONS.md\`:
+        As documented in \`docs/SECURITY_STRATEGY.md\`:
         - Azure Storage service bypass (required for Container Apps)
         - Azure Storage queue logging (not applicable - we use Service Bus)
+        - Key Vault network ACL (GitHub Actions dynamic IPs)
+        - Key Vault secret expiration (external secret management)
+        - Direct Jinja2 usage (controlled template generation)
+        - Docker USER directive (development containers)
 
         ## Action Required
         $(if [ "$total_critical" -eq 0 ]; then

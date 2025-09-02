@@ -25,10 +25,18 @@ env:
   BUILDKIT_PROGRESS: plain
 
 jobs:
+  # Skip CI/CD for Dependabot PRs (they have their own lightweight workflow)
+  check-actor:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Running CI/CD for non-Dependabot PR"
+
   # Stage 1: Change Detection & Job Planning
   plan-pipeline:
     name: Plan Pipeline Execution
     runs-on: ubuntu-latest
+    needs: check-actor
     outputs:
       skip-deployment: ${{ steps.plan.outputs.skip-deployment }}
       changed-containers: ${{ steps.plan.outputs.changed-containers }}
@@ -88,13 +96,33 @@ jobs:
               has_only_docs=false
               echo "[CONTAINER] Container change: $container_name"
             elif [[ "$file" =~ ^libs/ ]] || [[ "$file" =~ ^requirements.*\.txt$ ]] || [[ "$file" == "pyproject.toml" ]]; then
-              # Libs affect all containers
-              for container in content-collector content-enricher content-generator content-processor content-ranker markdown-generator site-generator collector-scheduler; do
-                container_set["$container"]=1
-              done
+              # Libs affect all containers - dynamically discover existing containers
+              echo "[LIBRARY] Library change affects all containers - discovering available containers..."
+
+              # Use our discovery script for robust container detection
+              if [[ -x "./scripts/discover-containers.sh" ]]; then
+                echo "[DISCOVERY] Using container discovery script..."
+                while IFS= read -r container_name; do
+                  container_set["$container_name"]=1
+                  echo "[DISCOVERY] Found container: $container_name"
+                done < <(./scripts/discover-containers.sh --list)
+              else
+                echo "[FALLBACK] Discovery script not found, using manual discovery..."
+                for container_dir in containers/*/; do
+                  if [[ -d "$container_dir" && -f "$container_dir/Dockerfile" ]]; then
+                    container_name=$(basename "$container_dir")
+                    # Skip base container as it's not a deployable service
+                    if [[ "$container_name" != "base" && "$container_name" != "__pycache__" ]]; then
+                      container_set["$container_name"]=1
+                      echo "[DISCOVERY] Found container: $container_name"
+                    fi
+                  fi
+                done
+              fi
+
               has_code_changes=true
               has_only_docs=false
-              echo "[LIBRARY] Library change affects all containers"
+              echo "[LIBRARY] Library change affects all discovered containers"
             elif [[ "$file" =~ ^infra/ ]] || [[ "$file" =~ \.tf$ ]]; then
               needs_infrastructure=true
               has_only_docs=false
@@ -189,7 +217,7 @@ jobs:
           upload-coverage: 'true'
 
       - name: Integration Test Container (${{ matrix.container }})
-        if: matrix.container != 'collector-scheduler' && matrix.container != 'markdown-generator'
+        if: hashFiles(format('containers/{0}/tests/test_integration*.py', matrix.container)) != ''
         uses: ./.github/actions/test-single-container
         with:
           container-name: ${{ matrix.container }}
@@ -202,24 +230,16 @@ jobs:
     runs-on: ubuntu-latest
     needs: [plan-pipeline, workflow-validation]
     if: needs.plan-pipeline.outputs.needs-security-scan == 'true' && needs.workflow-validation.result == 'success'
-    strategy:
-      matrix:
-        scan-type: [trivy, semgrep, sbom]
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
 
-      - name: Run Trivy Security Scan
-        if: matrix.scan-type == 'trivy'
-        uses: ./.github/actions/security-trivy
-
-      - name: Run Semgrep Security Scan
-        if: matrix.scan-type == 'semgrep'
-        uses: ./.github/actions/security-semgrep
-
-      - name: Generate SBOM
-        if: matrix.scan-type == 'sbom'
-        uses: ./.github/actions/security-sbom
+      - name: Run Comprehensive Security Scan
+        uses: ./.github/actions/security-scan
+        with:
+          fail-on-critical: 'false'  # Allow pipeline to continue, but report issues
+          upload-sarif: 'true'
+          environment: ${{ github.ref == 'refs/heads/main' && 'production' || 'development' }}
 
   # Stage 5: Conditional Infrastructure Quality
   infrastructure-quality:

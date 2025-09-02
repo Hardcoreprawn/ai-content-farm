@@ -27,6 +27,26 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Validate Container Directory
+      shell: bash
+      env:
+        CONTAINER_NAME: ${{ inputs.container-name }}
+      run: |
+        echo "[VALIDATE] Checking if container ${CONTAINER_NAME} exists..."
+        if [[ ! -d "containers/${CONTAINER_NAME}" ]]; then
+          echo "[FAIL] Error: Container directory 'containers/${CONTAINER_NAME}' does not exist"
+          echo "Available containers:"
+          ls -la containers/ | grep '^d' | awk '{print $NF}' | grep -v '^\.\|^__pycache__$' || echo "No container directories found"
+          exit 1
+        fi
+
+        if [[ ! -f "containers/${CONTAINER_NAME}/Dockerfile" ]]; then
+          echo "[FAIL] Error: No Dockerfile found in 'containers/${CONTAINER_NAME}'"
+          exit 1
+        fi
+
+        echo "[PASS] Container ${CONTAINER_NAME} directory and Dockerfile found"
+
     - name: Set up Python environment
       shell: bash
       env:
