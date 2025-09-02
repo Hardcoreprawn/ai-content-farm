@@ -11,13 +11,13 @@ import tempfile
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
-# Add the parent directory to import the site generator modules
-sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
-
 import pytest
 from file_operations import ArchiveManager
 from security_utils import SecurityValidator
 from site_generator import SiteGenerator
+
+# Add the parent directory to import the site generator modules
+sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 
 
 class TestSiteGeneratorSecurity:
@@ -31,6 +31,11 @@ class TestSiteGeneratorSecurity:
             # Setup proper async mock for blob client
             generator.blob_client = AsyncMock()
             generator.blob_client.upload_binary = AsyncMock()
+
+            # Also mock the archive manager's blob client
+            generator.archive_manager.blob_client = AsyncMock()
+            generator.archive_manager.blob_client.upload_binary = AsyncMock()
+
             return generator
 
     @pytest.fixture

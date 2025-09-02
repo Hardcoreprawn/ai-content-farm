@@ -33,6 +33,9 @@ try:
 except ImportError:
     blob_storage_available = False
 
+# Import secure error handler
+from .secure_error_handler import ErrorSeverity, SecureErrorHandler, handle_error_safely
+
 __all__ = [
     # FastAPI-native core
     "StandardResponse",
@@ -45,6 +48,10 @@ __all__ = [
     "HealthStatus",
     "ServiceStatus",
     "ContentItem",
+    # Security
+    "SecureErrorHandler",
+    "ErrorSeverity",
+    "handle_error_safely",
     # Legacy support
     "wrap_legacy_response",
 ]

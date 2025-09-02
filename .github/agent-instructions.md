@@ -15,6 +15,7 @@ This is a **personal content aggregation and curation platform** that collects i
 - **Documentation as code**: Keep docs current, concise, and actionable
 
 ## Security Guidelines
+- **Follow the OWASP Guidance**: Check for CVEs or other common exploits in any code.
 - **GitHub Actions**: Always use environment variables for `${{ inputs.* }}` and `${{ github.* }}` context in run steps to prevent injection attacks
 - **Docker Security**: All Dockerfiles must include non-root USER directive (use `useradd --create-home --shell /bin/bash app && USER app`)
 - **Python Logging**: Never log sensitive data (URLs, secrets, environment variables, stack traces with user data)
