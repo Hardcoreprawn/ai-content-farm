@@ -10,7 +10,7 @@ import json
 import logging
 import os
 import re
-from werkzeug.utils import secure_filename
+
 # Import blob storage from libs
 import sys
 import tarfile
@@ -29,6 +29,7 @@ from models import (
     SiteMetrics,
     SiteStatus,
 )
+from werkzeug.utils import secure_filename
 
 from config import Config
 from libs.blob_storage import BlobStorageClient
@@ -474,7 +475,7 @@ published: true
         # Remove any remaining path separators (defense in depth)
         safe_name = safe_name.replace("/", "_").replace("\\", "_")
         # Ensure it doesn't start with a dot or is empty, and limit length
-        if not safe_name or safe_name.startswith('.') or len(safe_name) > 50:
+        if not safe_name or safe_name.startswith(".") or len(safe_name) > 50:
             safe_name = "default"
         return safe_name
 
