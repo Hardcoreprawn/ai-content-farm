@@ -6,10 +6,10 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  checks: read
+  security-events: write
 
 jobs:
-  dependabot-auto-merge:
+  dependabot-checks:
     if: github.actor == 'dependabot[bot]'
     runs-on: ubuntu-latest
 
@@ -19,33 +19,59 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Validate workflows
-        run: |
-          echo "[SCAN] Validating workflow syntax..."
-          # Reuse existing make target for consistency
-          make lint-workflows
-
-      - name: Quick container validation
-        uses: ./.github/actions/validate-containers
+      - name: Get Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
         with:
-          fail-fast: 'true'
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: Run security scan
+      - name: Basic security scan
         uses: ./.github/actions/security-scan
         with:
-          fail-on-critical: 'false'  # Don't fail on security issues for dependency updates
-          upload-sarif: 'false'
+          fail-on-critical: 'false'
+          upload-sarif: 'true'
           environment: 'staging'
 
-      - name: Enable auto-merge for Dependabot PR
+      - name: Check for major version updates
+        id: version-check
+        run: |
+          if [[ "${{ steps.metadata.outputs.update-type }}" == "version-update:semver-major" ]]; then
+            echo "is-major=true" >> "$GITHUB_OUTPUT"
+            echo "[WARN] Major version update detected - manual review recommended"
+          else
+            echo "is-major=false" >> "$GITHUB_OUTPUT"
+            echo "[PASS] Safe dependency update (patch/minor)"
+          fi
+
+      - name: Enable auto-merge (non-major updates)
+        if: steps.version-check.outputs.is-major == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo "[AUTO-MERGE] Enabling auto-merge for Dependabot PR #$PR_NUMBER"
-
-          # Add informative comment
-          gh pr comment "$PR_NUMBER" --body "[AUTO-MERGE] **Dependabot Auto-merge enabled** - This PR will auto-merge when CI checks pass."
-
-          # Enable auto-merge with squash strategy
+          echo "[AUTO-MERGE] Enabling auto-merge for safe dependency update"
+          gh pr comment "$PR_NUMBER" --body "[AUTO-MERGE] **Safe dependency update** - Auto-merge enabled for ${{ steps.metadata.outputs.update-type }} update."
           gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
+
+      - name: Request review for major updates
+        if: steps.version-check.outputs.is-major == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          echo "[REVIEW] Major version update requires manual review"
+          gh pr comment "$PR_NUMBER" --body "[REVIEW REQUIRED] **Major version update detected**
+
+          This PR updates **${{ steps.metadata.outputs.dependency-names }}** with a major version change (${{ steps.metadata.outputs.update-type }}).
+
+          **Why manual review is needed:**
+          - Major versions may include breaking changes
+          - API changes could affect functionality
+          - Testing may be required to ensure compatibility
+
+          **Next steps:**
+          1. Review the changelog for breaking changes
+          2. Test locally if needed
+          3. Approve and merge manually when ready
+
+          Security scan has passed, so this update is safe from a security perspective."

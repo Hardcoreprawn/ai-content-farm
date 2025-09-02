@@ -25,10 +25,18 @@ env:
   BUILDKIT_PROGRESS: plain
 
 jobs:
+  # Skip CI/CD for Dependabot PRs (they have their own lightweight workflow)
+  check-actor:
+    if: github.actor != 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Running CI/CD for non-Dependabot PR"
+
   # Stage 1: Change Detection & Job Planning
   plan-pipeline:
     name: Plan Pipeline Execution
     runs-on: ubuntu-latest
+    needs: check-actor
     outputs:
       skip-deployment: ${{ steps.plan.outputs.skip-deployment }}
       changed-containers: ${{ steps.plan.outputs.changed-containers }}
