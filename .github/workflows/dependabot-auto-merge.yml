@@ -14,6 +14,11 @@ jobs:
     if: github.actor == 'dependabot[bot]'
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Check if auto-merge label is present
         id: check-label
         run: |
