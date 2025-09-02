@@ -75,7 +75,7 @@ runs:
 
     - name: Commit Formatting Changes
       shell: bash
-      if: steps.fix.outputs.changes-made == 'true'
+      if: steps.fix.outputs.changes-made == 'true' && github.event_name != 'pull_request'
       run: |
         echo "Committing formatting changes..."
 
@@ -89,6 +89,15 @@ runs:
 
         # Push changes
         git push
+
+    - name: Report Formatting Issues for PR
+      shell: bash
+      if: steps.fix.outputs.changes-made == 'true' && github.event_name == 'pull_request'
+      run: |
+        echo "::error::Code formatting issues detected. Please run 'black . && isort . --profile black' locally and commit the changes."
+        echo "Formatting issues found:"
+        git diff --name-only
+        exit 1
 
     - name: Set Output for No Changes
       shell: bash

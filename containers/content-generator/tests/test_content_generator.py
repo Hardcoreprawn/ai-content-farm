@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """
-Test script for content generator integration
+Tests for content generation service endpoints and core business logic.
 """
 
 import asyncio
 import json
 import os
 import sys
+import tempfile
 from datetime import datetime
+from pathlib import Path
+from unittest.mock import AsyncMock, Mock, patch
 
-# Add the containers directory to the path
-sys.path.append("/workspaces/ai-content-farm/containers/content-generator")
-sys.path.append("/workspaces/ai-content-farm")
+# Add content generator path
+sys.path.append(str(Path(__file__).parent.parent.resolve()))
 
 
 async def test_content_generator():

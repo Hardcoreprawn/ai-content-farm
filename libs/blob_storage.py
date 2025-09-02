@@ -463,7 +463,7 @@ class BlobStorageClient:
             logger.error(f"Failed to upload text to {container_name}/{blob_name}: {e}")
             raise
 
-    def upload_binary(
+    async def upload_binary(
         self,
         container_name: str,
         blob_name: str,

@@ -66,9 +66,12 @@ async def test_complete_pipeline():
     print("\n2️⃣  Testing Content Type Intelligence:")
     try:
         import sys
+        from pathlib import Path
 
-        sys.path.append("/workspaces/ai-content-farm/containers/content-generator")
-        sys.path.append("/workspaces/ai-content-farm")
+        sys.path.append(
+            str(Path(__file__).parent.parent / "containers" / "content-generator")
+        )
+        sys.path.append(str(Path(__file__).parent.parent))
 
         from models import RankedTopic, SourceData
         from service_logic import ContentGeneratorService
