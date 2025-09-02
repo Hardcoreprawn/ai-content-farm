@@ -106,7 +106,7 @@ case $OUTPUT_FORMAT in
     printf '%s\n' "${containers[@]}" | jq -R . | jq -s .
     ;;
   list)
-    printf '%s\n' "${containers[*]}"
+    printf '%s\n' "${containers[@]}"
     ;;
   count)
     printf '%d\n' "$container_count"
