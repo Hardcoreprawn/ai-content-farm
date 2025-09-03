@@ -87,6 +87,112 @@ jobs:
             echo "No large files found"
           fi
 
+      - name: Check for Issues to Close
+        id: check-close
+        uses: actions/github-script@v7
+        with:
+          script: |
+            // Get existing large-file issues
+            const existingIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'large-file',
+              per_page: 100
+            });
+
+            const issuesToClose = [];
+
+            for (const issue of existingIssues.data) {
+              // Only process individual file issues, not sprint summaries
+              const match = issue.title.match(/^Refactor large file: `([^`]+)` \(\d+ lines\)$/);
+              if (match) {
+                const filePath = match[1];
+
+                // Check if file exists and get line count
+                try {
+                  const { execSync } = require('child_process');
+
+                  // Check if file exists
+                  try {
+                    execSync(`test -f "${filePath}"`, { stdio: 'ignore' });
+                  } catch {
+                    // File doesn't exist
+                    issuesToClose.push({
+                      number: issue.number,
+                      filePath: filePath,
+                      reason: 'file_deleted',
+                      currentLines: 0
+                    });
+                    continue;
+                  }
+
+                  // Get current line count
+                  const lineCount = parseInt(execSync(`wc -l < "${filePath}"`, { encoding: 'utf8' }).trim());
+
+                  if (lineCount <= 500) {
+                    issuesToClose.push({
+                      number: issue.number,
+                      filePath: filePath,
+                      reason: 'under_threshold',
+                      currentLines: lineCount
+                    });
+                  }
+                } catch (error) {
+                  console.log(`Could not check file ${filePath}: ${error.message}`);
+                }
+              }
+            }
+
+            console.log(`Found ${issuesToClose.length} issues to close`);
+
+            // Close issues
+            for (const issueInfo of issuesToClose) {
+              let commentBody;
+
+              if (issueInfo.reason === 'file_deleted') {
+                commentBody = `[RESOLVED] **Automatically resolved - File no longer exists**
+
+            This issue has been automatically closed because the file \`${issueInfo.filePath}\` no longer exists in the repository.
+
+            ---
+            *Auto-closed by Large File Detector workflow*`;
+              } else {
+                commentBody = `[RESOLVED] **Automatically resolved - File now meets size requirements**
+
+            This issue has been automatically closed because the file \`${issueInfo.filePath}\` is now ${issueInfo.currentLines} lines, which is under the current threshold of 500 lines.
+
+            **Previous threshold**: 400 lines
+            **New threshold**: 500 lines
+            **Current file size**: ${issueInfo.currentLines} lines
+
+            The file refactoring work tracked by this issue is no longer required.
+
+            ---
+            *Auto-closed by Large File Detector workflow (threshold update)*`;
+              }
+
+              try {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueInfo.number,
+                  body: commentBody
+                });
+
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issueInfo.number,
+                  state: 'closed'
+                });
+
+                console.log(`Closed issue #${issueInfo.number} for ${issueInfo.filePath}`);
+              } catch (error) {
+                console.error(`Failed to close issue #${issueInfo.number}: ${error.message}`);
+              }
+            }
+
       - name: Create Individual Issues for Large Files
         if: steps.find-large.outputs.file_count > 0
         uses: actions/github-script@v7
