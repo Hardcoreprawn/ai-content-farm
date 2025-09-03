@@ -2,6 +2,7 @@
 Content Womble - Main FastAPI Application
 
 A humble content collection service for gathering and analyzing digital content.
+Updated with standardized tests and security improvements.
 """
 
 import logging
@@ -20,6 +21,7 @@ from endpoints import (
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from fastapi.routing import APIRoute
 from models import (
     CollectionRequest,
     DiscoveryRequest,
@@ -86,6 +88,20 @@ async def not_found_handler(request: Request, exc):
     # Create service metadata for the error response
     metadata = await create_service_dependency("content-womble")()
 
+    # Dynamically extract available endpoints from the FastAPI app
+    available_endpoints = []
+    for route in app.routes:
+        # Check if this is an APIRoute (which has path and methods)
+        if isinstance(route, APIRoute):
+            # Filter out automatic endpoints like /openapi.json, /docs, /redoc
+            if route.path not in ["/openapi.json", "/docs", "/redoc"]:
+                for method in route.methods:
+                    if method != "HEAD":  # Skip HEAD methods as they're auto-generated
+                        available_endpoints.append(f"{method} {route.path}")
+
+    # Sort endpoints for better readability
+    available_endpoints.sort()
+
     return JSONResponse(
         status_code=404,
         content=StandardResponse(
@@ -93,13 +109,13 @@ async def not_found_handler(request: Request, exc):
             message="Endpoint not found",
             data={
                 "requested_path": str(request.url.path),
-                "available_endpoints": [
-                    "/api/content-womble/health",
-                    "/api/content-womble/status",
-                    "/api/content-womble/process",
-                    "/api/content-womble/docs",
-                    "/api/content-womble/reddit-diagnostics",
-                ],
+                "requested_method": request.method,
+                "available_endpoints": available_endpoints,
+                "documentation": {
+                    "swagger_ui": "/docs",
+                    "redoc": "/redoc",
+                    "openapi_spec": "/openapi.json",
+                },
             },
             errors=["The requested endpoint does not exist"],
             metadata=metadata,
