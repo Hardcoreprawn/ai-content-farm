@@ -1,19 +1,96 @@
 """
-Tests for standardized API endpoints in The Collector.
+Standardized API tests for Content Collector service.
 
-Tests the new /api/content-womble/* endpoints alongside legacy endpoints
-to verify both formats work correctly during the transition period.
+Tests API compliance with FastAPI standards and content platform conventions.
+Uses shared test utilities from libs.standard_tests.
 """
 
+import asyncio
 import json
-from unittest.mock import Mock, patch
+import os
+import sys
+import time
+from typing import Any, Dict, List
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 from main import app
 
-# Create test client
+from libs.standard_tests import (
+    StandardAPITestSuite,
+    assert_openapi_compliance,
+    assert_standard_response,
+)
+
+# Add the libs directory to the path
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", "libs"))
+
+
+# Create the test client
 client = TestClient(app)
+
+
+class TestStandardAPICompliance:
+    """Test suite for standard FastAPI compliance using shared test library."""
+
+    @classmethod
+    def setup_class(cls):
+        """Setup the standardized test suite."""
+        cls.test_suite = StandardAPITestSuite(client, "content-womble")
+
+    def test_openapi_spec_compliance(self):
+        """Test OpenAPI 3.x specification compliance."""
+        required_endpoints = [
+            "/",
+            "/health",
+            "/status",
+            "/process",
+            "/discover",
+            "/collect",
+            "/sources",
+        ]
+        spec = assert_openapi_compliance(client, required_endpoints)
+
+        # Verify service-specific info
+        info = spec["info"]
+        assert "Content" in info["title"] or "content" in info["title"].lower()
+
+    def test_swagger_ui_documentation(self):
+        """Test Swagger UI documentation endpoint."""
+        self.test_suite.test_swagger_ui_documentation()
+
+    def test_redoc_documentation(self):
+        """Test ReDoc documentation endpoint."""
+        self.test_suite.test_redoc_documentation()
+
+    def test_health_endpoint_standard_format(self):
+        """Test health endpoint follows StandardResponse format."""
+        self.test_suite.test_health_endpoint_standard_format()
+
+    def test_status_endpoint_standard_format(self):
+        """Test status endpoint follows StandardResponse format."""
+        self.test_suite.test_status_endpoint_standard_format()
+
+    def test_root_endpoint_standard_format(self):
+        """Test root endpoint follows StandardResponse format."""
+        self.test_suite.test_root_endpoint_standard_format()
+
+    def test_404_error_format(self):
+        """Test 404 errors follow StandardResponse format."""
+        self.test_suite.test_404_error_format()
+
+    def test_method_not_allowed_error_format(self):
+        """Test 405 Method Not Allowed errors follow StandardResponse format."""
+        self.test_suite.test_method_not_allowed_error_format()
+
+    def test_response_timing_metadata(self):
+        """Test that responses include execution timing metadata."""
+        self.test_suite.test_response_timing_metadata()
+
+
+# Add the libs directory to the path
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", "libs"))
 
 
 @pytest.mark.integration
@@ -123,24 +200,63 @@ class TestStandardizedAPIEndpoints:
         assert "metadata" in data
         assert data["metadata"]["function"] == "content-womble"
 
-    def test_docs_endpoint(self):
-        """Test API documentation endpoint."""
-        response = client.get("/api/content-womble/docs")
+    def test_openapi_spec_endpoint(self):
+        """Test OpenAPI specification endpoint (FastAPI standard)."""
+        response = client.get("/openapi.json")
 
         assert response.status_code == 200
-        data = response.json()
+        assert response.headers["content-type"] == "application/json"
 
-        # Verify StandardResponse format
-        assert data["status"] == "success"
-        assert data["message"] == "API documentation available at /docs"
-        assert data["metadata"]["function"] == "content-womble"
+        spec = response.json()
 
-        # Verify documentation structure
-        docs_data = data["data"]
-        assert "redirect_to" in docs_data
-        assert docs_data["redirect_to"] == "/docs"
-        assert "swagger_ui" in docs_data
-        assert "redoc" in docs_data
+        # Verify OpenAPI 3.x specification structure
+        assert "openapi" in spec
+        assert spec["openapi"].startswith("3.")
+        assert "info" in spec
+        assert "paths" in spec
+
+        # Verify service information
+        info = spec["info"]
+        assert "title" in info
+        assert "description" in info
+        assert "version" in info
+
+        # Verify key endpoints are documented
+        paths = spec["paths"]
+        assert "/" in paths
+        assert "/health" in paths
+        assert "/status" in paths
+        assert "/process" in paths
+
+    def test_swagger_ui_docs_endpoint(self):
+        """Test Swagger UI documentation endpoint (FastAPI standard)."""
+        response = client.get("/docs")
+
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+
+        # Verify it's actually the Swagger UI HTML page
+        html_content = response.text
+        assert "swagger-ui" in html_content.lower()
+        assert (
+            "<!doctype html>" in html_content.lower()
+            or "<!DOCTYPE html>" in html_content
+        )
+
+    def test_redoc_docs_endpoint(self):
+        """Test ReDoc documentation endpoint (FastAPI standard)."""
+        response = client.get("/redoc")
+
+        assert response.status_code == 200
+        assert "text/html" in response.headers["content-type"]
+
+        # Verify it's actually the ReDoc HTML page
+        html_content = response.text
+        assert "redoc" in html_content.lower()
+        assert (
+            "<!doctype html>" in html_content.lower()
+            or "<!DOCTYPE html>" in html_content
+        )
 
 
 @pytest.mark.integration
