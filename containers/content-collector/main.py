@@ -2,6 +2,7 @@
 Content Womble - Main FastAPI Application
 
 A humble content collection service for gathering and analyzing digital content.
+Updated with standardized tests and security improvements.
 """
 
 import logging
