@@ -125,28 +125,22 @@ class TestStandardizedAPIEndpoints:
 
     def test_docs_endpoint(self):
         """Test API documentation endpoint."""
-        response = client.get("/docs")
+        response = client.get("/api/content-womble/docs")
 
         assert response.status_code == 200
         data = response.json()
 
         # Verify StandardResponse format
         assert data["status"] == "success"
-        assert data["message"] == "API documentation retrieved"
+        assert data["message"] == "API documentation available at /docs"
         assert data["metadata"]["function"] == "content-womble"
 
         # Verify documentation structure
         docs_data = data["data"]
-        assert docs_data["service"] == "content-womble"
-        assert "endpoints" in docs_data
-        assert "supported_sources" in docs_data
-        assert "authentication" in docs_data
-
-        # Verify endpoint documentation
-        endpoints = docs_data["endpoints"]
-        assert "/health" in endpoints
-        assert "/status" in endpoints
-        assert "/process" in endpoints
+        assert "redirect_to" in docs_data
+        assert docs_data["redirect_to"] == "/docs"
+        assert "swagger_ui" in docs_data
+        assert "redoc" in docs_data
 
 
 @pytest.mark.integration
