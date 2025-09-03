@@ -420,41 +420,35 @@ class TestDiscoveryFunctions:
 class TestRedditClientCore:
     """Unit tests for Reddit client core functionality (without external dependencies)."""
 
-    @patch("reddit_client.os.getenv")
-    def test_environment_detection(self, mock_getenv):
+    def test_environment_detection(self):
         """Test environment detection logic."""
         from reddit_client import RedditClient
-
-        # Mock development environment
-        mock_getenv.side_effect = lambda key, default=None: {
-            "ENVIRONMENT": "development",
-            "REDDIT_CLIENT_ID": None,
-            "REDDIT_CLIENT_SECRET": None,
-            "REDDIT_USER_AGENT": None,
-        }.get(key, default)
-
+        
+        # Test that the client uses the config environment
+        # In test environment, this should be "testing"
         with patch.object(RedditClient, "_init_local_reddit"):
             client = RedditClient()
-            assert client.environment == "development"
+            # The environment should match what's in the config
+            # During testing, ENVIRONMENT=testing is set by the test runner
+            assert client.environment == "testing"
 
-    @patch("reddit_client.os.getenv")
-    def test_container_apps_credentials_detection(self, mock_getenv):
+    def test_container_apps_credentials_detection(self):
         """Test Container Apps secret detection."""
         from reddit_client import RedditClient
-
-        # Mock Container Apps environment with secrets
-        mock_getenv.side_effect = lambda key, default=None: {
-            "ENVIRONMENT": "production",
-            "REDDIT_CLIENT_ID": "test_client_id",
-            "REDDIT_CLIENT_SECRET": "test_secret",  # pragma: allowlist secret
-            "REDDIT_USER_AGENT": "test_agent",
-        }.get(key, default)
-
-        with patch.object(RedditClient, "_init_reddit_with_creds") as mock_init:
-            client = RedditClient()
-            mock_init.assert_called_once_with(
-                "test_client_id", "test_secret", "test_agent"
-            )
+        
+        # Mock the config to have credentials available
+        with patch("reddit_client.config") as mock_config:
+            # Configure mock config with credentials
+            mock_config.reddit_client_id = "test_client_id"
+            mock_config.reddit_client_secret = "test_secret"  # pragma: allowlist secret
+            mock_config.reddit_user_agent = "test_agent"
+            mock_config.environment = "production"
+            
+            with patch.object(RedditClient, "_init_reddit_with_creds") as mock_init:
+                client = RedditClient()
+                mock_init.assert_called_once_with(
+                    "test_client_id", "test_secret", "test_agent"
+                )
 
     def test_rate_limiting_calculation(self):
         """Test rate limiting delay calculation."""
