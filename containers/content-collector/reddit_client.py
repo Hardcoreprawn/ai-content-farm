@@ -59,12 +59,23 @@ class RedditClient:
         self, client_id: str, client_secret: str, user_agent: str
     ):
         """Initialize Reddit with provided credentials."""
-        self.reddit = praw.Reddit(
-            client_id=client_id,
-            client_secret=client_secret,
-            user_agent=user_agent,
-            check_for_async=False,
-        )
+        try:
+            # Validate that we have the required credentials
+            if not client_id or not client_secret:
+                raise ValueError("Reddit client_id and client_secret are required")
+                
+            self.reddit = praw.Reddit(
+                client_id=client_id,
+                client_secret=client_secret,
+                user_agent=user_agent,
+                check_for_async=False,
+            )
+            logger.info("Reddit client initialized successfully with provided credentials")
+        except Exception as e:
+            logger.error(f"Failed to initialize Reddit with credentials: {e}")
+            # Set to None so is_available() returns False
+            self.reddit = None
+            raise
 
     def _init_azure_reddit(self):
         """Initialize Reddit with Azure Key Vault credentials."""
@@ -106,22 +117,28 @@ class RedditClient:
             user_agent = config.reddit_user_agent or "topic-intelligence-local/1.0"
 
             if client_id and client_secret:
-                self.reddit = praw.Reddit(
-                    client_id=client_id,
-                    client_secret=client_secret,
-                    user_agent=user_agent,
-                    check_for_async=False,
-                )
-                logger.info("Reddit client initialized with local credentials")
-            else:
-                # Anonymous access for local testing
-                self.reddit = praw.Reddit(
-                    client_id=None,
-                    client_secret=None,
-                    user_agent=user_agent,
-                    check_for_async=False,
-                )
-                logger.info("Reddit client initialized in read-only mode (no API key)")
+                # Validate credentials before using them
+                if not client_id.strip() or not client_secret.strip():
+                    logger.warning("Reddit credentials are empty, falling back to anonymous access")
+                    client_id = client_secret = None
+                else:
+                    self.reddit = praw.Reddit(
+                        client_id=client_id,
+                        client_secret=client_secret,
+                        user_agent=user_agent,
+                        check_for_async=False,
+                    )
+                    logger.info("Reddit client initialized with local credentials")
+                    return
+
+            # Anonymous access for local testing
+            self.reddit = praw.Reddit(
+                client_id=None,
+                client_secret=None,
+                user_agent=user_agent,
+                check_for_async=False,
+            )
+            logger.info("Reddit client initialized in read-only mode (no API key)")
 
         except Exception as e:
             logger.warning(f"Reddit initialization failed, using mock data: {e}")
