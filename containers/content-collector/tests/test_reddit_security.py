@@ -19,8 +19,6 @@ from reddit_client import RedditClient
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
-from reddit_client import RedditClient
-
 
 class TestRedditClientSecurity:
     """Test security aspects of Reddit client."""
