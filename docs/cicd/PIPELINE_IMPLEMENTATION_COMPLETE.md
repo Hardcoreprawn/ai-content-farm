@@ -15,7 +15,7 @@
 - ✅ **Single unified workflow**: `cicd-pipeline.yml`
 
 ### **2. Modular GitHub Actions Architecture**
-- ✅ **8 modular actions implemented** (all under 400 lines each):
+- ✅ **8 modular actions implemented** (all under 500 lines each):
   1. `workflow-validation` - yamllint/actionlint validation
   2. `security-scan` - Multi-tool security scanning
   3. `cost-analysis` - Infracost infrastructure cost analysis
@@ -146,7 +146,7 @@ gh pr create --title "Test CI/CD Workflow" --body "Testing new pipeline"
 
 ## ✨ **Benefits Achieved**
 
-1. **Maintainability**: 1 workflow file vs 5, modular actions under 400 lines
+1. **Maintainability**: 1 workflow file vs 5, modular actions under 500 lines
 2. **Reliability**: Early validation prevents broken workflows
 3. **Security**: Multi-layered scanning with AI insights
 4. **Cost Control**: Real-time cost impact with optimization suggestions
