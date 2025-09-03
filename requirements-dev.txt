@@ -19,6 +19,7 @@ fastapi~=0.116.1
 starlette>=0.47.2  # Security fix for CVE-2025-54121 (DoS vulnerability)
 uvicorn~=0.35.0
 pydantic~=2.11.0
+pydantic-settings~=2.10.1  # Configuration management with type safety
 
 # Content processing dependencies
 beautifulsoup4~=4.12.0

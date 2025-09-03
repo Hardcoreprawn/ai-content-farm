@@ -9,13 +9,13 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict
 
 from endpoints import (
-    api_documentation_endpoint,
     api_process_content_endpoint,
     discover_topics_endpoint,
     get_sources_endpoint,
     health_endpoint,
     reddit_diagnostics_endpoint,
     root_endpoint,
+    status_endpoint,
 )
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -181,15 +181,55 @@ async def api_process_content(
 
 
 @app.get("/api/content-womble/docs", response_model=StandardResponse)
-async def api_documentation(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """API documentation endpoint."""
-    return await api_documentation_endpoint(metadata)
+async def legacy_docs_endpoint(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Legacy API documentation endpoint - redirects to /docs."""
+    return StandardResponse(
+        status="success",
+        message="API documentation available at /docs",
+        data={"redirect_to": "/docs", "swagger_ui": "/docs", "redoc": "/redoc"},
+        errors=[],
+        metadata=metadata,
+    )
 
 
 @app.get("/api/content-womble/reddit-diagnostics", response_model=StandardResponse)
 async def api_reddit_diagnostics(metadata: Dict[str, Any] = Depends(service_metadata)):
     """Reddit API diagnostics endpoint."""
     return await reddit_diagnostics_endpoint(metadata)
+
+
+# NEW: Standard REST API endpoints (industry standard paths)
+@app.get("/health", response_model=StandardResponse)
+async def health_check(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Standard health check endpoint."""
+    return await health_endpoint(metadata)
+
+
+@app.get("/status", response_model=StandardResponse)
+async def status_check(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Standard detailed status endpoint."""
+    return await status_endpoint(metadata)
+
+
+@app.get("/api/docs", response_model=StandardResponse)
+async def documentation(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Standard API documentation endpoint."""
+    return {
+        "documentation": {
+            "swagger_ui": "/docs",
+            "redoc": "/redoc",
+            "service": metadata["service_name"],
+            "version": metadata["version"],
+        }
+    }
+
+
+@app.post("/process", response_model=StandardResponse)
+async def process_content(
+    request: CollectionRequest, metadata: Dict[str, Any] = Depends(service_metadata)
+):
+    """Standard content processing endpoint."""
+    return await api_process_content_endpoint(request, metadata)
 
 
 if __name__ == "__main__":

@@ -7,11 +7,19 @@ Provides secure credential retrieval from Azure Key Vault.
 
 import logging
 import os
+import sys
 from typing import Any, Dict, Optional
 
 from azure.core.exceptions import AzureError
 from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
 from azure.keyvault.secrets import SecretClient
+
+from config import config
+
+# Add parent directories to path for imports
+sys.path.append(os.path.dirname(__file__))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
+
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +29,7 @@ class KeyVaultClient:
 
     def __init__(self):
         """Initialize the Key Vault client."""
-        self.vault_url = os.getenv("AZURE_KEY_VAULT_URL")
+        self.vault_url = config.azure_key_vault_url
         self.client: Optional[SecretClient] = None
         self._secrets_cache: Dict[str, str] = {}
 
@@ -53,11 +61,9 @@ class KeyVaultClient:
 
         try:
             # Try managed identity first (for Azure environments)
-            if os.getenv("AZURE_CLIENT_ID"):
+            if config.azure_client_id:
                 logger.info("Using managed identity for Key Vault authentication")
-                credential = ManagedIdentityCredential(
-                    client_id=os.getenv("AZURE_CLIENT_ID")
-                )
+                credential = ManagedIdentityCredential(client_id=config.azure_client_id)
             else:
                 # Fall back to default credential chain
                 logger.info(

@@ -26,6 +26,11 @@ from source_collectors import SourceCollectorFactory
 
 from libs.blob_storage import BlobStorageClient
 from libs.shared_models import StandardResponse, create_service_dependency
+from libs.standard_endpoints import (
+    create_standard_health_endpoint,
+    create_standard_root_endpoint,
+    create_standard_status_endpoint,
+)
 
 # Create service metadata dependency
 service_metadata = create_service_dependency("content-womble")
@@ -47,6 +52,37 @@ def get_collector_service():
 
 # Initialize Reddit client
 reddit_client = RedditClient()
+
+
+# Dependency check functions for shared health endpoint
+async def check_storage_health():
+    """Check storage connectivity."""
+    try:
+        result = get_blob_client().test_connection()
+        return result.get("status") == "healthy"
+    except Exception:
+        return False
+
+
+async def check_reddit_health():
+    """Check Reddit API availability."""
+    try:
+        return reddit_client.is_available()
+    except Exception:
+        return False
+
+
+# Create shared endpoints
+health_endpoint = create_standard_health_endpoint(
+    service_name="content-womble",
+    version="2.0.0",
+    dependency_checks={"storage": check_storage_health, "reddit": check_reddit_health},
+    service_metadata_dep=service_metadata,
+)
+
+status_endpoint = create_standard_status_endpoint(
+    service_name="content-womble", service_metadata_dep=service_metadata
+)
 
 
 async def root_endpoint(metadata: Dict[str, Any] = Depends(service_metadata)):
@@ -71,41 +107,62 @@ async def root_endpoint(metadata: Dict[str, Any] = Depends(service_metadata)):
     )
 
 
-async def health_endpoint(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Health check endpoint."""
+async def api_process_content_endpoint(
+    request: CollectionRequest, metadata: Dict[str, Any] = Depends(service_metadata)
+):
+    """Process content endpoint placeholder."""
+    return {
+        "status": "not implemented",
+        "message": "Content processing endpoint not yet implemented",
+    }
+
+
+async def status_endpoint(metadata: Dict[str, Any] = Depends(service_metadata)):
+    """Detailed status endpoint with service statistics."""
     try:
-        # Test storage connectivity with better bearer token error handling
+        # Get basic health information
         storage_health = get_blob_client().test_connection()
         reddit_health = reddit_client.is_available()
 
-        health_status = (
-            "healthy"
-            if storage_health.get("status") == "healthy" and reddit_health
-            else "unhealthy"
-        )
+        # Additional status information beyond health check
+        status_info = {
+            "service": "content-womble",
+            "version": "2.0.0",
+            "status": "running",
+            "uptime_seconds": 0,  # Would be calculated from service start time
+            "stats": {
+                "total_collections": 0,  # Would track actual collection stats
+                "last_collection_time": None,
+                "reddit_requests_today": 0,
+                "storage_operations": 0,
+            },
+            "last_operation": {
+                "type": "none",
+                "timestamp": None,
+                "status": "none",
+            },
+            "configuration": {
+                "max_items_per_collection": 100,
+                "supported_sources": ["reddit", "web"],
+                "storage_enabled": True,
+            },
+            "dependencies": {
+                "storage": storage_health.get("status") == "healthy",
+                "reddit": reddit_health,
+            },
+        }
 
         return StandardResponse(
             status="success",
-            message=f"Service is {health_status}",
-            data={
-                "service": "content-womble",
-                "version": "2.0.0",
-                "status": health_status,
-                "storage": storage_health,
-                "reddit": {"available": reddit_health},
-                "dependencies": {
-                    "storage": storage_health.get("status") == "healthy",
-                    "reddit": reddit_health,
-                },
-                "uptime_seconds": 0,  # Mock value for tests
-            },
+            message="Service status retrieved",
+            data=status_info,
             errors=[],
             metadata=metadata,
         )
     except Exception as e:
         return StandardResponse(
             status="error",
-            message="Health check failed",
+            message="Status check failed",
             data={},
             errors=[str(e)],
             metadata=metadata,

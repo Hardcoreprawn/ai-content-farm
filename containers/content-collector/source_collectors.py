@@ -1,16 +1,34 @@
 """
-Source Collector Factory
+Source Collectors for Content Womble
 
-Factory for creating appropriate source collectors with enhanced credential detection.
+Collects content from various sources (RSS, Reddit, etc.) for processing.
 """
 
+import logging
 import os
+import re
+import sys
+import time
+from abc import ABC, abstractmethod
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
+from urllib.parse import urljoin, urlparse
 
+import feedparser
+import httpx
+import requests
+from bs4 import BeautifulSoup
 from collectors.base import SourceCollector
 from collectors.reddit import RedditPRAWCollector, RedditPublicCollector
 from collectors.web import WebContentCollector
+from dateutil import parser as date_parser
 from keyvault_client import get_reddit_credentials_with_fallback
+
+from config import config as app_config
+
+# Add parent directories to path for imports
+sys.path.append(os.path.dirname(__file__))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 
 class SourceCollectorFactory:
@@ -30,8 +48,8 @@ class SourceCollectorFactory:
                 return RedditPRAWCollector(config)
 
             # Check for environment variables (Container Apps secrets)
-            env_client_id = os.getenv("REDDIT_CLIENT_ID")
-            env_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
+            env_client_id = app_config.reddit_client_id
+            env_client_secret = app_config.reddit_client_secret
 
             if env_client_id and env_client_secret:
                 # Validate they're not placeholder values
@@ -77,9 +95,9 @@ class SourceCollectorFactory:
     @staticmethod
     def get_reddit_collector_info() -> Dict[str, Any]:
         """Get information about which Reddit collector would be used."""
-        # Check environment variables
-        env_client_id = os.getenv("REDDIT_CLIENT_ID")
-        env_client_secret = os.getenv("REDDIT_CLIENT_SECRET")
+        # Try environment variables first
+        env_client_id = app_config.reddit_client_id
+        env_client_secret = app_config.reddit_client_secret
 
         info = {
             "recommended_collector": "unknown",

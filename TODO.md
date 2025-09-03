@@ -1,46 +1,77 @@
 # TODO - Personal Content Curation Platform
 
-**Status**: ✅ Core Collection Pipeline Working
-**Goal**: Complete content pipeline from collection to publication
+**Status**: ✅ Research Complete - Ready for Systematic Implementation  
+**Goal**: Standardized, efficient container platform with consistent APIs
 
-## 🎯 Current Status
+## 🔬 Research Completed (September 3, 2025)
 
-### ✅ What's Working
-- **Content Collection**: Reddit API + 4 web sources (Ars Technica, The Register, Slashdot, The New Stack)
-- **Infrastructure**: Azure Container Apps deployed with public access, Key Vault configured
-- **Deduplication**: Working within collection sessions (MD5 hash-based)
-- **CI/CD pipeline**: Terraform deployment with OIDC authentication working
-- **Security**: All critical vulnerabilities resolved, security gates passing
+### ✅ Standard Library Research Results
+- **✅ ADOPT: pydantic-settings** - Replace custom Config classes (better type safety)
+- **✅ KEEP: secure_error_handler.py** - OWASP compliance, low maintenance (<1hr/year)
+- **✅ ADD: tenacity** - Retry logic for external APIs (Reddit, OpenAI)
+- **🔍 RESEARCH: fastapi-utils** - Check vs our custom standard_endpoints.py
+- **⏳ LATER: Python 3.12** - 25% performance boost, after standardization
 
-### 🚀 Recently Completed
-- **✅ Reddit collection**: PRAW authentication working, content retrieval functional
-- **✅ Web content collection**: RSS-based collection from 4 tech news sources
-- **✅ Simplified networking**: Removed VNet restrictions, using public access model
-- **✅ Container rebuilds**: Fixed deployment issues with version management
-- **✅ Deduplication**: Validated working within collection sessions
+### ✅ Current Container Status Analysis
+- **✅ content-collector**: Working (health responds), needs API standardization
+- **❌ content-processor**: Broken (404 errors), needs fix + standardization  
+- **✅ content-generator**: Working but inconsistent API paths
+- **✅ site-generator**: Working but inconsistent API paths
 
-### 🎯 Next Priorities
-**Core Content Pipeline Completion**:
-1. **Content Processing**: Topics → ranked/enriched articles
-2. **Content Publishing**: Articles → formatted website
-3. **Scheduling**: Automated collection orchestration
-4. **Cross-session deduplication**: Prevent duplicate articles across runs
+## 🎯 Systematic Implementation Plan
 
-### 📋 Target Architecture
+### Phase 1: Foundation & Standards (Days 1-2)
+**Container Standardization Priority:**
+1. **content-collector** - Working base, standardize APIs first
+2. **content-processor** - Fix and standardize (currently broken)
+3. **content-generator** - Migrate to standard endpoints
+4. **site-generator** - Migrate to standard endpoints
 
-**3 Core Containers** (Simplified from 8):
-1. **Content Collector** - Reddit API + Web sources → collected topics
-2. **Content Processor** - Topics → ranked/enriched articles
-3. **Content Publisher** - Articles → website (markdown + static site)
+**Standard Library Enhancement:**
+- Replace Config classes with pydantic-settings
+- Add tenacity for external API retry logic
+- Keep secure_error_handler.py (research shows low maintenance)
 
-**Benefits**:
-- Reduced complexity: 3 containers vs 8
-- Cost optimization: ~$30-40/month target
-- Standard FastAPI patterns throughout
-- Clear data flow and responsibilities
+### Phase 2: API Standardization (Days 2-3)
+**Target API Design (ALL containers):**
+```
+GET  /health              # Standard health check
+GET  /status              # Detailed service status
+GET  /docs                # FastAPI auto-generated docs  
+POST /process             # Main business logic
+GET  /                    # Service info & available endpoints
+```
 
-### 🔧 Technical Debt & Improvements
-- **Testing**: Update remaining tests to match standardized APIs
-- **Monitoring**: Enhanced observability and error handling
-- **Documentation**: API contracts and deployment guides
-- **Performance**: Optimize collection and processing efficiency
+**Remove service-specific paths:**
+- ❌ `/api/content-womble/health` → ✅ `/health`
+- ❌ `/api/processor/health` → ✅ `/health`
+- ❌ `/api/content-generator/health` → ✅ `/health`
+
+### Phase 3: Integration & Production (Day 3)
+- End-to-end pipeline testing (Reddit → articles → website)
+- Azure deployment validation
+- Cost verification (~$30-40/month target)
+- Performance and security validation
+
+## 🎫 GitHub Issues to Create
+
+### Foundation Issues
+1. **Standard Library: Replace Config with pydantic-settings**
+2. **Standard Library: Add tenacity for external API retry**
+3. **Research: fastapi-utils vs custom standard_endpoints**
+
+### Container Standardization Issues  
+4. **content-collector: API standardization (/health, /status, /docs)**
+5. **content-processor: Fix deployment + API standardization**
+6. **content-generator: Migrate to standard API endpoints**
+7. **site-generator: Migrate to standard API endpoints**
+
+### Integration Issues
+8. **End-to-end pipeline testing and validation**
+9. **Documentation: Update API contracts and deployment guides**
+
+## ✅ What's Working (Keep)
+- Content Collection: Reddit API + 4 web sources working
+- Infrastructure: Azure Container Apps, Key Vault, CI/CD
+- Security: All vulnerabilities resolved, OWASP-compliant error handling
+- Deduplication: Working within collection sessions

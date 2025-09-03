@@ -6,12 +6,21 @@ Handles Reddit API authentication and data retrieval with Azure Key Vault integr
 
 import logging
 import os
+import sys
 import time
 from typing import Any, Dict, List, Optional
 
 import praw
-from azure.identity import DefaultAzureCredential
+from azure.core.exceptions import AzureError
+from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
 from azure.keyvault.secrets import SecretClient
+
+from config import config
+
+# Add parent directories to path for imports
+sys.path.append(os.path.dirname(__file__))
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
+
 
 logger = logging.getLogger(__name__)
 
@@ -21,16 +30,16 @@ class RedditClient:
 
     def __init__(self):
         self.reddit = None
-        self.environment = os.getenv("ENVIRONMENT", "development").lower()
+        self.environment = config.environment
         self._initialize_reddit()
 
     def _initialize_reddit(self):
         """Initialize Reddit client based on environment."""
         try:
             # Check for environment variables first (Container Apps secrets)
-            client_id = os.getenv("REDDIT_CLIENT_ID")
-            client_secret = os.getenv("REDDIT_CLIENT_SECRET")
-            user_agent = os.getenv("REDDIT_USER_AGENT")
+            client_id = config.reddit_client_id
+            client_secret = config.reddit_client_secret
+            user_agent = config.reddit_user_agent
 
             if client_id and client_secret and user_agent:
                 # Use environment variables (Container Apps secrets)
@@ -60,8 +69,8 @@ class RedditClient:
     def _init_azure_reddit(self):
         """Initialize Reddit with Azure Key Vault credentials."""
         try:
-            # Get Key Vault URL from environment
-            vault_url = os.getenv("AZURE_KEY_VAULT_URL")
+            # Get Key Vault URL from config
+            vault_url = config.azure_key_vault_url
             if not vault_url:
                 raise ValueError("AZURE_KEY_VAULT_URL not set")
 
@@ -91,10 +100,10 @@ class RedditClient:
     def _init_local_reddit(self):
         """Initialize Reddit for local development (anonymous)."""
         try:
-            # Use environment variables if available, otherwise anonymous
-            client_id = os.getenv("REDDIT_CLIENT_ID")
-            client_secret = os.getenv("REDDIT_CLIENT_SECRET")
-            user_agent = os.getenv("REDDIT_USER_AGENT", "topic-intelligence-local/1.0")
+            # Check for environment variables (fallback for local development)
+            client_id = config.reddit_client_id
+            client_secret = config.reddit_client_secret
+            user_agent = config.reddit_user_agent or "topic-intelligence-local/1.0"
 
             if client_id and client_secret:
                 self.reddit = praw.Reddit(
@@ -126,7 +135,7 @@ class RedditClient:
         self, subreddit: str, limit: int = 50
     ) -> List[Dict[str, Any]]:
         """Get trending posts from a subreddit."""
-        if not self.is_available():
+        if not self.is_available() or self.reddit is None:
             # Return mock data for testing
             return self._get_mock_posts(subreddit, limit)
 

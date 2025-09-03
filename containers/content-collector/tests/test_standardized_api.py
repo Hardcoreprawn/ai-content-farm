@@ -20,9 +20,9 @@ client = TestClient(app)
 class TestStandardizedAPIEndpoints:
     """Test new standardized API endpoints."""
 
-    def test_api_health_endpoint_format(self):
+    def test_health_endpoint_format(self):
         """Test standardized health endpoint returns StandardResponse format."""
-        response = client.get("/api/content-womble/health")
+        response = client.get("/health")
 
         assert response.status_code == 200
         data = response.json()
@@ -49,7 +49,30 @@ class TestStandardizedAPIEndpoints:
         assert "dependencies" in health_data
         assert "uptime_seconds" in health_data
 
-    def test_api_process_endpoint_success(self):
+    def test_status_endpoint_format(self):
+        """Test standardized status endpoint returns StandardResponse format."""
+        response = client.get("/status")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify StandardResponse format
+        assert "status" in data
+        assert "message" in data
+        assert "data" in data
+        assert "metadata" in data
+
+        assert data["status"] == "success"
+        assert data["metadata"]["function"] == "content-womble"
+
+        # Verify status data structure
+        status_data = data["data"]
+        assert status_data["service"] == "content-womble"
+        assert "uptime_seconds" in status_data
+        assert "stats" in status_data
+        assert "last_operation" in status_data
+
+    def test_process_endpoint_success(self):
         """Test standardized process endpoint with successful collection."""
         test_data = {
             "sources": [
@@ -63,7 +86,7 @@ class TestStandardizedAPIEndpoints:
             "save_to_storage": True,
         }
 
-        response = client.post("/api/content-womble/process", json=test_data)
+        response = client.post("/process", json=test_data)
 
         assert response.status_code == 200
         data = response.json()
@@ -83,12 +106,12 @@ class TestStandardizedAPIEndpoints:
         assert "processing_time_ms" in collection_data
         assert "summary" in collection_data
 
-    def test_api_process_endpoint_error_handling(self):
+    def test_process_endpoint_error_handling(self):
         """Test standardized error handling in process endpoint."""
         # Invalid request data (missing required fields)
         test_data = {"invalid": "data"}
 
-        response = client.post("/api/content-womble/process", json=test_data)
+        response = client.post("/process", json=test_data)
 
         assert response.status_code == 422  # Validation error
         data = response.json()
@@ -100,9 +123,9 @@ class TestStandardizedAPIEndpoints:
         assert "metadata" in data
         assert data["metadata"]["function"] == "content-womble"
 
-    def test_api_docs_endpoint(self):
+    def test_docs_endpoint(self):
         """Test API documentation endpoint."""
-        response = client.get("/api/content-womble/docs")
+        response = client.get("/docs")
 
         assert response.status_code == 200
         data = response.json()
@@ -121,9 +144,9 @@ class TestStandardizedAPIEndpoints:
 
         # Verify endpoint documentation
         endpoints = docs_data["endpoints"]
-        assert "/api/content-womble/health" in endpoints
-        assert "/api/content-womble/status" in endpoints
-        assert "/api/content-womble/process" in endpoints
+        assert "/health" in endpoints
+        assert "/status" in endpoints
+        assert "/process" in endpoints
 
 
 @pytest.mark.integration
