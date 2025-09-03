@@ -289,7 +289,7 @@ class RedditClient:
             return posts
 
         except Exception as e:
-            logger.error(f"Failed to get posts from r/{subreddit}: {e}")
+            logger.error(f"Failed to get posts from r/{subreddit} due to API error")
             return self._get_mock_posts(subreddit, limit)
 
     def _get_mock_posts(self, subreddit: str, limit: int) -> List[Dict[str, Any]]:
