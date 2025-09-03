@@ -7,7 +7,7 @@ This document summarizes the modular GitHub Actions workflow system implemented 
 The workflow system follows a **separation of concerns** principle with:
 - **Main workflow** (`cicd-pipeline.yml`) - Orchestration and job dependencies
 - **Modular actions** (`.github/actions/`) - Functional implementations
-- **Maximum 300-400 lines per file** - Maintainable complexity
+- **Maximum 300-500 lines per file** - Maintainable complexity
 - **1-2 levels of nesting** - Clear structure
 - **Embedded scripting** - Self-contained functional blocks
 
@@ -205,7 +205,7 @@ jobs:
 
 1. **Separation of Concerns**: Each action has a single, well-defined responsibility
 2. **Reusability**: Actions can be used independently or in different combinations
-3. **Maintainability**: Small, focused files under 400 lines each
+3. **Maintainability**: Small, focused files under 500 lines each
 4. **Scalability**: Easy to add new perspectives or tools
 5. **Cost Efficiency**: Ephemeral environments with auto-cleanup
 6. **Security**: Multi-layered security analysis with AI enhancement
