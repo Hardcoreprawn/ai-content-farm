@@ -39,7 +39,7 @@ variable "resource_prefix" {
 }
 
 variable "test_feature_flag" {
-  description = "Test feature flag for smart deployment validation and container image fallback testing"
+  description = "Test feature flag for smart deployment validation and container image fallback testing - updated Sept 3rd"
   type        = bool
   default     = false
 }
