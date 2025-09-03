@@ -43,7 +43,7 @@ def create_standard_health_endpoint(
     async def health_endpoint(
         metadata: Dict[str, Any] = (
             Depends(service_metadata_dep) if service_metadata_dep else {}
-        )
+        ),
     ) -> StandardResponse:
         """Standard health check endpoint."""
 
@@ -113,7 +113,7 @@ def create_standard_status_endpoint(
     async def status_endpoint(
         metadata: Dict[str, Any] = (
             Depends(service_metadata_dep) if service_metadata_dep else {}
-        )
+        ),
     ) -> StandardResponse:
         """Standard status endpoint with detailed service information."""
 
@@ -171,7 +171,7 @@ def create_standard_root_endpoint(
     async def root_endpoint(
         metadata: Dict[str, Any] = (
             Depends(service_metadata_dep) if service_metadata_dep else {}
-        )
+        ),
     ) -> StandardResponse:
         """Root endpoint with service information."""
 
