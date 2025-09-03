@@ -34,7 +34,9 @@ class RedditClient:
         self.environment = config.environment
         self._initialize_reddit()
 
-    def _validate_credentials(self, client_id: str, client_secret: str) -> bool:
+    def _validate_credentials(
+        self, client_id: Optional[str], client_secret: Optional[str]
+    ) -> bool:
         """
         Validate Reddit API credentials format and content.
 
@@ -45,6 +47,10 @@ class RedditClient:
         Returns:
             bool: True if credentials appear valid, False otherwise
         """
+        # Handle None values gracefully
+        if client_id is None or client_secret is None:
+            return False
+
         if not client_id or not client_secret:
             return False
 
@@ -73,7 +79,7 @@ class RedditClient:
         return True
 
     def _sanitize_credentials(
-        self, client_id: str, client_secret: str
+        self, client_id: Optional[str], client_secret: Optional[str]
     ) -> tuple[str, str]:
         """
         Sanitize credentials by removing potential malicious content.
@@ -110,14 +116,37 @@ class RedditClient:
                 )
 
                 if self._validate_credentials(client_id, client_secret):
-                    # Use environment variables (Container Apps secrets)
-                    self._init_reddit_with_creds(client_id, client_secret, user_agent)
-                    logger.info("Reddit client initialized with Container Apps secrets")
+                    try:
+                        # Use environment variables (Container Apps secrets)
+                        self._init_reddit_with_creds(
+                            client_id, client_secret, user_agent
+                        )
+                        logger.info(
+                            "Reddit client initialized with Container Apps secrets"
+                        )
+                        return
+                    except Exception as cred_error:
+                        if self.environment == "development":
+                            logger.warning(
+                                "Reddit credentials failed in development, falling back to local mode"
+                            )
+                            self._init_local_reddit()
+                            return
+                        else:
+                            # In production, credential failures should be fatal
+                            raise cred_error
                 else:
                     logger.error(
                         "Reddit client initialization failed due to invalid credentials"
                     )
-                    raise ValueError("Invalid Reddit credentials format")
+                    if self.environment == "development":
+                        logger.warning(
+                            "Invalid credentials in development, falling back to local mode"
+                        )
+                        self._init_local_reddit()
+                        return
+                    else:
+                        raise ValueError("Invalid Reddit credentials format")
             elif self.environment == "production":
                 # Azure environment - use Key Vault directly
                 self._init_azure_reddit()
@@ -125,11 +154,18 @@ class RedditClient:
                 # Local development - anonymous access
                 self._init_local_reddit()
         except Exception as e:
-            # Log generic error message to prevent credential exposure
-            logger.error(
-                "Reddit client initialization failed due to configuration error"
-            )
-            raise RuntimeError("Failed to initialize Reddit client") from e
+            if self.environment == "development":
+                # In development, fall back to None/mock mode for robustness
+                logger.warning(
+                    "Reddit initialization failed in development, using mock data"
+                )
+                self.reddit = None
+            else:
+                # Log generic error message to prevent credential exposure
+                logger.error(
+                    "Reddit client initialization failed due to configuration error"
+                )
+                raise RuntimeError("Failed to initialize Reddit client") from e
 
     def _init_reddit_with_creds(
         self, client_id: str, client_secret: str, user_agent: str
@@ -273,7 +309,7 @@ class RedditClient:
         Returns:
             bool: True if running without authentication, False if authenticated
         """
-        if not self.is_available():
+        if not self.is_available() or self.reddit is None:
             return False
 
         try:

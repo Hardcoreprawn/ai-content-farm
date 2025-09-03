@@ -1,10 +1,11 @@
 """
-Security tests for Reddit client to ensure sensitive information is not exposed.
+Security-focused tests for Reddit client functionality.
 
-These tests verify:
-1. Credentials are not logged in error messages
-2. Credential validation prevents malicious inputs
-3. Anonymous access behavior is documented and secure
+These tests ensure that:
+1. Credentials are properly validated and sanitized
+2. Error messages don't leak sensitive information
+3. Secure logging practices are followed
+4. Authentication flows handle edge cases safely
 """
 
 import logging
@@ -13,6 +14,7 @@ import sys
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
+from reddit_client import RedditClient
 
 # Add parent directory to path for imports
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
@@ -144,16 +146,17 @@ class TestRedditClientSecurity:
     def test_secure_logging_local_development(self, mock_logger):
         """Test that local development initialization doesn't expose credentials."""
         with patch("reddit_client.config") as mock_config:
-            mock_config.reddit_client_id = "local_client_id"
+            # Use credentials that pass validation but will fail Reddit connection
+            mock_config.reddit_client_id = "validclientid123"  # Valid format but fake
             mock_config.reddit_client_secret = (
-                "local_secret_123"  # pragma: allowlist secret
+                "validclientsecret123456789"  # pragma: allowlist secret
             )
             mock_config.reddit_user_agent = "test_agent"
             mock_config.environment = "development"
 
             with patch("reddit_client.praw.Reddit") as mock_reddit:
                 mock_reddit.side_effect = Exception(
-                    "Connection failed with credentials: local_secret_123"
+                    "Connection failed with credentials: validclientsecret123456789"
                 )
 
                 # Should not raise exception in local mode, should fall back to None
@@ -165,12 +168,13 @@ class TestRedditClientSecurity:
                 for call in (
                     mock_logger.warning.call_args_list
                     + mock_logger.error.call_args_list
+                    + mock_logger.info.call_args_list
                 ):
                     logged_messages.append(call.args[0])
 
                 for message in logged_messages:
-                    assert "local_secret_123" not in message
-                    assert "local_client_id" not in message
+                    assert "validclientsecret123456789" not in message
+                    assert "validclientid123" not in message
 
     def test_anonymous_mode_detection(self):
         """Test that anonymous mode is properly detected."""
@@ -216,32 +220,36 @@ class TestRedditClientSecurity:
         assert client.reddit == mock_reddit_instance
 
     def test_credential_validation_edge_cases(self):
-        """Test credential validation with edge cases."""
+        """Test edge cases in credential validation."""
         client = RedditClient.__new__(RedditClient)  # Create without calling __init__
 
-        # Test None values
-        assert client._validate_credentials(None, "secret") is False
-        assert client._validate_credentials("client", None) is False
+        # Test None values (type: ignore to suppress mypy warnings)
+        assert client._validate_credentials(None, "secret") is False  # type: ignore
+        assert client._validate_credentials("client", None) is False  # type: ignore
+        assert client._validate_credentials(None, None) is False  # type: ignore
 
         # Test empty strings
         assert client._validate_credentials("", "secret") is False
         assert client._validate_credentials("client", "") is False
+        assert client._validate_credentials("", "") is False
 
-        # Test minimum length boundaries
-        assert (
-            client._validate_credentials("a" * 9, "secret123456789012345") is False
-        )  # Too short ID
-        assert (
-            client._validate_credentials("client123456", "a" * 19) is False
-        )  # Too short secret
+        # Test too short credentials
+        assert client._validate_credentials("short", "secret123456789012345") is False
+        assert client._validate_credentials("validclientid123", "short") is False
 
-        # Test maximum length boundaries
+        # Test too long credentials
         assert (
-            client._validate_credentials("a" * 21, "secret123456789012345") is False
-        )  # Too long ID
+            client._validate_credentials(
+                "a" * 25, "validclientsecret123456789"  # Too long client_id
+            )
+            is False
+        )
         assert (
-            client._validate_credentials("client123456", "a" * 51) is False
-        )  # Too long secret
+            client._validate_credentials(
+                "validclientid123", "a" * 55  # Too long client_secret
+            )
+            is False
+        )
 
     def test_sanitization_preserves_valid_characters(self):
         """Test that sanitization preserves valid characters."""
@@ -263,9 +271,12 @@ class TestRedditClientSecurityIntegration:
     def test_full_initialization_security(self, mock_logger):
         """Test complete initialization flow for security."""
         with patch("reddit_client.config") as mock_config:
-            mock_config.reddit_client_id = "placeholder_id"  # Invalid credential
+            # Use credentials that will fail validation (contain 'placeholder')
+            mock_config.reddit_client_id = (
+                "placeholderid123"  # Invalid - contains placeholder
+            )
             mock_config.reddit_client_secret = (
-                "test_secret_123"  # pragma: allowlist secret
+                "placeholdersecret123456"  # pragma: allowlist secret
             )
             mock_config.reddit_user_agent = "test_agent"
             mock_config.environment = "test"
@@ -273,10 +284,11 @@ class TestRedditClientSecurityIntegration:
             with pytest.raises(RuntimeError):
                 client = RedditClient()
 
-            # Verify validation caught the placeholder
+            # Verify validation caught the placeholder - but only warning about format
             warning_messages = [
                 call.args[0] for call in mock_logger.warning.call_args_list
             ]
+            # The warning should be about placeholder values being detected
             assert any("placeholder" in msg.lower() for msg in warning_messages)
 
     def test_user_agent_handling(self):

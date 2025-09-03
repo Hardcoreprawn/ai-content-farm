@@ -50,8 +50,11 @@ def get_collector_service():
     return get_collector_service._service
 
 
-# Initialize Reddit client
-reddit_client = RedditClient()
+def get_reddit_client():
+    """Get Reddit client."""
+    if not hasattr(get_reddit_client, "_client"):
+        get_reddit_client._client = RedditClient()
+    return get_reddit_client._client
 
 
 # Dependency check functions for shared health endpoint
@@ -67,7 +70,7 @@ async def check_storage_health():
 async def check_reddit_health():
     """Check Reddit API availability."""
     try:
-        return reddit_client.is_available()
+        return get_reddit_client().is_available()
     except Exception:
         return False
 
@@ -122,7 +125,7 @@ async def status_endpoint(metadata: Dict[str, Any] = Depends(service_metadata)):
     try:
         # Get basic health information
         storage_health = get_blob_client().test_connection()
-        reddit_health = reddit_client.is_available()
+        reddit_health = get_reddit_client().is_available()
 
         # Additional status information beyond health check
         status_info = {
@@ -266,7 +269,9 @@ async def discover_topics_endpoint(
         for source in request.sources:
             if source.type == "reddit" and source.subreddits:
                 for subreddit in source.subreddits:
-                    posts = reddit_client.get_trending_posts(subreddit, source.limit)
+                    posts = get_reddit_client().get_trending_posts(
+                        subreddit, source.limit
+                    )
                     all_posts.extend(posts)
 
         # Analyze for trending topics
@@ -330,7 +335,7 @@ async def get_sources_endpoint(metadata: Dict[str, Any] = Depends(service_metada
                     "limit": "Number of posts to collect (max 100)",
                 },
                 "status": (
-                    "available" if reddit_client.is_available() else "unavailable"
+                    "available" if get_reddit_client().is_available() else "unavailable"
                 ),
             }
         ],
