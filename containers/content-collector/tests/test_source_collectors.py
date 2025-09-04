@@ -19,7 +19,11 @@ class TestSourceCollectorFactory:
     def test_create_reddit_collector(self, mock_get_creds, mock_reddit_collector):
         """Test creating Reddit collector."""
         # Mock credentials check to avoid network calls
-        mock_get_creds.return_value = (None, None, None)
+        mock_get_creds.return_value = {
+            "client_id": None,
+            "client_secret": None,
+            "user_agent": None,
+        }
 
         # Mock the collector instance
         mock_collector_instance = Mock()

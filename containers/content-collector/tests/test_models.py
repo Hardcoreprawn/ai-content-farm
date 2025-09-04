@@ -14,9 +14,7 @@ class TestModels:
 
     def test_source_config_creation(self):
         """Test SourceConfig model creation."""
-        config = SourceConfig(
-            type="reddit", config={"subreddits": ["programming"], "limit": 10}
-        )
+        config = SourceConfig(type="reddit", subreddits=["programming"], limit=10)
 
         assert config.type == "reddit"
         assert config.config["subreddits"] == ["programming"]
@@ -27,16 +25,23 @@ class TestModels:
         config = SourceConfig(type="web")
 
         assert config.type == "web"
-        assert config.config == {}
+        assert config.config == {"limit": 10}
 
     def test_discovery_request_creation(self):
         """Test DiscoveryRequest model creation."""
+        reddit_source = SourceConfig(type="reddit", subreddits=["technology"])
+        web_source = SourceConfig(type="web", websites=["example.com"])
+
         request = DiscoveryRequest(
-            sources=["reddit", "web"], topics=["technology"], analysis_depth="basic"
+            sources=[reddit_source, web_source],
+            keywords=["technology"],
+            analysis_depth="basic",
         )
 
-        assert "reddit" in request.sources
-        assert "technology" in request.topics
+        assert len(request.sources) == 2
+        assert request.sources[0].type == "reddit"
+        assert request.sources[1].type == "web"
+        assert request.keywords == ["technology"]
         assert request.analysis_depth == "basic"
 
     def test_trending_topic_creation(self):
@@ -79,7 +84,7 @@ class TestModelValidation:
     def test_discovery_request_empty_sources(self):
         """Test DiscoveryRequest with empty sources."""
         try:
-            request = DiscoveryRequest(sources=[], topics=["test"])
+            request = DiscoveryRequest(sources=[])
             # If no validation, just check it was created
             assert request.sources == []
         except ValueError:
