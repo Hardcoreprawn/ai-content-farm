@@ -111,9 +111,10 @@ resource "azurerm_role_assignment" "functions_storage_blob_data_reader" {
 }
 
 # Grant Functions identity access to Static Web App (for deployment)
+# Using Contributor role which provides necessary permissions for Static Web App management
 resource "azurerm_role_assignment" "functions_static_web_app_contributor" {
   scope                = azurerm_static_web_app.jablab.id
-  role_definition_name = "Static Web App Contributor"
+  role_definition_name = "Contributor"
   principal_id         = azurerm_user_assigned_identity.functions.principal_id
 }
 
