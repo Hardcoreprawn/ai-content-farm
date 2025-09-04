@@ -28,7 +28,7 @@ class TestStandardizedEndpoints:
     def client(self):
         """FastAPI test client - will be updated when we refactor main.py."""
         # Import the new standardized main app
-        from src.main import app
+        from main import app
 
         return TestClient(app)
 
@@ -111,7 +111,7 @@ class TestProcessingEndpoint:
 
     @pytest.fixture
     def client(self):
-        from src.main import app
+        from main import app
 
         return TestClient(app)
 
@@ -143,7 +143,7 @@ class TestErrorHandling:
 
     @pytest.fixture
     def client(self):
-        from src.main import app
+        from main import app
 
         return TestClient(app)
 
@@ -198,7 +198,7 @@ class TestLegacyAPIRemoval:
 
     @pytest.fixture
     def client(self):
-        from src.main import app
+        from main import app
 
         return TestClient(app)
 
