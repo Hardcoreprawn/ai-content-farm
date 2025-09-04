@@ -1,0 +1,119 @@
+name: 'Sync Container Images'
+description: 'Ensures Container Apps are running the latest built images from the registry'
+inputs:
+  client-id:
+    description: 'Azure Client ID for OIDC authentication'
+    required: true
+  tenant-id:
+    description: 'Azure Tenant ID for OIDC authentication'
+    required: true
+  subscription-id:
+    description: 'Azure Subscription ID for OIDC authentication'
+    required: true
+  resource-group:
+    description: 'Azure Resource Group containing the Container Apps'
+    required: true
+    default: 'ai-content-farm-prod'
+  registry-images:
+    description: 'JSON array of container names to sync (will build image URLs)'
+    required: true
+  registry:
+    description: 'Container registry URL'
+    required: true
+    default: 'ghcr.io'
+  repository:
+    description: 'Repository name for image URLs'
+    required: true
+    default: 'hardcoreprawn/ai-content-farm'
+  image-tag:
+    description: 'Image tag to use'
+    required: true
+    default: 'latest'
+  container-app-prefix:
+    description: 'Prefix for Container App names'
+    required: true
+    default: 'ai-content-farm'
+
+outputs:
+  sync-results:
+    description: 'JSON array of sync results for each container'
+    value: ${{ steps.sync.outputs.results }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Sync Container App Images
+      id: sync
+      shell: bash
+      run: |
+        echo "[SYNC] Ensuring Container Apps are running latest built images..."
+
+        # Get container names from input
+        container_names='${{ inputs.registry-images }}'
+        echo "[SYNC] Container names to sync: $container_names"
+
+        # Initialize results array
+        results="[]"
+
+        # Parse the JSON array of container names
+        if [[ "$container_names" != "[]" && "$container_names" != "" ]]; then
+          echo "$container_names" | jq -r '.[]' | while read -r container_name; do
+            # Build full image reference
+            image_ref="${{ inputs.registry }}/${{ inputs.repository }}/$container_name:${{ inputs.image-tag }}"
+            app_name="${{ inputs.container-app-prefix }}-$container_name"
+
+            echo "[SYNC] Checking container app: $app_name"
+            echo "[SYNC] Target image: $image_ref"            # Get current running image
+            current_image=$(az containerapp show \
+              --name "$app_name" \
+              --resource-group "${{ inputs.resource-group }}" \
+              --query "properties.template.containers[0].image" \
+              --output tsv 2>/dev/null || echo "")
+
+            if [[ -n "$current_image" ]]; then
+              echo "[SYNC] Current image: $current_image"
+
+              # Compare images (normalize tags)
+              if [[ "$current_image" != "$image_ref" ]]; then
+                echo "[SYNC] Image mismatch detected! Updating container app..."
+
+                # Update container app with new image
+                if az containerapp update \
+                  --name "$app_name" \
+                  --resource-group "${{ inputs.resource-group }}" \
+                  --image "$image_ref" \
+                  --output table; then
+                  echo "[SYNC] [PASS] Successfully updated $container_name to $image_ref"
+                  # Add to results (success)
+                  result="{\"container\":\"$container_name\",\"status\":\"updated\",\"from\":\"$current_image\",\"to\":\"$image_ref\"}"
+                else
+                  echo "[SYNC] [FAIL] Failed to update $container_name"
+                  # Add to results (failure)
+                  result="{\"container\":\"$container_name\",\"status\":\"failed\",\"from\":\"$current_image\",\"to\":\"$image_ref\"}"
+                  exit 1
+                fi
+              else
+                echo "[SYNC] [PASS] $container_name already running correct image"
+                # Add to results (no change needed)
+                result="{\"container\":\"$container_name\",\"status\":\"current\",\"image\":\"$image_ref\"}"
+              fi
+            else
+              echo "[SYNC] [WARN] Could not find container app: $app_name"
+              # Add to results (not found)
+              result="{\"container\":\"$container_name\",\"status\":\"not_found\",\"app_name\":\"$app_name\"}"
+            fi
+
+            # Add result to results array (append to file for processing)
+            echo "$result" >> /tmp/sync_results.jsonl
+          done
+
+          # Convert JSONL to JSON array
+          if [[ -f /tmp/sync_results.jsonl ]]; then
+            results=$(jq -s '.' /tmp/sync_results.jsonl)
+          fi
+        else
+          echo "[SYNC] No container images to sync"
+        fi
+
+        echo "[SYNC] Sync completed. Results: $results"
+        echo "results=$results" >> "$GITHUB_OUTPUT"
