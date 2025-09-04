@@ -20,8 +20,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
-from src.config import ContentProcessorSettings
-from src.external_api_client import ExternalAPIClient, OpenAIAPIError
+from external_api_client import ExternalAPIClient, OpenAIAPIError
+
+from config import ContentProcessorSettings
 
 logger = logging.getLogger(__name__)
 

@@ -23,8 +23,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from src.services.openai_service import ProcessingType
-from src.services.processor_factory import processor
+from services.openai_service import ProcessingType
+from services.processor_factory import processor
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Local imports

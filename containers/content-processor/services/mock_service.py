@@ -14,7 +14,7 @@ import random
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from src.services.openai_service import ModelTier, ProcessingType
+from services.openai_service import ModelTier, ProcessingType
 
 from config import settings
 

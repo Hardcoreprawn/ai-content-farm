@@ -21,7 +21,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
-from src.config import ContentProcessorSettings
 from tenacity import (
     after_log,
     before_sleep_log,
@@ -30,6 +29,8 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+
+from config import ContentProcessorSettings
 
 logger = logging.getLogger(__name__)
 

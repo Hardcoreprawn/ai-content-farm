@@ -12,8 +12,8 @@ while maintaining the same interface for production use.
 import logging
 from typing import Union
 
-from src.services.mock_service import MockContentProcessor
-from src.services.openai_service import ContentProcessor
+from services.mock_service import MockContentProcessor
+from services.openai_service import ContentProcessor
 
 from config import settings
 
