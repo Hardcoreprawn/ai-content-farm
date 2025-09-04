@@ -1,0 +1,67 @@
+[
+  {
+    "environment": "local",
+    "base_url": "http://localhost:8000",
+    "total_tests": 7,
+    "passed_tests": 7,
+    "success_rate": 100.0,
+    "results": [
+      {
+        "test": "Root Endpoint",
+        "endpoint": "/",
+        "status": "PASS",
+        "details": "Service: content-processor v1.0.0",
+        "timestamp": 1756978440.5261865,
+        "environment": "local"
+      },
+      {
+        "test": "Health Check",
+        "endpoint": "/health",
+        "status": "PASS",
+        "details": "Dependencies: {'overall': False}",
+        "timestamp": 1756978440.530809,
+        "environment": "local"
+      },
+      {
+        "test": "Status Info",
+        "endpoint": "/status",
+        "status": "PASS",
+        "details": "Environment: test, Max processes: 5",
+        "timestamp": 1756978440.5352185,
+        "environment": "local"
+      },
+      {
+        "test": "API Docs",
+        "endpoint": "/docs",
+        "status": "PASS",
+        "details": "FastAPI docs available",
+        "timestamp": 1756978440.5395932,
+        "environment": "local"
+      },
+      {
+        "test": "OpenAPI Spec",
+        "endpoint": "/openapi.json",
+        "status": "PASS",
+        "details": "Title: Content Processor API, Version: 1.0.0",
+        "timestamp": 1756978440.558117,
+        "environment": "local"
+      },
+      {
+        "test": "Process Endpoint",
+        "endpoint": "/process",
+        "status": "PASS",
+        "details": "Status: queued",
+        "timestamp": 1756978440.5649257,
+        "environment": "local"
+      },
+      {
+        "test": "Error Handling",
+        "endpoint": "/nonexistent",
+        "status": "PASS",
+        "details": "OWASP-compliant error response",
+        "timestamp": 1756978440.569965,
+        "environment": "local"
+      }
+    ]
+  }
+]

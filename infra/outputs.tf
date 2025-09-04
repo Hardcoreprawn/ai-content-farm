@@ -110,6 +110,17 @@ output "storage_prompts_container_name" {
   value = azurerm_storage_container.prompts.name
 }
 
+# Content Processor Container App outputs
+output "content_processor_url" {
+  description = "URL of the Content Processor Container App"
+  value       = "https://${azurerm_container_app.content_processor.latest_revision_fqdn}"
+}
+
+output "content_processor_name" {
+  description = "Name of the Content Processor Container App"
+  value       = azurerm_container_app.content_processor.name
+}
+
 # Site Generator Container App outputs
 output "site_generator_url" {
   description = "URL of the Site Generator Container App"
