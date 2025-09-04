@@ -1,173 +1,171 @@
 #!/usr/bin/env python3
 """
-Configuration module for Content Processor
+Standardized Configuration for Content Processor
 
-Handles environment variables, Azure configuration, and health checks.
+Uses pydantic-settings BaseSettings for type-safe configuration management.
+Replaces custom config classes with standard library approach.
+
+Following Phase 1 Foundation requirements from issue #390.
 """
 
 import logging
-import os
-from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
-# Set up logging
-logger = logging.getLogger(__name__)
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-@dataclass
-class AzureConfig:
-    """Azure configuration settings"""
+class ContentProcessorSettings(BaseSettings):
+    """
+    Content Processor configuration using pydantic-settings.
 
-    key_vault_url: Optional[str] = None
-    storage_account_name: Optional[str] = None
-    reddit_api_credentials: Optional[Dict[str, str]] = None
-    environment: str = "local"
+    All configuration comes from environment variables or defaults.
+    Type-safe and validation-enabled configuration management.
+    """
 
-    def __post_init__(self):
-        """Validate configuration after initialization"""
-        if self.environment != "local":
-            if not self.key_vault_url:
-                logger.warning("Key Vault URL not configured for non-local environment")
-            if not self.storage_account_name:
-                logger.warning(
-                    "Storage account not configured for non-local environment"
-                )
-
-
-def get_config() -> AzureConfig:
-    """Load configuration from environment variables"""
-
-    # Determine environment
-    environment = os.getenv("ENVIRONMENT", "local").lower()
-
-    # Load Azure settings
-    key_vault_url = os.getenv("AZURE_KEY_VAULT_URL")
-    storage_account_name = os.getenv("AZURE_STORAGE_ACCOUNT")
-
-    # For local development and testing, provide defaults
-    if environment in ["local", "testing"]:
-        reddit_api_credentials = {
-            "client_id": os.getenv("REDDIT_CLIENT_ID", "local_dev"),
-            "client_secret": os.getenv("REDDIT_CLIENT_SECRET", "local_dev"),
-            "user_agent": os.getenv("REDDIT_USER_AGENT", "ContentProcessor/1.0"),
-        }
-    else:
-        # In production, these would come from Key Vault
-        reddit_api_credentials = None
-
-    return AzureConfig(
-        key_vault_url=key_vault_url,
-        storage_account_name=storage_account_name,
-        reddit_api_credentials=reddit_api_credentials,
-        environment=environment,
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",  # Ignore unknown environment variables
     )
 
+    # Service Information
+    service_name: str = Field(default="content-processor", description="Service name")
+    service_version: str = Field(default="1.0.0", description="Service version")
+    environment: str = Field(default="local", description="Deployment environment")
 
-def check_azure_connectivity() -> bool:
-    """Check if Azure services are accessible"""
-    import requests
+    # Server Configuration
+    host: str = Field(default="0.0.0.0", description="Server host")
+    port: int = Field(default=8000, description="Server port")
+    log_level: str = Field(default="INFO", description="Logging level")
 
-    config = get_config()
+    # Azure Configuration
+    azure_key_vault_url: Optional[str] = Field(
+        default=None, description="Azure Key Vault URL"
+    )
+    azure_storage_account: Optional[str] = Field(
+        default=None, description="Azure Storage Account"
+    )
+    azure_storage_container: str = Field(
+        default="content-data", description="Azure Storage Container"
+    )
 
-    # In local development and testing, test azurite connectivity
-    if config.environment in ["local", "development", "testing"]:
-        try:
-            # Test azurite blob service
-            # Use environment variable for protocol (default to https for security)
-            azurite_protocol = os.getenv("AZURITE_PROTOCOL", "https")
-            # For local development with azurite, allow http if explicitly set
-            if os.getenv("LOCAL_DEV") == "true" and azurite_protocol == "http":
-                response = requests.get(
-                    f"{azurite_protocol}://azurite:10000/devstoreaccount1", timeout=3
-                )
-            else:
-                response = requests.get(
-                    f"https://azurite:10000/devstoreaccount1", timeout=3
-                )
-            # 400 is expected when listing containers without auth
-            return response.status_code in [200, 400]
-        except Exception as e:
-            logger.warning(f"Azurite connectivity check failed: {e}")
-            # In testing environment, return True if azurite isn't available
-            if config.environment == "testing":
-                return True
-            return False
+    # OpenAI Configuration (Multi-Region Support)
+    openai_api_key: Optional[str] = Field(default=None, description="OpenAI API Key")
 
-    # In production, this would test actual Azure connectivity
-    # For now, just check if we have the required configuration
-    has_key_vault = bool(config.key_vault_url)
-    has_storage = bool(config.storage_account_name)
+    # Azure OpenAI Configuration
+    azure_openai_endpoint: Optional[str] = Field(
+        default=None, description="Primary Azure OpenAI endpoint"
+    )
+    azure_openai_api_key: Optional[str] = Field(
+        default=None, description="Azure OpenAI API key"
+    )
+    azure_openai_api_version: str = Field(
+        default="2024-06-01", description="Azure OpenAI API version"
+    )
 
-    return has_key_vault and has_storage
+    # Regional OpenAI endpoints for failover
+    openai_endpoint_uk_south: Optional[str] = Field(
+        default=None, description="OpenAI UK South endpoint"
+    )
+    openai_endpoint_west_europe: Optional[str] = Field(
+        default=None, description="OpenAI West Europe endpoint"
+    )
+    openai_model_default: str = Field(
+        default="gpt-3.5-turbo", description="Default OpenAI model"
+    )
+    openai_max_retries: int = Field(
+        default=3, description="Max retries for OpenAI API calls"
+    )
 
+    # Reddit API Configuration
+    reddit_client_id: Optional[str] = Field(
+        default=None, description="Reddit client ID"
+    )
+    reddit_client_secret: Optional[str] = Field(
+        default=None, description="Reddit client secret"
+    )
+    reddit_user_agent: str = Field(
+        default="content-processor/1.0", description="Reddit user agent"
+    )
 
-def get_reddit_credentials() -> Optional[Dict[str, str]]:
-    """Get Reddit API credentials from configuration"""
-    config = get_config()
+    # Processing Configuration
+    max_concurrent_processes: int = Field(
+        default=5, description="Maximum concurrent processes"
+    )
+    processing_timeout_seconds: int = Field(
+        default=300, description="Processing timeout in seconds"
+    )
+    quality_threshold: float = Field(
+        default=0.7, description="Quality threshold for content"
+    )
 
-    if config.environment in ["local", "testing"]:
-        return config.reddit_api_credentials
+    # Service Bus Configuration (Phase 4)
+    service_bus_connection_string: Optional[str] = Field(
+        default=None, description="Azure Service Bus connection string"
+    )
+    service_bus_queue_name: str = Field(
+        default="content-processing-topics", description="Service Bus queue name"
+    )
 
-    # In production, this would fetch from Key Vault
-    # For now, return None to indicate credentials need to be fetched
-    return None
+    def get_openai_endpoints(self) -> Dict[str, str]:
+        """Get available OpenAI endpoints for multi-region support."""
+        endpoints = {}
+        if self.azure_openai_endpoint:
+            endpoints["primary"] = self.azure_openai_endpoint
+        if self.openai_endpoint_uk_south:
+            endpoints["uk_south"] = self.openai_endpoint_uk_south
+        if self.openai_endpoint_west_europe:
+            endpoints["west_europe"] = self.openai_endpoint_west_europe
+        return endpoints
 
-
-def get_storage_client():
-    """Get Azure Storage client"""
-    config = get_config()
-
-    if config.environment in ["local", "testing"]:
-        # Return a mock client for local development and testing
-        return MockStorageClient()
-
-    # In production, this would return actual Azure Storage client
-    # For now, return a mock
-    return MockStorageClient()
-
-
-class MockStorageClient:
-    """Mock storage client for local development"""
-
-    def list_containers(self):
-        return []
-
-    def upload_blob(self, container, blob_name, data):
-        logger.info(f"Mock upload: {container}/{blob_name}")
-        return True
-
-
-def health_check() -> Dict[str, Any]:
-    """Perform health check of the service and dependencies"""
-    try:
-        config = get_config()
-        azure_connectivity = check_azure_connectivity()
-
-        # Check if we can load configuration
-        config_status = "ok" if config else "error"
-
-        # Overall health status
-        # Use the actual connectivity result to determine healthy/unhealthy so
-        # tests that patch check_azure_connectivity get deterministic results.
-        if config_status == "ok":
-            # Determine health based on azure connectivity across environments
-            status = "healthy" if azure_connectivity else "unhealthy"
-        else:
-            status = "unhealthy"
-
-        return {
-            "status": status,
-            "service": "content-processor",
-            "azure_connectivity": azure_connectivity,
-            "environment": config.environment,
-            "config_status": config_status,
+    def get_openai_endpoint_for_region(self, region: str) -> Optional[str]:
+        """Get OpenAI endpoint for specific region."""
+        region_map = {
+            "uksouth": self.openai_endpoint_uk_south,
+            "westeurope": self.openai_endpoint_west_europe,
+            "primary": self.azure_openai_endpoint,
         }
+        return region_map.get(region.lower())
 
-    except Exception as e:
-        logger.error(f"Health check failed: {e}")
-        return {
-            "status": "unhealthy",
-            "service": "content-processor",
-            "azure_connectivity": False,
-            "error": str(e),
-        }
+    def is_local_environment(self) -> bool:
+        """Check if running in local development environment."""
+        return self.environment.lower() in ["local", "development", "testing"]
+
+    def get_reddit_credentials(self) -> Optional[Dict[str, str]]:
+        """Get Reddit API credentials if available."""
+        if self.reddit_client_id and self.reddit_client_secret:
+            return {
+                "client_id": self.reddit_client_id,
+                "client_secret": self.reddit_client_secret,
+                "user_agent": self.reddit_user_agent,
+            }
+        return None
+
+    def setup_logging(self) -> None:
+        """Configure logging based on settings."""
+        logging.basicConfig(
+            level=getattr(logging, self.log_level.upper()),
+            format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+        )
+
+
+# Global settings instance
+settings = ContentProcessorSettings()
+
+
+# Backward compatibility for existing code
+def get_config() -> ContentProcessorSettings:
+    """Get configuration instance (backward compatibility)."""
+    return settings
+
+
+# Configure logging on import
+settings.setup_logging()
+
+logger = logging.getLogger(__name__)
+logger.info(
+    f"Content Processor configuration loaded: {settings.service_name} v{settings.service_version} "
+    f"(environment: {settings.environment})"
+)

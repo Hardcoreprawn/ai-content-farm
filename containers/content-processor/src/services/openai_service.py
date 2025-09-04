@@ -15,7 +15,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple
 
 import openai
-from src.config import settings
 from tenacity import (
     before_sleep_log,
     retry,
@@ -23,6 +22,8 @@ from tenacity import (
     stop_after_attempt,
     wait_exponential,
 )
+
+from config import settings
 
 logger = logging.getLogger(__name__)
 
