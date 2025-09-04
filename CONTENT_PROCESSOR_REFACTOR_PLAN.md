@@ -25,6 +25,10 @@ This document tracks the comprehensive refactoring of content-processor to align
 - Add tenacity retry logic for OpenAI/external calls
 - Implement proper error handling for API failures
 - Add logging consistency with other containers
+- **NEW**: Configure multi-region OpenAI endpoints (UK South + West Europe)
+- **NEW**: Add model selection and routing logic
+- **NEW**: Implement article scoring and evaluation framework
+- **NEW**: Add cost tracking per model/prompt combination
 
 ### Phase 4: Azure Function Integration (NEW)
 - Create Azure Function for blob storage trigger
@@ -50,6 +54,14 @@ This document tracks the comprehensive refactoring of content-processor to align
 - ✅ Functional programming patterns where applicable
 - ✅ Container security best practices
 
+### Future Experimentation Infrastructure
+- ✅ **Model Evaluation**: Framework for scoring quality, cost, voice consistency
+- ✅ **Multi-Region Support**: UK South (existing) + West Europe (advanced models)
+- ✅ **Writing Voices**: Consistent character profiles and style management
+- ✅ **A/B Testing**: Infrastructure for model comparison experiments
+- ✅ **Cost Optimization**: Intelligent model selection based on topic complexity
+- ✅ **Scalable Design**: Foundation supports future AI model additions
+
 ### Architecture Pattern
 - ✅ **Parallel Processing**: One container instance per topic/article
 - ✅ **Auto-scaling**: Azure Container Apps scales 0→N based on queue depth
@@ -57,13 +69,28 @@ This document tracks the comprehensive refactoring of content-processor to align
 - ✅ **Quality-driven**: Containers work until quality bar met, then sleep
 - ✅ **Cost-efficient**: Pay only for active processing time
 - ✅ **Scalable**: Handles 5-10 concurrent articles, scales for future growth
+- ✅ **Multi-model**: Support multiple AI models with evaluation and scoring
+- ✅ **Multi-region**: UK South (primary) + West Europe (advanced models)
+- ✅ **Experimentation-ready**: Model comparison, cost tracking, voice consistency
 
 ### Processing Flow
 ```
 New Topic Blob → Azure Function → Service Bus Queue → Container Instance (per topic)
                                                    ↓
-Container: Process → Quality Check → Iterate until quality bar → Sleep/Terminate
+Container: Model Selection → Process → Quality/Cost Evaluation → Iterate → Sleep/Terminate
+                    ↓
+            UK South (Cheaper) ←→ West Europe (Advanced)
+                    ↓
+            Model Scoring & Voice Consistency Tracking
 ```
+
+### AI Model Strategy (Future-Ready Infrastructure)
+- **UK South**: Standard models (cost-efficient, existing setup)
+- **West Europe**: Advanced models (GPT-4, Claude-3, etc.)
+- **Primary/Secondary**: Failover capability between regions
+- **Model Evaluation**: Score quality, cost, voice consistency per model
+- **Writing Voices**: Consistent character profiles across models
+- **Experimentation**: A/B testing framework for model comparison
 
 ## Progress Tracking
 
