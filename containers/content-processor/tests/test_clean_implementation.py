@@ -30,8 +30,174 @@ def test_root_endpoint():
     # Service-specific data
     service_data = data["data"]
     assert service_data["service"] == "content-processor"
-    assert service_data["pattern"] == "wake-up work queue"
     assert "endpoints" in service_data
+
+
+def test_health_endpoint():
+    """Test health check endpoint."""
+    response = client.get("/health")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Standard response format
+    assert "status" in data
+    assert "message" in data
+    assert "data" in data
+
+    assert data["status"] == "success"
+    health_data = data["data"]
+    assert health_data["status"] == "healthy"
+    assert health_data["service"] == "content-processor"
+
+
+def test_wake_up_endpoint():
+    """Test content processing endpoint (replacing wake-up pattern)."""
+    processing_request = {
+        "content": "Write a brief article about renewable energy",
+        "processing_type": "article_generation",
+        "options": {"voice": "professional", "max_length": 500},
+    }
+
+    response = client.post("/process", json=processing_request)
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Standard response format
+    assert "status" in data
+    assert "message" in data
+    assert "data" in data
+
+    assert data["status"] == "success"
+
+    # Processing response data
+    process_data = data["data"]
+    assert "processed_content" in process_data
+    assert "quality_score" in process_data
+    assert "processing_metadata" in process_data
+
+
+def test_status_endpoint():
+    """Test processor status endpoint."""
+    response = client.get("/status")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Standard response format
+    assert "status" in data
+    assert "message" in data
+    assert "data" in data
+
+    assert data["status"] == "success"
+
+    # Status data
+    status_data = data["data"]
+    assert status_data["service"] == "content-processor"
+    assert status_data["status"] == "healthy"
+    assert "environment" in status_data
+
+
+def test_docs_endpoint():
+    """Test API documentation endpoint."""
+    response = client.get("/docs")
+
+    assert response.status_code == 200
+
+
+def test_process_batch_endpoint():
+    """Test processing types endpoint (replacing batch processing)."""
+    response = client.get("/process/types")
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Standard response format
+    assert "status" in data
+    assert "message" in data
+    assert "data" in data
+
+    assert data["status"] == "success"
+
+    # Processing types data
+    types_data = data["data"]
+    assert "available_types" in types_data
+    assert "default_options" in types_data
+
+
+def test_wake_up_with_options():
+    """Test processing endpoint with advanced options."""
+    processing_request = {
+        "content": "Test content for processing",
+        "processing_type": "quality_assessment",
+        "options": {
+            "voice": "academic",
+            "target_audience": "technical",
+            "max_length": 300,
+        },
+    }
+
+    response = client.post("/process", json=processing_request)
+
+    assert response.status_code == 200
+    data = response.json()
+
+    assert data["status"] == "success"
+    process_data = data["data"]
+    assert "processed_content" in process_data
+    assert "quality_score" in process_data
+
+
+def test_error_handling():
+    """Test error handling with invalid request."""
+    # Empty content should trigger validation error
+    invalid_request = {
+        "content": "",  # Empty content
+        "processing_type": "general",
+    }
+
+    response = client.post("/process", json=invalid_request)
+
+    # Should return validation error
+    assert response.status_code == 400  # Bad request for empty content
+    data = response.json()
+
+    # Standard error format
+    assert "detail" in data
+
+
+def test_functional_immutability():
+    """Test that multiple calls don't interfere (functional pattern)."""
+    # Make multiple processing calls
+    requests = [
+        {
+            "content": "First test content",
+            "processing_type": "general",
+            "options": {"voice": "professional"},
+        },
+        {
+            "content": "Second test content",
+            "processing_type": "content_analysis",
+            "options": {"voice": "casual"},
+        },
+        {
+            "content": "Third test content",
+            "processing_type": "general",
+            "options": {"voice": "technical"},
+        },
+    ]
+
+    responses = []
+    for req in requests:
+        response = client.post("/process", json=req)
+        assert response.status_code == 200
+        responses.append(response.json())
+
+    # Each response should be independent and successful
+    for response_data in responses:
+        assert response_data["status"] == "success"
+        assert "processed_content" in response_data["data"]
 
 
 def test_health_endpoint():
