@@ -11,15 +11,16 @@ This document tracks the comprehensive refactoring of content-processor to align
 ## Implementation Phases
 
 ### Phase 1: Foundation ✋ READY TO START
-- Update requirements.txt with pydantic-settings, tenacity
-- Create new config.py using pydantic-settings BaseSettings
-- Integrate secure_error_handler.py for consistent error responses
+- **SHARED**: Update requirements.txt using config/shared-versions.toml
+- **SHARED**: Create new config.py using pydantic-settings BaseSettings  
+- **SHARED**: Integrate libs/secure_error_handler.py for consistent error responses
+- **ADD**: Add pydantic-settings and tenacity to shared-versions.toml
 
 ### Phase 2: API Standardization
 - Remove /api/processor/* paths, use root-level endpoints
-- Integrate standard_endpoints.py for consistent responses
-- Add proper OpenAPI documentation
-- Implement standard health/status endpoints
+- **SHARED**: Integrate libs/standard_endpoints.py for consistent responses
+- **FASTAPI**: Add proper OpenAPI documentation (auto-generated)
+- **SHARED**: Implement standard health/status endpoints using standard_endpoints.py
 
 ### Phase 3: External API Integration
 - Add tenacity retry logic for OpenAI/external calls
@@ -31,12 +32,12 @@ This document tracks the comprehensive refactoring of content-processor to align
 - **NEW**: Add cost tracking per model/prompt combination
 
 ### Phase 4: Azure Function Integration (NEW)
-- Create Azure Function for blob storage trigger
-- Add Service Bus queue for topic distribution
-- Implement parallel container scaling (one per topic)
-- Configure Container Apps auto-scaling (0→N instances)
+- **EXISTING**: Use existing Azure Function infrastructure pattern from functions/static-site-deployer/
+- **AZURE**: Add Service Bus namespace + queue (Terraform managed)
+- **AZURE**: Configure existing Container Apps auto-scaling with Service Bus rules
+- **AZURE**: Leverage existing Container App Environment (no new infrastructure)
 - Add quality assessment and iteration logic
-- Configure function app with proper RBAC permissions
+- **AZURE**: Use existing RBAC pattern from current function apps
 
 ### Phase 5: Testing & Validation
 - Update tests for new API structure
@@ -91,6 +92,35 @@ Container: Model Selection → Process → Quality/Cost Evaluation → Iterate �
 - **Model Evaluation**: Score quality, cost, voice consistency per model
 - **Writing Voices**: Consistent character profiles across models
 - **Experimentation**: A/B testing framework for model comparison
+
+## ✅ **MAXIMIZING SHARED/OFF-THE-SHELF COMPONENTS**
+
+### **Shared Internal Components (100% Reuse)**
+- ✅ **libs/standard_endpoints.py**: Health, status, docs endpoints
+- ✅ **libs/secure_error_handler.py**: OWASP-compliant error handling  
+- ✅ **libs/shared_models.py**: Standard response models
+- ✅ **config/shared-versions.toml**: Centralized dependency management
+- ✅ **Existing Container App Environment**: No new infrastructure needed
+
+### **Azure Off-The-Shelf Services (Managed)**
+- ✅ **Azure Container Apps**: Auto-scaling, 0→N instances (existing)
+- ✅ **Azure Service Bus**: Message queuing, retry logic, dead letter
+- ✅ **Azure Functions**: Blob triggers, event processing (existing pattern)
+- ✅ **Azure Blob Storage**: Topic storage, results storage (existing)
+- ✅ **Azure Key Vault**: Secret management (existing)
+- ✅ **Azure OpenAI**: Multi-region AI models (existing + new West Europe)
+
+### **Standard Python Libraries (Off-The-Shelf)**
+- ✅ **pydantic-settings**: Configuration management (replacing custom)
+- ✅ **tenacity**: Retry logic for external APIs (replacing custom)
+- ✅ **FastAPI**: Auto-generated OpenAPI docs (built-in)
+- ✅ **uvicorn**: Production ASGI server (existing)
+
+### **Minimal Custom Development Required**
+- ⚡ **Model selection logic**: Topic complexity → model routing
+- ⚡ **Quality assessment**: Article scoring framework  
+- ⚡ **Service Bus integration**: Message processing in container
+- ⚡ **Cost tracking**: Per-model usage metrics
 
 ## Progress Tracking
 
