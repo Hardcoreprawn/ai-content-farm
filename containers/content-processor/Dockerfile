@@ -82,5 +82,5 @@ USER appuser
 # Expose port
 EXPOSE 8000
 
-# Run application optimized for production - using new standardized API
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
+# Run application optimized for production - using standardized API structure
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]
