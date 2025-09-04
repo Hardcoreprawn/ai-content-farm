@@ -14,8 +14,9 @@ import random
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-from src.config import settings
 from src.services.openai_service import ModelTier, ProcessingType
+
+from config import settings
 
 logger = logging.getLogger(__name__)
 

@@ -12,9 +12,10 @@ while maintaining the same interface for production use.
 import logging
 from typing import Union
 
-from src.config import settings
 from src.services.mock_service import MockContentProcessor
 from src.services.openai_service import ContentProcessor
+
+from config import settings
 
 logger = logging.getLogger(__name__)
 
