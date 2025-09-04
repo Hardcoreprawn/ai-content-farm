@@ -26,10 +26,44 @@ This document tracks the comprehensive refactoring of content-processor to align
 - Implement proper error handling for API failures
 - Add logging consistency with other containers
 
-### Phase 4: Testing & Validation
+### Phase 4: Azure Function Integration (NEW)
+- Create Azure Function for blob storage trigger
+- Add Service Bus queue for topic distribution
+- Implement parallel container scaling (one per topic)
+- Configure Container Apps auto-scaling (0→N instances)
+- Add quality assessment and iteration logic
+- Configure function app with proper RBAC permissions
+
+### Phase 5: Testing & Validation
 - Update tests for new API structure
 - Test end-to-end with content-collector integration
-- Validate Azure deployment
+- Test Azure Function trigger integration
+- Validate Azure deployment and cost impact
+- Security scan with pre-commit hooks (OWASP compliance)
+
+## Additional Requirements
+
+### Code Quality Standards
+- ✅ Keep all files <400 lines (functional decomposition)
+- ✅ Follow PEP8 with pre-commit linters
+- ✅ OWASP security guidelines compliance
+- ✅ Functional programming patterns where applicable
+- ✅ Container security best practices
+
+### Architecture Pattern
+- ✅ **Parallel Processing**: One container instance per topic/article
+- ✅ **Auto-scaling**: Azure Container Apps scales 0→N based on queue depth
+- ✅ **Event-driven**: Blob storage events trigger function → queue → containers
+- ✅ **Quality-driven**: Containers work until quality bar met, then sleep
+- ✅ **Cost-efficient**: Pay only for active processing time
+- ✅ **Scalable**: Handles 5-10 concurrent articles, scales for future growth
+
+### Processing Flow
+```
+New Topic Blob → Azure Function → Service Bus Queue → Container Instance (per topic)
+                                                   ↓
+Container: Process → Quality Check → Iterate until quality bar → Sleep/Terminate
+```
 
 ## Progress Tracking
 
