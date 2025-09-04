@@ -116,4 +116,16 @@ runs:
         fi
 
         echo "[SYNC] Sync completed. Results: $results"
-        echo "results=$results" >> "$GITHUB_OUTPUT"
+
+        # Check if all containers were not found (fresh deployment scenario)
+        not_found_count=$(echo "$results" | jq '[.[] | select(.status == "not_found")] | length')
+        total_count=$(echo "$results" | jq 'length')
+
+        if [[ "$not_found_count" == "$total_count" && "$total_count" -gt 0 ]]; then
+          echo "[SYNC] [INFO] All container apps not found - this is expected for fresh infrastructure deployments"
+          echo "[SYNC] [INFO] Container apps will be created in subsequent deployment jobs"
+        fi
+
+        # Properly escape JSON output for GitHub Actions
+        escaped_results=$(echo "$results" | jq -c .)
+        echo "results=$escaped_results" >> "$GITHUB_OUTPUT"
