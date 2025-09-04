@@ -27,7 +27,7 @@ azure-servicebus = "~=7.12.0"
 openai = "~=1.100.2"
 
 # Configuration and retry dependencies
-pydantic-settings = "~=2.8.2"
+pydantic-settings = "~=2.10.1"
 tenacity = "~=9.0.0"
 
 # Utility dependencies

@@ -61,12 +61,13 @@ class TestStandardizedEndpoints:
         assert response.status_code == 200
         data = response.json()
 
-        # Standard health response format
-        assert data["status"] == "healthy"
+        # Standard response format with health data inside
+        assert data["status"] == "success"
         assert "message" in data
         assert "data" in data
 
         health_data = data["data"]
+        assert health_data["status"] == "healthy"  # Health status is in data.status
         assert "service" in health_data
         assert "uptime_seconds" in health_data
         assert "dependencies" in health_data

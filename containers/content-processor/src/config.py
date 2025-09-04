@@ -53,6 +53,19 @@ class ContentProcessorSettings(BaseSettings):
 
     # OpenAI Configuration (Multi-Region Support)
     openai_api_key: Optional[str] = Field(default=None, description="OpenAI API Key")
+
+    # Azure OpenAI Configuration
+    azure_openai_endpoint: Optional[str] = Field(
+        default=None, description="Primary Azure OpenAI endpoint"
+    )
+    azure_openai_api_key: Optional[str] = Field(
+        default=None, description="Azure OpenAI API key"
+    )
+    azure_openai_api_version: str = Field(
+        default="2024-06-01", description="Azure OpenAI API version"
+    )
+
+    # Regional OpenAI endpoints for failover
     openai_endpoint_uk_south: Optional[str] = Field(
         default=None, description="OpenAI UK South endpoint"
     )
@@ -99,11 +112,22 @@ class ContentProcessorSettings(BaseSettings):
     def get_openai_endpoints(self) -> Dict[str, str]:
         """Get available OpenAI endpoints for multi-region support."""
         endpoints = {}
+        if self.azure_openai_endpoint:
+            endpoints["primary"] = self.azure_openai_endpoint
         if self.openai_endpoint_uk_south:
             endpoints["uk_south"] = self.openai_endpoint_uk_south
         if self.openai_endpoint_west_europe:
             endpoints["west_europe"] = self.openai_endpoint_west_europe
         return endpoints
+
+    def get_openai_endpoint_for_region(self, region: str) -> Optional[str]:
+        """Get OpenAI endpoint for specific region."""
+        region_map = {
+            "uksouth": self.openai_endpoint_uk_south,
+            "westeurope": self.openai_endpoint_west_europe,
+            "primary": self.azure_openai_endpoint,
+        }
+        return region_map.get(region.lower())
 
     def is_local_environment(self) -> bool:
         """Check if running in local development environment."""

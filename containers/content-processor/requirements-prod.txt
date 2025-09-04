@@ -7,7 +7,7 @@ uvicorn[standard]~=0.35.0
 
 # Data processing and configuration
 pydantic~=2.11.7
-pydantic-settings~=2.8.2
+pydantic-settings~=2.10.1
 python-dateutil~=2.9.0
 
 # Retry logic for external APIs
