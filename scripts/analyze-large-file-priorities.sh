@@ -34,7 +34,7 @@ warning_files=$(echo "$issues_data" | jq -r '.[] | select(.title | contains("lin
 
 large_files=$(echo "$issues_data" | jq -r '.[] | select(.title | contains("lines)")) | .title' \
     | sed -n 's/Refactor large file: `\([^`]*\)` (\([0-9]*\) lines)/\2:\1/p' \
-    | awk -F: '$1 > 400 && $1 <= 600 {print $0}' | sort -nr)
+    | awk -F: '$1 > 500 && $1 <= 600 {print $0}' | sort -nr)
 
 # Count by category
 critical_count=$(echo "$critical_files" | grep -c . || echo "0")
@@ -44,7 +44,7 @@ total_count=$((critical_count + warning_count + large_count))
 
 echo "🔴 CRITICAL (>1000 lines): $critical_count files"
 echo "🟡 WARNING (600-1000 lines): $warning_count files"
-echo "🟠 LARGE (400-600 lines): $large_count files"
+echo "🟠 LARGE (500-600 lines): $large_count files"
 echo "📊 TOTAL: $total_count files"
 
 echo
@@ -138,12 +138,12 @@ echo "4. Maintain backward compatibility"
 echo "5. Update documentation as you go"
 
 total_lines=$(echo "$critical_files $warning_files $large_files" | tr ' ' '\n' | cut -d':' -f1 | paste -sd+ | bc)
-target_reduction=$((total_lines - (total_count * 400)))
+target_reduction=$((total_lines - (total_count * 500)))
 
 echo
 echo "📊 Impact Metrics:"
 echo "=================="
 echo "• Total lines in large files: $total_lines"
-echo "• Target after refactoring: $((total_count * 400)) lines (400 per file)"
+echo "• Target after refactoring: $((total_count * 500)) lines (500 per file)"
 echo "• Lines to reduce: $target_reduction ($(((target_reduction * 100) / total_lines))% reduction)"
 echo "• Estimated effort: $((total_count / 5)) weeks (assuming 1 file per day)"
