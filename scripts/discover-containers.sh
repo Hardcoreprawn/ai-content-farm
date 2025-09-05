@@ -73,7 +73,6 @@ discover_containers() {
     # Skip special directories
     if [[ "$container_name" == "base" ||
           "$container_name" == "__pycache__" ||
-          "$container_name" == "deprecated" ||
           "$container_name" == "." ||
           "$container_name" == ".." ]]; then
       continue
