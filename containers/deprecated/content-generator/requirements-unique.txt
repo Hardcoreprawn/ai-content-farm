@@ -1,0 +1,13 @@
+# UNIQUE dependencies for content-generator only
+# All common deps (fastapi, uvicorn, pydantic, azure-identity, azure-storage-blob, 
+# pytest, pytest-asyncio, httpx, python-json-logger) come from base layers
+
+# AI Services (unique to content-generator)
+openai==1.102.0
+anthropic==0.64.0
+
+# Azure Service Bus (unique to content-generator)  
+azure-servicebus==7.14.2
+
+# File processing (used by content-generator for content handling)
+aiofiles==24.1.0

@@ -24,6 +24,7 @@ from reddit_client import RedditClient
 from service_logic import ContentCollectorService
 from source_collectors import SourceCollectorFactory
 
+from config import ENVIRONMENT
 from libs.blob_storage import BlobStorageClient
 from libs.shared_models import StandardResponse, create_service_dependency
 from libs.standard_endpoints import (
@@ -79,12 +80,16 @@ async def check_reddit_health():
 health_endpoint = create_standard_health_endpoint(
     service_name="content-womble",
     version="2.0.0",
+    environment=ENVIRONMENT,
     dependency_checks={"storage": check_storage_health, "reddit": check_reddit_health},
     service_metadata_dep=service_metadata,
 )
 
 status_endpoint = create_standard_status_endpoint(
-    service_name="content-womble", service_metadata_dep=service_metadata
+    service_name="content-womble",
+    version="2.0.0",
+    environment=ENVIRONMENT,
+    service_metadata_dep=service_metadata,
 )
 
 

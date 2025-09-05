@@ -478,9 +478,9 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          resource-group: 'ai-content-farm-prod'
+          resource-group: 'ai-content-prod-rg'
           registry-images: ${{ needs.plan-pipeline.outputs.changed-containers }}
-          container-app-prefix: 'ai-content-farm'
+          container-app-prefix: 'ai-content-prod'
           registry: 'ghcr.io'
           repository: ${{ github.repository }}
           image-tag: ${{ github.sha }}

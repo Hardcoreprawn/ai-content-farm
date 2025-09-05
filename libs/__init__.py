@@ -10,8 +10,10 @@ Version: 2.0.0 - FastAPI-native API standardization (Aug 27, 2025)
 __version__ = "2.0.0"
 
 # Import FastAPI-native shared models
-from .shared_models import (  # Core FastAPI-native models; FastAPI dependencies; Helper functions; Data models; Legacy support (temporary)
-    APIError,
+from .shared_models import (
+    APIError,  # Core FastAPI-native models; FastAPI dependencies; Helper functions; Data models; Legacy support (temporary)
+)
+from .shared_models import (
     ContentItem,
     ErrorCodes,
     HealthStatus,

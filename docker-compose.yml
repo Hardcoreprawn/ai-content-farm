@@ -51,7 +51,7 @@ services:
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
 
-  # Content Processor - Cleans and normalizes content
+  # Content Processor - Cleans and normalizes content + AI Generation
   content-processor:
     build:
       context: .
@@ -62,6 +62,18 @@ services:
     environment:
       - ENVIRONMENT=development
       - AZURE_STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;
+      # AI API Keys for content generation (merged from content-generator)
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY:-}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-02-15-preview}
+      - AZURE_OPENAI_DEPLOYMENT_NAME=${AZURE_OPENAI_DEPLOYMENT_NAME:-gpt-35-turbo}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY:-}
+      - DEFAULT_AI_MODEL=gpt-3.5-turbo
+      # Content generation settings
+      - RANKED_CONTENT_CONTAINER=ranked-content
+      - GENERATED_CONTENT_CONTAINER=generated-content
+      - ENABLE_SOURCE_VERIFICATION=true
     depends_on:
       - content-collector
       - azurite

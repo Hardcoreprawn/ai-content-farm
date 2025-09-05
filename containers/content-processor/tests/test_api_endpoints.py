@@ -1,7 +1,7 @@
 """
 Test Suite for Content Processor API Endpoints
 
-Tests the standardized API endpoints that match the actual implementation.
+Provides test coverage for the standardized API endpoints that match the actual implementation.
 """
 
 import pytest
@@ -44,20 +44,11 @@ def test_health_endpoint():
 
 
 def test_status_endpoint():
-    """Test status endpoint returns processing information."""
-    response = client.get("/status")
+    """Test status endpoint format using standard library test."""
+    from libs.standard_tests import StandardAPITestSuite
 
-    assert response.status_code == 200
-    data = response.json()
-
-    assert data["status"] == "success"
-    assert "data" in data
-
-    # Status-specific data - check actual fields
-    status_data = data["data"]
-    assert "service" in status_data
-    assert status_data["service"] == "content-processor"
-    assert "environment" in status_data
+    test_suite = StandardAPITestSuite(client, "content-processor")
+    test_suite.test_status_endpoint_standard_format()
 
 
 def test_docs_endpoint():
