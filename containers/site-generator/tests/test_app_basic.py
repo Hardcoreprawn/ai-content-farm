@@ -83,7 +83,7 @@ class TestFastAPIApp:
             assert "dependencies" in data["data"]
             assert "blob_storage" in data["data"]["dependencies"]
             # The dependency should be marked as false/unhealthy
-            assert data["data"]["site_health"]["overall"] is False
+            assert data["data"]["dependencies"]["blob_storage"] is False
 
     def test_docs_endpoint(self, client):
         """Test that docs endpoint is accessible."""
