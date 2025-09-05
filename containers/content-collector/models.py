@@ -24,20 +24,34 @@ class SourceConfig(BaseModel):
         default_factory=dict, description="Additional filtering criteria"
     )
 
+    @property
+    def config(self) -> Dict[str, Any]:
+        """Legacy config property for backward compatibility."""
+        result: Dict[str, Any] = {"limit": self.limit}
+        if self.subreddits:
+            result["subreddits"] = self.subreddits
+        if self.websites:
+            result["websites"] = self.websites
+        if self.criteria:
+            result.update(self.criteria)
+        return result
+
 
 class DiscoveryRequest(BaseModel):
     """Request model for content discovery endpoint."""
 
     sources: List[SourceConfig] = Field(..., description="List of sources to analyze")
     keywords: Optional[List[str]] = Field(
-        None, description="Keywords to focus analysis on"
+        default=None, description="Keywords to focus analysis on"
     )
     analysis_depth: str = Field(
-        "standard", description="Depth of analysis: basic, standard, detailed"
+        default="standard", description="Depth of analysis: basic, standard, detailed"
     )
-    include_trending: bool = Field(True, description="Include trending topic analysis")
+    include_trending: bool = Field(
+        default=True, description="Include trending topic analysis"
+    )
     include_recommendations: bool = Field(
-        True, description="Include research recommendations"
+        default=True, description="Include research recommendations"
     )
 
 

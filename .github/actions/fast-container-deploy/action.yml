@@ -76,7 +76,6 @@ runs:
         declare -A app_names=(
           ["content-collector"]="ca-content-collector"
           ["content-enricher"]="ca-content-enricher"
-          ["content-generator"]="ca-content-generator"
           ["content-processor"]="ca-content-processor"
           ["content-ranker"]="ca-content-ranker"
           ["markdown-generator"]="ca-markdown-generator"
@@ -212,7 +211,6 @@ runs:
           case "$container_name" in
             content-collector) app_name="ca-content-collector" ;;
             content-enricher) app_name="ca-content-enricher" ;;
-            content-generator) app_name="ca-content-generator" ;;
             content-processor) app_name="ca-content-processor" ;;
             content-ranker) app_name="ca-content-ranker" ;;
             markdown-generator) app_name="ca-markdown-generator" ;;

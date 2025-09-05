@@ -67,20 +67,23 @@ class TestFastAPIApp:
     def test_health_endpoint_failure(self, client):
         """Test health endpoint with service failure."""
         with patch("main.site_generator") as mock_gen:
-            # Mock the async method to raise an exception
-            mock_gen.check_blob_connectivity.side_effect = Exception(
-                "Connection failed"
-            )
+            # Mock the async method to return unhealthy status
+            mock_gen.check_blob_connectivity.return_value = {
+                "status": "error",
+                "message": "Connection failed",
+            }
 
             response = client.get("/health")
 
-            assert response.status_code == 503
+            # Standard health endpoint always returns 200 with health info
+            assert response.status_code == 200
             data = response.json()
-            assert data["status"] == "error"
-            # Check the standard response format
-            assert "unavailable" in data["message"]
-            assert "errors" in data
-            assert data["errors"] is not None
+            assert data["status"] == "success"  # Top-level status is always success
+            # Check that the health data shows the dependency is unhealthy
+            assert "dependencies" in data["data"]
+            assert "blob_storage" in data["data"]["dependencies"]
+            # The dependency should be marked as false/unhealthy
+            assert data["data"]["dependencies"]["blob_storage"] is False
 
     def test_docs_endpoint(self, client):
         """Test that docs endpoint is accessible."""

@@ -1,14 +1,17 @@
 # Production dependencies for content-processor container
-# This file contains only the dependencies needed for production runtime
-# Test and development dependencies are in requirements.txt
+# Using shared versions from config/shared-versions.toml for consistency
 
 # Core web framework
 fastapi~=0.116.1
 uvicorn[standard]~=0.35.0
 
-# Data processing
+# Data processing and configuration
 pydantic~=2.11.7
+pydantic-settings~=2.10.1
 python-dateutil~=2.9.0
+
+# Retry logic for external APIs
+tenacity~=9.0.0
 
 # HTTP client for health checks and web scraping
 requests~=2.32.5
@@ -16,7 +19,7 @@ aiohttp~=3.12.15
 httpx~=0.28.1  # For Azure pricing API calls
 
 # AI/ML for content analysis and generation
-openai~=1.102.0
+openai~=1.100.2
 
 # Azure integration
 azure-keyvault-secrets~=4.10.0

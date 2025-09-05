@@ -13,23 +13,26 @@ from datetime import datetime, timezone
 from typing import Dict, List
 
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from models import GenerationRequest, GenerationResponse, SiteStatus
 from site_generator import SiteGenerator
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from config import Config
+from libs import SecureErrorHandler
 
 # Import standard models from shared library
-from libs import (
-    ErrorSeverity,
-    HealthStatus,
-    SecureErrorHandler,
-    StandardError,
+from libs.shared_models import (
     StandardResponse,
-    add_standard_metadata,
-    create_error_response,
+    create_service_dependency,
     create_success_response,
+)
+from libs.standard_endpoints import (
+    create_standard_404_handler,
+    create_standard_health_endpoint,
+    create_standard_root_endpoint,
+    create_standard_status_endpoint,
 )
 
 # Configure logging
@@ -37,6 +40,16 @@ logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+# Create service metadata dependency
+service_metadata = create_service_dependency("site-generator")
+
+# Initialize components
+config = Config()
+site_generator = SiteGenerator()
+
+# Initialize secure error handler for legacy endpoints
+error_handler = SecureErrorHandler("site-generator")
 
 # Initialize FastAPI app
 app = FastAPI(
@@ -47,53 +60,54 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# Initialize components
-config = Config()
-site_generator = SiteGenerator()
-
-# Initialize secure error handler
-error_handler = SecureErrorHandler("site-generator")
+# Define health check functions for shared library
 
 
-@app.get("/health", response_model=StandardResponse)
-async def health_check():
-    """Standard health check endpoint using StandardResponse format."""
+async def check_blob_connectivity():
+    """Check blob storage connectivity for health endpoint."""
     try:
-        # Check blob storage connectivity
-        blob_available = await site_generator.check_blob_connectivity()
-
-        # Create health data
-        health_data = {
-            "status": "healthy",
-            "service": "site-generator",
-            "version": "1.0.0",
-            "blob_storage_available": blob_available,
-            "containers": {
-                "source": config.PROCESSED_CONTENT_CONTAINER,
-                "markdown": config.MARKDOWN_CONTENT_CONTAINER,
-                "static": config.STATIC_SITES_CONTAINER,
-            },
-        }
-
-        return create_success_response(
-            message="Health check successful",
-            data=health_data,
-            metadata={"timestamp": datetime.now(timezone.utc).isoformat()},
-        )
-    except Exception as e:
-        error_response = error_handler.create_http_error_response(
-            status_code=503,
-            error=e,
-            error_type="service_unavailable",
-            user_message="Health check temporarily unavailable",
-        )
-        return JSONResponse(status_code=503, content=error_response)
+        result = await site_generator.check_blob_connectivity()
+        # Extract boolean status from the dict result
+        return result.get("status") == "healthy"
+    except Exception:
+        return False
 
 
-@app.get("/api/site-generator/health")
-async def api_health_check():
-    """Standardized API health check."""
-    return await health_check()
+# Add shared standard endpoints
+app.add_api_route(
+    "/",
+    create_standard_root_endpoint(
+        service_name="site-generator",
+        description="Python-based JAMStack static site generator",
+        version="1.0.0",
+        service_metadata_dep=service_metadata,
+    ),
+)
+
+app.add_api_route(
+    "/status",
+    create_standard_status_endpoint(
+        service_name="site-generator",
+        version="1.0.0",
+        environment=getattr(config, "ENVIRONMENT", "local"),
+        service_metadata_dep=service_metadata,
+    ),
+)
+
+app.add_api_route(
+    "/health",
+    create_standard_health_endpoint(
+        service_name="site-generator",
+        version="1.0.0",
+        environment=getattr(config, "ENVIRONMENT", "local"),
+        dependency_checks={"blob_storage": check_blob_connectivity},
+        service_metadata_dep=service_metadata,
+    ),
+)
+
+# Standard endpoints are now provided by shared library above
+
+# Legacy endpoints for backward compatibility
 
 
 @app.get("/api/site-generator/status", response_model=StandardResponse)
@@ -258,6 +272,12 @@ async def preview_site(site_id: str):
             context={"site_id": site_id},
         )
         raise HTTPException(status_code=404, detail=error_response)
+
+
+# Add standardized error handler using FastAPI's built-in patterns
+app.add_exception_handler(
+    StarletteHTTPException, create_standard_404_handler("site-generator")
+)
 
 
 if __name__ == "__main__":

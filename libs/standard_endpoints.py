@@ -8,12 +8,16 @@ Reduces code duplication and ensures consistent API patterns.
 import time
 from typing import Any, Callable, Dict, List, Optional
 
-from fastapi import Depends
+from fastapi import Depends, Request
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .shared_models import (
     HealthStatus,
     ServiceStatus,
+    StandardError,
     StandardResponse,
+    create_error_response,
     create_success_response,
 )
 
@@ -24,6 +28,7 @@ _service_start_time = time.time()
 def create_standard_health_endpoint(
     service_name: str,
     version: str = "1.0.0",
+    environment: Optional[str] = None,
     dependency_checks: Optional[Dict[str, Callable]] = None,
     service_metadata_dep: Optional[Callable] = None,
 ):
@@ -33,6 +38,7 @@ def create_standard_health_endpoint(
     Args:
         service_name: Name of the service (e.g., "content-collector")
         version: Service version
+        environment: Deployment environment (e.g., 'local', 'dev', 'prod')
         dependency_checks: Dict of dependency name -> async check function
         service_metadata_dep: FastAPI dependency for service metadata
 
@@ -71,6 +77,7 @@ def create_standard_health_endpoint(
             status=overall_status,
             service=service_name,
             version=version,
+            environment=environment,
             dependencies=dependencies,
             issues=issues,
             uptime_seconds=uptime_seconds,
@@ -91,6 +98,8 @@ def create_standard_health_endpoint(
 
 def create_standard_status_endpoint(
     service_name: str,
+    version: str = "1.0.0",
+    environment: Optional[str] = None,
     get_stats: Optional[Callable] = None,
     get_last_operation: Optional[Callable] = None,
     get_configuration: Optional[Callable] = None,
@@ -101,6 +110,8 @@ def create_standard_status_endpoint(
 
     Args:
         service_name: Name of the service
+        version: Service version
+        environment: Deployment environment (e.g., 'local', 'dev', 'prod')
         get_stats: Optional function to get service statistics
         get_last_operation: Optional function to get last operation details
         get_configuration: Optional function to get current configuration
@@ -127,7 +138,9 @@ def create_standard_status_endpoint(
 
         status_data = ServiceStatus(
             service=service_name,
+            version=version,
             status="running",
+            environment=environment,
             uptime_seconds=uptime_seconds,
             stats=stats,
             last_operation=last_operation,
@@ -175,10 +188,14 @@ def create_standard_root_endpoint(
     ) -> StandardResponse:
         """Root endpoint with service information."""
 
+        # Calculate uptime for consistency
+        uptime_seconds = time.time() - _service_start_time
+
         root_data = {
             "service": service_name,
             "description": description,
             "version": version,
+            "uptime": uptime_seconds,
             "available_endpoints": sorted(all_endpoints),
             "documentation": {"swagger_ui": "/docs", "redoc": "/redoc"},
         }
@@ -188,3 +205,58 @@ def create_standard_root_endpoint(
         )
 
     return root_endpoint
+
+
+def create_standard_404_handler(service_name: str):
+    """
+    Create a standardized OWASP-compliant 404 error handler.
+
+    Args:
+        service_name: Name of the service for metadata
+
+    Returns:
+        FastAPI exception handler function
+    """
+
+    async def handle_404_with_owasp_compliance(
+        request: Request, exc: StarletteHTTPException
+    ) -> JSONResponse:
+        """
+        OWASP-compliant HTTP error handler.
+
+        Handles common HTTP errors (404, 405) with StandardResponse format.
+        """
+        import time
+
+        from .shared_models import StandardResponseFactory
+
+        error_messages = {
+            404: "Resource not found",
+            405: "Method not allowed",
+            500: "Internal server error",
+        }
+
+        error_details = {
+            404: ["The requested endpoint does not exist"],
+            405: ["The HTTP method is not allowed for this endpoint"],
+            500: ["An internal server error occurred"],
+        }
+
+        if exc.status_code in error_messages:
+            error_response = StandardResponseFactory.error(
+                message=error_messages[exc.status_code],
+                errors=error_details[exc.status_code],
+                metadata={
+                    "service": service_name,
+                    "timestamp": time.time(),
+                    "function": service_name,
+                },
+            )
+            return JSONResponse(
+                status_code=exc.status_code, content=error_response.model_dump()
+            )
+
+        # For other errors, re-raise to let FastAPI handle naturally
+        raise exc
+
+    return handle_404_with_owasp_compliance

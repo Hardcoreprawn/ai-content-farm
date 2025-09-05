@@ -11,9 +11,18 @@ Functional endpoints following agent instructions:
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from uuid import uuid4
 
+from content_generation import (
+    BatchGenerationRequest,
+    BatchGenerationResponse,
+    GeneratedContent,
+    GenerationRequest,
+    GenerationStatus,
+    get_content_generator,
+)
+from fastapi import APIRouter, HTTPException
 from models import (
     ProcessBatchRequest,
     ProcessingResult,
@@ -22,10 +31,14 @@ from models import (
     WakeUpResponse,
 )
 from processor import ContentProcessor
+from pydantic import BaseModel, Field
 
 from libs.shared_models import ErrorCodes, StandardResponse
 
 logger = logging.getLogger(__name__)
+
+# Create API router
+router = APIRouter()
 
 # Global processor instance (initialized once per container)
 _processor_instance: ContentProcessor = None
@@ -55,16 +68,30 @@ async def root_endpoint(metadata: Dict[str, Any]) -> StandardResponse:
     """Root endpoint with service information."""
     return StandardResponse(
         status="success",
-        message="Content Processor - Event-driven article generation",
+        message="Content Processor - Event-driven processing & AI content generation",
         data={
             "service": "content-processor",
-            "pattern": "wake-up work queue",
-            "endpoints": [
+            "version": "1.0.0",
+            "pattern": "wake-up work queue + content generation",
+            "processing_endpoints": [
                 "POST /api/processor/wake-up",
                 "POST /api/processor/process-batch",
                 "GET /api/processor/health",
                 "GET /api/processor/status",
                 "GET /api/processor/docs",
+            ],
+            "generation_endpoints": [
+                "POST /api/processor/generate/tldr",
+                "POST /api/processor/generate/blog",
+                "POST /api/processor/generate/deepdive",
+                "POST /api/processor/generate/batch",
+                "GET /api/processor/generation/status/{batch_id}",
+            ],
+            "capabilities": [
+                "content_processing",
+                "ai_generation",
+                "batch_operations",
+                "health_monitoring",
             ],
         },
         metadata=metadata,
@@ -88,7 +115,13 @@ async def health_endpoint(metadata: Dict[str, Any]) -> StandardResponse:
             status=status,
             message="Health check completed",
             data={
+                "service": "content-processor",
+                "status": "healthy" if status == "success" else "unhealthy",
                 "processor_id": health_status.processor_id,
+                "dependencies": {
+                    "azure_openai": health_status.azure_openai_available,
+                    "blob_storage": health_status.blob_storage_available,
+                },
                 "azure_openai_available": health_status.azure_openai_available,
                 "blob_storage_available": health_status.blob_storage_available,
                 "last_health_check": health_status.last_health_check.isoformat(),
@@ -270,6 +303,241 @@ async def docs_endpoint(metadata: Dict[str, Any]) -> StandardResponse:
             },
             "cost_target": "$3-8/month",
             "architecture": "Functional processing with Azure OpenAI integration",
+        },
+        metadata=metadata,
+    )
+
+
+# Simple process request model for testing
+class ProcessRequest(BaseModel):
+    """Simple process request for testing."""
+
+    content: str = Field(..., description="Content to process")
+    processing_type: str = Field("enhancement", description="Type of processing")
+    options: Optional[Dict[str, Any]] = Field(
+        default_factory=dict, description="Processing options"
+    )
+
+
+# Route registrations - only service-specific endpoints
+# Standard endpoints (/, /health, /status) are handled by main.py
+
+
+@router.get("/docs")
+async def docs():
+    """API documentation and usage examples."""
+    metadata = await service_metadata()
+    return await docs_endpoint(metadata)
+
+
+@router.post("/wake-up")
+async def wake_up(request: WakeUpRequest):
+    """Wake-up endpoint - collector signals work available."""
+    metadata = await service_metadata()
+    return await wake_up_endpoint(request, metadata)
+
+
+@router.post("/process-batch")
+async def process_batch(request: ProcessBatchRequest):
+    """Manual batch processing endpoint."""
+    metadata = await service_metadata()
+    return await process_batch_endpoint(request, metadata)
+
+
+@router.post("/process")
+async def process(request: ProcessRequest):
+    """Simple process endpoint for testing."""
+    metadata = await service_metadata()
+    try:
+        # For now, return a simple success response
+        # In a real implementation, this would process the content
+        return StandardResponse(
+            status="success",
+            message="Content processed successfully",
+            data={
+                "processed_content": f"Enhanced: {request.content}",
+                "processing_type": request.processing_type,
+                "options_used": request.options,
+            },
+            metadata=metadata,
+        )
+    except Exception as e:
+        error = ErrorCodes.secure_internal_error(e, "process_endpoint")
+        return StandardResponse(
+            status="error",
+            message=error.message,
+            errors=[error.message],
+            metadata=metadata,
+        )
+
+
+@router.get("/process/types")
+async def process_types():
+    """Get available processing types."""
+    metadata = await service_metadata()
+    return StandardResponse(
+        status="success",
+        message="Available processing types",
+        data={
+            "available_types": [
+                "enhancement",
+                "summarization",
+                "keyword_extraction",
+                "sentiment_analysis",
+            ],
+            "description": "Supported content processing types",
+        },
+        metadata=metadata,
+    )
+
+
+@router.get("/process/status")
+async def process_status():
+    """Get processing status."""
+    metadata = await service_metadata()
+    return StandardResponse(
+        status="success",
+        message="Processing status information",
+        data={
+            "active_jobs": 0,
+            "queue_size": 0,
+            "last_processed": None,
+            "processing_enabled": True,
+        },
+        metadata=metadata,
+    )
+
+
+# Content Generation Endpoints (merged from content-generator)
+# These endpoints provide AI-powered content generation capabilities
+
+
+@router.post("/generate/tldr", response_model=GeneratedContent)
+async def generate_tldr(request: GenerationRequest):
+    """Generate TLDR content (200-400 words)."""
+    try:
+        # Force content type to tldr
+        request.content_type = "tldr"
+
+        generator = get_content_generator()
+        result = await generator.generate_content(request)
+
+        logger.info(f"Generated TLDR for topic: {request.topic}")
+        return result
+
+    except Exception as e:
+        logger.error(f"TLDR generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+
+
+@router.post("/generate/blog", response_model=GeneratedContent)
+async def generate_blog(request: GenerationRequest):
+    """Generate blog content (600-1000 words)."""
+    try:
+        # Force content type to blog
+        request.content_type = "blog"
+
+        generator = get_content_generator()
+        result = await generator.generate_content(request)
+
+        logger.info(f"Generated blog for topic: {request.topic}")
+        return result
+
+    except Exception as e:
+        logger.error(f"Blog generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+
+
+@router.post("/generate/deepdive", response_model=GeneratedContent)
+async def generate_deepdive(request: GenerationRequest):
+    """Generate deep dive content (1200+ words)."""
+    try:
+        # Force content type to deepdive
+        request.content_type = "deepdive"
+
+        generator = get_content_generator()
+        result = await generator.generate_content(request)
+
+        logger.info(f"Generated deep dive for topic: {request.topic}")
+        return result
+
+    except Exception as e:
+        logger.error(f"Deep dive generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+
+
+@router.post("/generate/batch", response_model=BatchGenerationResponse)
+async def generate_batch(request: BatchGenerationRequest):
+    """Start batch content generation."""
+    try:
+        generator = get_content_generator()
+        result = await generator.start_batch_generation(request)
+
+        logger.info(f"Started batch generation for {len(request.topics)} topics")
+        return result
+
+    except Exception as e:
+        logger.error(f"Batch generation start failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Batch generation failed: {str(e)}"
+        )
+
+
+@router.get("/generation/status/{batch_id}", response_model=GenerationStatus)
+async def get_generation_status(batch_id: str):
+    """Get status of batch generation."""
+    try:
+        generator = get_content_generator()
+        status = generator.get_batch_status(batch_id)
+
+        if not status:
+            raise HTTPException(status_code=404, detail=f"Batch {batch_id} not found")
+
+        return status
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Status retrieval failed: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Status retrieval failed: {str(e)}"
+        )
+
+
+# Documentation endpoint (simplified pattern)
+
+
+@router.get("/generate/docs")
+async def generation_docs():
+    """Content generation API documentation."""
+    metadata = await service_metadata()
+    return StandardResponse(
+        status="success",
+        message="Content generation API documentation",
+        data={
+            "service": "Content Processor - Generation Module",
+            "version": "1.0.0",
+            "endpoints": {
+                "/generate/tldr": "Generate TLDR articles (200-400 words)",
+                "/generate/blog": "Generate blog posts (600-1000 words)",
+                "/generate/deepdive": "Generate deep dive analysis (1200+ words)",
+                "/generate/batch": "Start batch generation",
+                "/generation/status/{batch_id}": "Get batch generation status",
+            },
+            "content_types": ["tldr", "blog", "deepdive"],
+            "writer_personalities": [
+                "professional",
+                "casual",
+                "expert",
+                "skeptical",
+                "enthusiast",
+            ],
+            "usage_example": {
+                "topic": "Latest AI developments",
+                "content_type": "blog",
+                "writer_personality": "professional",
+                "sources": [{"title": "Source 1", "summary": "Summary text"}],
+            },
         },
         metadata=metadata,
     )

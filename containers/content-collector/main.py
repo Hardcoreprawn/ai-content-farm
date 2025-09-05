@@ -13,10 +13,7 @@ from endpoints import (
     api_process_content_endpoint,
     discover_topics_endpoint,
     get_sources_endpoint,
-    health_endpoint,
     reddit_diagnostics_endpoint,
-    root_endpoint,
-    status_endpoint,
 )
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -28,8 +25,16 @@ from models import (
     LegacyCollectionRequest,
     SourceConfig,
 )
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from config import ENVIRONMENT
 from libs.shared_models import StandardResponse, create_service_dependency
+from libs.standard_endpoints import (
+    create_standard_404_handler,
+    create_standard_health_endpoint,
+    create_standard_root_endpoint,
+    create_standard_status_endpoint,
+)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -54,6 +59,39 @@ app = FastAPI(
     version="2.0.1",
     lifespan=lifespan,
 )
+
+# Add shared standard endpoints
+app.add_api_route(
+    "/",
+    create_standard_root_endpoint(
+        service_name="content-womble",
+        description="A humble service for collecting and analyzing digital content",
+        version="2.0.1",
+        service_metadata_dep=service_metadata,
+    ),
+)
+
+app.add_api_route(
+    "/status",
+    create_standard_status_endpoint(
+        service_name="content-womble",
+        version="2.0.1",
+        environment=ENVIRONMENT,
+        service_metadata_dep=service_metadata,
+    ),
+)
+
+app.add_api_route(
+    "/health",
+    create_standard_health_endpoint(
+        service_name="content-womble",
+        version="2.0.1",
+        environment=ENVIRONMENT,
+        service_metadata_dep=service_metadata,
+    ),
+)
+
+# Standard endpoints are now added via shared library above
 
 
 # Global exception handlers
@@ -145,10 +183,7 @@ async def method_not_allowed_handler(request: Request, exc):
 
 
 # API Routes
-@app.get("/", response_model=StandardResponse)
-async def root(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Service information and capabilities."""
-    return await root_endpoint(metadata)
+# Root, health, and status endpoints are provided by shared library above
 
 
 @app.post("/discover", response_model=StandardResponse)
@@ -181,13 +216,7 @@ async def get_available_sources(metadata: Dict[str, Any] = Depends(service_metad
     return await get_sources_endpoint(metadata)
 
 
-# Standardized API endpoints
-@app.get("/api/content-womble/health", response_model=StandardResponse)
-async def api_health_check(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Standardized health check endpoint."""
-    return await health_endpoint(metadata)
-
-
+# Standardized API endpoints - legacy paths for backward compatibility
 @app.post("/api/content-womble/process", response_model=StandardResponse)
 async def api_process_content(
     request: CollectionRequest, metadata: Dict[str, Any] = Depends(service_metadata)
@@ -214,17 +243,7 @@ async def api_reddit_diagnostics(metadata: Dict[str, Any] = Depends(service_meta
     return await reddit_diagnostics_endpoint(metadata)
 
 
-# NEW: Standard REST API endpoints (industry standard paths)
-@app.get("/health", response_model=StandardResponse)
-async def health_check(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Standard health check endpoint."""
-    return await health_endpoint(metadata)
-
-
-@app.get("/status", response_model=StandardResponse)
-async def status_check(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Standard detailed status endpoint."""
-    return await status_endpoint(metadata)
+# Standard REST API endpoints are provided by shared library above
 
 
 @app.get("/api/docs", response_model=StandardResponse)
