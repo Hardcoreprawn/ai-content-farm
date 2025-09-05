@@ -144,7 +144,6 @@ runs:
             "site-generator")      app_name="ai-content-${ENVIRONMENT}-site-gen" ;;
             "content-collector")   app_name="ai-content-${ENVIRONMENT}-collector" ;;
             "content-ranker")      app_name="ai-content-${ENVIRONMENT}-ranker" ;;
-            "content-generator")   app_name="ai-content-${ENVIRONMENT}-content-gen" ;;
             "content-enricher")    app_name="ai-content-${ENVIRONMENT}-enricher" ;;
             "content-processor")   app_name="ai-content-${ENVIRONMENT}-processor" ;;
             "markdown-generator")  app_name="ai-content-${ENVIRONMENT}-markdown-gen" ;;

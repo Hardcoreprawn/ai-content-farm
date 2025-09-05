@@ -60,27 +60,7 @@ updates:
           - "patch"
           - "minor"
 
-  # Content Generator - AI content creation
-  - package-ecosystem: "pip"
-    directory: "/containers/content-generator"
-    schedule:
-      interval: "weekly"
-      day: "wednesday"
-      time: "06:00"
-      timezone: "UTC"
-    labels:
-      - "dependencies"
-      - "python"
-      - "content-generator"
-      - "auto-merge"
-    open-pull-requests-limit: 2
-    groups:
-      generator-updates:
-        patterns:
-          - "*"
-        update-types:
-          - "patch"
-          - "minor"
+  # Site Generator - Static site generation
 
   # Content Processor - Content transformation and optimization
   - package-ecosystem: "pip"

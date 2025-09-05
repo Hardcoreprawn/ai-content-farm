@@ -6,7 +6,7 @@ build_failures=0
 containers_tested=0
 
 # Test containers with multi-stage builds
-test_containers=("content-processor" "content-generator" "content-collector")
+test_containers=("content-processor" "content-collector" "site-generator")
 
 for container_name in "${test_containers[@]}"; do
   container_dir="containers/$container_name"

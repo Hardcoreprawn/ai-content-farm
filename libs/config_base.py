@@ -118,9 +118,9 @@ class ContentProcessorConfig(BaseContainerConfig):
 
 
 class ContentGeneratorConfig(BaseContainerConfig):
-    """Configuration specific to content-generator container."""
+    """Configuration specific to content-processor container (includes generation functionality)."""
 
-    service_name: str = Field(default="content-generator", description="Service name")
+    service_name: str = Field(default="content-processor", description="Service name")
 
     # AI Service Configuration
     azure_openai_endpoint: Optional[str] = Field(

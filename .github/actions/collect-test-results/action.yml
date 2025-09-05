@@ -37,7 +37,6 @@ runs:
           "content-collector"
           "content-enricher"
           "content-processor"
-          "content-generator"
           "content-ranker"
           "site-generator"
           "markdown-generator"

@@ -41,7 +41,7 @@ The CI/CD pipeline has been restructured to support our multi-tier container str
 ```yaml
 - uses: ./.github/actions/build-service-containers
   with:
-    containers: "content-generator,site-generator"
+    containers: "content-processor,site-generator"
     registry: ${{ secrets.ACR_LOGIN_SERVER }}
 ```
 
@@ -122,7 +122,7 @@ cd /workspaces/ai-content-farm
 docker build -f containers/base/Dockerfile.multitier -t ai-content-farm-base:web-services --target web-services .
 
 # Build a service container
-docker build -f containers/content-generator/Dockerfile -t content-generator:latest .
+docker build -f containers/content-processor/Dockerfile -t content-processor:latest .
 ```
 
 ### GitHub Actions Test

@@ -38,7 +38,7 @@ runs:
         echo "[PACKAGE] Installing container dependencies..."
 
         # Install each container's dependencies
-        for container in content-collector content-processor content-ranker content-enricher content-generator site-generator markdown-generator collector-scheduler; do
+        for container in content-collector content-processor content-ranker content-enricher site-generator markdown-generator collector-scheduler; do
           if [ -f "containers/$container/requirements.txt" ]; then
             echo "Installing dependencies for $container..."
             pip install -r containers/$container/requirements.txt

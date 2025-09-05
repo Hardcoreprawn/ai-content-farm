@@ -52,7 +52,7 @@ variable "container_images" {
     "site-generator"      = "ghcr.io/hardcoreprawn/ai-content-farm/site-generator:latest"
     "content-collector"   = "ghcr.io/hardcoreprawn/ai-content-farm/content-collector:latest"
     "content-ranker"      = "ghcr.io/hardcoreprawn/ai-content-farm/content-ranker:latest"
-    "content-generator"   = "ghcr.io/hardcoreprawn/ai-content-farm/content-generator:latest"
+    "content-processor"   = "ghcr.io/hardcoreprawn/ai-content-farm/content-processor:latest"
     "content-enricher"    = "ghcr.io/hardcoreprawn/ai-content-farm/content-enricher:latest"
     "content-processor"   = "ghcr.io/hardcoreprawn/ai-content-farm/content-processor:latest"
     "markdown-generator"  = "ghcr.io/hardcoreprawn/ai-content-farm/markdown-generator:latest"

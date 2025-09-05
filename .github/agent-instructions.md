@@ -533,7 +533,7 @@ _Last updated: August 21, 2025 - Added comprehensive security vulnerability reme
 
 2. **Docker Container Security (6 HIGH)** ✅
    - Added non-root USER directives to all Dockerfiles
-   - Fixed: base/example-service, collector-scheduler, content-enricher, content-processor, content-ranker, markdown-generator, content-generator/multitier
+   - Fixed: base/example-service, collector-scheduler, content-enricher, content-processor, content-ranker, markdown-generator, site-generator/multitier
    - All containers now run with least privilege principles
 
 3. **Docker Compose Security (6 WARNING)** ✅

@@ -46,7 +46,6 @@ runs:
 
         # Define containers to deploy with their specific Dockerfile requirements
         declare -A CONTAINERS=(
-          ["content-generator"]="web"
           ["content-enricher"]="web"
           ["content-processor"]="web"
           ["content-ranker"]="web"
@@ -85,16 +84,16 @@ runs:
       run: |
         echo "[PROCESS] Updating Container Apps..."
 
-        # For now, update the main content-generator app
+        # Update the main content-processor app (now includes generation functionality)
         # TODO: Expand to handle all container apps when Terraform defines them
-        if az containerapp show --name "ai-content-farm-core-content-generator" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+        if az containerapp show --name "ai-content-farm-core-content-processor" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
           az containerapp update \
-            --name "ai-content-farm-core-content-generator" \
+            --name "ai-content-farm-core-content-processor" \
             --resource-group "$RESOURCE_GROUP" \
-            --image ghcr.io/hardcoreprawn/ai-content-farm/content-generator:"$ENVIRONMENT"
-          echo "[PASS] content-generator Container App updated"
+            --image ghcr.io/hardcoreprawn/ai-content-farm/content-processor:"$ENVIRONMENT"
+          echo "[PASS] content-processor Container App updated"
         else
-          echo "[WARN] content-generator Container App not found - may need Terraform deployment first"
+          echo "[WARN] content-processor Container App not found - may need Terraform deployment first"
         fi
 
     - name: Get deployment URL
@@ -103,9 +102,9 @@ runs:
       env:
         RESOURCE_GROUP: ${{ inputs.resource-group }}
       run: |
-        if az containerapp show --name "ai-content-farm-core-content-generator" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
+        if az containerapp show --name "ai-content-farm-core-content-processor" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
           URL=$(az containerapp show \
-            --name "ai-content-farm-core-content-generator" \
+            --name "ai-content-farm-core-content-processor" \
             --resource-group "$RESOURCE_GROUP" \
             --query "properties.configuration.ingress.fqdn" \
             -o tsv)
