@@ -91,14 +91,17 @@ jobs:
 
             if [[ "$file" =~ ^containers/([^/]+)/ ]]; then
               container_name="${BASH_REMATCH[1]}"
-              # Only include containers that actually exist
+              # Only include containers that actually exist and have a Dockerfile
               if [[ -d "containers/$container_name" && -f "containers/$container_name/Dockerfile" ]]; then
-                container_set["$container_name"]=1
-                has_code_changes=true
-                has_only_docs=false
-                echo "[CONTAINER] Container change: $container_name"
+                # Skip base container as it's not a deployable service
+                if [[ "$container_name" != "base" && "$container_name" != "__pycache__" ]]; then
+                  container_set["$container_name"]=1
+                  has_code_changes=true
+                  has_only_docs=false
+                  echo "[CONTAINER] Container change: $container_name"
+                fi
               else
-                echo "[CONTAINER] Skipping non-existent container: $container_name"
+                echo "[SKIP] Ignoring deleted/non-existent container: $container_name"
               fi
             elif [[ "$file" =~ ^libs/ ]] || [[ "$file" =~ ^requirements.*\.txt$ ]] || [[ "$file" == "pyproject.toml" ]]; then
               # Libs affect all containers - dynamically discover existing containers
