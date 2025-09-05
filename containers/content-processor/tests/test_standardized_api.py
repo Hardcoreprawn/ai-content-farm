@@ -51,7 +51,7 @@ class TestStandardizedEndpoints:
         service_data = data["data"]
         assert service_data["service"] == "content-processor"
         assert service_data["version"] is not None
-        assert "endpoints" in service_data
+        assert "available_endpoints" in service_data
         assert "uptime" in service_data
 
     def test_health_endpoint_standard_path(self, client):
@@ -148,18 +148,20 @@ class TestErrorHandling:
         return TestClient(app)
 
     def test_404_error_standard_format(self, client):
-        """Test 404 errors follow OWASP-compliant format."""
+        """Test 404 errors follow OWASP-compliant StandardResponse format."""
         response = client.get("/nonexistent-endpoint")
 
         assert response.status_code == 404
         data = response.json()
 
-        # Should not expose internal details (OWASP compliance)
+        # Should follow StandardResponse format
         assert data["status"] == "error"
         assert "message" in data
-        assert "error_id" in data  # Secure error handler uses error_id for tracking
+        assert "data" in data
+        assert "errors" in data
+        assert "metadata" in data
 
-        # Should NOT contain stack traces or internal paths
+        # Should not expose internal details (OWASP compliance)
         assert "traceback" not in str(data).lower()
         assert "internal" not in str(data).lower()
 

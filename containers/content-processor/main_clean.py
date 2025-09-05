@@ -1,32 +1,14 @@
 #!/usr/bin/env python3
 """Content Processor Service
 
-FastAPI applic# Create shared endpoints
-health_endpoint = create_standard_health_endpoint(
-    service_name="content-processor",
-    version=settings.service_version,
-    environment=settings.environment,
-    dependency_checks=DEPENDENCY_CHECKS,
-    service_metadata_dep=service_metadata,
-)
-
-status_endpoint = create_standard_status_endpoint(
-    service_name="content-processor",
-    environment=settings.environment,
-    service_metadata_dep=service_metadata,
-)I-powered content processing.
+FastAPI application for AI-powered content processing.
 Implements standardized health endpoints and API patterns.
 """
 
 import logging
 from contextlib import asynccontextmanager
 
-from dependencies import (
-    DEPENDENCY_CHECKS,
-    get_configuration,
-    service_metadata,
-    settings,
-)
+from dependencies import DEPENDENCY_CHECKS, service_metadata, settings
 from endpoints import router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,7 +19,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from config import ContentProcessorSettings
 from libs.shared_models import StandardError
 from libs.standard_endpoints import (
-    create_standard_404_handler,
     create_standard_health_endpoint,
     create_standard_root_endpoint,
     create_standard_status_endpoint,
@@ -66,7 +47,7 @@ async def lifespan(app: FastAPI):
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="Content Processor API",
+    title="Content Processor",
     description="AI-powered content processing and enhancement service",
     version=settings.service_version,
     lifespan=lifespan,
@@ -88,22 +69,17 @@ app.include_router(router)
 health_endpoint = create_standard_health_endpoint(
     service_name="content-processor",
     version=settings.service_version,
-    environment=settings.environment,
     dependency_checks=DEPENDENCY_CHECKS,
     service_metadata_dep=service_metadata,
 )
 
 status_endpoint = create_standard_status_endpoint(
-    service_name="content-processor",
-    version=settings.service_version,
-    environment=settings.environment,
-    service_metadata_dep=service_metadata,
+    service_name="content-processor", service_metadata_dep=service_metadata
 )
 
 root_endpoint = create_standard_root_endpoint(
     service_name="content-processor",
-    description="AI-powered content processing and enhancement service",
-    version=settings.service_version,
+    service_description="AI-powered content processing and enhancement service",
     service_metadata_dep=service_metadata,
 )
 
@@ -112,10 +88,21 @@ app.get("/health", tags=["Standard Endpoints"])(health_endpoint)
 app.get("/status", tags=["Standard Endpoints"])(status_endpoint)
 app.get("/", tags=["Standard Endpoints"])(root_endpoint)
 
-# Add standardized 404 error handler
-app.add_exception_handler(
-    StarletteHTTPException, create_standard_404_handler("content-processor")
-)
+
+@app.exception_handler(StarletteHTTPException)
+async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """Global HTTP exception handler."""
+    logger.warning(f"HTTP exception: {exc.status_code} - {exc.detail}")
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=StandardError(
+            status="error",
+            message=str(exc.detail),
+            error_code=f"HTTP_{exc.status_code}",
+            timestamp=None,  # Will be set by StandardError
+        ).model_dump(),
+    )
 
 
 if __name__ == "__main__":

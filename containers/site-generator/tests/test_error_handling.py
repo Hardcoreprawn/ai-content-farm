@@ -50,9 +50,16 @@ class TestErrorHandling:
     def test_unexpected_server_errors(self, client):
         """Test handling of unexpected server errors."""
         # Mock site_generator to raise unexpected error
-        with patch("main.site_generator", side_effect=Exception("Unexpected error")):
+        with patch("main.site_generator.check_blob_connectivity") as mock_check:
+            mock_check.side_effect = Exception("Unexpected error")
+
             response = client.get("/health")
-            assert response.status_code == 503
+            # Standard health endpoint always returns 200 with health info
+            assert response.status_code == 200
+            data = response.json()
+            # Check that the health data shows the dependency is unhealthy
+            assert data["status"] == "success"  # Top-level status is always success
+            assert "dependencies" in data["data"]
 
     def test_preview_not_found(self, client):
         """Test preview URL for non-existent site."""
@@ -163,8 +170,13 @@ class TestResponseStructure:
 
             assert response.status_code == 500
             data = response.json()
-            # FastAPI error responses include detail
-            assert "detail" in data
+            # StandardResponse format for error responses
+            assert "status" in data
+            assert "message" in data
+            assert "data" in data
+            assert "errors" in data
+            assert "metadata" in data
+            assert data["status"] == "error"
 
 
 class TestConcurrency:

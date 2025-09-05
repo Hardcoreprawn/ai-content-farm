@@ -26,10 +26,10 @@ if str(repo_root) not in sys.path:
 # ...paths already configured above...
 
 # Mock environment variables for testing
-os.environ["OPENAI_API_KEY"] = "test-openai-key"
-os.environ["CLAUDE_API_KEY"] = "test-claude-key"
+os.environ["OPENAI_API_KEY"] = "test-openai-key"  # pragma: allowlist secret
+os.environ["CLAUDE_API_KEY"] = "test-claude-key"  # pragma: allowlist secret
 os.environ["AZURE_OPENAI_ENDPOINT"] = "https://test.openai.azure.com/"
-os.environ["AZURE_OPENAI_API_KEY"] = "test-azure-openai-key"
+os.environ["AZURE_OPENAI_API_KEY"] = "test-azure-openai-key"  # pragma: allowlist secret
 os.environ.setdefault("AZURE_STORAGE_CONNECTION_STRING", "UseDevelopmentStorage=true")
 os.environ.setdefault("AZURE_STORAGE_ACCOUNT_NAME", "testaccount")
 os.environ.setdefault("ENVIRONMENT", "local")

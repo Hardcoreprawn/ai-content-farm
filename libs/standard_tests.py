@@ -124,6 +124,9 @@ class StandardAPITestSuite:
             if "service" in status_data:
                 assert isinstance(status_data["service"], str)
 
+            # Environment field should be present (can be None for test environments)
+            assert "environment" in status_data
+
     def test_root_endpoint_standard_format(self) -> None:
         """Test root endpoint follows StandardResponse format."""
         response = self.client.get("/")
