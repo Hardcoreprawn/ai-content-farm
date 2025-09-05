@@ -33,13 +33,9 @@ runs:
         # For now, let's use a simple approach since all tests passed
         # Extract unique container names from common containers
         containers=(
-          "collector-scheduler"
           "content-collector"
-          "content-enricher"
           "content-processor"
-          "content-ranker"
           "site-generator"
-          "markdown-generator"
         )
 
         # Since the test job succeeded, all containers with tests passed
