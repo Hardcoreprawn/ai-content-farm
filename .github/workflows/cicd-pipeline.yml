@@ -116,8 +116,8 @@ jobs:
                 for container_dir in containers/*/; do
                   if [[ -d "$container_dir" && -f "$container_dir/Dockerfile" ]]; then
                     container_name=$(basename "$container_dir")
-                    # Skip base container as it's not a deployable service and deprecated containers
-                    if [[ "$container_name" != "base" && "$container_name" != "__pycache__" && "$container_name" != "deprecated" ]]; then
+                    # Skip base container as it's not a deployable service
+                    if [[ "$container_name" != "base" && "$container_name" != "__pycache__" ]]; then
                       container_set["$container_name"]=1
                       echo "[DISCOVERY] Found container: $container_name"
                     fi

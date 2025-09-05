@@ -61,8 +61,6 @@ updates:
           - "minor"
 
   # Site Generator - Static site generation
-
-  # Content Processor - Content transformation and optimization
   - package-ecosystem: "pip"
     directory: "/containers/content-processor"
     schedule:
