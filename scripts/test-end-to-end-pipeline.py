@@ -50,14 +50,18 @@ class PipelineTester:
         print("🏥 Testing Container Health Endpoints")
         print("=" * 60)
 
-        services = ["collector", "processor", "site-generator"]
+        # Production URLs for Azure Container Apps
+        health_endpoints = {
+            "collector": self.base_url.format(service="collector") + "/health",
+            "processor": self.base_url.format(service="processor") + "/health",
+            "site-generator": self.base_url.format(service="site-generator")
+            + "/health",
+        }
+
         health_results = {}
-
-        for service in services:
+        for service, url in health_endpoints.items():
             try:
-                url = f"{self.base_url.format(service=service)}/health"
                 start_time = time.time()
-
                 async with self.session.get(url) as response:
                     response_time = time.time() - start_time
 
@@ -95,7 +99,7 @@ class PipelineTester:
         collector_url = self.base_url.format(service="collector")
 
         try:
-            # Test basic collector status
+            # Test collector status endpoint
             async with self.session.get(f"{collector_url}/status") as response:
                 if response.status == 200:
                     status_data = await response.json()
@@ -116,9 +120,7 @@ class PipelineTester:
 
             # Test content collection trigger (if available)
             try:
-                async with self.session.post(
-                    f"{collector_url}/api/collector/collect"
-                ) as response:
+                async with self.session.post(f"{collector_url}/collect") as response:
                     if response.status in [200, 202]:
                         data = await response.json()
                         self.log_test(
@@ -162,14 +164,14 @@ class PipelineTester:
             return {"success": False, "error": str(e)}
 
     async def test_content_processing(self) -> Dict[str, Any]:
-        """Test content processing endpoints."""
+        """Test content processing and AI generation."""
         print("⚙️ Testing Content Processing")
         print("=" * 60)
 
         processor_url = self.base_url.format(service="processor")
 
         try:
-            # Test processor status
+            # Test processor status endpoint
             async with self.session.get(f"{processor_url}/status") as response:
                 if response.status == 200:
                     status_data = await response.json()
@@ -196,7 +198,7 @@ class PipelineTester:
                 }
 
                 async with self.session.post(
-                    f"{processor_url}/api/processor/process", json=test_payload
+                    f"{processor_url}/process", json=test_payload
                 ) as response:
                     if response.status in [200, 202]:
                         data = await response.json()
@@ -233,7 +235,7 @@ class PipelineTester:
             return {"success": False, "error": str(e)}
 
     async def test_ai_generation(self) -> Dict[str, Any]:
-        """Test AI content generation endpoints."""
+        """Test AI-powered content generation endpoints."""
         print("🤖 Testing AI Content Generation")
         print("=" * 60)
 
@@ -266,7 +268,7 @@ class PipelineTester:
 
                 start_time = time.time()
                 async with self.session.post(
-                    f"{processor_url}/api/processor/generate/{gen_type}",
+                    f"{processor_url}/generate/{gen_type}",
                     json=test_request,
                 ) as response:
                     response_time = time.time() - start_time
@@ -316,7 +318,7 @@ class PipelineTester:
             }
 
             async with self.session.post(
-                f"{processor_url}/api/processor/generate/batch", json=batch_request
+                f"{processor_url}/generate/batch", json=batch_request
             ) as response:
                 if response.status == 200:
                     data = await response.json()
@@ -356,7 +358,7 @@ class PipelineTester:
         generator_url = self.base_url.format(service="site-generator")
 
         try:
-            # Test site generator status
+            # Test generator status endpoint
             async with self.session.get(f"{generator_url}/status") as response:
                 if response.status == 200:
                     status_data = await response.json()
@@ -385,7 +387,7 @@ class PipelineTester:
                 }
 
                 async with self.session.post(
-                    f"{generator_url}/api/site-generator/generate", json=test_payload
+                    f"{generator_url}/generate-site", json=test_payload
                 ) as response:
                     if response.status in [200, 202]:
                         data = await response.json()
