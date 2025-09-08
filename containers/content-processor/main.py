@@ -1,25 +1,14 @@
 #!/usr/bin/env python3
 """Content Processor Service
 
-FastAPI applic# Create shared endpoints
-health_endpoint = create_standard_health_endpoint(
-    service_name="content-processor",
-    version=settings.service_version,
-    environment=settings.environment,
-    dependency_checks=DEPENDENCY_CHECKS,
-    service_metadata_dep=service_metadata,
-)
-
-status_endpoint = create_standard_status_endpoint(
-    service_name="content-processor",
-    environment=settings.environment,
-    service_metadata_dep=service_metadata,
-)I-powered content processing.
+FastAPI application for AI-powered content processing.
 Implements standardized health endpoints and API patterns.
 """
 
 import logging
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from dependencies import (
     DEPENDENCY_CHECKS,
@@ -42,6 +31,12 @@ from libs.standard_endpoints import (
     create_standard_root_endpoint,
     create_standard_status_endpoint,
 )
+
+# Add repository root to Python path for local development
+repo_root = Path(__file__).parent.parent.parent
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
+
 
 # Configure logging
 logging.basicConfig(
@@ -84,33 +79,37 @@ app.add_middleware(
 # Add main API routes
 app.include_router(router)
 
-# Create shared endpoints using the standard library
-health_endpoint = create_standard_health_endpoint(
-    service_name="content-processor",
-    version=settings.service_version,
-    environment=settings.environment,
-    dependency_checks=DEPENDENCY_CHECKS,
-    service_metadata_dep=service_metadata,
+# Add shared standard endpoints
+app.add_api_route(
+    "/",
+    create_standard_root_endpoint(
+        service_name="content-processor",
+        description="AI-powered content processing and enhancement service",
+        version=settings.service_version,
+        service_metadata_dep=service_metadata,
+    ),
 )
 
-status_endpoint = create_standard_status_endpoint(
-    service_name="content-processor",
-    version=settings.service_version,
-    environment=settings.environment,
-    service_metadata_dep=service_metadata,
+app.add_api_route(
+    "/status",
+    create_standard_status_endpoint(
+        service_name="content-processor",
+        version=settings.service_version,
+        environment=settings.environment,
+        service_metadata_dep=service_metadata,
+    ),
 )
 
-root_endpoint = create_standard_root_endpoint(
-    service_name="content-processor",
-    description="AI-powered content processing and enhancement service",
-    version=settings.service_version,
-    service_metadata_dep=service_metadata,
+app.add_api_route(
+    "/health",
+    create_standard_health_endpoint(
+        service_name="content-processor",
+        version=settings.service_version,
+        environment=settings.environment,
+        dependency_checks=DEPENDENCY_CHECKS,
+        service_metadata_dep=service_metadata,
+    ),
 )
-
-# Register the shared endpoints
-app.get("/health", tags=["Standard Endpoints"])(health_endpoint)
-app.get("/status", tags=["Standard Endpoints"])(status_endpoint)
-app.get("/", tags=["Standard Endpoints"])(root_endpoint)
 
 # Add standardized 404 error handler
 app.add_exception_handler(

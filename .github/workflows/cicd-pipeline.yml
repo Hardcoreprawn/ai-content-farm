@@ -330,7 +330,7 @@ jobs:
         with:
           container-name: ${{ matrix.container }}
           registry: 'ghcr.io'
-          repository: ${{ github.repository }}
+          repository: 'hardcoreprawn/ai-content-farm'
           tag: ${{ github.sha }}
           enable-cache: 'true'
 
@@ -485,7 +485,7 @@ jobs:
           registry-images: ${{ needs.plan-pipeline.outputs.changed-containers }}
           container-app-prefix: 'ai-content-prod'
           registry: 'ghcr.io'
-          repository: ${{ github.repository }}
+          repository: 'hardcoreprawn/ai-content-farm'
           image-tag: ${{ github.sha }}
 
   # Stage 10: Post-Deployment Validation
