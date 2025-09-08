@@ -36,7 +36,6 @@ from libs.standard_endpoints import (
     create_standard_root_endpoint,
     create_standard_status_endpoint,
 )
-from libs.standard_library import create_standard_404_handler, setup_health_endpoints
 
 # Add the project root to Python path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
@@ -102,7 +101,7 @@ app.add_api_route(
 )
 
 app.add_api_route(
-    "/status",
+    "/api/site-generator/status",
     create_standard_status_endpoint(
         service_name="site-generator",
         version="1.0.0",
@@ -125,7 +124,7 @@ app.add_api_route(
 # Service-specific endpoints
 
 
-@app.post("/generate-markdown", response_model=StandardResponse)
+@app.post("/api/site-generator/generate-markdown", response_model=StandardResponse)
 async def generate_markdown(request: GenerationRequest):
     """Generate markdown files from processed content."""
     try:
@@ -158,7 +157,7 @@ async def generate_markdown(request: GenerationRequest):
         raise HTTPException(status_code=500, detail=error_response)
 
 
-@app.post("/generate-site", response_model=StandardResponse)
+@app.post("/api/site-generator/generate-site", response_model=StandardResponse)
 async def generate_site(request: GenerationRequest):
     """Generate complete static site from markdown content."""
     try:
@@ -189,7 +188,7 @@ async def generate_site(request: GenerationRequest):
         raise HTTPException(status_code=500, detail=error_response)
 
 
-@app.post("/wake-up", response_model=StandardResponse)
+@app.post("/api/site-generator/wake-up", response_model=StandardResponse)
 async def wake_up():
     """Wake up generator to process new content."""
     try:
@@ -233,7 +232,7 @@ async def wake_up():
         raise HTTPException(status_code=500, detail=error_response)
 
 
-@app.get("/preview/{site_id}", response_model=StandardResponse)
+@app.get("/api/site-generator/preview/{site_id}", response_model=StandardResponse)
 async def preview_site(site_id: str):
     """Get preview URL for generated site."""
     try:
