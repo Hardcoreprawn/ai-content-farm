@@ -9,7 +9,9 @@ Converts processed articles to markdown and generates static HTML sites.
 import asyncio
 import logging
 import os
+import sys
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Dict, List
 
 import uvicorn
@@ -21,8 +23,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from config import Config
 from libs import SecureErrorHandler
-
-# Import standard models from shared library
 from libs.shared_models import (
     StandardResponse,
     create_service_dependency,
@@ -34,6 +34,12 @@ from libs.standard_endpoints import (
     create_standard_root_endpoint,
     create_standard_status_endpoint,
 )
+
+# Add the project root to Python path for imports
+sys.path.append(str(Path(__file__).parent.parent.parent))
+
+
+# Import standard models from shared library
 
 # Configure logging
 logging.basicConfig(
@@ -64,12 +70,21 @@ app = FastAPI(
 
 
 async def check_blob_connectivity():
-    """Check blob storage connectivity for health endpoint."""
+    """Check blob storage connectivity for health endpoint with timeout."""
     try:
-        result = await site_generator.check_blob_connectivity()
+        # Add timeout to prevent 504 Gateway Timeout errors
+        # Health checks should be fast - if blob storage takes too long,
+        # it's better to report unhealthy than timeout the whole health endpoint
+        result = await asyncio.wait_for(
+            site_generator.check_blob_connectivity(), timeout=10.0
+        )
         # Extract boolean status from the dict result
         return result.get("status") == "healthy"
-    except Exception:
+    except asyncio.TimeoutError:
+        logger.warning("Blob storage health check timed out after 10 seconds")
+        return False
+    except Exception as e:
+        logger.warning(f"Blob storage health check failed: {e}")
         return False
 
 

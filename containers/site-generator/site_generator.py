@@ -24,12 +24,11 @@ from site_service import SiteService
 from config import Config
 from libs import BlobStorageClient
 
-sys.path.append(str(Path(__file__).parent.parent.parent / "libs"))
+# Add the project root to Python path for imports
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
 
 # Import our utility modules
-
-sys.path.append("/workspaces/ai-content-farm")
 
 logger = logging.getLogger(__name__)
 
@@ -65,8 +64,11 @@ class SiteGenerator:
     async def check_blob_connectivity(self) -> Dict[str, Any]:
         """Test blob storage connectivity."""
         try:
-            # Use synchronous method from shared library (will be async in future)
-            result = self.blob_client.test_connection()
+            # Run the synchronous test_connection in a thread pool to avoid blocking
+            import asyncio
+
+            loop = asyncio.get_event_loop()
+            result = await loop.run_in_executor(None, self.blob_client.test_connection)
             return result
         except Exception as e:
             # Secure error handling - don't expose internal details
