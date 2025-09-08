@@ -101,7 +101,7 @@ app.add_api_route(
 )
 
 app.add_api_route(
-    "/api/site-generator/status",
+    "/status",
     create_standard_status_endpoint(
         service_name="site-generator",
         version="1.0.0",
