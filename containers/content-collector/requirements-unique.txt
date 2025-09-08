@@ -3,5 +3,5 @@
 # (includes fastapi, beautifulsoup4, lxml, feedparser, etc.)
 
 # Reddit API (unique to content-collector)
-praw==7.7.1
+praw==7.8.1
 asyncpraw==7.8.1
