@@ -5,7 +5,7 @@ Static Site Generator Container
 A Python-based JAMStack site generator for AI Content Farm.
 Converts processed articles to markdown and generates static HTML sites.
 
-Version: 1.0.2 - Trigger CI/CD pipeline test
+Version: 1.0.3 - Full deployment pipeline test
 """
 
 import asyncio
