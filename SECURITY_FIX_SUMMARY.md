@@ -115,3 +115,4 @@ This fix addresses:
 - **CWE-99**: Resource Injection
 
 Implements OWASP guidelines for secure file handling and input validation.
+Mon Sep  8 10:11:36 UTC 2025: Dismissed CodeQL alert for removed markdown-generator container
