@@ -124,7 +124,7 @@ app.add_api_route(
 # Service-specific endpoints
 
 
-@app.post("/api/site-generator/generate-markdown", response_model=StandardResponse)
+@app.post("/generate-markdown", response_model=StandardResponse)
 async def generate_markdown(request: GenerationRequest):
     """Generate markdown files from processed content."""
     try:
@@ -157,7 +157,7 @@ async def generate_markdown(request: GenerationRequest):
         raise HTTPException(status_code=500, detail=error_response)
 
 
-@app.post("/api/site-generator/generate-site", response_model=StandardResponse)
+@app.post("/generate-site", response_model=StandardResponse)
 async def generate_site(request: GenerationRequest):
     """Generate complete static site from markdown content."""
     try:
@@ -188,7 +188,7 @@ async def generate_site(request: GenerationRequest):
         raise HTTPException(status_code=500, detail=error_response)
 
 
-@app.post("/api/site-generator/wake-up", response_model=StandardResponse)
+@app.post("/wake-up", response_model=StandardResponse)
 async def wake_up():
     """Wake up generator to process new content."""
     try:
@@ -232,7 +232,7 @@ async def wake_up():
         raise HTTPException(status_code=500, detail=error_response)
 
 
-@app.get("/api/site-generator/preview/{site_id}", response_model=StandardResponse)
+@app.get("/preview/{site_id}", response_model=StandardResponse)
 async def preview_site(site_id: str):
     """Get preview URL for generated site."""
     try:

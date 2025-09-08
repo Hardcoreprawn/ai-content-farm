@@ -36,15 +36,13 @@ class TestErrorHandling:
 
     def test_invalid_json_request(self, client):
         """Test handling of invalid JSON in request body."""
-        response = client.post(
-            "/api/site-generator/generate-markdown", content="invalid json"
-        )
+        response = client.post("/generate-markdown", content="invalid json")
         assert response.status_code == 422
 
     def test_missing_required_fields(self, client):
         """Test handling of missing required fields."""
         # Empty request body
-        response = client.post("/api/site-generator/generate-markdown", json={})
+        response = client.post("/generate-markdown", json={})
         assert response.status_code == 200  # Should work with defaults
 
     def test_unexpected_server_errors(self, client):
@@ -66,7 +64,7 @@ class TestErrorHandling:
         with patch("main.site_generator") as mock_gen:
             mock_gen.get_preview_url.side_effect = Exception("Site not found")
 
-            response = client.get("/api/site-generator/preview/nonexistent")
+            response = client.get("/preview/nonexistent")
 
             assert response.status_code == 404
 
@@ -91,15 +89,11 @@ class TestRequestValidation:
             )
 
             # Valid batch size
-            response = client.post(
-                "/api/site-generator/generate-markdown", json={"batch_size": 5}
-            )
+            response = client.post("/generate-markdown", json={"batch_size": 5})
             assert response.status_code == 200
 
             # Test with string batch_size (should be converted or fail gracefully)
-            response = client.post(
-                "/api/site-generator/generate-markdown", json={"batch_size": "invalid"}
-            )
+            response = client.post("/generate-markdown", json={"batch_size": "invalid"})
             assert response.status_code == 422
 
     def test_theme_validation(self, client):
@@ -114,15 +108,11 @@ class TestRequestValidation:
             )
 
             # Valid theme
-            response = client.post(
-                "/api/site-generator/generate-site", json={"theme": "modern"}
-            )
+            response = client.post("/generate-site", json={"theme": "modern"})
             assert response.status_code == 200
 
             # Empty theme should use default
-            response = client.post(
-                "/api/site-generator/generate-site", json={"theme": ""}
-            )
+            response = client.post("/generate-site", json={"theme": ""})
             assert response.status_code == 200
 
 
@@ -165,7 +155,7 @@ class TestResponseStructure:
         """Test that error responses follow expected structure."""
         # Standard status endpoints are designed to always return 200
         # Test a non-existent endpoint instead to get an error response
-        response = client.get("/api/site-generator/nonexistent")
+        response = client.get("/nonexistent")
 
         # Should get 404 for non-existent endpoint
         assert response.status_code == 404

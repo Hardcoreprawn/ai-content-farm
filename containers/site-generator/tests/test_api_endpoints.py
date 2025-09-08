@@ -37,7 +37,7 @@ class TestStatusEndpoint:
 
     def test_status_success(self, client):
         """Test successful status retrieval."""
-        response = client.get("/api/site-generator/status")
+        response = client.get("/status")
 
         assert response.status_code == 200
         data = response.json()
@@ -56,7 +56,7 @@ class TestStatusEndpoint:
         """Test status endpoint error handling."""
         # Standard endpoints don't fail easily, they return service info
         # Test that a normal request still works
-        response = client.get("/api/site-generator/status")
+        response = client.get("/status")
 
         # Should always return 200 for standard status endpoints
         assert response.status_code == 200
@@ -89,9 +89,7 @@ class TestMarkdownGenerationEndpoint:
             mock_gen_batch.return_value = mock_response
 
             request_data = {"source": "test_source", "batch_size": 5}
-            response = client.post(
-                "/api/site-generator/generate-markdown", json=request_data
-            )
+            response = client.post("/generate-markdown", json=request_data)
 
             assert response.status_code == 200
             data = response.json()
@@ -114,7 +112,7 @@ class TestMarkdownGenerationEndpoint:
         ) as mock_gen_batch:
             mock_gen_batch.return_value = mock_response
 
-            response = client.post("/api/site-generator/generate-markdown", json={})
+            response = client.post("/generate-markdown", json={})
 
             assert response.status_code == 200
             # Verify defaults were used
@@ -149,9 +147,7 @@ class TestSiteGenerationEndpoint:
             mock_gen_site.return_value = mock_response
 
             request_data = {"theme": "modern", "force_regenerate": True}
-            response = client.post(
-                "/api/site-generator/generate-site", json=request_data
-            )
+            response = client.post("/generate-site", json=request_data)
 
             assert response.status_code == 200
             data = response.json()
@@ -174,7 +170,7 @@ class TestPreviewEndpoint:
         ) as mock_preview:
             mock_preview.return_value = "https://preview.example.com/site_123"
 
-            response = client.get("/api/site-generator/preview/site_123")
+            response = client.get("/preview/site_123")
 
             assert response.status_code == 200
             data = response.json()
@@ -219,7 +215,7 @@ class TestWakeUpEndpoint:
             mock_gen_md.return_value = markdown_response
             mock_gen_site.return_value = site_response
 
-            response = client.post("/api/site-generator/wake-up")
+            response = client.post("/wake-up")
 
             assert response.status_code == 200
             data = response.json()
@@ -244,7 +240,7 @@ class TestWakeUpEndpoint:
         ) as mock_gen_site:
             mock_gen_md.return_value = markdown_response
 
-            response = client.post("/api/site-generator/wake-up")
+            response = client.post("/wake-up")
 
             assert response.status_code == 200
             data = response.json()
