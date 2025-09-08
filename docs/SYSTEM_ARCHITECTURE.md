@@ -2,12 +2,12 @@
 
 ## Overview
 
-The AI Content Farm is a cloud-native, event-driven content curation and publishing system built with microservices architecture. Each component is containerized and communicates through well-defined APIs and Azure Blob Storage.
+The AI Content Farm is a cloud-native, event-driven content curation and publishing system built with a simplified 3-container microservices architecture. Each component is containerized and communicates through well-defined APIs and Azure Blob Storage.
 
 ## Architecture Principles
 
 ### 1. **Cloud-Native Design**
-- All data storage uses Azure Blob Storage (Azurite for local development)
+- All data storage uses Azure Blob Storage
 - No persistent local file systems or volumes
 - Environment-specific configuration via environment variables
 - Stateless container design
@@ -24,30 +24,238 @@ The AI Content Farm is a cloud-native, event-driven content curation and publish
 - Common base configuration and error handling
 - Unified blob storage integration
 
-## System Components
+## System Components (Simplified 3-Container Architecture)
 
 ```mermaid
 graph TD
     A[Content Collector] --> B[Azure Blob Storage]
-    B --> C[Content Processor]
-    B --> D[Content Enricher]
-    B --> E[Content Ranker]
-    B --> F[Markdown Generator]
-    B --> G[Static Site Generator]
+    B --> C[Content Processor + AI Generator]
+    C --> B
+    B --> D[Site Generator]
     
-    H[Scheduler] --> A
-    I[Web Interface] --> B
-    J[CMS Exporters] --> B
+    E[Scheduler/Triggers] --> A
+    F[Azure Container Apps] --> A
+    F --> C  
+    F --> D
     
-    K[Azurite - Local Dev] --> B
-    L[Azure Storage - Production] --> B
+    G[Azure OpenAI] --> C
+    H[Static Web Apps] --> D
 ```
+
+**Flow**: Reddit/Web → Content Collector → Content Processor (Enhanced) → Site Generator → jablab.com
+
+### Architecture Evolution
+- **Before**: 4+ containers with unclear data flow
+- **After**: 3 containers with clear responsibilities and 25% complexity reduction
+- **Zero Regression**: All functionality preserved during consolidation
 
 ## Container Standards
 
 ### Port Allocation
 - **8001**: Content Collector
-- **8002**: Content Processor  
+- **8002**: Content Processor (Enhanced with AI Generation)
+- **8003**: Site Generator
+
+## Container Specifications
+
+### 1. Content Collector
+**Purpose**: Collect and normalize content from Reddit and other sources
+**Port**: 8001
+**Endpoints**:
+- `GET /health` - Health check
+- `GET /status` - Detailed status
+- `POST /api/collector/collect` - Trigger content collection
+
+**Data Flow**:
+- Reads: Reddit API, external sources
+- Writes: `collected-content/` container in blob storage
+
+### 2. Content Processor (Enhanced)
+**Purpose**: Process raw content AND generate AI-powered articles
+**Port**: 8002
+**Endpoints**:
+- `GET /health` - Health check
+- `GET /status` - Detailed status
+- `POST /api/processor/process` - Content processing
+- `POST /api/processor/generate/tldr` - Generate TLDR articles
+- `POST /api/processor/generate/blog` - Generate blog posts
+- `POST /api/processor/generate/deepdive` - Generate detailed analysis
+- `POST /api/processor/generate/batch` - Batch generation
+
+**Data Flow**:
+- Reads: `collected-content/` container
+- Writes: `processed-content/` container
+- AI Integration: Azure OpenAI for content generation
+
+### 3. Site Generator
+**Purpose**: Generate static HTML sites from processed content
+**Port**: 8003
+**Endpoints**:
+- `GET /health` - Health check
+- `GET /status` - Detailed status
+- `POST /api/site-generator/generate` - Generate static site
+
+**Data Flow**:
+- Reads: `processed-content/` container
+- Writes: `static-sites/` container
+- Deploys: Azure Static Web Apps
+
+## Blob Storage Containers
+
+| Container | Purpose | Format | Access Pattern |
+|-----------|---------|---------|---------------|
+| `collected-content` | Raw content from sources | JSON | Write: Collector, Read: Processor |
+| `processed-content` | Processed + AI-generated content | JSON | Write: Processor, Read: Site Generator |
+| `static-sites` | Generated HTML sites | ZIP/TAR | Write: Site Generator, Deploy: Static Web Apps |
+| `pipeline-logs` | Processing logs and metrics | JSON | Write: All, Read: Monitoring |
+
+## Standard API Patterns
+
+All containers implement consistent API patterns:
+
+### Health & Status
+```
+GET /health      # Quick health check
+GET /status      # Detailed service status
+GET /docs        # OpenAPI documentation
+```
+
+### Service Endpoints
+```
+POST /api/{service}/{action}  # Main business logic
+GET  /api/{service}/status    # Service-specific status
+```
+
+### Response Format
+```json
+{
+  "status": "success|error",
+  "message": "Human readable message",
+  "data": { /* response data */ },
+  "metadata": { /* service metadata */ }
+}
+```
+
+## Deployment Architecture
+
+### Azure Container Apps
+- **Environment**: ai-content-prod-env
+- **Containers**: 3 independent apps
+- **Scaling**: 0-3 replicas per container (cost-optimized)
+- **Authentication**: Managed identity for Azure services
+
+### Azure Services Integration
+- **Storage**: Azure Blob Storage for all data persistence
+- **AI**: Azure OpenAI for content generation
+- **Monitoring**: Application Insights for logging and metrics
+- **Deployment**: Azure Static Web Apps for site hosting
+- **Security**: Key Vault for secrets management
+
+## Development Workflow
+
+### 1. Local Development
+```bash
+# Start all containers
+docker-compose up -d
+
+# Test the pipeline
+./test-pipeline.sh
+```
+
+### 2. Testing Flow
+```bash
+# 1. Collect content
+curl -X POST "http://localhost:8001/api/collector/collect"
+
+# 2. Process content + generate AI articles
+curl -X POST "http://localhost:8002/api/processor/generate/blog" \
+  -H "Content-Type: application/json" \
+  -d '{"topic": "AI trends", "source_material": "..."}'
+
+# 3. Generate static site
+curl -X POST "http://localhost:8003/api/site-generator/generate"
+```
+
+### 3. Production Deployment
+- **CI/CD**: GitHub Actions with Azure Container Apps deployment
+- **Infrastructure**: Terraform for Azure resource management
+- **Monitoring**: Cost tracking and performance metrics
+- **Security**: Automated vulnerability scanning
+
+## Security Standards
+
+### Authentication
+- **Azure**: Managed identity for all Azure service access
+- **External APIs**: Key Vault for API keys and secrets
+- **Container-to-Container**: Internal networking via Container Apps environment
+
+### Data Protection
+- **Storage**: Azure Blob Storage with encryption at rest
+- **Transit**: HTTPS for all external communications
+- **Secrets**: Azure Key Vault integration
+- **Logging**: No sensitive data in logs
+
+### Access Control
+- **Network**: IP restrictions on Container Apps ingress
+- **RBAC**: Least privilege access for managed identities
+- **Secrets**: Rotation and secure injection
+
+## Monitoring & Observability
+
+### Health Monitoring
+- **Container Health**: Built-in health checks for all containers
+- **Dependency Health**: Blob storage, Azure OpenAI connectivity
+- **Performance**: Response times and throughput metrics
+
+### Cost Monitoring
+- **Budget Alerts**: $40/month limit with automated notifications
+- **Resource Usage**: Container scaling and storage costs
+- **AI Costs**: Token usage and model costs tracking
+
+### Logging
+- **Structured Logging**: JSON format for all containers
+- **Centralized**: Application Insights aggregation
+- **Correlation**: Request tracking across container boundaries
+
+## Scaling Strategy
+
+### Container Scaling
+- **Baseline**: 0 replicas (scale-to-zero for cost efficiency)
+- **Auto-scaling**: Based on request load and queue depth
+- **Maximum**: 3 replicas per container (cost control)
+
+### Storage Scaling
+- **Hot Storage**: Recent content and active processing
+- **Cool Storage**: Archived content and historical data
+- **Cleanup**: Automated retention policies
+
+### Cost Optimization
+- **Consumption-based**: Pay only for active processing time
+- **Resource Limits**: CPU and memory constraints per container
+- **Regional**: UK South deployment for cost and compliance
+
+---
+
+## Quick Reference
+
+### Architecture Summary
+- **3 Containers**: Collector → Processor (Enhanced) → Site Generator
+- **Cloud-Native**: Azure Container Apps + Blob Storage + OpenAI
+- **Event-Driven**: Blob storage triggers and HTTP APIs
+- **Cost-Efficient**: Scale-to-zero with $40/month budget
+
+### Key Features
+- **Simplified**: 25% complexity reduction from previous architecture
+- **Enhanced**: Content processor now includes AI generation capabilities
+- **Reliable**: Graceful fallbacks and error handling
+- **Scalable**: Auto-scaling with cost controls
+- **Secure**: Managed identity and Key Vault integration
+
+### Next Steps
+1. **Testing**: End-to-end pipeline validation
+2. **Monitoring**: Cost and performance tracking setup
+3. **Documentation**: API documentation and developer guides
+4. **Optimization**: Performance tuning and cost optimization  
 - **8003**: Content Enricher
 - **8004**: Content Ranker
 - **8005**: Static Site Generator

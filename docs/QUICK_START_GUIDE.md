@@ -2,7 +2,7 @@
 
 This guide gets you from zero to productive development in under 30 minutes.
 
-**🚀 Now featuring smart deployment routing for faster development cycles!**
+**🚀 Now featuring simplified 3-container architecture for faster development!**
 
 ## Prerequisites Checklist
 
@@ -28,26 +28,30 @@ pip install -r requirements.txt
 python -c "from libs.blob_storage import BlobStorageClient; print('✅ Blob storage ready')"
 ```
 
-## Understanding the Architecture
+## Understanding the Simplified Architecture
 
-### The Big Picture
+### The Big Picture (3-Container Design)
 ```
-Reddit/Sources → Collector → Processor → Enricher → Ranker → Markdown → SSG → Website
-     ↓              ↓           ↓          ↓         ↓         ↓        ↓
- [collected]   [processed]  [enriched]  [ranked]  [generated] [sites]  [preview]
+Reddit/Sources → Content Collector → Content Processor (Enhanced) → Site Generator → Website
+     ↓               ↓                      ↓                           ↓
+ [collected]    [processed]        [AI Generated Content]      [static-sites]
 ```
 
 ### Key Concepts
 
-1. **Everything is a container**: Each processing stage runs in its own Docker container
-2. **Blob storage for everything**: No filesystem dependencies, all data stored in Azure blobs
-3. **Event-driven**: Services trigger each other when new content is available
-4. **Standard APIs**: All containers expose `/health`, `/status`, and service-specific endpoints
+1. **Simplified containers**: Only 3 containers for the entire pipeline
+2. **Enhanced content-processor**: Combines processing AND AI generation
+3. **Blob storage for everything**: No filesystem dependencies, all data stored in Azure blobs
+4. **Event-driven**: Services trigger each other when new content is available
+5. **Standard APIs**: All containers expose `/health`, `/status`, and service-specific endpoints
 
 ### Blob Container Organization
 ```
 collected-content/    # Raw content from sources (Reddit, etc.)
-processed-content/    # Cleaned and normalized content
+processed-content/    # Processed + AI-generated content
+static-sites/         # Generated HTML websites
+pipeline-logs/        # Processing logs and metrics
+```
 enriched-content/     # AI-enhanced content with metadata
 ranked-content/       # Prioritized and scored content
 generated-content/    # Markdown files ready for publishing

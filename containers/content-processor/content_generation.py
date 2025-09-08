@@ -186,8 +186,8 @@ Focus on providing value to readers with actionable insights."""
                 request.sources,
             )
 
-            # Simulate AI generation (replace with actual AI client call)
-            generated_text = await self._simulate_ai_generation(
+            # Generate content using Azure OpenAI
+            generated_text = await self._generate_with_azure_openai(
                 prompt, request.content_type
             )
 
@@ -212,8 +212,64 @@ Focus on providing value to readers with actionable insights."""
             )
             raise
 
+    async def _generate_with_azure_openai(self, prompt: str, content_type: str) -> str:
+        """Generate content using Azure OpenAI with fallback to simulation."""
+        try:
+            # Import the external API client
+            from dependencies import get_api_client
+
+            api_client = get_api_client()
+
+            # Set model and parameters based on content type
+            model_settings = {
+                "tldr": {"max_tokens": 600, "temperature": 0.3, "model": "gpt-4"},
+                "blog": {"max_tokens": 1200, "temperature": 0.5, "model": "gpt-4"},
+                "deepdive": {"max_tokens": 2000, "temperature": 0.4, "model": "gpt-4"},
+            }
+
+            settings = model_settings.get(
+                content_type, {"max_tokens": 800, "temperature": 0.4, "model": "gpt-4"}
+            )
+
+            # Format the prompt as a chat message
+            messages = [
+                {
+                    "role": "system",
+                    "content": "You are an expert content writer. Generate high-quality, engaging content based on the user's request.",
+                },
+                {"role": "user", "content": prompt},
+            ]
+
+            # Call Azure OpenAI through the external API client
+            response = await api_client.chat_completion(
+                messages=messages,
+                model=settings["model"],
+                max_tokens=settings["max_tokens"],
+                temperature=settings["temperature"],
+            )
+
+            # Extract the generated text from the response
+            generated_text = (
+                response.get("choices", [{}])[0].get("message", {}).get("content", "")
+            )
+
+            if not generated_text:
+                raise Exception("Empty response from Azure OpenAI")
+
+            logger.info(
+                f"Successfully generated {content_type} content using Azure OpenAI"
+            )
+            return generated_text
+
+        except Exception as e:
+            logger.warning(
+                f"Azure OpenAI generation failed, falling back to simulation: {e}"
+            )
+            # Fallback to simulation if Azure OpenAI fails
+            return await self._simulate_ai_generation(prompt, content_type)
+
     async def _simulate_ai_generation(self, prompt: str, content_type: str) -> str:
-        """Simulate AI content generation (replace with actual AI client)."""
+        """Simulate AI content generation (fallback when Azure OpenAI unavailable)."""
         # Simulate processing time
         await asyncio.sleep(0.5)
 
