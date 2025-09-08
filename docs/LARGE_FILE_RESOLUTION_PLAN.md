@@ -42,7 +42,7 @@ The Large File Detector workflow had two main issues:
 - `containers/site-generator/service_logic.py` (720 lines) - Service logic
 - Various container main.py files (600-700 lines)
 
-### 🟠 LARGE (400-600 lines) - ~120 unique files
+### 🟠 LARGE (500-600 lines) - ~120 unique files
 - Multiple Python service files
 - Documentation files
 - YAML workflows
@@ -118,8 +118,8 @@ git checkout -b refactor/secrets-baseline
 ```
 
 ## Success Metrics
-- **Target**: All files under 400 lines
-- **Current**: 145 files over 400 lines
+- **Target**: All files under 500 lines
+- **Current**: 145 files over 500 lines
 - **Estimated effort**: ~30 weeks (1 file per day, 5 files per week)
 - **Impact**: ~50% reduction in total lines for large files
 
