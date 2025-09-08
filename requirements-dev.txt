@@ -1,7 +1,10 @@
 # Development requirements for AI Content Farm
 # This file consolidates dependencies from all containers for unified development
 
-# Base dependencies (from containers/base/requirements-core.txt)
+# Development Dependencies
+# Core dependencies for local development and testing
+
+# Base dependencies (from containers/base/requirements-common.txt)
 aiofiles~=24.1.0
 azure-core~=1.32.0
 azure-identity~=1.18.0
@@ -14,7 +17,7 @@ requests~=2.32.0
 pytest~=8.3.0
 pytest-asyncio~=0.24.0
 
-# Web framework dependencies (from containers/base/requirements-web.txt)
+# Web framework dependencies (from containers/base/requirements-common.txt)
 fastapi~=0.116.1
 starlette>=0.47.2  # Security fix for CVE-2025-54121 (DoS vulnerability)
 uvicorn~=0.35.0

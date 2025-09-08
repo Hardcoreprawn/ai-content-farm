@@ -60,8 +60,8 @@ runs:
         for container in "${!CONTAINERS[@]}"; do
           echo "[BUILD] Building and pushing $container..."
 
-          # Build using production Dockerfile (self-contained)
-          docker build -f containers/$container/Dockerfile.production -t $container:"$ENVIRONMENT" .
+          # Build using standard Dockerfile (multi-stage with production target)
+          docker build -f containers/$container/Dockerfile --target production -t $container:"$ENVIRONMENT" .
 
           # Tag for GHCR
           docker tag $container:"$ENVIRONMENT" ghcr.io/hardcoreprawn/ai-content-farm/$container:"$ENVIRONMENT"
