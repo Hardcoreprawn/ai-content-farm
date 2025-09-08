@@ -152,6 +152,10 @@ class StandardError(BaseModel):
 
     status: str = Field(default="error", description="Always 'error' for errors")
     message: str = Field(..., description="Error message")
+    error_id: str = Field(
+        default_factory=lambda: str(uuid.uuid4()),
+        description="Unique error tracking ID",
+    )
     errors: Optional[List[str]] = Field(None, description="Detailed error information")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="Error metadata")
 
@@ -250,7 +254,9 @@ class ServiceStatus(BaseModel):
     """Standard status response data structure."""
 
     service: str = Field(..., description="Service name")
+    version: str = Field(..., description="Service version")
     status: str = Field(..., description="Service status")
+    environment: Optional[str] = Field(None, description="Deployment environment")
     timestamp: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
     )
@@ -263,6 +269,9 @@ class ServiceStatus(BaseModel):
     )
     configuration: Dict[str, Any] = Field(
         default_factory=dict, description="Current configuration"
+    )
+    dependencies: Dict[str, bool] = Field(
+        default_factory=dict, description="Dependency status"
     )
 
 

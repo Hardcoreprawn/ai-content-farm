@@ -143,10 +143,8 @@ runs:
           case "$container_name" in
             "site-generator")      app_name="ai-content-${ENVIRONMENT}-site-gen" ;;
             "content-collector")   app_name="ai-content-${ENVIRONMENT}-collector" ;;
-            "content-ranker")      app_name="ai-content-${ENVIRONMENT}-ranker" ;;
-            "content-enricher")    app_name="ai-content-${ENVIRONMENT}-enricher" ;;
             "content-processor")   app_name="ai-content-${ENVIRONMENT}-processor" ;;
-            "markdown-generator")  app_name="ai-content-${ENVIRONMENT}-markdown-gen" ;;
+            "collector-scheduler") app_name="ai-content-${ENVIRONMENT}-scheduler" ;;
             "collector-scheduler") app_name="ai-content-${ENVIRONMENT}-scheduler" ;;
             *) echo "[SKIP] Unknown container: $container_name"; continue ;;
           esac

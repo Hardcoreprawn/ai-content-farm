@@ -84,8 +84,7 @@ runs:
       run: |
         echo "[PROCESS] Updating Container Apps..."
 
-        # Update the main content-processor app (now includes generation functionality)
-        # TODO: Expand to handle all container apps when Terraform defines them
+        # Update the main content-processor app (now includes generation capabilities)
         if az containerapp show --name "ai-content-farm-core-content-processor" --resource-group "$RESOURCE_GROUP" >/dev/null 2>&1; then
           az containerapp update \
             --name "ai-content-farm-core-content-processor" \

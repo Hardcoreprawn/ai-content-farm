@@ -91,14 +91,17 @@ jobs:
 
             if [[ "$file" =~ ^containers/([^/]+)/ ]]; then
               container_name="${BASH_REMATCH[1]}"
-              # Only include containers that actually exist
+              # Only include containers that actually exist and have a Dockerfile
               if [[ -d "containers/$container_name" && -f "containers/$container_name/Dockerfile" ]]; then
-                container_set["$container_name"]=1
-                has_code_changes=true
-                has_only_docs=false
-                echo "[CONTAINER] Container change: $container_name"
+                # Skip base container as it's not a deployable service
+                if [[ "$container_name" != "base" && "$container_name" != "__pycache__" ]]; then
+                  container_set["$container_name"]=1
+                  has_code_changes=true
+                  has_only_docs=false
+                  echo "[CONTAINER] Container change: $container_name"
+                fi
               else
-                echo "[CONTAINER] Skipping non-existent container: $container_name"
+                echo "[SKIP] Ignoring deleted/non-existent container: $container_name"
               fi
             elif [[ "$file" =~ ^libs/ ]] || [[ "$file" =~ ^requirements.*\.txt$ ]] || [[ "$file" == "pyproject.toml" ]]; then
               # Libs affect all containers - dynamically discover existing containers
@@ -327,7 +330,7 @@ jobs:
         with:
           container-name: ${{ matrix.container }}
           registry: 'ghcr.io'
-          repository: ${{ github.repository }}
+          repository: 'hardcoreprawn/ai-content-farm'
           tag: ${{ github.sha }}
           enable-cache: 'true'
 
@@ -380,11 +383,12 @@ jobs:
   deploy-infrastructure:
     name: Deploy (Full Terraform)
     runs-on: ubuntu-latest
-    needs: [plan-pipeline, infrastructure-quality]
+    needs: [plan-pipeline, infrastructure-quality, build-containers]
     if: |
       needs.plan-pipeline.outputs.needs-infrastructure == 'true' &&
       needs.plan-pipeline.outputs.deployment-method == 'terraform' &&
-      needs.infrastructure-quality.result == 'success'
+      needs.infrastructure-quality.result == 'success' &&
+      (needs.build-containers.result == 'success' || needs.build-containers.result == 'skipped')
     outputs:
       deployment-url: ${{ steps.terraform-deploy.outputs.deployment-url }}
     steps:
@@ -447,14 +451,52 @@ jobs:
           environment: production
           registry-images: ${{ needs.prepare-deployment.outputs.registry-images }}
 
+  # Stage 9.5: Sync Container Images (handles race condition between Terraform and container builds)
+  sync-containers:
+    name: Sync Container Images
+    runs-on: ubuntu-latest
+    needs: [plan-pipeline, deploy-infrastructure, build-containers]
+    if: |
+      always() &&
+      needs.deploy-infrastructure.result == 'success' &&
+      needs.build-containers.result == 'success' &&
+      needs.plan-pipeline.outputs.changed-containers != '[]'
+    outputs:
+      sync-results: ${{ steps.sync.outputs.sync-results }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Azure Login via OIDC
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sync Container Images
+        id: sync
+        uses: ./.github/actions/sync-container-images
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          resource-group: 'ai-content-prod-rg'
+          registry-images: ${{ needs.plan-pipeline.outputs.changed-containers }}
+          container-app-prefix: 'ai-content-prod'
+          registry: 'ghcr.io'
+          repository: 'hardcoreprawn/ai-content-farm'
+          image-tag: ${{ github.sha }}
+
   # Stage 10: Post-Deployment Validation
   validate-deployment:
     name: Validate Deployment
     runs-on: ubuntu-latest
-    needs: [deploy-containers, deploy-infrastructure]
+    needs: [deploy-containers, deploy-infrastructure, sync-containers]
     if: |
       always() &&
-      (needs.deploy-containers.result == 'success' || needs.deploy-infrastructure.result == 'success')
+      (needs.deploy-containers.result == 'success' || needs.deploy-infrastructure.result == 'success') &&
+      (needs.sync-containers.result == 'success' || needs.sync-containers.result == 'skipped')
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -468,7 +510,7 @@ jobs:
   pipeline-summary:
     name: Pipeline Summary
     runs-on: ubuntu-latest
-    needs: [plan-pipeline, workflow-validation, test-containers, security-scans, infrastructure-quality, code-quality, build-containers, deploy-containers, deploy-infrastructure, validate-deployment]
+    needs: [plan-pipeline, workflow-validation, test-containers, security-scans, infrastructure-quality, code-quality, build-containers, deploy-containers, deploy-infrastructure, sync-containers, validate-deployment]
     if: always()
     steps:
       - name: Generate Pipeline Summary

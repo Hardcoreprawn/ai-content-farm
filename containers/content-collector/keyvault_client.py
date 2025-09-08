@@ -127,10 +127,10 @@ class KeyVaultClient:
             return secret.value
 
         except AzureError as e:
-            logger.error(f"Azure error retrieving secret: {e}")
+            logger.error("Azure error retrieving secret from Key Vault")
             return None
         except Exception as e:
-            logger.error(f"Unexpected error retrieving secret: {e}")
+            logger.error("Unexpected error retrieving secret from Key Vault")
             return None
 
     def get_reddit_credentials(self) -> Dict[str, Optional[str]]:

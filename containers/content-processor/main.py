@@ -1,38 +1,46 @@
 #!/usr/bin/env python3
-"""
-Content Processor FastAPI Application
+"""Content Processor Service
 
-Clean, functional content processor implementing the wake-up work queue pattern.
-Scales 0-3 instances on Azure Container Apps, processes topics into 3000-word articles.
-
-Architecture:
-- Event-driven wake-up endpoint
-- Functional processing pipeline
-- Azure OpenAI integration
-- Comprehensive cost tracking
+FastAPI application for AI-powered content processing.
+Implements standardized health endpoints and API patterns.
 """
 
 import logging
+import sys
 from contextlib import asynccontextmanager
-from typing import Any, Dict
+from pathlib import Path
 
-from endpoints import (
-    docs_endpoint,
-    health_endpoint,
-    process_batch_endpoint,
-    root_endpoint,
+from dependencies import (
+    DEPENDENCY_CHECKS,
+    get_configuration,
     service_metadata,
-    status_endpoint,
-    wake_up_endpoint,
+    settings,
 )
-from fastapi import Depends, FastAPI
-from models import ProcessBatchRequest, WakeUpRequest
+from endpoints import router
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.requests import Request
+from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from libs.shared_models import StandardResponse
+from config import ContentProcessorSettings
+from libs.shared_models import StandardError
+from libs.standard_endpoints import (
+    create_standard_404_handler,
+    create_standard_health_endpoint,
+    create_standard_root_endpoint,
+    create_standard_status_endpoint,
+)
 
-# Configure logging (no emojis per agent instructions)
+# Add repository root to Python path for local development
+repo_root = Path(__file__).parent.parent.parent
+if str(repo_root) not in sys.path:
+    sys.path.insert(0, str(repo_root))
+
+
+# Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=getattr(logging, settings.log_level.upper()),
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
@@ -40,108 +48,82 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager for startup/shutdown."""
-    logger.info("Content Processor starting - wake-up work queue pattern")
+    """Application lifespan manager."""
+    logger.info("Starting Content Processor service")
+    logger.info(f"Service version: {settings.service_version}")
+    logger.info(f"Environment: {settings.environment}")
+    logger.info(f"Log level: {settings.log_level}")
+
     yield
-    logger.info("Content Processor shutting down")
+
+    logger.info("Shutting down Content Processor service")
 
 
-# Create FastAPI app with clean configuration
+# Initialize FastAPI app
 app = FastAPI(
-    title="Content Processor",
-    description="Event-driven content processing service for AI content farm",
-    version="1.0.0",
+    title="Content Processor API",
+    description="AI-powered content processing and enhancement service",
+    version=settings.service_version,
     lifespan=lifespan,
 )
 
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Configure based on environment
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Core API endpoints following agent instructions
-@app.get("/", response_model=StandardResponse)
-async def root(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Root endpoint with service information."""
-    return await root_endpoint(metadata)
+# Add main API routes
+app.include_router(router)
 
+# Add shared standard endpoints
+app.add_api_route(
+    "/",
+    create_standard_root_endpoint(
+        service_name="content-processor",
+        description="AI-powered content processing and enhancement service",
+        version=settings.service_version,
+        service_metadata_dep=service_metadata,
+    ),
+)
 
-@app.get("/api/processor/health", response_model=StandardResponse)
-async def health(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Health check endpoint."""
-    return await health_endpoint(metadata)
+app.add_api_route(
+    "/status",
+    create_standard_status_endpoint(
+        service_name="content-processor",
+        version=settings.service_version,
+        environment=settings.environment,
+        service_metadata_dep=service_metadata,
+    ),
+)
 
+app.add_api_route(
+    "/health",
+    create_standard_health_endpoint(
+        service_name="content-processor",
+        version=settings.service_version,
+        environment=settings.environment,
+        dependency_checks=DEPENDENCY_CHECKS,
+        service_metadata_dep=service_metadata,
+    ),
+)
 
-@app.post("/api/processor/wake-up", response_model=StandardResponse)
-async def wake_up(
-    request: WakeUpRequest, metadata: Dict[str, Any] = Depends(service_metadata)
-):
-    """
-    Primary wake-up endpoint for event-driven processing.
-
-    Called by collector when work is available.
-    Processor autonomously finds topics, processes them, then scales to zero.
-    """
-    return await wake_up_endpoint(request, metadata)
-
-
-@app.post("/api/processor/process-batch", response_model=StandardResponse)
-async def process_batch(
-    request: ProcessBatchRequest, metadata: Dict[str, Any] = Depends(service_metadata)
-):
-    """Manual batch processing endpoint for specific topics."""
-    return await process_batch_endpoint(request, metadata)
-
-
-@app.get("/api/processor/status", response_model=StandardResponse)
-async def status(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Current processing status and metrics."""
-    return await status_endpoint(metadata)
-
-
-@app.get("/api/processor/docs", response_model=StandardResponse)
-async def docs(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """API documentation and usage examples."""
-    return await docs_endpoint(metadata)
-
-
-@app.get("/api/processor/pricing-status", response_model=StandardResponse)
-async def pricing_status(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Get current pricing cache status."""
-    from pricing_service import PricingService
-
-    pricing_service = PricingService()
-    status_data = await pricing_service.get_pricing_status()
-
-    return StandardResponse(
-        status="success",
-        message="Pricing cache status retrieved",
-        data=status_data,
-        metadata=metadata,
-    )
-
-
-@app.post("/api/processor/update-pricing", response_model=StandardResponse)
-async def update_pricing(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Manually update pricing cache (for testing/emergency use)."""
-    from pricing_service import PricingService
-
-    pricing_service = PricingService()
-    success = await pricing_service.update_pricing_cache()
-
-    if success:
-        return StandardResponse(
-            status="success",
-            message="Pricing cache updated successfully",
-            data={"cache_updated": True},
-            metadata=metadata,
-        )
-    else:
-        return StandardResponse(
-            status="error",
-            message="Failed to update pricing cache",
-            data={"cache_updated": False},
-            metadata=metadata,
-        )
+# Add standardized 404 error handler
+app.add_exception_handler(
+    StarletteHTTPException, create_standard_404_handler("content-processor")
+)
 
 
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(
+        "main:app",
+        host=settings.host,
+        port=settings.port,
+        log_level=settings.log_level.lower(),
+        reload=settings.environment == "development",
+    )
