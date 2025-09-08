@@ -4,7 +4,7 @@
 FastAPI application for AI-powered content processing.
 Implements standardized health endpoints and API patterns.
 
-Version: 1.0.1 - Full deployment pipeline test
+Version: 1.0.2 - Full deployment pipeline test
 """
 
 import logging
