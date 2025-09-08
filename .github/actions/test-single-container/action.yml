@@ -34,17 +34,6 @@ runs:
       run: |
         echo "[VALIDATE] Checking container ${CONTAINER_NAME}..."
 
-        # Special case for docker-consistency tests
-        if [[ "${CONTAINER_NAME}" == "docker-consistency" ]]; then
-          echo "[SPECIAL] Running Docker consistency validation (not a real container)"
-          if [[ ! -f "tests/test_docker_consistency.py" ]] || [[ ! -f "tests/test_container_dependencies.py" ]]; then
-            echo "[FAIL] Error: Docker consistency test files not found"
-            exit 1
-          fi
-          echo "[PASS] Docker consistency test files found"
-          exit 0
-        fi
-
         # Standard container validation
         if [[ ! -d "containers/${CONTAINER_NAME}" ]]; then
           echo "[FAIL] Error: Container directory 'containers/${CONTAINER_NAME}' does not exist"
@@ -129,22 +118,6 @@ runs:
         pytest_args=""
         if [ "${INPUT_FAIL_FAST}" = "true" ]; then
           pytest_args="$pytest_args -x"
-        fi
-
-        # Special case for docker-consistency tests
-        if [[ "${CONTAINER_NAME}" == "docker-consistency" ]]; then
-          echo "[DOCKER] Running Docker consistency tests..."
-          PYTHONPATH="$GITHUB_WORKSPACE:$PYTHONPATH" python -m pytest \
-            $pytest_args \
-            --cov="tests" \
-            --cov-report=xml:"coverage-${CONTAINER_NAME}-unit.xml" \
-            --cov-report=term-missing \
-            --junit-xml="test-results-${CONTAINER_NAME}-unit.xml" \
-            tests/test_docker_consistency.py \
-            tests/test_container_dependencies.py \
-            -v \
-            || echo "unit_test_failed=true" >> $GITHUB_ENV
-          exit 0
         fi
 
         # Run unit tests for specific container from the container directory
