@@ -216,49 +216,6 @@ async def get_available_sources(metadata: Dict[str, Any] = Depends(service_metad
     return await get_sources_endpoint(metadata)
 
 
-# Standardized API endpoints - legacy paths for backward compatibility
-@app.post("/api/content-womble/process", response_model=StandardResponse)
-async def api_process_content(
-    request: CollectionRequest, metadata: Dict[str, Any] = Depends(service_metadata)
-):
-    """Standardized content processing endpoint."""
-    return await api_process_content_endpoint(request, metadata)
-
-
-@app.get("/api/content-womble/docs", response_model=StandardResponse)
-async def legacy_docs_endpoint(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Legacy API documentation endpoint - redirects to /docs."""
-    return StandardResponse(
-        status="success",
-        message="API documentation available at /docs",
-        data={"redirect_to": "/docs", "swagger_ui": "/docs", "redoc": "/redoc"},
-        errors=[],
-        metadata=metadata,
-    )
-
-
-@app.get("/api/content-womble/reddit-diagnostics", response_model=StandardResponse)
-async def api_reddit_diagnostics(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Reddit API diagnostics endpoint."""
-    return await reddit_diagnostics_endpoint(metadata)
-
-
-# Standard REST API endpoints are provided by shared library above
-
-
-@app.get("/api/docs", response_model=StandardResponse)
-async def documentation(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Standard API documentation endpoint."""
-    return {
-        "documentation": {
-            "swagger_ui": "/docs",
-            "redoc": "/redoc",
-            "service": metadata["service_name"],
-            "version": metadata["version"],
-        }
-    }
-
-
 @app.post("/process", response_model=StandardResponse)
 async def process_content(
     request: CollectionRequest, metadata: Dict[str, Any] = Depends(service_metadata)

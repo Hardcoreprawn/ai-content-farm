@@ -34,6 +34,7 @@ from libs.standard_endpoints import (
     create_standard_root_endpoint,
     create_standard_status_endpoint,
 )
+from libs.standard_library import create_standard_404_handler, setup_health_endpoints
 
 # Add the project root to Python path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
@@ -120,38 +121,10 @@ app.add_api_route(
     ),
 )
 
-# Standard endpoints are now provided by shared library above
-
-# Legacy endpoints for backward compatibility
+# Service-specific endpoints
 
 
-@app.get("/api/site-generator/status", response_model=StandardResponse)
-async def get_status():
-    """Get current generator status and metrics."""
-    try:
-        status = await site_generator.get_status()
-
-        return create_success_response(
-            message="Status retrieved successfully",
-            data=status.model_dump(),  # Convert Pydantic model to dict
-            metadata={
-                "function": "site-generator",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "version": "1.0.0",
-                "generator_id": site_generator.generator_id,
-            },
-        )
-    except Exception as e:
-        error_response = error_handler.create_http_error_response(
-            status_code=500,
-            error=e,
-            error_type="general",
-            user_message="Unable to retrieve service status",
-        )
-        raise HTTPException(status_code=500, detail=error_response)
-
-
-@app.post("/api/site-generator/generate-markdown", response_model=StandardResponse)
+@app.post("/generate-markdown", response_model=StandardResponse)
 async def generate_markdown(request: GenerationRequest):
     """Generate markdown files from processed content."""
     try:
@@ -184,7 +157,7 @@ async def generate_markdown(request: GenerationRequest):
         raise HTTPException(status_code=500, detail=error_response)
 
 
-@app.post("/api/site-generator/generate-site", response_model=StandardResponse)
+@app.post("/generate-site", response_model=StandardResponse)
 async def generate_site(request: GenerationRequest):
     """Generate complete static site from markdown content."""
     try:
@@ -215,7 +188,7 @@ async def generate_site(request: GenerationRequest):
         raise HTTPException(status_code=500, detail=error_response)
 
 
-@app.post("/api/site-generator/wake-up", response_model=StandardResponse)
+@app.post("/wake-up", response_model=StandardResponse)
 async def wake_up():
     """Wake up generator to process new content."""
     try:
@@ -259,7 +232,7 @@ async def wake_up():
         raise HTTPException(status_code=500, detail=error_response)
 
 
-@app.get("/api/site-generator/preview/{site_id}", response_model=StandardResponse)
+@app.get("/preview/{site_id}", response_model=StandardResponse)
 async def preview_site(site_id: str):
     """Get preview URL for generated site."""
     try:
@@ -283,18 +256,17 @@ async def preview_site(site_id: str):
             status_code=404,
             error=e,
             error_type="not_found",
-            user_message="Site preview not available",
-            context={"site_id": site_id},
+            user_message=f"Site preview not found for ID: {site_id}",
         )
         raise HTTPException(status_code=404, detail=error_response)
 
 
-# Add standardized error handler using FastAPI's built-in patterns
+# Exception handlers
 app.add_exception_handler(
     StarletteHTTPException, create_standard_404_handler("site-generator")
 )
 
-
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=False, log_level="info")
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=8000)
