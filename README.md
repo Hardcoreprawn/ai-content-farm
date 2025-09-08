@@ -55,18 +55,18 @@ Reddit/Web → content-collector → content-processor → site-generator → ja
 
 **New Generation Endpoints:**
 ```
-POST /api/processor/generate/tldr        # Generate TLDR articles (200-400 words)
-POST /api/processor/generate/blog        # Generate blog posts (600-1000 words)  
-POST /api/processor/generate/deepdive    # Generate deep analysis (1200+ words)
-POST /api/processor/generate/batch       # Start batch generation
-GET  /api/processor/generation/status/{batch_id}  # Get batch status
+POST /generate/tldr                      # Generate TLDR articles (200-400 words)
+POST /generate/blog                      # Generate blog posts (600-1000 words)  
+POST /generate/deepdive                  # Generate deep analysis (1200+ words)
+POST /generate/batch                     # Start batch generation
+GET  /generation/status/{batch_id}       # Get batch status
 ```
 
 **Existing Processing Endpoints:**
 ```
-POST /api/processor/process              # Core content processing
-GET  /api/processor/queue/wake-up        # Wake up work queue
-GET  /api/processor/queue/status         # Queue status
+POST /process                            # Core content processing
+POST /wake-up                            # Wake up work queue
+GET  /process/status                     # Queue status
 ```
 
 ## 🚀 Quick Start
@@ -90,7 +90,7 @@ cd containers/content-processor
 python main.py
 
 # Test generation (in another terminal)
-curl -X POST "http://localhost:8000/api/processor/generate/blog" \
+curl -X POST "http://localhost:8000/generate/blog" \
   -H "Content-Type: application/json" \
   -d '{"topic": "AI trends", "source_material": "Latest AI developments"}'
 ```

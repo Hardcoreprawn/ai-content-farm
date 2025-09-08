@@ -71,16 +71,16 @@ GET  /                    # Service info
 ### Enhanced Content-Processor Endpoints
 ```
 # Content Processing (existing)
-POST /api/processor/process              # Core content processing
-GET  /api/processor/queue/wake-up        # Wake up work queue
-GET  /api/processor/queue/status         # Queue status
+POST /process                            # Core content processing
+POST /wake-up                            # Wake up work queue
+GET  /process/status                     # Queue status
 
 # AI Content Generation (newly integrated)
-POST /api/processor/generate/tldr        # Generate TLDR articles (200-400 words)
-POST /api/processor/generate/blog        # Generate blog posts (600-1000 words)  
-POST /api/processor/generate/deepdive    # Generate deep analysis (1200+ words)
-POST /api/processor/generate/batch       # Start batch generation
-GET  /api/processor/generation/status/{batch_id}  # Get batch status
+POST /generate/tldr                      # Generate TLDR articles (200-400 words)
+POST /generate/blog                      # Generate blog posts (600-1000 words)  
+POST /generate/deepdive                  # Generate deep analysis (1200+ words)
+POST /generate/batch                     # Start batch generation
+GET  /generation/status/{batch_id}       # Get batch status
 ```
 
 ## 📋 Immediate Actions (This Week)
@@ -92,15 +92,15 @@ cd /workspaces/ai-content-farm
 docker-compose up -d
 
 # 1. Test content collection
-curl -X POST "http://localhost:8001/api/collector/collect"
+curl -X POST "http://localhost:8001/collect"
 
 # 2. Test content processing + generation
-curl -X POST "http://localhost:8002/api/processor/generate/blog" \
+curl -X POST "http://localhost:8002/generate/blog" \
   -H "Content-Type: application/json" \
   -d '{"topic": "AI trends", "source_material": "Latest developments"}'
 
 # 3. Test site generation
-curl -X POST "http://localhost:8003/api/site-generator/generate"
+curl -X POST "http://localhost:8003/generate-site"
 ```
 
 ### Priority 2: Real AI Integration
@@ -111,7 +111,7 @@ export AZURE_OPENAI_ENDPOINT="your-endpoint"
 export AZURE_OPENAI_API_KEY="your-key"  # pragma: allowlist secret
 
 # Test real AI generation
-curl -X POST "http://localhost:8002/api/processor/generate/tldr" \
+curl -X POST "http://localhost:8002/generate/tldr" \
   -H "Content-Type: application/json" \
   -d '{"topic": "Climate change solutions", "source_material": "Recent research"}'
 ```

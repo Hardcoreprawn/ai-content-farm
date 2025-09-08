@@ -53,6 +53,10 @@ COPY libs/ /app/libs
 # Create necessary directories
 RUN mkdir -p /app/templates /app/static /app/output
 
+# Create non-root user as required by agent instructions
+RUN useradd --create-home --shell /bin/bash app && \
+    chown -R app:app /app
+
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV PORT=8000
@@ -62,8 +66,11 @@ ENV ENVIRONMENT=production
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1
 
+# Switch to non-root user
+USER app
+
 # Expose port
 EXPOSE ${PORT}
 
 # Run the application
-CMD ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "python -m uvicorn main:app --host 0.0.0.0 --port ${PORT}"]

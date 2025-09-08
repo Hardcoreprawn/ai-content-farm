@@ -29,28 +29,32 @@ Transform AI-generated articles into beautiful, fast-loading static websites sui
 ### Standard Endpoints
 ```http
 GET /health                                    # Container health check
-GET /api/site-generator/health                 # Standardized health check
-GET /api/site-generator/status                 # Current generator status
+GET /status                                    # Current generator status
+GET /                                          # Service information
 ```
 
 ### Generation Endpoints
 ```http
-POST /api/site-generator/generate-markdown     # Convert JSON to markdown
-POST /api/site-generator/generate-site         # Build static HTML site
-POST /api/site-generator/wake-up               # Process new content
+POST /generate-markdown                        # Convert JSON to markdown
+POST /generate-site                           # Build static HTML site
+POST /wake-up                                 # Process new content
 ```
 
 ### Preview & Management
 ```http
-GET /api/site-generator/preview/{site_id}      # Get preview URL
+GET /preview/{site_id}                        # Get preview URL
 ```
 
 ## 🔧 Configuration
 
 ### Environment Variables
 ```bash
-# Azure Storage
+# Azure Storage - Option 1: Connection String (Development)
 AZURE_STORAGE_CONNECTION_STRING=your_azure_storage_connection
+
+# Azure Storage - Option 2: Managed Identity (Production)
+AZURE_STORAGE_ACCOUNT_NAME=your_storage_account_name
+AZURE_CLIENT_ID=your_managed_identity_client_id
 
 # Container Names
 PROCESSED_CONTENT_CONTAINER=processed-content
@@ -141,7 +145,7 @@ docker run -p 8000:8000 site-generator
 
 # Test endpoints
 curl http://localhost:8000/health
-curl http://localhost:8000/api/site-generator/status
+curl http://localhost:8000/status
 ```
 
 ## 📊 Output Examples

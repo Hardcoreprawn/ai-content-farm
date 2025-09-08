@@ -48,8 +48,11 @@ class TestErrorHandling:
     def test_unexpected_server_errors(self, client):
         """Test handling of unexpected server errors."""
         # Mock site_generator to raise unexpected error
-        with patch("main.site_generator.check_blob_connectivity") as mock_check:
-            mock_check.side_effect = Exception("Unexpected error")
+        with patch("main.get_site_generator") as mock_get_gen:
+            mock_gen = AsyncMock()
+            mock_get_gen.return_value = mock_gen
+            mock_gen.check_blob_connectivity = AsyncMock()
+            mock_gen.check_blob_connectivity.side_effect = Exception("Unexpected error")
 
             response = client.get("/health")
             # Standard health endpoint always returns 200 with health info
@@ -61,7 +64,9 @@ class TestErrorHandling:
 
     def test_preview_not_found(self, client):
         """Test preview URL for non-existent site."""
-        with patch("main.site_generator") as mock_gen:
+        with patch("main.get_site_generator") as mock_get_gen:
+            mock_gen = AsyncMock()
+            mock_get_gen.return_value = mock_gen
             mock_gen.get_preview_url.side_effect = Exception("Site not found")
 
             response = client.get("/preview/nonexistent")
@@ -79,7 +84,9 @@ class TestRequestValidation:
 
     def test_batch_size_validation(self, client):
         """Test batch size parameter validation."""
-        with patch("main.site_generator") as mock_gen:
+        with patch("main.get_site_generator") as mock_get_gen:
+            mock_gen = AsyncMock()
+            mock_get_gen.return_value = mock_gen
             # Set up async mock properly
             mock_gen.generate_markdown_batch = AsyncMock(
                 return_value=Mock(
@@ -98,7 +105,9 @@ class TestRequestValidation:
 
     def test_theme_validation(self, client):
         """Test theme parameter validation."""
-        with patch("main.site_generator") as mock_gen:
+        with patch("main.get_site_generator") as mock_get_gen:
+            mock_gen = AsyncMock()
+            mock_get_gen.return_value = mock_gen
             # Set up async mock properly
             mock_gen.generate_static_site = AsyncMock(
                 return_value=Mock(
@@ -126,7 +135,9 @@ class TestResponseStructure:
 
     def test_success_response_structure(self, client):
         """Test that all success responses follow the standard structure."""
-        with patch("main.site_generator") as mock_gen:
+        with patch("main.get_site_generator") as mock_get_gen:
+            mock_gen = AsyncMock()
+            mock_get_gen.return_value = mock_gen
             # Mock the async method to return a successful connectivity check
             mock_gen.check_blob_connectivity.return_value = asyncio.Future()
             mock_gen.check_blob_connectivity.return_value.set_result(
@@ -179,7 +190,9 @@ class TestConcurrency:
         """Test concurrent requests to ensure thread safety."""
         import threading
 
-        with patch("main.site_generator") as mock_gen:
+        with patch("main.get_site_generator") as mock_get_gen:
+            mock_gen = AsyncMock()
+            mock_get_gen.return_value = mock_gen
             # Mock the async method to return a successful connectivity check
             mock_gen.check_blob_connectivity.return_value = asyncio.Future()
             mock_gen.check_blob_connectivity.return_value.set_result(

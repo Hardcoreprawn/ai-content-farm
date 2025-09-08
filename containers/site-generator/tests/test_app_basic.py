@@ -8,7 +8,7 @@ Focused on core application functionality.
 import asyncio
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -42,7 +42,11 @@ class TestFastAPIApp:
 
     def test_health_endpoint_success(self, client):
         """Test health endpoint returns success."""
-        with patch("main.site_generator") as mock_gen:
+        with patch("main.get_site_generator") as mock_get_gen:
+            # Mock the site generator instance
+            mock_gen = MagicMock()
+            mock_get_gen.return_value = mock_gen
+
             # Mock the async method to return a successful connectivity check
             mock_gen.check_blob_connectivity.return_value = asyncio.Future()
             mock_gen.check_blob_connectivity.return_value.set_result(
@@ -66,7 +70,11 @@ class TestFastAPIApp:
 
     def test_health_endpoint_failure(self, client):
         """Test health endpoint with service failure."""
-        with patch("main.site_generator") as mock_gen:
+        with patch("main.get_site_generator") as mock_get_gen:
+            # Mock the site generator instance
+            mock_gen = MagicMock()
+            mock_get_gen.return_value = mock_gen
+
             # Mock the async method to return unhealthy status
             mock_gen.check_blob_connectivity.return_value = {
                 "status": "error",

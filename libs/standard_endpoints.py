@@ -89,7 +89,7 @@ def create_standard_health_endpoint(
                 if overall_status == "healthy"
                 else f"Service has issues: {', '.join(issues)}"
             ),
-            data=health_data.dict(),
+            data=health_data.model_dump(),
             metadata=metadata,
         )
 
@@ -149,7 +149,7 @@ def create_standard_status_endpoint(
 
         return create_success_response(
             message=f"{service_name} is running",
-            data=status_data.dict(),
+            data=status_data.model_dump(),
             metadata=metadata,
         )
 

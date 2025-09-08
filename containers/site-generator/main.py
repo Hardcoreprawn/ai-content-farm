@@ -54,7 +54,18 @@ service_metadata = create_service_dependency("site-generator")
 
 # Initialize components
 config = Config()
-site_generator = SiteGenerator()
+
+# Lazy initialization for site_generator to avoid startup failures
+_site_generator_instance = None
+
+
+def get_site_generator() -> SiteGenerator:
+    """Get or create site generator instance - lazy initialization pattern."""
+    global _site_generator_instance
+    if _site_generator_instance is None:
+        _site_generator_instance = SiteGenerator()
+    return _site_generator_instance
+
 
 # Initialize secure error handler for legacy endpoints
 error_handler = SecureErrorHandler("site-generator")
@@ -77,7 +88,7 @@ async def check_blob_connectivity():
         # Add timeout to prevent 504 Gateway Timeout errors
         # Health checks should be fast - use 5-second timeout to stay well under Azure's limits
         result = await asyncio.wait_for(
-            site_generator.check_blob_connectivity(), timeout=5.0
+            get_site_generator().check_blob_connectivity(), timeout=5.0
         )
         # Extract boolean status from the dict result
         return result.get("status") == "healthy"
@@ -130,7 +141,7 @@ async def generate_markdown(request: GenerationRequest):
     try:
         logger.info(f"Starting markdown generation from: {request.source}")
 
-        result = await site_generator.generate_markdown_batch(
+        result = await get_site_generator().generate_markdown_batch(
             source=request.source,
             batch_size=request.batch_size,
             force_regenerate=request.force_regenerate,
@@ -143,7 +154,7 @@ async def generate_markdown(request: GenerationRequest):
                 "function": "site-generator",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "version": "1.0.0",
-                "generator_id": site_generator.generator_id,
+                "generator_id": get_site_generator().generator_id,
             },
         )
     except Exception as e:
@@ -163,7 +174,7 @@ async def generate_site(request: GenerationRequest):
     try:
         logger.info(f"Starting site generation for theme: {request.theme}")
 
-        result = await site_generator.generate_static_site(
+        result = await get_site_generator().generate_static_site(
             theme=request.theme or "minimal", force_rebuild=request.force_regenerate
         )
 
@@ -174,7 +185,7 @@ async def generate_site(request: GenerationRequest):
                 "function": "site-generator",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "version": "1.0.0",
-                "generator_id": site_generator.generator_id,
+                "generator_id": get_site_generator().generator_id,
             },
         )
     except Exception as e:
@@ -195,14 +206,14 @@ async def wake_up():
         logger.info("Wake-up triggered - checking for new content")
 
         # Generate markdown from latest processed content
-        markdown_result = await site_generator.generate_markdown_batch(
+        markdown_result = await get_site_generator().generate_markdown_batch(
             source="auto-wake-up", batch_size=10
         )
 
         # Generate static site if we have new content
         site_result = None
         if markdown_result.files_generated > 0:
-            site_result = await site_generator.generate_static_site(
+            site_result = await get_site_generator().generate_static_site(
                 theme="minimal", force_rebuild=False
             )
 
@@ -219,7 +230,7 @@ async def wake_up():
                 "function": "site-generator",
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "version": "1.0.0",
-                "generator_id": site_generator.generator_id,
+                "generator_id": get_site_generator().generator_id,
             },
         )
     except Exception as e:
@@ -236,7 +247,7 @@ async def wake_up():
 async def preview_site(site_id: str):
     """Get preview URL for generated site."""
     try:
-        preview_url = await site_generator.get_preview_url(site_id)
+        preview_url = await get_site_generator().get_preview_url(site_id)
 
         return create_success_response(
             message="Preview URL retrieved",
@@ -269,4 +280,5 @@ app.add_exception_handler(
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run(app, host="0.0.0.0", port=port)

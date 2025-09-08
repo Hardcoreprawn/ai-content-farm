@@ -11,10 +11,12 @@ from typing import Optional
 class Config:
     """Configuration management for site generator."""
 
-    # Azure Storage Configuration
+    # Azure Storage Configuration - supports both connection string and managed identity
     AZURE_STORAGE_CONNECTION_STRING: str = os.environ.get(
         "AZURE_STORAGE_CONNECTION_STRING", ""
     )
+    AZURE_STORAGE_ACCOUNT_NAME: str = os.environ.get("AZURE_STORAGE_ACCOUNT_NAME", "")
+    AZURE_CLIENT_ID: str = os.environ.get("AZURE_CLIENT_ID", "")
 
     # Blob Container Names
     PROCESSED_CONTENT_CONTAINER: str = os.environ.get(
@@ -47,15 +49,20 @@ class Config:
 
     @property
     def azure_storage_configured(self) -> bool:
-        """Check if Azure Storage is properly configured."""
-        return bool(self.AZURE_STORAGE_CONNECTION_STRING)
+        """Check if Azure Storage is properly configured (either connection string or managed identity)."""
+        return bool(self.AZURE_STORAGE_CONNECTION_STRING) or bool(
+            self.AZURE_STORAGE_ACCOUNT_NAME
+        )
 
     def validate(self) -> list[str]:
         """Validate configuration and return list of errors."""
         errors = []
 
         if not self.azure_storage_configured:
-            errors.append("AZURE_STORAGE_CONNECTION_STRING is required")
+            errors.append(
+                "Azure Storage configuration required: either AZURE_STORAGE_CONNECTION_STRING "
+                "or AZURE_STORAGE_ACCOUNT_NAME must be provided"
+            )
 
         if self.ARTICLES_PER_PAGE <= 0:
             errors.append("ARTICLES_PER_PAGE must be positive")

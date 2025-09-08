@@ -160,9 +160,9 @@ This pattern provides:
 
 #### Required REST Endpoints for Each Function:
 ```
-GET  /api/{function-name}/health     # Health check
-POST /api/{function-name}/process    # Main processing endpoint  
-GET  /api/{function-name}/status     # Operation status/progress
+GET  /health                         # Health check
+POST /process                        # Main processing endpoint  
+GET  /status                         # Operation status/progress
 ```
 
 #### Standard Response Format (MANDATORY):
@@ -187,10 +187,10 @@ GET  /api/{function-name}/status     # Operation status/progress
 - **404 Not Found**: "Blob not found: ranked-topics/file.json"
 - **500 Internal Error**: Include specific error details and suggested fixes
 ```
-GET  /api/{function-name}/health     # Health check (200/500)
-GET  /api/{function-name}/status     # Current status and metrics
-POST /api/{function-name}/process    # Main processing endpoint
-GET  /api/{function-name}/docs       # API documentation
+GET  /health                         # Health check (200/500)
+GET  /status                         # Current status and metrics
+POST /process                        # Main processing endpoint
+GET  /docs                           # API documentation
 ```
 
 #### Response Format Standard:

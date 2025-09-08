@@ -8,7 +8,7 @@ Focused on endpoint behavior and response validation.
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -83,10 +83,13 @@ class TestMarkdownGenerationEndpoint:
             generated_files=["file1.md", "file2.md", "file3.md"],
         )
 
-        with patch(
-            "main.site_generator.generate_markdown_batch", new_callable=AsyncMock
-        ) as mock_gen_batch:
-            mock_gen_batch.return_value = mock_response
+        with patch("main.get_site_generator") as mock_get_gen:
+            # Mock the site generator instance
+            mock_gen = MagicMock()
+            mock_get_gen.return_value = mock_gen
+
+            mock_gen.generate_markdown_batch = AsyncMock(return_value=mock_response)
+            mock_gen.generator_id = "test_456"
 
             request_data = {"source": "test_source", "batch_size": 5}
             response = client.post("/generate-markdown", json=request_data)
@@ -107,16 +110,19 @@ class TestMarkdownGenerationEndpoint:
             generated_files=["default.md"],
         )
 
-        with patch(
-            "main.site_generator.generate_markdown_batch", new_callable=AsyncMock
-        ) as mock_gen_batch:
-            mock_gen_batch.return_value = mock_response
+        with patch("main.get_site_generator") as mock_get_gen:
+            # Mock the site generator instance
+            mock_gen = MagicMock()
+            mock_get_gen.return_value = mock_gen
+
+            mock_gen.generate_markdown_batch = AsyncMock(return_value=mock_response)
+            mock_gen.generator_id = "test_789"
 
             response = client.post("/generate-markdown", json={})
 
             assert response.status_code == 200
             # Verify defaults were used
-            mock_gen_batch.assert_called_once_with(
+            mock_gen.generate_markdown_batch.assert_called_once_with(
                 source="manual", batch_size=10, force_regenerate=False
             )
 
@@ -141,10 +147,13 @@ class TestSiteGenerationEndpoint:
             generated_files=["index.html", "archive.html", "style.css"],
         )
 
-        with patch(
-            "main.site_generator.generate_static_site", new_callable=AsyncMock
-        ) as mock_gen_site:
-            mock_gen_site.return_value = mock_response
+        with patch("main.get_site_generator") as mock_get_gen:
+            # Mock the site generator instance
+            mock_gen = MagicMock()
+            mock_get_gen.return_value = mock_gen
+
+            mock_gen.generate_static_site = AsyncMock(return_value=mock_response)
+            mock_gen.generator_id = "test_generator"
 
             request_data = {"theme": "modern", "force_regenerate": True}
             response = client.post("/generate-site", json=request_data)
@@ -165,10 +174,15 @@ class TestPreviewEndpoint:
 
     def test_preview_success(self, client):
         """Test successful preview URL generation."""
-        with patch(
-            "main.site_generator.get_preview_url", new_callable=AsyncMock
-        ) as mock_preview:
-            mock_preview.return_value = "https://preview.example.com/site_123"
+        with patch("main.get_site_generator") as mock_get_gen:
+            # Mock the site generator instance
+            mock_gen = MagicMock()
+            mock_get_gen.return_value = mock_gen
+
+            mock_gen.get_preview_url = AsyncMock(
+                return_value="https://preview.example.com/site_123"
+            )
+            mock_gen.generator_id = "test_generator"
 
             response = client.get("/preview/site_123")
 
@@ -207,13 +221,12 @@ class TestWakeUpEndpoint:
             generated_files=["index.html", "article-1.html", "article-2.html"],
         )
 
-        with patch(
-            "main.site_generator.generate_markdown_batch", new_callable=AsyncMock
-        ) as mock_gen_md, patch(
-            "main.site_generator.generate_static_site", new_callable=AsyncMock
-        ) as mock_gen_site:
-            mock_gen_md.return_value = markdown_response
-            mock_gen_site.return_value = site_response
+        with patch("main.get_site_generator") as mock_get_gen:
+            mock_gen = AsyncMock()
+            mock_get_gen.return_value = mock_gen
+
+            mock_gen.generate_markdown_batch = AsyncMock(return_value=markdown_response)
+            mock_gen.generate_static_site = AsyncMock(return_value=site_response)
 
             response = client.post("/wake-up")
 
@@ -233,12 +246,12 @@ class TestWakeUpEndpoint:
             generated_files=[],
         )
 
-        with patch(
-            "main.site_generator.generate_markdown_batch", new_callable=AsyncMock
-        ) as mock_gen_md, patch(
-            "main.site_generator.generate_static_site", new_callable=AsyncMock
-        ) as mock_gen_site:
-            mock_gen_md.return_value = markdown_response
+        with patch("main.get_site_generator") as mock_get_gen:
+            mock_gen = AsyncMock()
+            mock_get_gen.return_value = mock_gen
+
+            mock_gen.generate_markdown_batch = AsyncMock(return_value=markdown_response)
+            mock_gen.generate_static_site = AsyncMock()
 
             response = client.post("/wake-up")
 
@@ -246,4 +259,4 @@ class TestWakeUpEndpoint:
             data = response.json()
             assert "0 markdown files" in data["message"]
             # Verify site generation wasn't called
-            mock_gen_site.assert_not_called()
+            mock_gen.generate_static_site.assert_not_called()
