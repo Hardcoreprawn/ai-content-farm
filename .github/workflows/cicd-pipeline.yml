@@ -142,7 +142,16 @@ jobs:
               has_only_docs=false
               echo "[UNKNOWN] Other change: $file"
             fi
-          done <<< "$changed_files"          # Convert container set to JSON array
+          done <<< "$changed_files"
+
+          # Add Docker consistency validation when Docker-related files change
+          echo "[DOCKER] Checking for Docker-related changes..."
+          if echo "$changed_files" | grep -E "(Dockerfile|docker-compose|containers/)" > /dev/null; then
+            container_set["docker-consistency"]=1
+            echo "[DOCKER] Docker-related changes detected - adding docker-consistency tests"
+          fi
+
+          # Convert container set to JSON array
           if [[ ${#container_set[@]} -gt 0 ]]; then
             containers_json=$(printf '"%s",' "${!container_set[@]}" | sed 's/,$//')
             changed_containers="[$containers_json]"
@@ -196,20 +205,6 @@ jobs:
         uses: actions/checkout@v5
       - name: Validate Workflows
         uses: ./.github/actions/lint-workflows
-
-  # Stage 2.5: Docker Consistency Validation
-  docker-consistency:
-    name: Validate Docker Setup
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - name: Test Docker Consistency
-        run: python tests/test_docker_consistency.py
 
   # Stage 3: Conditional Container Testing
   test-containers:

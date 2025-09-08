@@ -36,7 +36,10 @@ class TestContainerDependencies:
     @pytest.fixture
     def azure_requirements(self) -> Set[str]:
         """Define required Azure packages for containers using blob storage."""
-        return {"azure-storage-blob", "azure-identity", "azure-core"}
+        return {
+            "azure-storage-blob",
+            "azure-identity",
+        }  # azure-core is a transitive dependency
 
     def get_requirements_file(self, container_path: Path) -> Path:
         """Get the requirements file for a container."""
@@ -67,6 +70,8 @@ class TestContainerDependencies:
                 # Handle version specifications
                 if "==" in line:
                     package, version = line.split("==", 1)
+                elif "~=" in line:
+                    package, version = line.split("~=", 1)
                 elif ">=" in line:
                     package, version = line.split(">=", 1)
                 elif "<=" in line:
