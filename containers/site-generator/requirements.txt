@@ -19,6 +19,7 @@ httpx==0.28.1
 
 # Azure Storage Integration
 azure-storage-blob==12.26.0
+azure-identity==1.24.0
 
 # Date/Time Utilities
 python-dateutil==2.9.0.post0
