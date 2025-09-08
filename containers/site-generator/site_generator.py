@@ -62,13 +62,16 @@ class SiteGenerator:
         logger.info(f"SiteGenerator initialized: {self.generator_id}")
 
     async def check_blob_connectivity(self) -> Dict[str, Any]:
-        """Test blob storage connectivity."""
+        """Test blob storage connectivity with fast timeout for health checks."""
         try:
             # Run the synchronous test_connection in a thread pool to avoid blocking
             import asyncio
 
             loop = asyncio.get_event_loop()
-            result = await loop.run_in_executor(None, self.blob_client.test_connection)
+            # Use a 8-second timeout for health checks to stay well under the 10-second limit
+            result = await loop.run_in_executor(
+                None, lambda: self.blob_client.test_connection(timeout_seconds=8.0)
+            )
             return result
         except Exception as e:
             # Secure error handling - don't expose internal details

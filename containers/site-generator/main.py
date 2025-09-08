@@ -74,15 +74,14 @@ async def check_blob_connectivity():
     """Check blob storage connectivity for health endpoint with timeout."""
     try:
         # Add timeout to prevent 504 Gateway Timeout errors
-        # Health checks should be fast - if blob storage takes too long,
-        # it's better to report unhealthy than timeout the whole health endpoint
+        # Health checks should be fast - use 5-second timeout to stay well under Azure's limits
         result = await asyncio.wait_for(
-            site_generator.check_blob_connectivity(), timeout=10.0
+            site_generator.check_blob_connectivity(), timeout=5.0
         )
         # Extract boolean status from the dict result
         return result.get("status") == "healthy"
     except asyncio.TimeoutError:
-        logger.warning("Blob storage health check timed out after 10 seconds")
+        logger.warning("Blob storage health check timed out after 5 seconds")
         return False
     except Exception as e:
         logger.warning(f"Blob storage health check failed: {e}")

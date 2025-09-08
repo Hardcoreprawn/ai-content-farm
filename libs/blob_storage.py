@@ -120,8 +120,13 @@ class BlobStorageClient:
             logger.error(f"Failed to initialize blob storage client: {e}")
             raise
 
-    def test_connection(self) -> Dict[str, Any]:
-        """Test the blob storage connection with retry logic for authentication failures."""
+    def test_connection(self, timeout_seconds: float = None) -> Dict[str, Any]:
+        """Test the blob storage connection with retry logic for authentication failures.
+
+        Args:
+            timeout_seconds: Optional timeout for fast health checks. If provided,
+                           limits total retry time to this value.
+        """
         import random
         import time
 
@@ -132,9 +137,19 @@ class BlobStorageClient:
                 "message": "Mock storage client is working",
             }
 
-        max_retries = 3
-        base_delay = 2.0  # Start with 2 seconds
-        max_delay = 30.0  # Cap at 30 seconds
+        # Adjust retry behavior for health checks
+        if timeout_seconds and timeout_seconds < 10:
+            # Fast health check mode - single attempt with minimal delay
+            max_retries = 1
+            base_delay = 0.5
+            max_delay = timeout_seconds / 2
+        else:
+            # Normal mode - full retry logic
+            max_retries = 3
+            base_delay = 2.0  # Start with 2 seconds
+            max_delay = 30.0  # Cap at 30 seconds
+
+        start_total = time.time()
 
         for attempt in range(max_retries):
             try:
@@ -257,6 +272,15 @@ class BlobStorageClient:
                 is_retryable = any(err in error_msg for err in retryable_errors)
 
                 if is_retryable and not is_last_attempt:
+                    # Check if we're running out of time for health checks
+                    if timeout_seconds:
+                        elapsed = time.time() - start_total
+                        if elapsed + base_delay > timeout_seconds:
+                            logger.warning(
+                                f"Health check timeout approaching ({elapsed:.1f}s/{timeout_seconds}s), skipping retry"
+                            )
+                            break
+
                     # Calculate exponential backoff with jitter
                     delay = min(base_delay * (2**attempt), max_delay)
                     jitter = random.uniform(0.1, 0.3) * delay  # 10-30% jitter
