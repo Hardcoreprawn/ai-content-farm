@@ -239,12 +239,8 @@ resource "azurerm_container_app" "content_collector" {
     target_port      = 8000
     transport        = "http"
 
-    # IP restrictions for secure access
-    ip_security_restriction {
-      action           = "Allow"
-      ip_address_range = "81.2.90.47/32"
-      name             = "AllowStaticIP"
-    }
+    # No IP restrictions - allowing Azure Logic Apps to access
+    # TODO: Consider adding Azure service tag restrictions for production security
 
     traffic_weight {
       percentage      = 100

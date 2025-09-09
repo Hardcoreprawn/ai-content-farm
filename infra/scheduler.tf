@@ -24,15 +24,22 @@ resource "azurerm_logic_app_action_http" "call_content_collector" {
   name         = "Call_Content_Collector"
   logic_app_id = azurerm_logic_app_workflow.content_scheduler.id
   method       = "POST"
-  uri          = "https://${azurerm_container_app.content_collector.latest_revision_fqdn}/api/collect"
+  uri          = "https://${azurerm_container_app.content_collector.ingress[0].fqdn}/collections"
 
   headers = {
     "Content-Type" = "application/json"
   }
 
   body = jsonencode({
-    source = "reddit"
-    topics = ["technology", "programming", "science"]
+    sources = [
+      {
+        type       = "reddit"
+        subreddits = ["technology", "programming", "science"]
+        limit      = 10
+      }
+    ]
+    save_to_storage = true
+    deduplicate     = true
   })
 }
 
@@ -199,6 +206,13 @@ resource "azurerm_consumption_budget_resource_group" "scheduler_budget" {
 
     contact_emails = [
       "admin@example.com" # TODO: Replace with actual notification email
+    ]
+  }
+
+  lifecycle {
+    ignore_changes = [
+      time_period[0].start_date,
+      time_period[0].end_date
     ]
   }
 }
