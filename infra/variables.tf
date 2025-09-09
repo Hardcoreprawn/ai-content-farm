@@ -4,6 +4,7 @@ variable "location" {
 }
 
 # Updated: Enhanced CI/CD pipeline with unified build reporting - Aug 22, 2025
+# Phase 1 validation: Trigger terraform run after requirements fixes - Sep 9, 2025
 variable "subscription_id" {
   description = "The Azure Subscription ID to use. Leave blank to use the default from Azure CLI context."
   type        = string
