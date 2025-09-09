@@ -90,17 +90,15 @@ class TestStandardizedAPIEndpoints:
         assert "message" in data
         assert "metadata" in data
 
-    def test_process_endpoint_success(self, client):
-        """Test process endpoint with valid request."""
+    def test_collections_endpoint_success(self, client):
+        """Test collections endpoint with valid request."""
         request_data = {
-            "sources": [
-                {"type": "reddit", "config": {"subreddits": ["test"], "limit": 1}}
-            ],
+            "sources": [{"type": "reddit", "subreddits": ["test"], "limit": 1}],
             "deduplicate": True,
             "save_to_storage": False,
         }
 
-        response = client.post("/process", json=request_data)
+        response = client.post("/collections", json=request_data)
         # May return error due to missing credentials, but should have proper format
         assert response.status_code in [200, 500]
 
@@ -109,10 +107,10 @@ class TestStandardizedAPIEndpoints:
         assert "message" in data
         assert "metadata" in data
 
-    def test_process_endpoint_error_handling(self, client):
-        """Test process endpoint error handling."""
+    def test_collections_endpoint_error_handling(self, client):
+        """Test collections endpoint error handling."""
         # Invalid request - missing required fields
-        response = client.post("/process", json={})
+        response = client.post("/collections", json={})
         assert response.status_code == 422
 
         data = response.json()

@@ -28,7 +28,7 @@ service_metadata = create_service_dependency("content-womble")
 router.add_api_route(
     "/",
     create_standard_root_endpoint(
-        service_name="Content Womble",
+        service_name="content-womble",
         description="A humble service for collecting and analyzing digital content",
         version="2.0.1",
         available_endpoints=[

@@ -1,7 +1,7 @@
 """
 Collections Endpoints - Content Collection and Processing
 
-RESTful endpoints for managing content collections.
+RESTful endpoints for managing content collections from multiple sources.
 """
 
 import time
@@ -20,13 +20,6 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 service_metadata = create_service_dependency("content-womble")
 
 
-def get_collector_service():
-    """Get content collector service."""
-    if not hasattr(get_collector_service, "_service"):
-        get_collector_service._service = ContentCollectorService()
-    return get_collector_service._service
-
-
 @router.post(
     "",
     response_model=StandardResponse,
@@ -42,6 +35,7 @@ async def create_collection(
 
     This endpoint collects content from Reddit, RSS, or other configured sources,
     applies deduplication if requested, and optionally saves results to blob storage.
+    Supports multiple sources for diverse content collection.
     """
     start_time = time.time()
 
@@ -58,8 +52,12 @@ async def create_collection(
                 }
             )
 
+        # Create a new service instance for this request
+        # This allows for better isolation and multi-source handling
+        collector_service = ContentCollectorService()
+
         # Use the service to collect content
-        result = await get_collector_service().collect_and_store_content(
+        result = await collector_service.collect_and_store_content(
             sources_data=sources_data,
             deduplicate=request.deduplicate,
             similarity_threshold=request.similarity_threshold,
