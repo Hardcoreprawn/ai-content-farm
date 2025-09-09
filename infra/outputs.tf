@@ -170,3 +170,37 @@ output "dns_zone_name_servers" {
   description = "Name servers for jablab.com DNS zone"
   value       = azurerm_dns_zone.jablab.name_servers
 }
+
+# Scheduler outputs
+output "scheduler_logic_app_name" {
+  description = "Name of the Logic App scheduler"
+  value       = azurerm_logic_app_workflow.content_scheduler.name
+}
+
+output "scheduler_logic_app_id" {
+  description = "ID of the Logic App scheduler"
+  value       = azurerm_logic_app_workflow.content_scheduler.id
+}
+
+output "scheduler_managed_identity_principal_id" {
+  description = "Principal ID of the scheduler managed identity"
+  value       = azurerm_logic_app_workflow.content_scheduler.identity[0].principal_id
+  sensitive   = true
+}
+
+output "scheduler_storage_tables" {
+  description = "Storage table names for scheduler configuration"
+  value = {
+    topic_configurations = azurerm_storage_table.topic_configurations.name
+    execution_history    = azurerm_storage_table.execution_history.name
+    source_analytics     = azurerm_storage_table.source_analytics.name
+  }
+}
+
+output "scheduler_storage_containers" {
+  description = "Storage container names for scheduler logs and analytics"
+  value = {
+    scheduler_logs  = azurerm_storage_container.scheduler_logs.name
+    analytics_cache = azurerm_storage_container.analytics_cache.name
+  }
+}

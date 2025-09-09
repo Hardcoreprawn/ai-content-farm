@@ -1,0 +1,123 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "definition": {
+        "triggers": {
+            "Recurrence": {
+                "type": "Recurrence",
+                "recurrence": {
+                    "frequency": "Hour",
+                    "interval": 6,
+                    "timeZone": "UTC"
+                }
+            }
+        },
+        "actions": {
+            "Get_Scheduler_Config": {
+                "type": "ApiConnection",
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['keyvault']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/secrets/@{encodeURIComponent('scheduler-config')}/value"
+                },
+                "runAfter": {}
+            },
+            "Parse_Config": {
+                "type": "ParseJson",
+                "inputs": {
+                    "content": "@body('Get_Scheduler_Config')?['value']",
+                    "schema": {
+                        "type": "object",
+                        "properties": {
+                            "content_collector_url": {
+                                "type": "string"
+                            },
+                            "initial_topics": {
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "runAfter": {
+                    "Get_Scheduler_Config": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "For_Each_Topic": {
+                "type": "Foreach",
+                "foreach": "@body('Parse_Config')?['initial_topics']",
+                "actions": {
+                    "Build_Collection_Request": {
+                        "type": "Compose",
+                        "inputs": {
+                            "sources": [
+                                {
+                                    "type": "reddit",
+                                    "subreddits": "@items('For_Each_Topic')?['sources']?['reddit']?['subreddits']",
+                                    "limit": "@items('For_Each_Topic')?['sources']?['reddit']?['limit']",
+                                    "criteria": "@items('For_Each_Topic')?['criteria']"
+                                }
+                            ],
+                            "collection_metadata": {
+                                "topic": "@items('For_Each_Topic')?['display_name']",
+                                "scheduled_by": "logic-app-scheduler",
+                                "batch_id": "@concat(items('For_Each_Topic')?['display_name'], '_', formatDateTime(utcnow(), 'yyyyMMddhhmm'))"
+                            }
+                        }
+                    },
+                    "Call_Content_Collector": {
+                        "type": "Http",
+                        "inputs": {
+                            "method": "POST",
+                            "uri": "@concat(body('Parse_Config')?['content_collector_url'], '/collect')",
+                            "headers": {
+                                "Content-Type": "application/json"
+                            },
+                            "body": "@outputs('Build_Collection_Request')",
+                            "authentication": {
+                                "type": "ManagedServiceIdentity"
+                            }
+                        },
+                        "runAfter": {
+                            "Build_Collection_Request": [
+                                "Succeeded"
+                            ]
+                        }
+                    },
+                    "Log_Collection_Result": {
+                        "type": "Compose",
+                        "inputs": {
+                            "topic": "@items('For_Each_Topic')?['display_name']",
+                            "batch_id": "@outputs('Build_Collection_Request')?['collection_metadata']?['batch_id']",
+                            "status": "@if(equals(outputs('Call_Content_Collector')['statusCode'], 200), 'success', 'failed')",
+                            "response": "@body('Call_Content_Collector')",
+                            "timestamp": "@utcnow()"
+                        },
+                        "runAfter": {
+                            "Call_Content_Collector": [
+                                "Succeeded",
+                                "Failed"
+                            ]
+                        }
+                    }
+                },
+                "runAfter": {
+                    "Parse_Config": [
+                        "Succeeded"
+                    ]
+                }
+            }
+        },
+        "parameters": {
+            "$connections": {
+                "defaultValue": {},
+                "type": "Object"
+            }
+        }
+    }
+}

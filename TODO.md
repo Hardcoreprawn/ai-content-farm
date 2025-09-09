@@ -1,7 +1,7 @@
 # TODO - AI Content Farm
 
 **Status**: 🎉 **ARCHITECTURE SIMPLIFIED** - 3-Container Setup Complete  
-**Goal**: Enhance pipeline and connect real AI services
+**Goal**: Build intelligent content collection scheduler + enhance pipeline
 
 ## ✅ Recent Achievements
 
@@ -11,32 +11,74 @@
 3. **✅ API Standardization** - All containers use shared library pattern with consistent responses
 4. **✅ Zero Regression** - All existing functionality preserved during integration
 5. **✅ Enhanced Capabilities** - content-processor now handles both processing AND AI generation
+6. **✅ Scheduler Design** - Comprehensive Azure Logic App scheduler design completed
 
-## 🎯 Current Priority: Complete Pipeline Integration
+## 🎯 Current Priority: Build Content Collection Scheduler
 
-### High Priority Tasks
+### 🚀 Phase 1: MVP Scheduler (Week 1) - ACTIVE
+**Goal**: Basic working scheduler calling content-collector on fixed intervals
 
-#### This Week: End-to-End Testing
-- [ ] **Test full pipeline flow**: Reddit → content-collector → content-processor → site-generator → website
-- [ ] **Verify AI generation endpoints**: Test TLDR/blog/deepdive generation with real content
-- [ ] **Connect real AI services**: Integrate Azure OpenAI or OpenAI for actual content generation
-- [ ] **Update deployment scripts**: Ensure 3-container architecture deploys correctly
+#### Infrastructure Tasks
+- [ ] **Add Logic App Terraform resources** (`infra/scheduler.tf`) ✅ COMPLETED
+- [ ] **Configure managed identity and RBAC permissions** 
+- [ ] **Create Azure Table Storage for topic configuration**
+- [ ] **Deploy initial infrastructure with Terraform**
 
-#### Next Week: Production Readiness
-- [ ] **Performance testing**: Validate content generation speed and quality
-- [ ] **Cost monitoring**: Ensure Azure costs stay under $40/month with simplified architecture
-- [ ] **Error handling**: Add robust error handling for AI service failures
-- [ ] **Monitoring**: Add logging and metrics for the enhanced content-processor
+#### Logic App Development
+- [ ] **Create basic Logic App workflow** (4-hour recurrence)
+- [ ] **Implement managed identity authentication** to content-collector
+- [ ] **Single topic collection** (Technology topic with 3-4 subreddits)
+- [ ] **Basic error handling and logging**
 
-### Future Enhancements
-- [ ] **Advanced AI features**: Custom prompts, multiple AI providers, quality scoring
-- [ ] **Batch processing optimization**: Parallel generation, queue management
-- [ ] **Content personalization**: User preferences, topic filtering
-- [ ] **SEO optimization**: Meta tags, structured data, sitemap generation
+#### Testing & Validation
+- [ ] **Test Logic App triggers content-collector** successfully
+- [ ] **Verify managed identity authentication** works
+- [ ] **Confirm content flows through** to content-processor
+- [ ] **Monitor costs and execution frequency** (target < $2/month)
 
-## 🏗️ Current Clean Architecture
+### 🎯 Phase 2: Multi-Topic Intelligence (Week 2-3) - PLANNED
+**Goal**: Expand to multiple topics with dynamic configuration
 
-**Active Containers (3):**
+#### Topic Management
+- [ ] **Implement 5-6 topic configurations** (Technology, Programming, Science, Bees, etc.)
+- [ ] **Dynamic subreddit mapping** per topic
+- [ ] **Topic-specific collection criteria**
+- [ ] **Schedule variation by topic priority**
+
+#### Enhanced Workflow
+- [ ] **For-each loop to process multiple topics**
+- [ ] **Dynamic request building** based on topic config
+- [ ] **Parallel execution** for independent topics
+- [ ] **Improved error handling** per topic
+
+### ⚡ Phase 3: Advanced Orchestration (Week 4+) - FUTURE
+**Goal**: Intelligent scheduling with source discovery and optimization
+
+#### Smart Features
+- [ ] **Source discovery engine** - identify high-value sources
+- [ ] **Adaptive scheduling** - ML-based frequency optimization
+- [ ] **Cross-platform preparation** - Bluesky/Mastodon framework
+- [ ] **Advanced analytics** - content performance correlation
+
+## 🏗️ Enhanced Architecture with Scheduler
+
+**New Architecture with Scheduler:**
+```
+┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
+│   Logic App     │    │ Content Collector│    │ Content Topics  │
+│   Scheduler     │───▶│    (HTTPS)       │───▶│   Storage       │
+│                 │    │                  │    │                 │
+└─────────────────┘    └──────────────────┘    └─────────────────┘
+         │                        │
+         ▼                        ▼
+┌─────────────────┐    ┌──────────────────┐
+│   Schedule      │    │    Collection    │
+│   Configuration │    │    Analytics     │
+│   Storage       │    │    Feedback      │
+└─────────────────┘    └──────────────────┘
+```
+
+**Content Pipeline (Unchanged):**
 ```
 Reddit/Web → content-collector → content-processor → site-generator → jablab.com
                                       ↑
@@ -44,8 +86,115 @@ Reddit/Web → content-collector → content-processor → site-generator → ja
                            (Processing + TLDR/Blog/Deepdive)
 ```
 
-**Archived:**
-- ❌ content-generator (merged into content-processor)
+## 📋 Immediate Actions (This Week)
+
+### Priority 1: Deploy Scheduler Infrastructure
+```bash
+# Deploy scheduler infrastructure
+cd /workspaces/ai-content-farm/infra
+terraform plan
+terraform apply
+
+# Verify Logic App creation
+az logic workflow list --resource-group <resource-group>
+```
+
+### Priority 2: Configure Logic App Workflow
+```bash
+# Deploy Logic App workflow definition
+az logic workflow create \
+  --resource-group <resource-group> \
+  --name <logic-app-name> \
+  --definition @docs/scheduler/logic-app-workflow.json
+```
+
+### Priority 3: Test Scheduler → Content-Collector Integration
+```bash
+# Test manual Logic App trigger
+az logic workflow trigger run \
+  --resource-group <resource-group> \
+  --name <logic-app-name> \
+  --trigger-name Recurrence
+
+# Verify content-collector receives authenticated requests
+curl -X GET "https://<content-collector-url>/health"
+```
+
+### Priority 4: End-to-End Pipeline Testing (Parallel)
+```bash
+# Test complete flow with scheduler
+# 1. Scheduler triggers content collection
+# 2. Content flows through content-processor  
+# 3. Site generation creates website
+# 4. Monitor costs and performance
+```
+
+## 🎯 Success Metrics
+
+### Phase 1 Success Criteria
+- [ ] Logic App executes every 4 hours without errors
+- [ ] Content-collector receives valid authenticated requests
+- [ ] Content flows through to blob storage and content-processor
+- [ ] Total additional monthly cost < $2
+- [ ] End-to-end content flow works (Scheduler → Reddit → Website)
+
+### Technical Metrics
+- ✅ **3-container architecture** running successfully
+- ✅ **content-processor** handling both processing AND generation
+- ✅ **10/13 tests passing** (3 skipped for future features)
+- 🔄 **Logic App scheduler** triggering collections (Phase 1)
+- 🔄 **End-to-end pipeline** working (Scheduler → Reddit → Website)
+- 🔄 **Azure costs** under $40/month (including scheduler)
+
+### Business Metrics
+- 🔄 **Automated content collection** every 4-6 hours
+- 🔄 **Topic-based content** from multiple subreddits
+- 🔄 **Quality articles** (TLDR, blog, deepdive formats)
+- 🔄 **Cost-effective scaling** with Logic App pay-per-execution
+
+## 📊 Scheduler Design Documents
+
+### Created Documentation
+- ✅ **SCHEDULER_DESIGN.md** - Comprehensive scheduler architecture and design
+- ✅ **SCHEDULER_IMPLEMENTATION.md** - Detailed 3-phase implementation roadmap
+- ✅ **scheduler.tf** - Complete Terraform infrastructure for Logic App
+- ✅ **logic-app-workflow.json** - Basic Logic App workflow definition
+
+### Topic Configuration Example
+```json
+{
+  "topic_id": "technology",
+  "display_name": "Technology", 
+  "schedule": { "frequency_hours": 4, "priority": "high" },
+  "sources": {
+    "reddit": {
+      "subreddits": ["technology", "programming", "MachineLearning"],
+      "limit": 20, "sort": "hot"
+    }
+  },
+  "criteria": { "min_score": 50, "min_comments": 10 }
+}
+```
+
+---
+
+**Current Status**: Scheduler infrastructure designed and ready for implementation! Moving from manual to automated content collection. 🚀
+
+## 🚫 What NOT to Do
+
+- ❌ Don't add new features until basic scheduler works
+- ❌ Don't create new documentation files (use existing structure)
+- ❌ Don't over-engineer the Logic App workflow initially
+- ❌ Don't change container architecture during scheduler implementation
+- ❌ Don't optimize before proving scheduler functionality
+
+## ✅ What's Working (Don't Break)
+
+- Infrastructure: Azure Container Apps, Terraform, CI/CD
+- Security: Most scans passing, OWASP compliance
+- content-processor: 32/36 tests passing, mostly standardized
+- Basic container deployment and service discovery
+- Simplified 3-container architecture
 
 ## 🛠️ Technical Standards (Consistently Applied)
 
