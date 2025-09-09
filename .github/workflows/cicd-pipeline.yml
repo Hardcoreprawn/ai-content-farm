@@ -414,12 +414,11 @@ jobs:
   deploy-infrastructure:
     name: Deploy (Full Terraform)
     runs-on: ubuntu-latest
-    needs: [plan-pipeline, infrastructure-quality, build-containers]
+    needs: [plan-pipeline, infrastructure-quality]
     if: |
       needs.plan-pipeline.outputs.needs-infrastructure == 'true' &&
       needs.plan-pipeline.outputs.deployment-method == 'terraform' &&
-      needs.infrastructure-quality.result == 'success' &&
-      (needs.build-containers.result == 'success' || needs.build-containers.result == 'skipped')
+      needs.infrastructure-quality.result == 'success'
     outputs:
       deployment-url: ${{ steps.terraform-deploy.outputs.deployment-url }}
     steps:
