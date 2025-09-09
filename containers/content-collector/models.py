@@ -6,7 +6,7 @@ Pydantic models for request/response validation and data structures.
 
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class SourceConfig(BaseModel):
@@ -23,6 +23,18 @@ class SourceConfig(BaseModel):
     criteria: Dict[str, Any] = Field(
         default_factory=dict, description="Additional filtering criteria"
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def handle_legacy_subreddit_format(cls, data: Any) -> Any:
+        """Handle legacy single 'subreddit' field by converting to 'subreddits' array."""
+        if isinstance(data, dict):
+            # Convert single 'subreddit' to 'subreddits' array for backward compatibility
+            if "subreddit" in data and "subreddits" not in data:
+                data["subreddits"] = [data["subreddit"]]
+                # Remove the legacy field
+                del data["subreddit"]
+        return data
 
     @property
     def config(self) -> Dict[str, Any]:
@@ -53,15 +65,6 @@ class DiscoveryRequest(BaseModel):
     include_recommendations: bool = Field(
         default=True, description="Include research recommendations"
     )
-
-
-class LegacyCollectionRequest(BaseModel):
-    """Legacy request format for backward compatibility."""
-
-    sources: List[Dict[str, Any]]
-    deduplicate: bool = True
-    similarity_threshold: float = 0.8
-    save_to_storage: bool = True
 
 
 class CollectionRequest(BaseModel):

@@ -12,31 +12,20 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict
 
 from endpoints import (
-    api_process_content_endpoint,
-    discover_topics_endpoint,
-    get_sources_endpoint,
-    reddit_diagnostics_endpoint,
+    collections_router,
+    diagnostics_router,
+    discoveries_router,
+    sources_router,
 )
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from models import (
-    CollectionRequest,
-    DiscoveryRequest,
-    LegacyCollectionRequest,
-    SourceConfig,
-)
+from models import CollectionRequest, DiscoveryRequest, SourceConfig
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from config import ENVIRONMENT
+from config import config
 from libs.shared_models import StandardResponse, create_service_dependency
-from libs.standard_endpoints import (
-    create_standard_404_handler,
-    create_standard_health_endpoint,
-    create_standard_root_endpoint,
-    create_standard_status_endpoint,
-)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -60,37 +49,6 @@ app = FastAPI(
     description="A humble service for collecting and analyzing digital content",
     version="2.0.1",
     lifespan=lifespan,
-)
-
-# Add shared standard endpoints
-app.add_api_route(
-    "/",
-    create_standard_root_endpoint(
-        service_name="content-womble",
-        description="A humble service for collecting and analyzing digital content",
-        version="2.0.1",
-        service_metadata_dep=service_metadata,
-    ),
-)
-
-app.add_api_route(
-    "/status",
-    create_standard_status_endpoint(
-        service_name="content-womble",
-        version="2.0.1",
-        environment=ENVIRONMENT,
-        service_metadata_dep=service_metadata,
-    ),
-)
-
-app.add_api_route(
-    "/health",
-    create_standard_health_endpoint(
-        service_name="content-womble",
-        version="2.0.1",
-        environment=ENVIRONMENT,
-        service_metadata_dep=service_metadata,
-    ),
 )
 
 # Standard endpoints are now added via shared library above
@@ -187,43 +145,13 @@ async def method_not_allowed_handler(request: Request, exc):
 # API Routes
 # Root, health, and status endpoints are provided by shared library above
 
-
-@app.post("/discover", response_model=StandardResponse)
-async def discover_topics(
-    request: DiscoveryRequest, metadata: Dict[str, Any] = Depends(service_metadata)
-):
-    """Discover trending topics from configured sources."""
-    return await discover_topics_endpoint(request, metadata)
-
-
-@app.post("/collect", response_model=StandardResponse)
-async def collect_content(
-    request: LegacyCollectionRequest,
-    metadata: Dict[str, Any] = Depends(service_metadata),
-):
-    """Legacy collection endpoint for backward compatibility."""
-    # Convert to standardized format and process
-    standardized_request = CollectionRequest(
-        sources=[SourceConfig(**source) for source in request.sources],
-        deduplicate=request.deduplicate,
-        similarity_threshold=request.similarity_threshold,
-        save_to_storage=request.save_to_storage,
-    )
-    return await api_process_content_endpoint(standardized_request, metadata)
-
-
-@app.get("/sources", response_model=StandardResponse)
-async def get_available_sources(metadata: Dict[str, Any] = Depends(service_metadata)):
-    """Get available content sources and their capabilities."""
-    return await get_sources_endpoint(metadata)
-
-
-@app.post("/process", response_model=StandardResponse)
-async def process_content(
-    request: CollectionRequest, metadata: Dict[str, Any] = Depends(service_metadata)
-):
-    """Standard content processing endpoint."""
-    return await api_process_content_endpoint(request, metadata)
+# Include routers with proper REST endpoints
+app.include_router(
+    diagnostics_router
+)  # Includes /, /health, /status, /reddit/diagnostics
+app.include_router(collections_router)  # /collections endpoints
+app.include_router(discoveries_router)  # /discoveries endpoints
+app.include_router(sources_router)  # /sources endpoints
 
 
 if __name__ == "__main__":
