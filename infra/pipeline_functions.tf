@@ -59,26 +59,8 @@ resource "azurerm_role_assignment" "functions_servicebus_sender" {
   principal_id         = azurerm_linux_function_app.pipeline_orchestrator.identity[0].principal_id
 }
 
-# Event Grid subscription for blob events → Function
-resource "azurerm_eventgrid_event_subscription" "blob_to_function" {
-  name  = "${var.resource_prefix}-blob-to-pipeline"
-  scope = azurerm_storage_account.main.id
-
-  azure_function_endpoint {
-    function_id                       = azurerm_linux_function_app.pipeline_orchestrator.id
-    max_events_per_batch              = 1
-    preferred_batch_size_in_kilobytes = 64
-  }
-
-  included_event_types = [
-    "Microsoft.Storage.BlobCreated"
-  ]
-
-  subject_filter {
-    subject_begins_with = "/blobServices/default/containers/collected-content/"
-    subject_ends_with   = ".json"
-  }
-}
+# Note: Blob trigger is handled directly by the function using @app.blob_trigger
+# No Event Grid subscription needed as the function monitors storage directly
 
 # Timer-triggered function for scheduled collection (replaces Logic App)
 # This will be implemented in the function code with a timer trigger
