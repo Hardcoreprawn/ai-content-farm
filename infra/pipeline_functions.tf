@@ -65,7 +65,9 @@ resource "azurerm_eventgrid_event_subscription" "blob_to_function" {
   scope = azurerm_storage_account.main.id
 
   azure_function_endpoint {
-    function_id = "${azurerm_linux_function_app.pipeline_orchestrator.id}/functions/BlobEventHandler"
+    function_id                       = azurerm_linux_function_app.pipeline_orchestrator.id
+    max_events_per_batch              = 1
+    preferred_batch_size_in_kilobytes = 64
   }
 
   included_event_types = [
@@ -76,8 +78,6 @@ resource "azurerm_eventgrid_event_subscription" "blob_to_function" {
     subject_begins_with = "/blobServices/default/containers/collected-content/"
     subject_ends_with   = ".json"
   }
-
-  depends_on = [azurerm_linux_function_app.pipeline_orchestrator]
 }
 
 # Timer-triggered function for scheduled collection (replaces Logic App)
