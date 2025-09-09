@@ -1,5 +1,6 @@
 # Azure Logic App Scheduler Infrastructure
 # Cost-optimized scheduler for dynamic content collection
+# Pipeline test: triggering infrastructure deployment
 
 # Logic App for content collection scheduling
 resource "azurerm_logic_app_workflow" "content_scheduler" {
