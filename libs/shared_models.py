@@ -15,9 +15,12 @@ Key Benefits:
 
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 
 from pydantic import BaseModel, Field
+
+# Type variable for generic StandardResponse
+T = TypeVar("T")
 
 
 class ErrorCodes:
@@ -107,26 +110,26 @@ class ErrorCodes:
         )
 
 
-class StandardResponse(BaseModel):
+class StandardResponse(BaseModel, Generic[T]):
     """
     FastAPI-native standard response format using Pydantic response models.
 
     Used with response_model=StandardResponse on FastAPI endpoints.
 
     Example:
-        @app.get("/api/service/health", response_model=StandardResponse)
+        @app.get("/api/service/health", response_model=StandardResponse[HealthData])
         async def health():
             return StandardResponse(
                 status="success",
                 message="Service healthy",
-                data={"service": "content-ranker"},
+                data=HealthData(service="content-ranker"),
                 metadata={"timestamp": "2025-08-27T10:00:00Z"}
             )
     """
 
     status: str = Field(..., description="success|error|processing")
     message: str = Field(..., description="Human-readable description")
-    data: Optional[Any] = Field(None, description="Response data")
+    data: Optional[T] = Field(None, description="Response data")
     errors: Optional[List[str]] = Field(None, description="Error details")
     metadata: Dict[str, Any] = Field(
         default_factory=dict, description="Response metadata"
