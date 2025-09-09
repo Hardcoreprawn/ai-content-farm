@@ -19,6 +19,32 @@ resource "azurerm_logic_app_workflow" "content_scheduler" {
   })
 }
 
+# Logic App Action - Workflow Definition
+resource "azurerm_logic_app_action_http" "call_content_collector" {
+  name         = "Call_Content_Collector"
+  logic_app_id = azurerm_logic_app_workflow.content_scheduler.id
+  method       = "POST"
+  uri          = "https://${azurerm_container_app.content_collector.latest_revision_fqdn}/api/collect"
+
+  headers = {
+    "Content-Type" = "application/json"
+  }
+
+  body = jsonencode({
+    source = "reddit"
+    topics = ["technology", "programming", "science"]
+  })
+}
+
+# Logic App Trigger - Recurrence
+resource "azurerm_logic_app_trigger_recurrence" "content_collection_schedule" {
+  name         = "Recurrence"
+  logic_app_id = azurerm_logic_app_workflow.content_scheduler.id
+  frequency    = "Hour"
+  interval     = 6
+  time_zone    = "UTC"
+}
+
 # Storage tables for scheduler configuration and analytics
 resource "azurerm_storage_table" "topic_configurations" {
   name                 = "topicconfigurations"
