@@ -210,8 +210,9 @@ class ExternalAPIClient:
         start_time = time.time()
 
         try:
+            # Secure logging - never log headers containing API keys or sensitive data
             self.logger.debug(
-                f"Making {method} request to {endpoint['region']}: {path}"
+                f"Making {method} request to {endpoint['region']}: {path} (url redacted for security)"
             )
 
             async with self.get_client() as client:
