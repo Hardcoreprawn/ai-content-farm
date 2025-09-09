@@ -1,5 +1,5 @@
 {
-    "$schema": "https://schema.management.azure.com/schemas/2016-06-01/workflowdefinition.json#",
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
     "contentVersion": "1.0.0.0",
     "definition": {
         "triggers": {
@@ -22,7 +22,7 @@
                         }
                     },
                     "method": "get",
-                    "path": "/secrets/@{encodeURIComponent('scheduler-config')}/value"
+                    "path": "/secrets/@{encodeURIComponent('scheduler-config-v2')}/value"
                 },
                 "runAfter": {}
             },

@@ -133,7 +133,7 @@ locals {
 
 # Store scheduler configuration in Key Vault for Logic App access
 resource "azurerm_key_vault_secret" "scheduler_config" {
-  name         = "scheduler-config"
+  name         = "scheduler-config-v2"
   value        = jsonencode(local.scheduler_config)
   key_vault_id = azurerm_key_vault.main.id
 
