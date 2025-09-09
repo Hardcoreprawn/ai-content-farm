@@ -171,20 +171,20 @@ output "dns_zone_name_servers" {
   value       = azurerm_dns_zone.jablab.name_servers
 }
 
-# Scheduler outputs
-output "scheduler_logic_app_name" {
-  description = "Name of the Logic App scheduler"
-  value       = azurerm_logic_app_workflow.content_scheduler.name
+# Pipeline Functions outputs
+output "pipeline_functions_app_name" {
+  description = "Name of the Pipeline Orchestrator Function App"
+  value       = azurerm_linux_function_app.pipeline_orchestrator.name
 }
 
-output "scheduler_logic_app_id" {
-  description = "ID of the Logic App scheduler"
-  value       = azurerm_logic_app_workflow.content_scheduler.id
+output "pipeline_functions_app_id" {
+  description = "ID of the Pipeline Orchestrator Function App"
+  value       = azurerm_linux_function_app.pipeline_orchestrator.id
 }
 
-output "scheduler_managed_identity_principal_id" {
-  description = "Principal ID of the scheduler managed identity"
-  value       = azurerm_logic_app_workflow.content_scheduler.identity[0].principal_id
+output "pipeline_functions_managed_identity_principal_id" {
+  description = "Principal ID of the Pipeline Functions managed identity"
+  value       = azurerm_linux_function_app.pipeline_orchestrator.identity[0].principal_id
   sensitive   = true
 }
 

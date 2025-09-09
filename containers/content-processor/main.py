@@ -81,6 +81,15 @@ app.add_middleware(
 # Add main API routes
 app.include_router(router)
 
+# Add Service Bus endpoints for Phase 1 Security Implementation
+try:
+    from endpoints.servicebus_router import router as servicebus_router
+
+    app.include_router(servicebus_router)
+    logger.info("Service Bus endpoints loaded successfully")
+except ImportError as e:
+    logger.warning(f"Service Bus endpoints not available: {e}")
+
 # Add shared standard endpoints
 app.add_api_route(
     "/",

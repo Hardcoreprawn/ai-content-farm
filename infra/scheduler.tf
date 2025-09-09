@@ -1,58 +1,7 @@
-# Azure Logic App Scheduler Infrastructure
-# Cost-optimized scheduler for dynamic content collection
-# Pipeline test: triggering infrastructure deployment
+# Azure Scheduler Infrastructure - Phase 1 Security Implementation
+# Replaced Logic App with Azure Functions for better cost control and Terraform integration
 
-# Logic App for content collection scheduling
-resource "azurerm_logic_app_workflow" "content_scheduler" {
-  name                = "${var.resource_prefix}-scheduler"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.main.name
-
-  # Use system-assigned managed identity for authentication
-  identity {
-    type = "SystemAssigned"
-  }
-
-  tags = merge(local.common_tags, {
-    Purpose    = "content-collection-scheduler"
-    CostCenter = "scheduler"
-  })
-}
-
-# Logic App Action - Workflow Definition
-resource "azurerm_logic_app_action_http" "call_content_collector" {
-  name         = "Call_Content_Collector"
-  logic_app_id = azurerm_logic_app_workflow.content_scheduler.id
-  method       = "POST"
-  uri          = "https://${azurerm_container_app.content_collector.ingress[0].fqdn}/collections"
-
-  headers = {
-    "Content-Type" = "application/json"
-  }
-
-  body = jsonencode({
-    sources = [
-      {
-        type       = "reddit"
-        subreddits = ["technology", "programming", "science"]
-        limit      = 10
-      }
-    ]
-    save_to_storage = true
-    deduplicate     = true
-  })
-}
-
-# Logic App Trigger - Recurrence
-resource "azurerm_logic_app_trigger_recurrence" "content_collection_schedule" {
-  name         = "Recurrence"
-  logic_app_id = azurerm_logic_app_workflow.content_scheduler.id
-  frequency    = "Hour"
-  interval     = 6
-  time_zone    = "UTC"
-}
-
-# Storage tables for scheduler configuration and analytics
+# Storage tables for scheduler configuration and analytics (maintained for future use)
 resource "azurerm_storage_table" "topic_configurations" {
   name                 = "topicconfigurations"
   storage_account_name = azurerm_storage_account.main.name
@@ -66,32 +15,6 @@ resource "azurerm_storage_table" "execution_history" {
 resource "azurerm_storage_table" "source_analytics" {
   name                 = "sourceanalytics"
   storage_account_name = azurerm_storage_account.main.name
-}
-
-# Grant Logic App permission to call Container Apps
-resource "azurerm_role_assignment" "scheduler_container_apps_reader" {
-  scope                = azurerm_resource_group.main.id
-  role_definition_name = "Reader"
-  principal_id         = azurerm_logic_app_workflow.content_scheduler.identity[0].principal_id
-}
-
-# Grant Logic App permission to manage storage tables
-resource "azurerm_role_assignment" "scheduler_storage_table_contributor" {
-  scope                = azurerm_storage_account.main.id
-  role_definition_name = "Storage Table Data Contributor"
-  principal_id         = azurerm_logic_app_workflow.content_scheduler.identity[0].principal_id
-}
-
-# Grant Logic App permission to access Key Vault for any needed secrets
-resource "azurerm_key_vault_access_policy" "scheduler" {
-  key_vault_id = azurerm_key_vault.main.id
-  tenant_id    = data.azurerm_client_config.current.tenant_id
-  object_id    = azurerm_logic_app_workflow.content_scheduler.identity[0].principal_id
-
-  secret_permissions = [
-    "Get",
-    "List"
-  ]
 }
 
 # Container App URLs for scheduler to call
@@ -164,13 +87,13 @@ locals {
   }
 }
 
-# Store scheduler configuration in Key Vault for Logic App access
+# Store scheduler configuration in Key Vault for Pipeline Functions access
 resource "azurerm_key_vault_secret" "scheduler_config" {
   name         = "scheduler-config-v2"
   value        = jsonencode(local.scheduler_config)
   key_vault_id = azurerm_key_vault.main.id
 
-  depends_on = [azurerm_key_vault_access_policy.scheduler]
+  depends_on = [azurerm_key_vault_access_policy.github_actions_user]
 
   tags = merge(local.common_tags, {
     Purpose = "scheduler-configuration"
@@ -221,9 +144,9 @@ resource "azurerm_consumption_budget_resource_group" "scheduler_budget" {
 output "scheduler_info" {
   description = "Information about the deployed scheduler infrastructure"
   value = {
-    logic_app_name                = azurerm_logic_app_workflow.content_scheduler.name
-    logic_app_id                  = azurerm_logic_app_workflow.content_scheduler.id
-    managed_identity_principal_id = azurerm_logic_app_workflow.content_scheduler.identity[0].principal_id
+    function_app_name             = "pipeline-orchestrator-function"
+    function_app_id               = "Managed by pipeline_functions.tf"
+    managed_identity_principal_id = "Managed by pipeline_functions.tf"
 
     storage_tables = {
       topic_configurations = azurerm_storage_table.topic_configurations.name

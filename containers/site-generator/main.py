@@ -272,6 +272,15 @@ async def preview_site(site_id: str):
         raise HTTPException(status_code=404, detail=error_response)
 
 
+# Add Service Bus endpoints for Phase 1 Security Implementation
+try:
+    from servicebus_router import router as servicebus_router
+
+    app.include_router(servicebus_router)
+    logger.info("Service Bus endpoints loaded successfully")
+except ImportError as e:
+    logger.warning(f"Service Bus endpoints not available: {e}")
+
 # Exception handlers
 app.add_exception_handler(
     StarletteHTTPException, create_standard_404_handler("site-generator")

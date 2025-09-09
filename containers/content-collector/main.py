@@ -15,6 +15,7 @@ from endpoints import (
     collections_router,
     diagnostics_router,
     discoveries_router,
+    servicebus_router,
     sources_router,
 )
 from fastapi import Depends, FastAPI, Request
@@ -24,7 +25,6 @@ from fastapi.routing import APIRoute
 from models import CollectionRequest, DiscoveryRequest, SourceConfig
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from config import config
 from libs.shared_models import StandardResponse, create_service_dependency
 
 # Configure logging
@@ -152,6 +152,9 @@ app.include_router(
 app.include_router(collections_router)  # /collections endpoints
 app.include_router(discoveries_router)  # /discoveries endpoints
 app.include_router(sources_router)  # /sources endpoints
+app.include_router(
+    servicebus_router
+)  # /internal Service Bus endpoints (Phase 1 Security)
 
 
 if __name__ == "__main__":

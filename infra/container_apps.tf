@@ -117,6 +117,19 @@ resource "azurerm_role_assignment" "containers_cognitive_services_openai_user" {
   principal_id         = azurerm_user_assigned_identity.containers.principal_id
 }
 
+# Grant container identity access to Service Bus (Phase 1 Security Implementation)
+resource "azurerm_role_assignment" "containers_servicebus_data_receiver" {
+  scope                = azurerm_servicebus_namespace.main.id
+  role_definition_name = "Azure Service Bus Data Receiver"
+  principal_id         = azurerm_user_assigned_identity.containers.principal_id
+}
+
+resource "azurerm_role_assignment" "containers_servicebus_data_sender" {
+  scope                = azurerm_servicebus_namespace.main.id
+  role_definition_name = "Azure Service Bus Data Sender"
+  principal_id         = azurerm_user_assigned_identity.containers.principal_id
+}
+
 # Grant GitHub Actions identity access to subscription (for deployments)
 resource "azurerm_role_assignment" "github_actions_contributor" {
   scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}"
@@ -142,7 +155,7 @@ resource "azurerm_key_vault_access_policy" "github_actions" {
   depends_on = [azurerm_user_assigned_identity.github_actions]
 }
 
-# Event Grid System Topic for Storage Account
+# Event Grid System Topic for Storage Account - used by Azure Functions for pipeline automation
 resource "azurerm_eventgrid_system_topic" "storage" {
   name                   = "${var.resource_prefix}-storage-events"
   location               = var.location
@@ -186,25 +199,47 @@ resource "azurerm_servicebus_namespace" "main" {
 # Service Bus customer-managed encryption disabled for development environment
 # This would be enabled in production with proper key management
 
-# Service Bus Queue for blob events
-resource "azurerm_servicebus_queue" "blob_events" {
-  name         = "blob-events"
+# Service Bus Queues for container services (Phase 1 Security Implementation)
+resource "azurerm_servicebus_queue" "content_collection_requests" {
+  name         = "content-collection-requests"
   namespace_id = azurerm_servicebus_namespace.main.id
 
-  max_size_in_megabytes = 1024
+  max_size_in_megabytes                = 1024
+  dead_lettering_on_message_expiration = true
+  default_message_ttl                  = "PT30M" # 30 minutes TTL
+  max_delivery_count                   = 3
+
+  # Enable duplicate detection for idempotency
+  requires_duplicate_detection            = true
+  duplicate_detection_history_time_window = "PT10M"
 }
 
-# Event Grid Subscription for blob creation events
-# Event Grid Subscription for blob creation events
-resource "azurerm_eventgrid_system_topic_event_subscription" "blob_created" {
-  name                  = "${var.resource_prefix}-blob-created"
-  system_topic          = azurerm_eventgrid_system_topic.storage.name
-  resource_group_name   = azurerm_resource_group.main.name
-  event_delivery_schema = "EventGridSchema"
+resource "azurerm_servicebus_queue" "content_processing_requests" {
+  name         = "content-processing-requests"
+  namespace_id = azurerm_servicebus_namespace.main.id
 
-  service_bus_queue_endpoint_id = azurerm_servicebus_queue.blob_events.id
+  max_size_in_megabytes                = 1024
+  dead_lettering_on_message_expiration = true
+  default_message_ttl                  = "PT30M" # 30 minutes TTL
+  max_delivery_count                   = 3
 
-  depends_on = [azurerm_eventgrid_system_topic.storage]
+  # Enable duplicate detection for idempotency
+  requires_duplicate_detection            = true
+  duplicate_detection_history_time_window = "PT10M"
+}
+
+resource "azurerm_servicebus_queue" "site_generation_requests" {
+  name         = "site-generation-requests"
+  namespace_id = azurerm_servicebus_namespace.main.id
+
+  max_size_in_megabytes                = 1024
+  dead_lettering_on_message_expiration = true
+  default_message_ttl                  = "PT30M" # 30 minutes TTL
+  max_delivery_count                   = 3
+
+  # Enable duplicate detection for idempotency
+  requires_duplicate_detection            = true
+  duplicate_detection_history_time_window = "PT10M"
 }
 
 # Content Collector Container App
@@ -232,6 +267,12 @@ resource "azurerm_container_app" "content_collector" {
   secret {
     name  = "reddit-user-agent"
     value = azurerm_key_vault_secret.reddit_user_agent.value
+  }
+
+  # Service Bus connection string for KEDA scaling (Phase 1 Security Implementation)
+  secret {
+    name  = "azure-servicebus-connection-string"
+    value = azurerm_servicebus_namespace.main.default_primary_connection_string
   }
 
   ingress {
@@ -284,10 +325,33 @@ resource "azurerm_container_app" "content_collector" {
         name  = "ENVIRONMENT"
         value = "production"
       }
+
+      # Service Bus configuration for Phase 1 Security Implementation
+      env {
+        name  = "SERVICE_BUS_NAMESPACE"
+        value = azurerm_servicebus_namespace.main.name
+      }
+
+      env {
+        name  = "SERVICE_BUS_QUEUE_NAME"
+        value = azurerm_servicebus_queue.content_collection_requests.name
+      }
     }
 
     min_replicas = 0
     max_replicas = 2
+
+    # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
+    azure_queue_scale_rule {
+      name         = "servicebus-queue-scaler"
+      queue_name   = azurerm_servicebus_queue.content_collection_requests.name
+      queue_length = 1
+
+      authentication {
+        secret_name       = "azure-servicebus-connection-string" # pragma: allowlist secret
+        trigger_parameter = "connection"
+      }
+    }
   }
 
   tags = local.common_tags
@@ -318,6 +382,12 @@ resource "azurerm_container_app" "content_processor" {
   secret {
     name  = "openai-embedding-model"
     value = azurerm_key_vault_secret.openai_embedding_model.value
+  }
+
+  # Service Bus connection string for KEDA scaling (Phase 1 Security Implementation)
+  secret {
+    name  = "azure-servicebus-connection-string"
+    value = azurerm_servicebus_namespace.main.default_primary_connection_string
   }
 
   ingress {
@@ -374,10 +444,33 @@ resource "azurerm_container_app" "content_processor" {
         name  = "ENVIRONMENT"
         value = "production"
       }
+
+      # Service Bus configuration for Phase 1 Security Implementation
+      env {
+        name  = "SERVICE_BUS_NAMESPACE"
+        value = azurerm_servicebus_namespace.main.name
+      }
+
+      env {
+        name  = "SERVICE_BUS_QUEUE_NAME"
+        value = azurerm_servicebus_queue.content_processing_requests.name
+      }
     }
 
     min_replicas = 0
     max_replicas = 3
+
+    # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
+    azure_queue_scale_rule {
+      name         = "servicebus-queue-scaler"
+      queue_name   = azurerm_servicebus_queue.content_processing_requests.name
+      queue_length = 1
+
+      authentication {
+        secret_name       = "azure-servicebus-connection-string" # pragma: allowlist secret
+        trigger_parameter = "connection"
+      }
+    }
   }
 
   tags = local.common_tags
@@ -399,6 +492,12 @@ resource "azurerm_container_app" "site_generator" {
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  # Service Bus connection string for KEDA scaling (Phase 1 Security Implementation)
+  secret {
+    name  = "azure-servicebus-connection-string"
+    value = azurerm_servicebus_namespace.main.default_primary_connection_string
   }
 
   ingress {
@@ -475,10 +574,33 @@ resource "azurerm_container_app" "site_generator" {
         name  = "ENVIRONMENT"
         value = "production"
       }
+
+      # Service Bus configuration for Phase 1 Security Implementation
+      env {
+        name  = "SERVICE_BUS_NAMESPACE"
+        value = azurerm_servicebus_namespace.main.name
+      }
+
+      env {
+        name  = "SERVICE_BUS_QUEUE_NAME"
+        value = azurerm_servicebus_queue.site_generation_requests.name
+      }
     }
 
     min_replicas = 0
     max_replicas = 2
+
+    # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
+    azure_queue_scale_rule {
+      name         = "servicebus-queue-scaler"
+      queue_name   = azurerm_servicebus_queue.site_generation_requests.name
+      queue_length = 1
+
+      authentication {
+        secret_name       = "azure-servicebus-connection-string" # pragma: allowlist secret
+        trigger_parameter = "connection"
+      }
+    }
   }
 
   tags = local.common_tags
