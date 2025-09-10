@@ -23,6 +23,10 @@ inputs:
   github-token:
     description: 'GitHub token for registry access'
     required: true
+  image-tag:
+    description: 'Image tag to use for all containers (usually commit SHA)'
+    required: false
+    default: 'latest'
 outputs:
   deployment-url:
     description: 'URL of the deployed application'
@@ -182,6 +186,7 @@ runs:
         registry-images: ${{ inputs.registry-images }}
         terraform-storage-account: ${{ inputs.terraform-storage-account }}
         github-token: ${{ inputs.github-token }}
+        image-tag: ${{ inputs.image-tag }}
 
     - name: Set final output
       id: deploy

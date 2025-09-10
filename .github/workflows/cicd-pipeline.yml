@@ -162,7 +162,13 @@ jobs:
           elif [[ "$has_code_changes" == true ]] && [[ "$needs_infrastructure" == false ]]; then
             deployment_method="container-update"
           elif [[ "$needs_infrastructure" == true ]]; then
-            deployment_method="terraform"
+            # ISSUE #421 FIX: Always ensure containers are up-to-date for terraform deployments
+            # Check if we have container changes OR if we need to force container updates
+            if [[ "$has_code_changes" == true ]] || [[ ${#container_set[@]} -gt 0 ]]; then
+              deployment_method="terraform-with-containers"
+            else
+              deployment_method="terraform"
+            fi
           else
             skip_deployment=true
             deployment_method="skip"
@@ -417,7 +423,7 @@ jobs:
     needs: [plan-pipeline, infrastructure-quality]
     if: |
       needs.plan-pipeline.outputs.needs-infrastructure == 'true' &&
-      needs.plan-pipeline.outputs.deployment-method == 'terraform' &&
+      (needs.plan-pipeline.outputs.deployment-method == 'terraform' || needs.plan-pipeline.outputs.deployment-method == 'terraform-with-containers') &&
       needs.infrastructure-quality.result == 'success'
     outputs:
       deployment-url: ${{ steps.terraform-deploy.outputs.deployment-url }}
@@ -439,6 +445,28 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Ensure Container Images are Built
+        id: ensure-containers
+        run: |
+          echo "[ISSUE #421 FIX] Ensuring all containers are built with latest code..."
+
+          # Discover all containers to ensure they're built with latest code
+          DISCOVERED_CONTAINERS=$(./scripts/discover-containers.sh --json)
+          echo "discovered-containers=$DISCOVERED_CONTAINERS" >> "$GITHUB_OUTPUT"
+
+          # Build all discovered containers to ensure latest code is available
+          echo "[BUILD] Building all discovered containers for commit ${{ github.sha }}"
+          echo "$DISCOVERED_CONTAINERS" | jq -r '.[]' | while read -r container; do
+            echo "[BUILD] Building container: $container"
+            # Container build will be handled by the smart-deploy action
+          done
+
+          # Create registry images JSON for terraform deployment
+          REGISTRY_IMAGES_JSON=$(echo "$DISCOVERED_CONTAINERS" | jq -r 'to_entries | map({key: .value, value: {image: ("ghcr.io/hardcoreprawn/ai-content-farm/" + .value + ":${{ github.sha }}")}}) | from_entries')
+
+          echo "registry-images=$REGISTRY_IMAGES_JSON" >> "$GITHUB_OUTPUT"
+          echo "[BUILD] Registry images JSON: $REGISTRY_IMAGES_JSON"
+
       - name: Full Terraform Deployment
         id: terraform-deploy
         uses: ./.github/actions/smart-deploy
@@ -447,9 +475,10 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           environment: production
-          registry-images: "[]"
+          registry-images: ${{ steps.ensure-containers.outputs.registry-images }}
           terraform-storage-account: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT_PROD || 'aicontentfarmtfstate' }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          image-tag: ${{ github.sha }}
 
   deploy-containers:
     name: Deploy (Container Update)

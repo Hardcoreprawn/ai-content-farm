@@ -5,6 +5,7 @@ variable "location" {
 
 # Updated: Enhanced CI/CD pipeline with unified build reporting - Aug 22, 2025
 # Phase 1 validation: Trigger terraform run after requirements fixes - Sep 9, 2025
+# Pipeline Fix Test: Issue #421 dynamic container discovery - Sep 10, 2025
 variable "subscription_id" {
   description = "The Azure Subscription ID to use. Leave blank to use the default from Azure CLI context."
   type        = string
@@ -45,20 +46,18 @@ variable "test_feature_flag" {
   default     = false
 }
 
+# Image tag for all containers (commit hash or version)
+variable "image_tag" {
+  description = "Image tag for all containers - should be commit hash for production deployments"
+  type        = string
+  default     = "latest"
+}
+
 # Container image configuration for deployments
 variable "container_images" {
-  description = "Map of container names to their full registry URLs with tags"
+  description = "Map of container names to their full registry URLs with tags - can be overridden with specific image references"
   type        = map(string)
-  default = {
-    "site-generator"      = "ghcr.io/hardcoreprawn/ai-content-farm/site-generator:latest"
-    "content-collector"   = "ghcr.io/hardcoreprawn/ai-content-farm/content-collector:latest"
-    "content-ranker"      = "ghcr.io/hardcoreprawn/ai-content-farm/content-ranker:latest"
-    "content-processor"   = "ghcr.io/hardcoreprawn/ai-content-farm/content-processor:latest"
-    "content-enricher"    = "ghcr.io/hardcoreprawn/ai-content-farm/content-enricher:latest"
-    "content-processor"   = "ghcr.io/hardcoreprawn/ai-content-farm/content-processor:latest"
-    "markdown-generator"  = "ghcr.io/hardcoreprawn/ai-content-farm/markdown-generator:latest"
-    "collector-scheduler" = "ghcr.io/hardcoreprawn/ai-content-farm/collector-scheduler:latest"
-  }
+  default     = {} # Will be populated by locals with dynamic image_tag
 }
 
 # Computed locals for dynamic naming
@@ -68,6 +67,9 @@ locals {
 
   # Dynamic resource prefix based on environment
   resource_prefix = var.environment_name != "" ? "ai-content-${var.environment_name}" : var.resource_prefix
+
+  # Container images are now dynamically discovered in container_discovery.tf
+  # This local is kept for backwards compatibility but will use discovered containers
 
   # Clean prefix for resources that don't allow hyphens (Key Vault, Storage Account)
   clean_prefix = replace(local.resource_prefix, "-", "")

@@ -292,7 +292,7 @@ resource "azurerm_container_app" "content_collector" {
   template {
     container {
       name   = "content-collector"
-      image  = var.container_images["content-collector"]
+      image  = local.container_images["content-collector"]
       cpu    = 0.5
       memory = "1Gi"
 
@@ -411,7 +411,7 @@ resource "azurerm_container_app" "content_processor" {
   template {
     container {
       name   = "content-processor"
-      image  = var.container_images["content-processor"]
+      image  = local.container_images["content-processor"]
       cpu    = 0.5
       memory = "1Gi"
 
@@ -521,7 +521,7 @@ resource "azurerm_container_app" "site_generator" {
   template {
     container {
       name   = "site-generator"
-      image  = var.container_images["site-generator"]
+      image  = local.container_images["site-generator"]
       cpu    = 0.5
       memory = "1Gi"
 

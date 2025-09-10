@@ -24,6 +24,10 @@ inputs:
   github-token:
     description: 'GitHub token for registry access'
     required: true
+  image-tag:
+    description: 'Image tag to use for all containers (usually commit SHA)'
+    required: false
+    default: 'latest'
 outputs:
   deployment-url:
     description: 'URL of the deployed application'
@@ -193,6 +197,7 @@ runs:
 
         # Run terraform apply with the new container images
         echo "[DEPLOY] Applying Terraform configuration with registry images..."
+        echo "[CONFIG] Using image tag: ${{ inputs.image-tag }}"
         docker run --rm \
           -v "${PWD}":/workspace \
           -w /workspace \
@@ -203,7 +208,7 @@ runs:
           -e ACTIONS_ID_TOKEN_REQUEST_TOKEN \
           -e ACTIONS_ID_TOKEN_REQUEST_URL \
           hashicorp/terraform:latest \
-          apply -auto-approve -var-file="${ENVIRONMENT}.tfvars"
+          apply -auto-approve -var-file="${ENVIRONMENT}.tfvars" -var="image_tag=${{ inputs.image-tag }}"
 
         echo "[PASS] Terraform deployment completed"
         echo "containers=$PULLED_CONTAINERS" >> $GITHUB_OUTPUT

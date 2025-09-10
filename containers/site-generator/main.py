@@ -6,6 +6,7 @@ A Python-based JAMStack site generator for AI Content Farm.
 Converts processed articles to markdown and generates static HTML sites.
 
 Version: 1.0.4 - Full deployment pipeline test
+Pipeline Fix Test: Validating dynamic discovery and versioning
 """
 
 import asyncio
