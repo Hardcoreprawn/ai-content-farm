@@ -1,5 +1,5 @@
 # Outputs
-# Trivial change to trigger infrastructure detection - 2025-08-25
+# Enhanced with mTLS and service discovery information
 
 output "resource_group_name" {
   description = "Name of the Azure resource group"
@@ -9,6 +9,77 @@ output "resource_group_name" {
 output "resource_prefix" {
   description = "Resource prefix used for naming resources"
   value       = var.resource_prefix
+}
+
+# DNS and Service Discovery outputs
+output "dns_zone_name" {
+  description = "DNS zone name for service discovery"
+  value       = azurerm_dns_zone.main.name
+}
+
+output "dns_zone_name_servers" {
+  description = "DNS zone name servers"
+  value       = azurerm_dns_zone.main.name_servers
+}
+
+output "service_discovery_endpoints" {
+  description = "Service discovery DNS endpoints"
+  value = {
+    collector = "${azurerm_dns_cname_record.content_collector.name}.${azurerm_dns_zone.main.name}"
+    processor = "${azurerm_dns_cname_record.content_processor.name}.${azurerm_dns_zone.main.name}"
+    generator = "${azurerm_dns_cname_record.site_generator.name}.${azurerm_dns_zone.main.name}"
+  }
+}
+
+# mTLS Certificate outputs
+output "mtls_certificate_name" {
+  description = "Name of the mTLS wildcard certificate in Key Vault"
+  value       = azurerm_key_vault_certificate.mtls_wildcard.name
+}
+
+output "key_vault_name" {
+  description = "Key Vault name for certificate storage"
+  value       = azurerm_key_vault.main.name
+}
+
+# Container Apps with Dapr outputs
+output "container_apps" {
+  description = "Container Apps with mTLS configuration"
+  value = {
+    collector = {
+      name     = azurerm_container_app.content_collector.name
+      fqdn     = azurerm_container_app.content_collector.latest_revision_fqdn
+      dapr_app_id = "content-collector"
+    }
+    processor = {
+      name     = azurerm_container_app.content_processor.name
+      fqdn     = azurerm_container_app.content_processor.latest_revision_fqdn
+      dapr_app_id = "content-processor"
+    }
+    generator = {
+      name     = azurerm_container_app.site_generator.name
+      fqdn     = azurerm_container_app.site_generator.latest_revision_fqdn
+      dapr_app_id = "site-generator"
+    }
+  }
+}
+
+# Monitoring outputs
+output "application_insights_instrumentation_key" {
+  description = "Application Insights instrumentation key for mTLS monitoring"
+  value       = azurerm_application_insights.main.instrumentation_key
+  sensitive   = true
+}
+
+output "application_insights_connection_string" {
+  description = "Application Insights connection string"
+  value       = azurerm_application_insights.main.connection_string
+  sensitive   = true
+}
+
+output "monitoring_dashboard_url" {
+  description = "URL to the mTLS monitoring dashboard"
+  value       = "https://portal.azure.com/#@${data.azurerm_client_config.current.tenant_id}/resource${azurerm_application_insights_workbook.mtls_dashboard.id}"
 }
 
 # Function App outputs removed - container services don't need these

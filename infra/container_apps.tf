@@ -289,6 +289,14 @@ resource "azurerm_container_app" "content_collector" {
     }
   }
 
+  # Dapr configuration for mTLS
+  dapr {
+    app_id          = "content-collector"
+    app_port        = 8000
+    app_protocol    = "http"
+    enable_api_logging = true
+  }
+
   template {
     container {
       name   = "content-collector"
@@ -408,6 +416,14 @@ resource "azurerm_container_app" "content_processor" {
     }
   }
 
+  # Dapr configuration for mTLS
+  dapr {
+    app_id          = "content-processor"
+    app_port        = 8000
+    app_protocol    = "http"
+    enable_api_logging = true
+  }
+
   template {
     container {
       name   = "content-processor"
@@ -516,6 +532,14 @@ resource "azurerm_container_app" "site_generator" {
       percentage      = 100
       latest_revision = true
     }
+  }
+
+  # Dapr configuration for mTLS
+  dapr {
+    app_id          = "site-generator"
+    app_port        = 8000
+    app_protocol    = "http"
+    enable_api_logging = true
   }
 
   template {

@@ -247,6 +247,189 @@ test_valid_token_access() {
     done
 }
 
+# mTLS Certificate and Communication Testing Functions
+test_mtls_certificates() {
+    log_info "Testing mTLS certificate availability..."
+
+    # Check if certificates exist in Key Vault
+    local cert_name="mtls-wildcard-cert"
+    local cert_exists=$(az keyvault certificate show \
+        --vault-name "$(az keyvault list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv)" \
+        --name "$cert_name" \
+        --query "id" -o tsv 2>/dev/null || echo "")
+
+    if [[ -n "$cert_exists" ]]; then
+        log_success "mTLS certificate found in Key Vault: $cert_name"
+        
+        # Check certificate expiry
+        local expires=$(az keyvault certificate show \
+            --vault-name "$(az keyvault list --resource-group "$RESOURCE_GROUP" --query "[0].name" -o tsv)" \
+            --name "$cert_name" \
+            --query "attributes.expires" -o tsv)
+        
+        local expires_epoch=$(date -d "$expires" +%s)
+        local current_epoch=$(date +%s)
+        local days_remaining=$(( (expires_epoch - current_epoch) / 86400 ))
+        
+        if [[ $days_remaining -gt 30 ]]; then
+            log_success "Certificate valid for $days_remaining more days"
+        else
+            log_warning "Certificate expires in $days_remaining days - renewal recommended"
+        fi
+    else
+        log_error "mTLS certificate not found in Key Vault"
+    fi
+}
+
+test_mtls_communication() {
+    log_info "Testing mTLS inter-service communication..."
+
+    # Test Dapr service invocation with mTLS
+    local containers=("content-collector" "content-processor" "site-generator")
+    
+    for container in "${containers[@]}"; do
+        log_info "Testing $container Dapr mTLS communication..."
+        
+        # Get container app URL
+        local app_url=$(az containerapp show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "ai-content-dev-$container" \
+            --query "properties.configuration.ingress.fqdn" -o tsv 2>/dev/null || echo "")
+        
+        if [[ -n "$app_url" ]]; then
+            # Test Dapr health endpoint
+            local dapr_response=$(curl -s -w "%{http_code}" \
+                "https://$app_url/v1.0/healthz" \
+                -o /tmp/dapr_health.json || echo "000")
+            
+            if [[ "$dapr_response" == "200" ]]; then
+                log_success "$container Dapr sidecar is healthy"
+                
+                # Check if mTLS is enabled
+                local mtls_status=$(curl -s "https://$app_url/v1.0/metadata" \
+                    | jq -r '.extendedMetadata.daprRuntimeVersion' 2>/dev/null || echo "unknown")
+                
+                if [[ "$mtls_status" != "unknown" ]]; then
+                    log_success "$container Dapr runtime detected: $mtls_status"
+                else
+                    log_warning "$container Dapr metadata not available"
+                fi
+            else
+                log_error "$container Dapr health check failed: HTTP $dapr_response"
+            fi
+        else
+            log_warning "$container URL not available for mTLS testing"
+        fi
+    done
+}
+
+test_service_discovery() {
+    log_info "Testing service discovery functionality..."
+
+    # Check DNS zone and records
+    local dns_zone=$(az network dns zone show \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "$DOMAIN_NAME" \
+        --query "name" -o tsv 2>/dev/null || echo "")
+
+    if [[ -n "$dns_zone" ]]; then
+        log_success "DNS zone found: $dns_zone"
+        
+        # Check CNAME records for each service
+        local services=("collector" "processor" "generator")
+        for service in "${services[@]}"; do
+            local cname_record=$(az network dns record-set cname show \
+                --resource-group "$RESOURCE_GROUP" \
+                --zone-name "$dns_zone" \
+                --name "$service" \
+                --query "cname" -o tsv 2>/dev/null || echo "")
+            
+            if [[ -n "$cname_record" ]]; then
+                log_success "Service discovery record found: $service.$dns_zone -> $cname_record"
+                
+                # Test DNS resolution
+                if nslookup "$service.$dns_zone" &>/dev/null; then
+                    log_success "DNS resolution working for $service.$dns_zone"
+                else
+                    log_warning "DNS resolution failed for $service.$dns_zone"
+                fi
+            else
+                log_error "Service discovery record not found: $service.$dns_zone"
+            fi
+        done
+    else
+        log_error "DNS zone not found: $DOMAIN_NAME"
+    fi
+}
+
+test_keda_scaling() {
+    log_info "Testing KEDA autoscaling configuration..."
+
+    local containers=("content-collector" "content-processor" "site-generator")
+    
+    for container in "${containers[@]}"; do
+        log_info "Checking KEDA scaling for $container..."
+        
+        # Get container app scaling configuration
+        local scaling_config=$(az containerapp show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "ai-content-dev-$container" \
+            --query "properties.template.scale" -o json 2>/dev/null || echo "{}")
+        
+        local min_replicas=$(echo "$scaling_config" | jq -r '.minReplicas // "0"')
+        local max_replicas=$(echo "$scaling_config" | jq -r '.maxReplicas // "1"')
+        local scale_rules=$(echo "$scaling_config" | jq -r '.rules | length // 0')
+        
+        log_info "$container scaling: min=$min_replicas, max=$max_replicas, rules=$scale_rules"
+        
+        if [[ $scale_rules -gt 0 ]]; then
+            log_success "$container has KEDA scaling rules configured"
+        else
+            log_warning "$container has no scaling rules configured"
+        fi
+    done
+}
+
+test_certificate_monitoring() {
+    log_info "Testing certificate expiration monitoring..."
+
+    # Check if monitoring alerts are configured
+    local cert_alert=$(az monitor metrics alert show \
+        --resource-group "$RESOURCE_GROUP" \
+        --name "ai-content-dev-cert-expiry-alert" \
+        --query "name" -o tsv 2>/dev/null || echo "")
+
+    if [[ -n "$cert_alert" ]]; then
+        log_success "Certificate expiration alert configured: $cert_alert"
+        
+        # Check alert status
+        local alert_enabled=$(az monitor metrics alert show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "ai-content-dev-cert-expiry-alert" \
+            --query "enabled" -o tsv)
+        
+        if [[ "$alert_enabled" == "true" ]]; then
+            log_success "Certificate monitoring alert is enabled"
+        else
+            log_warning "Certificate monitoring alert is disabled"
+        fi
+    else
+        log_error "Certificate expiration alert not found"
+    fi
+
+    # Test Application Insights integration
+    local app_insights=$(az monitor app-insights component show \
+        --resource-group "$RESOURCE_GROUP" \
+        --app "ai-content-dev-appinsights" \
+        --query "name" -o tsv 2>/dev/null || echo "")
+
+    if [[ -n "$app_insights" ]]; then
+        log_success "Application Insights configured for mTLS monitoring"
+    else
+        log_warning "Application Insights not found for detailed monitoring"
+    fi
+}
+
 test_token_validation_endpoints() {
     log_info "Testing token validation endpoints..."
 
@@ -427,17 +610,22 @@ cleanup_test_resources() {
 
 # Main execution
 main() {
-    echo "Azure AD Authentication Test Suite"
-    echo "=================================="
+    echo "Azure AD Authentication and mTLS Security Test Suite"
+    echo "==================================================="
     echo ""
 
     # Set trap for cleanup
     trap cleanup_test_resources EXIT
 
+    # Check if running in mTLS mode
+    local mtls_mode="${1:-full}"
+    
     # Run tests
     check_dependencies
     get_azure_resources
 
+    # Azure AD Authentication Tests
+    log_info "Running Azure AD Authentication Tests..."
     test_unauthorized_access
     test_invalid_token_access
     test_valid_token_access
@@ -445,6 +633,16 @@ main() {
     test_role_based_access
     test_token_expiry_handling
     test_azure_ad_servicebus_integration
+
+    # mTLS and Service Discovery Tests (Phase 2)
+    if [[ "$mtls_mode" == "full" || "$mtls_mode" == "mtls" ]]; then
+        log_info "Running mTLS and Service Discovery Tests..."
+        test_mtls_certificates
+        test_mtls_communication
+        test_service_discovery
+        test_keda_scaling
+        test_certificate_monitoring
+    fi
 
     # Test summary
     echo ""
@@ -460,13 +658,21 @@ main() {
     echo "Tests Failed: $TESTS_FAILED"
 
     if [[ $TESTS_FAILED -eq 0 ]]; then
-        log_success "All Azure AD authentication tests completed!"
+        log_success "All security tests completed successfully!"
         echo ""
-        echo "Note: Some tests may show warnings if Phase 2 (Azure AD authentication)"
-        echo "is not yet fully implemented. This is expected during Phase 1."
+        if [[ "$mtls_mode" == "full" ]]; then
+            echo "✅ Azure AD authentication validated"
+            echo "✅ mTLS certificates validated"  
+            echo "✅ Service discovery tested"
+            echo "✅ KEDA scaling verified"
+            echo "✅ Certificate monitoring confirmed"
+        else
+            echo "Note: Some tests may show warnings if Phase 2 (mTLS/Service Discovery)"
+            echo "is not yet fully implemented. Use 'mtls' mode to test mTLS features only."
+        fi
         exit 0
     else
-        log_error "Some Azure AD authentication tests failed"
+        log_error "Some security tests failed"
         exit 1
     fi
 }

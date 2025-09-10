@@ -40,6 +40,12 @@ variable "resource_prefix" {
   default     = "ai-content-dev"
 }
 
+variable "domain_name" {
+  description = "Domain name for mTLS certificates and DNS zone"
+  type        = string
+  default     = "ai-content-farm.local"
+}
+
 variable "test_feature_flag" {
   description = "Test feature flag for smart deployment validation and container image fallback testing - updated Sept 3rd"
   type        = bool

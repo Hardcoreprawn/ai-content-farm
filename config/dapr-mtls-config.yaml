@@ -1,0 +1,77 @@
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: mtls-config
+spec:
+  tracing:
+    samplingRate: "1"
+    zipkin:
+      endpointAddress: "http://zipkin.default.svc.cluster.local:9411/api/v2/spans"
+  mtls:
+    enabled: true
+    workloadCertTTL: "24h"
+    allowedClockSkew: "15m"
+  features:
+    - name: proxy.grpc
+      enabled: true
+    - name: proxy.http
+      enabled: true
+  secrets:
+    scopes:
+      - storeName: "certificates"
+        defaultAccess: "allow"
+        allowedSecrets: ["mtls-wildcard-cert", "mtls-wildcard-cert-private-key"]
+  accessControl:
+    defaultAction: "allow"
+    trustDomain: "ai-content-farm.local"
+    policies:
+      - appId: "content-collector"
+        defaultAction: "allow"
+        trustDomain: "ai-content-farm.local"
+        namespace: "default"
+        operations:
+          - name: "/health"
+            httpVerb: ["GET"]
+            action: "allow"
+          - name: "/status" 
+            httpVerb: ["GET"]
+            action: "allow"
+          - name: "/collect"
+            httpVerb: ["POST"]
+            action: "allow"
+      - appId: "content-processor"
+        defaultAction: "allow"
+        trustDomain: "ai-content-farm.local"
+        namespace: "default"
+        operations:
+          - name: "/health"
+            httpVerb: ["GET"]
+            action: "allow"
+          - name: "/status"
+            httpVerb: ["GET"] 
+            action: "allow"
+          - name: "/process"
+            httpVerb: ["POST"]
+            action: "allow"
+          - name: "/generate/*"
+            httpVerb: ["POST"]
+            action: "allow"
+      - appId: "site-generator"
+        defaultAction: "allow"
+        trustDomain: "ai-content-farm.local"
+        namespace: "default"
+        operations:
+          - name: "/health"
+            httpVerb: ["GET"]
+            action: "allow"
+          - name: "/status"
+            httpVerb: ["GET"]
+            action: "allow"
+          - name: "/generate"
+            httpVerb: ["POST"]
+            action: "allow"
+  nameResolution:
+    component: "mdns"
+    version: "v1"
+    configuration:
+      selfRegister: true
