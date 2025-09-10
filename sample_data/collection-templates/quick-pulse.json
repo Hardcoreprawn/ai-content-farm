@@ -1,0 +1,47 @@
+{
+    "template_metadata": {
+        "name": "quick-pulse",
+        "description": "Fast collection for current trending topics across multiple domains",
+        "domain": "mixed",
+        "coverage": "trending",
+        "estimated_articles": "20-30",
+        "last_updated": "2025-09-10"
+    },
+    "collection_request": {
+        "sources": [
+            {
+                "type": "reddit",
+                "subreddits": [
+                    "technology",
+                    "science",
+                    "programming",
+                    "artificial"
+                ],
+                "limit": 8,
+                "sort": "hot",
+                "criteria": {
+                    "min_score": 100,
+                    "min_comments": 20
+                }
+            },
+            {
+                "type": "reddit",
+                "subreddits": [
+                    "hackernews",
+                    "Futurology",
+                    "singularity"
+                ],
+                "limit": 5,
+                "sort": "top",
+                "time_filter": "hour",
+                "criteria": {
+                    "min_score": 50,
+                    "min_comments": 10
+                }
+            }
+        ],
+        "deduplicate": true,
+        "similarity_threshold": 0.9,
+        "save_to_storage": true
+    }
+}

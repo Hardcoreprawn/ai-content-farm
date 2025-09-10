@@ -1,0 +1,62 @@
+{
+    "template_metadata": {
+        "name": "ai-ml-focused",
+        "description": "Deep dive into AI/ML developments, papers, and industry trends",
+        "domain": "artificial-intelligence",
+        "coverage": "specialized",
+        "estimated_articles": "40-60",
+        "last_updated": "2025-09-10"
+    },
+    "collection_request": {
+        "sources": [
+            {
+                "type": "reddit",
+                "subreddits": [
+                    "MachineLearning",
+                    "artificial",
+                    "singularity",
+                    "LanguageTechnology",
+                    "OpenAI",
+                    "ComputerVision",
+                    "deeplearning",
+                    "MLQuestions"
+                ],
+                "limit": 30,
+                "sort": "hot",
+                "criteria": {
+                    "min_score": 20,
+                    "min_comments": 3,
+                    "include_keywords": [
+                        "AI",
+                        "ML",
+                        "neural",
+                        "model",
+                        "training",
+                        "LLM",
+                        "GPT",
+                        "transformer"
+                    ]
+                }
+            },
+            {
+                "type": "reddit",
+                "subreddits": [
+                    "ChatGPT",
+                    "ArtificialIntelligence",
+                    "MachineLearningPapers",
+                    "compsci"
+                ],
+                "limit": 15,
+                "sort": "top",
+                "time_filter": "day",
+                "criteria": {
+                    "min_score": 15,
+                    "min_comments": 2
+                }
+            }
+        ],
+        "deduplicate": true,
+        "similarity_threshold": 0.75,
+        "save_to_storage": true
+    }
+}

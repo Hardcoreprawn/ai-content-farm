@@ -1,0 +1,64 @@
+{
+    "template_metadata": {
+        "name": "technology-comprehensive",
+        "description": "Comprehensive technology coverage including AI, programming, and emerging tech",
+        "domain": "technology",
+        "coverage": "broad",
+        "estimated_articles": "50-100",
+        "last_updated": "2025-09-10"
+    },
+    "collection_request": {
+        "sources": [
+            {
+                "type": "reddit",
+                "subreddits": [
+                    "technology",
+                    "programming",
+                    "MachineLearning",
+                    "artificial",
+                    "singularity",
+                    "webdev",
+                    "javascript",
+                    "python",
+                    "rust",
+                    "golang"
+                ],
+                "limit": 25,
+                "sort": "hot",
+                "criteria": {
+                    "min_score": 50,
+                    "min_comments": 10,
+                    "include_keywords": [
+                        "AI",
+                        "machine learning",
+                        "automation",
+                        "tech",
+                        "code",
+                        "development"
+                    ]
+                }
+            },
+            {
+                "type": "reddit",
+                "subreddits": [
+                    "hackernews",
+                    "coding",
+                    "cscareerquestions",
+                    "devops",
+                    "kubernetes",
+                    "docker"
+                ],
+                "limit": 15,
+                "sort": "top",
+                "time_filter": "day",
+                "criteria": {
+                    "min_score": 30,
+                    "min_comments": 5
+                }
+            }
+        ],
+        "deduplicate": true,
+        "similarity_threshold": 0.85,
+        "save_to_storage": true
+    }
+}

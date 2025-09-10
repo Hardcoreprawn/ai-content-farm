@@ -1,7 +1,6 @@
-# Azure Scheduler Infrastructure - Phase 1 Security Implementation
-# Replaced Logic App with Azure Functions for better cost control and Terraform integration
-
-# Storage tables for scheduler configuration and analytics (maintained for future use)
+# Azure Scheduler Infrastructure - Simplified Architecture
+# Note: Scheduling now handled externally (GitHub Actions, cron, etc.)
+# Storage tables maintained for configuration and analytics
 resource "azurerm_storage_table" "topic_configurations" {
   name                 = "topicconfigurations"
   storage_account_name = azurerm_storage_account.main.name
@@ -87,17 +86,11 @@ locals {
   }
 }
 
-# Store scheduler configuration in Key Vault for Pipeline Functions access
-resource "azurerm_key_vault_secret" "scheduler_config" {
-  name         = "scheduler-config-v2"
-  value        = jsonencode(local.scheduler_config)
-  key_vault_id = azurerm_key_vault.main.id
-
-  depends_on = [azurerm_key_vault_access_policy.github_actions_user]
-
-  tags = merge(local.common_tags, {
-    Purpose = "scheduler-configuration"
-  })
+# Store scheduler configuration in blob storage for external schedulers
+resource "azurerm_storage_container" "scheduler_config" {
+  name                  = "scheduler-config"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
 }
 
 # Budget alert for scheduler costs
@@ -142,11 +135,10 @@ resource "azurerm_consumption_budget_resource_group" "scheduler_budget" {
 
 # Output scheduler information for reference
 output "scheduler_info" {
-  description = "Information about the deployed scheduler infrastructure"
+  description = "Information about the simplified scheduler infrastructure"
   value = {
-    function_app_name             = "pipeline-orchestrator-function"
-    function_app_id               = "Managed by pipeline_functions.tf"
-    managed_identity_principal_id = "Managed by pipeline_functions.tf"
+    external_scheduling = "Use GitHub Actions or external cron to trigger content-collector"
+    manual_trigger_url  = local.scheduler_config.content_collector_url
 
     storage_tables = {
       topic_configurations = azurerm_storage_table.topic_configurations.name

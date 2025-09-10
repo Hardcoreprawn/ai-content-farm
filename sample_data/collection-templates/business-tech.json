@@ -1,0 +1,65 @@
+{
+    "template_metadata": {
+        "name": "business-tech",
+        "description": "Business technology, startups, and industry news",
+        "domain": "business-technology",
+        "coverage": "commercial",
+        "estimated_articles": "35-45",
+        "last_updated": "2025-09-10"
+    },
+    "collection_request": {
+        "sources": [
+            {
+                "type": "reddit",
+                "subreddits": [
+                    "business",
+                    "startups",
+                    "entrepreneur",
+                    "venturecapital",
+                    "investing",
+                    "fintech",
+                    "SaaS"
+                ],
+                "limit": 20,
+                "sort": "hot",
+                "criteria": {
+                    "min_score": 30,
+                    "min_comments": 8,
+                    "include_keywords": [
+                        "startup",
+                        "funding",
+                        "IPO",
+                        "acquisition",
+                        "revenue",
+                        "growth"
+                    ]
+                }
+            },
+            {
+                "type": "reddit",
+                "subreddits": [
+                    "technology",
+                    "cybersecurity",
+                    "privacy",
+                    "legaladvice"
+                ],
+                "limit": 15,
+                "sort": "hot",
+                "criteria": {
+                    "min_score": 25,
+                    "min_comments": 5,
+                    "include_keywords": [
+                        "regulation",
+                        "policy",
+                        "compliance",
+                        "data",
+                        "security"
+                    ]
+                }
+            }
+        ],
+        "deduplicate": true,
+        "similarity_threshold": 0.8,
+        "save_to_storage": true
+    }
+}

@@ -81,7 +81,7 @@ resource "azurerm_key_vault_access_policy" "github_actions_user" {
   ]
 }
 
-# Function App Key Vault access policy removed - no longer needed for containerized services
+# Note: Function App access policies removed - using container-only architecture
 
 # Key Vault diagnostic settings for security compliance
 resource "azurerm_monitor_diagnostic_setting" "key_vault" {
@@ -540,7 +540,7 @@ resource "azurerm_static_web_app" "jablab" {
   sku_size            = "Free"
 
   # Note: Free tier doesn't support managed identities
-  # Deployment will use deployment tokens via Function App
+  # Container-only deployment uses managed identity for deployments
 
   app_settings = {
     "ENVIRONMENT"                = "production"

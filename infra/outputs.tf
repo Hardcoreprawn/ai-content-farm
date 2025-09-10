@@ -148,22 +148,8 @@ output "static_web_app_name" {
   value       = azurerm_static_web_app.jablab.name
 }
 
-# Function App outputs
-output "function_app_name" {
-  description = "Name of the static site deployer Function App"
-  value       = azurerm_linux_function_app.static_site_deployer.name
-}
-
-output "function_app_url" {
-  description = "URL of the static site deployer Function App"
-  value       = "https://${azurerm_linux_function_app.static_site_deployer.default_hostname}"
-}
-
-output "function_app_identity_client_id" {
-  description = "Client ID of the Function App managed identity"
-  value       = azurerm_user_assigned_identity.functions.client_id
-  sensitive   = true
-}
+# Function App outputs removed - Functions infrastructure cleaned up
+# Static site generation now handled by site-generator container
 
 # DNS Zone outputs
 output "dns_zone_name_servers" {
@@ -171,22 +157,7 @@ output "dns_zone_name_servers" {
   value       = azurerm_dns_zone.jablab.name_servers
 }
 
-# Pipeline Functions outputs
-output "pipeline_functions_app_name" {
-  description = "Name of the Pipeline Orchestrator Function App"
-  value       = azurerm_linux_function_app.pipeline_orchestrator.name
-}
-
-output "pipeline_functions_app_id" {
-  description = "ID of the Pipeline Orchestrator Function App"
-  value       = azurerm_linux_function_app.pipeline_orchestrator.id
-}
-
-output "pipeline_functions_managed_identity_principal_id" {
-  description = "Principal ID of the Pipeline Functions managed identity"
-  value       = azurerm_linux_function_app.pipeline_orchestrator.identity[0].principal_id
-  sensitive   = true
-}
+# Pipeline Functions outputs removed - using container-based approach instead
 
 output "scheduler_storage_tables" {
   description = "Storage table names for scheduler configuration"

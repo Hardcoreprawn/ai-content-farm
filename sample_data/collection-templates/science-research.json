@@ -1,0 +1,59 @@
+{
+    "template_metadata": {
+        "name": "science-research",
+        "description": "Scientific research and discoveries across multiple disciplines",
+        "domain": "science",
+        "coverage": "academic",
+        "estimated_articles": "30-50",
+        "last_updated": "2025-09-10"
+    },
+    "collection_request": {
+        "sources": [
+            {
+                "type": "reddit",
+                "subreddits": [
+                    "science",
+                    "askscience",
+                    "Physics",
+                    "chemistry",
+                    "biology",
+                    "medicine",
+                    "psychology",
+                    "neuroscience"
+                ],
+                "limit": 20,
+                "sort": "hot",
+                "criteria": {
+                    "min_score": 40,
+                    "min_comments": 8,
+                    "include_keywords": [
+                        "research",
+                        "study",
+                        "discovery",
+                        "innovation",
+                        "breakthrough"
+                    ]
+                }
+            },
+            {
+                "type": "reddit",
+                "subreddits": [
+                    "Futurology",
+                    "datascience",
+                    "statistics",
+                    "academia"
+                ],
+                "limit": 10,
+                "sort": "top",
+                "time_filter": "day",
+                "criteria": {
+                    "min_score": 25,
+                    "min_comments": 5
+                }
+            }
+        ],
+        "deduplicate": true,
+        "similarity_threshold": 0.8,
+        "save_to_storage": true
+    }
+}
