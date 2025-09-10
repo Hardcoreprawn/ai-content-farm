@@ -13,15 +13,10 @@ RUN useradd --create-home --shell /bin/bash appuser
 
 WORKDIR /app
 
-# 1. Install common dependencies first (highest cache hit rate)
-COPY containers/base/requirements-common.txt /tmp/
+# Install service dependencies
+COPY containers/content-collector/requirements.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r /tmp/requirements-common.txt
-
-# 2. Install service-specific dependencies
-COPY containers/content-collector/requirements-prod.txt /tmp/
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r /tmp/requirements-prod.txt
+    pip install -r /tmp/requirements.txt
 
 # 3. Copy shared libraries
 COPY libs/ ./libs/
@@ -35,11 +30,6 @@ ENV LOG_LEVEL=info
 
 # Development stage with test tools
 FROM base AS development
-
-# Install test dependencies
-COPY containers/content-collector/requirements-test.txt /tmp/
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r /tmp/requirements-test.txt
 
 # Install development tools for debugging
 RUN --mount=type=cache,target=/root/.cache/pip \

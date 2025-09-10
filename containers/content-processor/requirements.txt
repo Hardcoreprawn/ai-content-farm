@@ -13,15 +13,16 @@ python-dateutil~=2.9.0.post0
 tenacity~=9.0.0
 
 # Content Processing
-openai~=1.60.0
+openai~=1.106.1
 anthropic~=0.37.1
 python-docx~=1.2.0
 # pypdf2~=3.0.1  # REMOVED: Security vulnerability CVE-2023-46250, not used in codebase
 beautifulsoup4~=4.13.5
 lxml~=4.9.3
+aiohttp~=3.12.15
 
 # Azure Services
-azure-keyvault-secrets~=4.7.0
+azure-keyvault-secrets~=4.10.0
 azure-identity~=1.24.0
 azure-storage-blob~=12.26.0
 azure-servicebus~=7.12.3

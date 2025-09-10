@@ -17,23 +17,13 @@ RUN useradd --create-home --shell /bin/bash appuser
 
 WORKDIR /app
 
-# Install common dependencies first (highest cache hit rate)
-COPY containers/base/requirements-common.txt /tmp/
+# Install service dependencies
+COPY containers/content-processor/requirements.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r /tmp/requirements-common.txt
+    pip install -r /tmp/requirements.txt
 
-# Install service-specific production dependencies
-COPY containers/content-processor/requirements-prod.txt /tmp/
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r /tmp/requirements-prod.txt
-
-# Development/Test stage - includes test dependencies and tools
+# Development/Test stage - includes development tools
 FROM base AS development
-
-# Install test dependencies
-RUN echo "pytest>=7.0\npytest-cov>=4.0\npytest-mock>=3.0" > /tmp/requirements-test.txt
-RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r /tmp/requirements-test.txt
 
 # Install development tools for debugging
 RUN --mount=type=cache,target=/root/.cache/pip \
