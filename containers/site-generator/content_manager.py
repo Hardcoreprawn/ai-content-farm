@@ -72,7 +72,10 @@ class ContentManager:
             return output_path
 
         except Exception as e:
-            logger.error(f"Failed to generate article page for {article.slug}: {e}")
+            logger.error(f"Failed to generate article page for {article.slug}")
+            logger.debug(
+                f"Article page generation error details for {article.slug}: {e}"
+            )
             return None
 
     async def generate_index_page(
@@ -112,7 +115,8 @@ class ContentManager:
             return output_path
 
         except Exception as e:
-            logger.error(f"Failed to generate index page: {e}")
+            logger.error("Failed to generate index page")
+            logger.debug(f"Index page generation error details: {e}")
             return None
 
     async def generate_rss_feed(
@@ -154,7 +158,8 @@ class ContentManager:
             return output_path
 
         except Exception as e:
-            logger.error(f"Failed to generate RSS feed: {e}")
+            logger.error("Failed to generate RSS feed")
+            logger.debug(f"RSS feed generation error details: {e}")
             return None
 
     def create_markdown_content(self, article_data: Dict) -> str:
@@ -245,5 +250,6 @@ class ContentManager:
             return output_path
 
         except Exception as e:
-            logger.error(f"Failed to generate sitemap: {e}")
+            logger.error("Failed to generate sitemap")
+            logger.debug(f"Sitemap generation error details: {e}")
             return None

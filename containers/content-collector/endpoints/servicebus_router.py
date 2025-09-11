@@ -70,10 +70,11 @@ async def get_service_bus_client() -> ServiceBusClient:
             await _service_bus_client.connect()
             logger.info("Service Bus client initialized")
         except Exception as e:
-            logger.error(f"Failed to initialize Service Bus client: {e}")
+            logger.error("Failed to initialize Service Bus client")
+            logger.debug(f"Service Bus client initialization error details: {str(e)}")
             raise HTTPException(
                 status_code=500,
-                detail=f"Service Bus client initialization failed: {str(e)}",
+                detail="Service Bus client initialization failed",
             )
 
     return _service_bus_client
@@ -146,13 +147,19 @@ async def process_servicebus_message(
                 # Invalid JSON, dead letter the message
                 await client.dead_letter_message(message, "Invalid JSON format")
                 messages_failed += 1
-                logger.error(f"Invalid JSON in message {message.message_id}: {e}")
+                logger.error(f"Invalid JSON in message {message.message_id}")
+                logger.debug(
+                    f"JSON decode error details for message {message.message_id}: {e}"
+                )
 
             except Exception as e:
                 # Processing error, abandon for retry
                 await client.abandon_message(message)
                 messages_failed += 1
-                logger.error(f"Error processing message {message.message_id}: {e}")
+                logger.error(f"Error processing message {message.message_id}")
+                logger.debug(
+                    f"Message processing error details for {message.message_id}: {e}"
+                )
 
         response_data = ServiceBusProcessResponse(
             messages_received=len(messages),
@@ -168,7 +175,8 @@ async def process_servicebus_message(
         )
 
     except Exception as e:
-        logger.error(f"Service Bus message processing failed: {e}")
+        logger.error("Service Bus message processing failed")
+        logger.debug(f"Service Bus message processing error details: {e}")
         return StandardResponse(
             status="error",
             message="Service Bus message processing failed",
@@ -212,7 +220,8 @@ async def get_servicebus_status(
         )
 
     except Exception as e:
-        logger.error(f"Failed to get Service Bus status: {e}")
+        logger.error("Failed to get Service Bus status")
+        logger.debug(f"Service Bus status retrieval error details: {e}")
         return StandardResponse(
             status="error",
             message="Failed to get Service Bus status",
@@ -261,7 +270,8 @@ async def start_servicebus_polling(
                     return False
 
             except Exception as e:
-                logger.error(f"Message handler error: {e}")
+                logger.error("Message handler error")
+                logger.debug(f"Message handler error details: {e}")
                 return False
 
         # Create and start polling service
@@ -280,11 +290,12 @@ async def start_servicebus_polling(
         )
 
     except Exception as e:
-        logger.error(f"Failed to start Service Bus polling: {e}")
+        logger.error("Failed to start Service Bus polling")
+        logger.debug(f"Service Bus polling start error details: {e}")
         return StandardResponse(
             status="error",
             message="Failed to start Service Bus polling",
             data={"polling_status": "failed"},
-            errors=[str(e)],
+            errors=["Service Bus polling initialization failed"],
             metadata=metadata,
         )

@@ -69,8 +69,9 @@ class ArchiveManager:
             with tarfile.open(archive_path, "w:gz") as tar:
                 self._add_files_to_archive(tar, site_dir)
         except Exception as e:
-            logger.error(f"Failed to create site archive: {e}")
-            raise ValueError(f"Archive creation failed: {str(e)}")
+            logger.error("Failed to create site archive")
+            logger.debug(f"Site archive creation error details: {e}")
+            raise ValueError("Archive creation failed")
 
         return archive_path
 
@@ -119,9 +120,10 @@ class ArchiveManager:
         try:
             SecurityValidator.validate_archive_file(archive_path)
         except ValueError as e:
-            logger.error(f"Archive validation failed: {e}")
+            logger.error("Archive validation failed")
+            logger.debug(f"Archive validation error details: {e}")
             # Preserve specific error information for debugging while maintaining security
-            raise ValueError(f"Archive validation failed: {str(e)}")
+            raise ValueError("Archive validation failed")
 
         # Use default container if not specified
         if not container_name:
@@ -141,8 +143,9 @@ class ArchiveManager:
                 )
             logger.info(f"Archive uploaded successfully: {safe_blob_name}")
         except Exception as e:
-            logger.error(f"Failed to upload archive: {e}")
-            raise ValueError(f"Upload failed: {str(e)}")
+            logger.error("Failed to upload archive")
+            logger.debug(f"Archive upload error details: {e}")
+            raise ValueError("Upload failed")
 
     def cleanup_temp_files(self, file_paths: List[Path]) -> None:
         """

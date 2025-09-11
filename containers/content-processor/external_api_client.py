@@ -131,8 +131,9 @@ class ExternalAPIClient:
                     }
                 )
 
+        regions_configured = [ep.get("region", "unknown") for ep in endpoints]
         self.logger.info(
-            f"Configured {len(endpoints)} OpenAI endpoints: {[ep['region'] for ep in endpoints]}"
+            f"Configured {len(endpoints)} OpenAI endpoints: {regions_configured}"
         )
         return endpoints
 

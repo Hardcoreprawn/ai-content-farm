@@ -199,12 +199,13 @@ class ContentProcessingService:
             processing_time = time.time() - start_time
             self._update_processing_stats(0.0, processing_time, 0.0, False)
 
-            self.logger.error(f"Processing failed for {request.topic_id}: {e}")
+            self.logger.error(f"Processing failed for {request.topic_id}")
+            self.logger.debug(f"Processing error details for {request.topic_id}: {e}")
 
             return ProcessingResult(
                 topic_id=request.topic_id,
                 status=ProcessingStatus.FAILED,
-                error_message=str(e),
+                error_message="Processing failed",
                 processing_time=processing_time,
             )
 
@@ -276,7 +277,10 @@ class ContentProcessingService:
             self.logger.error(f"Content enhancement timeout for {request.topic_id}")
             raise
         except Exception as e:
-            self.logger.error(f"Content enhancement failed for {request.topic_id}: {e}")
+            self.logger.error(f"Content enhancement failed for {request.topic_id}")
+            self.logger.debug(
+                f"Content enhancement error details for {request.topic_id}: {e}"
+            )
             raise
 
     async def _evaluate_quality(

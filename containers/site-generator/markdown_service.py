@@ -87,7 +87,8 @@ class MarkdownService:
             )
 
         except Exception as e:
-            logger.error(f"Markdown generation failed: {e}")
+            logger.error("Markdown generation failed")
+            logger.debug(f"Markdown generation error details: {e}")
             raise
 
     async def _get_processed_articles(self, limit: int) -> List[Dict]:
@@ -108,7 +109,8 @@ class MarkdownService:
                     article_data = json.loads(content)
                     articles.append(article_data)
                 except Exception as e:
-                    logger.error(f"Failed to load article {blob_name}: {e}")
+                    logger.error(f"Failed to load article {blob_name}")
+                    logger.debug(f"Article loading error details for {blob_name}: {e}")
 
             # Sort by generated_at timestamp, newest first
             articles.sort(key=lambda x: x.get("generated_at", ""), reverse=True)
@@ -116,7 +118,8 @@ class MarkdownService:
             return articles
 
         except Exception as e:
-            logger.error(f"Failed to get processed articles: {e}")
+            logger.error("Failed to get processed articles")
+            logger.debug(f"Processed articles retrieval error details: {e}")
             return []
 
     async def _generate_single_markdown(self, article_data: Dict) -> str:

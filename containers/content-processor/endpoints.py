@@ -130,11 +130,12 @@ async def health_endpoint(metadata: Dict[str, Any]) -> StandardResponse:
         )
 
     except Exception as e:
-        logger.error(f"Health check failed: {e}", exc_info=True)
+        logger.error("Health check failed")
+        logger.debug(f"Health check error details: {str(e)}", exc_info=True)
         return StandardResponse(
             status="error",
             message="Health check failed",
-            errors=[f"Health validation error: {str(e)}"],
+            errors=["Health validation error"],
             metadata=metadata,
         )
 
@@ -426,8 +427,9 @@ async def generate_tldr(request: GenerationRequest):
         return result
 
     except Exception as e:
-        logger.error(f"TLDR generation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+        logger.error("TLDR generation failed")
+        logger.debug(f"TLDR generation error details: {str(e)}")
+        raise HTTPException(status_code=500, detail="Generation failed")
 
 
 @router.post("/generate/blog", response_model=GeneratedContent)
@@ -444,8 +446,9 @@ async def generate_blog(request: GenerationRequest):
         return result
 
     except Exception as e:
-        logger.error(f"Blog generation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+        logger.error("Blog generation failed")
+        logger.debug(f"Blog generation error details: {str(e)}")
+        raise HTTPException(status_code=500, detail="Generation failed")
 
 
 @router.post("/generate/deepdive", response_model=GeneratedContent)
@@ -462,8 +465,9 @@ async def generate_deepdive(request: GenerationRequest):
         return result
 
     except Exception as e:
-        logger.error(f"Deep dive generation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Generation failed: {str(e)}")
+        logger.error("Deep dive generation failed")
+        logger.debug(f"Deep dive generation error details: {str(e)}")
+        raise HTTPException(status_code=500, detail="Generation failed")
 
 
 @router.post("/generate/batch", response_model=BatchGenerationResponse)
@@ -477,10 +481,9 @@ async def generate_batch(request: BatchGenerationRequest):
         return result
 
     except Exception as e:
-        logger.error(f"Batch generation start failed: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail=f"Batch generation failed: {str(e)}"
-        )
+        logger.error("Batch generation start failed")
+        logger.debug(f"Batch generation error details: {str(e)}")
+        raise HTTPException(status_code=500, detail="Batch generation failed")
 
 
 @router.get("/generation/status/{batch_id}", response_model=GenerationStatus)
@@ -498,10 +501,9 @@ async def get_generation_status(batch_id: str):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Status retrieval failed: {str(e)}")
-        raise HTTPException(
-            status_code=500, detail=f"Status retrieval failed: {str(e)}"
-        )
+        logger.error("Status retrieval failed")
+        logger.debug(f"Status retrieval error details: {str(e)}")
+        raise HTTPException(status_code=500, detail="Status retrieval failed")
 
 
 # Documentation endpoint (simplified pattern)

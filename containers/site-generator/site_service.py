@@ -90,7 +90,8 @@ class SiteService:
             )
 
         except Exception as e:
-            logger.error(f"Static site generation failed: {e}")
+            logger.error("Static site generation failed")
+            logger.debug(f"Static site generation error details: {e}")
             raise
 
     async def _generate_site_content(

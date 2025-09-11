@@ -213,5 +213,6 @@ async def save_discovery_results(result: DiscoveryResult, blob_client) -> None:
         logger.info(f"Saved discovery results to {blob_name}")
 
     except Exception as e:
-        logger.error(f"Failed to save discovery results: {e}")
+        logger.error("Failed to save discovery results")
+        logger.debug(f"Discovery results save error details: {e}")
         raise
