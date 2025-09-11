@@ -159,19 +159,4 @@ output "dns_zone_name_servers" {
 
 # Pipeline Functions outputs removed - using container-based approach instead
 
-output "scheduler_storage_tables" {
-  description = "Storage table names for scheduler configuration"
-  value = {
-    topic_configurations = azurerm_storage_table.topic_configurations.name
-    execution_history    = azurerm_storage_table.execution_history.name
-    source_analytics     = azurerm_storage_table.source_analytics.name
-  }
-}
-
-output "scheduler_storage_containers" {
-  description = "Storage container names for scheduler logs and analytics"
-  value = {
-    scheduler_logs  = azurerm_storage_container.scheduler_logs.name
-    analytics_cache = azurerm_storage_container.analytics_cache.name
-  }
-}
+# Scheduler outputs removed - scheduler infrastructure deprecated and removed

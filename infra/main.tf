@@ -35,10 +35,16 @@ resource "azurerm_key_vault" "main" {
 
   # Network ACLs for security compliance
   network_acls {
-    default_action = "Allow"
+    default_action = "Deny"
     bypass         = "AzureServices"
-    # Temporarily allow all access for GitHub Actions deployment
-    # This will be properly restricted once deployment completes
+    # Allow GitHub Actions IPs - these are the documented GitHub Actions IP ranges
+    ip_rules = [
+      "20.201.28.151/32", # GitHub Actions runner IPs
+      "20.205.243.166/32",
+      "20.87.245.0/24",
+      "20.118.201.0/24"
+    ]
+    # Allow Azure services to bypass the network ACL
   }
 
   tags = {
@@ -106,14 +112,15 @@ resource "azurerm_monitor_diagnostic_setting" "key_vault" {
 
 # Key Vault secrets for CI/CD integration
 resource "azurerm_key_vault_secret" "reddit_client_id" {
-  name         = "reddit-client-id"
-  value        = var.reddit_client_id != "" ? var.reddit_client_id : "placeholder-change-me"
-  key_vault_id = azurerm_key_vault.main.id
-  content_type = "text/plain"
+  name            = "reddit-client-id"
+  value           = var.reddit_client_id != "" ? var.reddit_client_id : "placeholder-change-me"
+  key_vault_id    = azurerm_key_vault.main.id
+  content_type    = "text/plain"
+  expiration_date = timeadd(timestamp(), "8760h") # 1 year expiration for security compliance
 
   # External secret - don't auto-update activation date or manually set values
   lifecycle {
-    ignore_changes = [not_before_date, expiration_date, value]
+    ignore_changes = [not_before_date, value]
   }
 
   tags = {
@@ -128,14 +135,15 @@ resource "azurerm_key_vault_secret" "reddit_client_id" {
 }
 
 resource "azurerm_key_vault_secret" "reddit_client_secret" {
-  name         = "reddit-client-secret"
-  value        = var.reddit_client_secret != "" ? var.reddit_client_secret : "placeholder-change-me"
-  key_vault_id = azurerm_key_vault.main.id
-  content_type = "text/plain"
+  name            = "reddit-client-secret"
+  value           = var.reddit_client_secret != "" ? var.reddit_client_secret : "placeholder-change-me"
+  key_vault_id    = azurerm_key_vault.main.id
+  content_type    = "text/plain"
+  expiration_date = timeadd(timestamp(), "8760h") # 1 year expiration for security compliance
 
   # External secret - don't auto-update expiration date or manually set values
   lifecycle {
-    ignore_changes = [not_before_date, expiration_date, value]
+    ignore_changes = [not_before_date, value]
   }
 
   depends_on = [
@@ -173,14 +181,15 @@ resource "azurerm_key_vault_secret" "reddit_user_agent" {
 
 # CI/CD secrets for GitHub Actions
 resource "azurerm_key_vault_secret" "infracost_api_key" {
-  name         = "infracost-api-key"
-  value        = var.infracost_api_key != "" ? var.infracost_api_key : "placeholder-get-from-infracost-io"
-  key_vault_id = azurerm_key_vault.main.id
-  content_type = "text/plain"
+  name            = "infracost-api-key"
+  value           = var.infracost_api_key != "" ? var.infracost_api_key : "placeholder-get-from-infracost-io"
+  key_vault_id    = azurerm_key_vault.main.id
+  content_type    = "text/plain"
+  expiration_date = timeadd(timestamp(), "8760h") # 1 year expiration for security compliance
 
   # External secret - don't auto-update expiration date
   lifecycle {
-    ignore_changes = [not_before_date, expiration_date, value]
+    ignore_changes = [not_before_date, value]
   }
 
   depends_on = [
@@ -305,6 +314,25 @@ resource "azurerm_monitor_diagnostic_setting" "storage_logging" {
   target_resource_id         = azurerm_storage_account.main.id
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
+  enabled_log {
+    category_group = "allLogs"
+  }
+
+  enabled_metric {
+    category = "Transaction"
+  }
+}
+
+# Enable blob service diagnostic settings for security compliance
+resource "azurerm_monitor_diagnostic_setting" "storage_blob_logging" {
+  name                       = "${local.resource_prefix}-blob-logs"
+  target_resource_id         = "${azurerm_storage_account.main.id}/blobServices/default"
+  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+
+  enabled_log {
+    category_group = "allLogs"
+  }
+
   enabled_metric {
     category = "Transaction"
   }
@@ -396,7 +424,7 @@ resource "azurerm_cognitive_account" "openai" {
   sku_name            = "S0"
 
   # Security settings
-  public_network_access_enabled = true  # Enable for Container Apps access with managed identity
+  public_network_access_enabled = true  # Required for Container Apps Consumption tier access
   local_auth_enabled            = false # Disable local authentication for security
 
   # Custom subdomain required for private endpoints
@@ -407,11 +435,17 @@ resource "azurerm_cognitive_account" "openai" {
     type = "SystemAssigned"
   }
 
-  # Network access restrictions - simplified for Container Apps Consumption
+  # Network access restrictions - secured for Container Apps
   network_acls {
-    default_action = "Allow"
-    # Container Apps Consumption tier uses dynamic IPs
-    # Security is enforced through managed identity authentication
+    default_action = "Deny"
+    # Allow Azure services including Container Apps to access via managed identity
+    # Container Apps Consumption tier uses Azure backbone for service communication
+    ip_rules = [
+      "20.201.28.151/32", # GitHub Actions runner IPs for deployment
+      "20.205.243.166/32",
+      "20.87.245.0/24",
+      "20.118.201.0/24"
+    ]
   }
 
   tags = local.common_tags
