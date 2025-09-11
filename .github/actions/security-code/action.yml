@@ -1,0 +1,102 @@
+name: 'Security Code Scan'
+description: 'Code security scanning with Semgrep SAST'
+inputs:
+  fail-on-critical:
+    description: 'Fail the action if critical vulnerabilities are found'
+    required: false
+    default: 'true'
+
+outputs:
+  passed:
+    description: 'Whether code security scan passed'
+    value: ${{ steps.evaluate.outputs.passed }}
+  critical-count:
+    description: 'Number of critical vulnerabilities found'
+    value: ${{ steps.evaluate.outputs.critical-count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up code security scan
+      shell: bash
+      run: |
+        echo "Starting code security scan..."
+        mkdir -p security-results
+
+    - name: Run Semgrep SAST Scan
+      shell: bash
+      env:
+        WORKSPACE_PATH: ${{ github.workspace }}
+      continue-on-error: true
+      run: |
+        echo "Running standardized Semgrep SAST scan..."
+        chmod +x ./scripts/run-semgrep.sh
+        ./scripts/run-semgrep.sh "${WORKSPACE_PATH}" security-results semgrep/semgrep:latest || echo "Semgrep scan completed with warnings"
+
+    - name: Evaluate Code Security Results
+      id: evaluate
+      shell: bash
+      env:
+        FAIL_ON_CRITICAL: ${{ inputs.fail-on-critical }}
+      run: |
+        echo "Evaluating code security results..."
+
+        total_critical=0
+
+        # Semgrep SAST results
+        if [ -f "security-results/semgrep-results.json" ]; then
+          # Count only actual security findings (not parsing errors)
+          semgrep_error_findings="$(jq -r '.results[] | select(.extra.severity == "ERROR") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || semgrep_error_findings="0"
+          semgrep_warning_findings="$(jq -r '.results[] | select(.extra.severity == "WARNING") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || semgrep_warning_findings="0"
+
+          # Count acceptable infrastructure findings (documented in docs/SECURITY_STRATEGY.md)
+          acceptable_bypass="$(jq -r '.results[] | select(.check_id == "terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_bypass="0"
+          acceptable_queue="$(jq -r '.results[] | select(.check_id == "terraform.azure.security.storage.storage-queue-services-logging.storage-queue-services-logging") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_queue="0"
+          acceptable_keyvault_acl="$(jq -r '.results[] | select(.check_id == "terraform.azure.security.keyvault.keyvault-specify-network-acl.keyvault-specify-network-acl") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_keyvault_acl="0"
+          acceptable_secret_expiry="$(jq -r '.results[] | select(.check_id == "terraform.azure.security.keyvault.keyvault-ensure-secret-expires.keyvault-ensure-secret-expires") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_secret_expiry="0"
+          acceptable_jinja2="$(jq -r '.results[] | select(.check_id == "python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_jinja2="0"
+          acceptable_docker_user="$(jq -r '.results[] | select(.check_id == "dockerfile.security.missing-user.missing-user") | .check_id' security-results/semgrep-results.json 2>/dev/null | wc -l)" || acceptable_docker_user="0"
+
+          # Calculate total acceptable exceptions
+          total_exceptions=$((acceptable_bypass + acceptable_queue + acceptable_keyvault_acl + acceptable_secret_expiry + acceptable_jinja2 + acceptable_docker_user))
+
+          # Only ERROR severity findings are critical, subtract acceptable infrastructure warnings
+          total_semgrep=$((semgrep_error_findings + semgrep_warning_findings))
+          semgrep_critical=$((semgrep_error_findings + semgrep_warning_findings - total_exceptions))
+
+          # Ensure critical count doesn't go negative
+          if [ "$semgrep_critical" -lt 0 ]; then
+            semgrep_critical=0
+          fi
+
+          total_critical=$((total_critical + semgrep_critical))
+
+          echo "Semgrep SAST: $total_semgrep total findings ($semgrep_error_findings error, $semgrep_warning_findings warning), $total_exceptions acceptable exceptions, $semgrep_critical critical"
+        elif [ -f "security-results/semgrep.sarif" ]; then
+          # Fallback to SARIF format if JSON not available
+          semgrep_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/semgrep.sarif 2>/dev/null | wc -l)" || semgrep_critical="0"
+          total_critical=$((total_critical + semgrep_critical))
+          echo "Semgrep SAST: $semgrep_critical critical (from SARIF fallback)"
+        else
+          echo "Semgrep SAST: scan file not found"
+        fi
+
+        echo "Code Security Summary: $total_critical critical"
+        echo "critical-count=$total_critical" >> "$GITHUB_OUTPUT"
+
+        if [ "$total_critical" -gt 0 ] && [ "$FAIL_ON_CRITICAL" = "true" ]; then
+          echo "passed=false" >> "$GITHUB_OUTPUT"
+          echo "[FAIL] Code security scan failed with $total_critical critical vulnerabilities"
+          exit 1
+        else
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+          echo "[PASS] Code security scan passed"
+        fi
+
+    - name: Upload Code Security Results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always() && hashFiles('security-results/semgrep.sarif') != ''
+      with:
+        sarif_file: security-results/semgrep.sarif
+        category: code-security
+      continue-on-error: true

@@ -95,13 +95,44 @@ jobs:
       - name: Lint Workflows
         uses: ./.github/actions/lint-workflows
 
-      - name: Security Scan
-        uses: ./.github/actions/security-scan
+      - name: Code Quality
+        uses: ./.github/actions/code-quality
+
+  security-infrastructure:
+    name: Security Infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Infrastructure Security Scan
+        uses: ./.github/actions/security-infrastructure
         with:
           fail-on-critical: 'false'
 
-      - name: Code Quality
-        uses: ./.github/actions/code-quality
+  security-containers:
+    name: Security Containers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Container Security Scan
+        uses: ./.github/actions/security-containers
+        with:
+          fail-on-critical: 'false'
+
+  security-code:
+    name: Security Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Code Security Scan
+        uses: ./.github/actions/security-code
+        with:
+          fail-on-critical: 'false'
 
   terraform-checks:
     name: Terraform Checks
@@ -123,7 +154,7 @@ jobs:
   test-containers:
     name: Test ${{ matrix.container }}
     runs-on: ubuntu-latest
-    needs: [quality-checks]
+    needs: [quality-checks, security-infrastructure, security-containers, security-code]
     strategy:
       matrix:
         container: [content-collector, content-processor, site-generator]
@@ -174,12 +205,15 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-containers, terraform-checks]
+    needs: [detect-changes, build-containers, terraform-checks, security-infrastructure, security-containers, security-code]
     if: |
       always() &&
       github.ref == 'refs/heads/main' &&
       needs.build-containers.result == 'success' &&
-      needs.terraform-checks.result == 'success'
+      needs.terraform-checks.result == 'success' &&
+      needs.security-infrastructure.result == 'success' &&
+      needs.security-containers.result == 'success' &&
+      needs.security-code.result == 'success'
     environment: production
     steps:
       - name: Checkout
@@ -215,6 +249,9 @@ jobs:
     needs:
       - detect-changes
       - quality-checks
+      - security-infrastructure
+      - security-containers
+      - security-code
       - terraform-checks
       - test-containers
       - build-containers

@@ -1,0 +1,92 @@
+name: 'Security Container Scan'
+description: 'Container security scanning with Trivy'
+inputs:
+  fail-on-critical:
+    description: 'Fail the action if critical vulnerabilities are found'
+    required: false
+    default: 'true'
+
+outputs:
+  passed:
+    description: 'Whether container security scan passed'
+    value: ${{ steps.evaluate.outputs.passed }}
+  critical-count:
+    description: 'Number of critical vulnerabilities found'
+    value: ${{ steps.evaluate.outputs.critical-count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up container security scan
+      shell: bash
+      run: |
+        echo "Starting container security scan..."
+        mkdir -p security-results
+
+    - name: Run Trivy Container Scan
+      shell: bash
+      env:
+        WORKSPACE_PATH: ${{ github.workspace }}
+      continue-on-error: true
+      run: |
+        echo "Running Trivy container scan..."
+        # Scan all Dockerfiles
+        find . -name "Dockerfile" -type f | while read -r dockerfile; do
+          dockerfile_dir="$(dirname "$dockerfile")"
+          container_name="$(basename "$dockerfile_dir")"
+          echo "Scanning $container_name..."
+          if [ -d "$dockerfile_dir" ]; then
+            docker run --rm -v "${WORKSPACE_PATH}":/workspace \
+              aquasec/trivy:latest config "/workspace/$dockerfile_dir" \
+              --format json \
+              --output "/workspace/security-results/trivy-${container_name}.json" \
+              --severity HIGH,CRITICAL || true
+          fi
+        done
+
+    - name: Generate SBOM
+      shell: bash
+      continue-on-error: true
+      run: |
+        echo "Generating SBOM..."
+        make sbom || echo "SBOM generation completed with warnings"
+
+    - name: Evaluate Container Security Results
+      id: evaluate
+      shell: bash
+      env:
+        FAIL_ON_CRITICAL: ${{ inputs.fail-on-critical }}
+      run: |
+        echo "Evaluating container security results..."
+
+        total_critical=0
+        total_high=0
+
+        # Trivy Container results
+        trivy_container_files=$(find security-results -name "trivy-*.json" 2>/dev/null | wc -l)
+        if [ "$trivy_container_files" -gt 0 ]; then
+          for trivy_file in security-results/trivy-*.json; do
+            if [ -f "$trivy_file" ] && [ -s "$trivy_file" ]; then
+              container_critical="$(jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL") | .VulnerabilityID' "$trivy_file" 2>/dev/null | wc -l)" || container_critical="0"
+              container_high="$(jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH") | .VulnerabilityID' "$trivy_file" 2>/dev/null | wc -l)" || container_high="0"
+              total_critical=$((total_critical + container_critical))
+              total_high=$((total_high + container_high))
+              container_name=$(basename "$trivy_file" .json | sed 's/trivy-//')
+              echo "Trivy Container ($container_name): $container_critical critical, $container_high high"
+            fi
+          done
+        else
+          echo "Trivy Container: no scan files found"
+        fi
+
+        echo "Container Security Summary: $total_critical critical, $total_high high"
+        echo "critical-count=$total_critical" >> "$GITHUB_OUTPUT"
+
+        if [ "$total_critical" -gt 0 ] && [ "$FAIL_ON_CRITICAL" = "true" ]; then
+          echo "passed=false" >> "$GITHUB_OUTPUT"
+          echo "[FAIL] Container security scan failed with $total_critical critical vulnerabilities"
+          exit 1
+        else
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+          echo "[PASS] Container security scan passed"
+        fi

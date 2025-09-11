@@ -1,0 +1,101 @@
+name: 'Security Infrastructure Scan'
+description: 'Infrastructure security scanning with Trivy and Checkov'
+inputs:
+  fail-on-critical:
+    description: 'Fail the action if critical vulnerabilities are found'
+    required: false
+    default: 'true'
+
+outputs:
+  passed:
+    description: 'Whether infrastructure security scan passed'
+    value: ${{ steps.evaluate.outputs.passed }}
+  critical-count:
+    description: 'Number of critical vulnerabilities found'
+    value: ${{ steps.evaluate.outputs.critical-count }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up infrastructure security scan
+      shell: bash
+      run: |
+        echo "Starting infrastructure security scan..."
+        mkdir -p security-results
+
+    - name: Run Trivy Infrastructure Scan
+      shell: bash
+      env:
+        WORKSPACE_PATH: ${{ github.workspace }}
+      continue-on-error: true
+      run: |
+        echo "Running Trivy infrastructure scan..."
+        docker run --rm -v "${WORKSPACE_PATH}":/workspace \
+          aquasec/trivy:latest config /workspace \
+          --format sarif \
+          --output /workspace/security-results/trivy-infra.sarif \
+          --severity HIGH,CRITICAL || echo "Trivy infrastructure scan completed with warnings"
+
+    - name: Run Checkov Infrastructure Scan
+      shell: bash
+      env:
+        WORKSPACE_PATH: ${{ github.workspace }}
+      continue-on-error: true
+      run: |
+        echo "Running Checkov infrastructure scan..."
+        docker run --rm -v "${WORKSPACE_PATH}":/tf \
+          bridgecrew/checkov:latest \
+          -d /tf/infra \
+          --framework terraform \
+          --output sarif \
+          --output-file-path /tf/security-results \
+          --quiet || echo "Checkov scan completed with warnings"
+
+    - name: Evaluate Infrastructure Security Results
+      id: evaluate
+      shell: bash
+      env:
+        FAIL_ON_CRITICAL: ${{ inputs.fail-on-critical }}
+      run: |
+        echo "Evaluating infrastructure security results..."
+
+        total_critical=0
+        total_high=0
+
+        # Trivy Infrastructure results
+        if [ -f "security-results/trivy-infra.sarif" ]; then
+          trivy_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/trivy-infra.sarif 2>/dev/null | wc -l)" || trivy_critical="0"
+          trivy_high="$(jq -r '.runs[0].results[] | select(.level == "warning") | .ruleId' security-results/trivy-infra.sarif 2>/dev/null | wc -l)" || trivy_high="0"
+          echo "Trivy Infrastructure: $trivy_critical critical, $trivy_high high"
+          total_critical=$((total_critical + trivy_critical))
+          total_high=$((total_high + trivy_high))
+        fi
+
+        # Checkov results
+        if [ -f "security-results/checkov.sarif" ]; then
+          checkov_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/checkov.sarif 2>/dev/null | wc -l)" || checkov_critical="0"
+          checkov_high="$(jq -r '.runs[0].results[] | select(.level == "warning") | .ruleId' security-results/checkov.sarif 2>/dev/null | wc -l)" || checkov_high="0"
+          echo "Checkov Infrastructure: $checkov_critical critical, $checkov_high high"
+          total_critical=$((total_critical + checkov_critical))
+          total_high=$((total_high + checkov_high))
+        fi
+
+        echo "Infrastructure Security Summary: $total_critical critical, $total_high high"
+        echo "critical-count=$total_critical" >> "$GITHUB_OUTPUT"
+
+        if [ "$total_critical" -gt 0 ] && [ "$FAIL_ON_CRITICAL" = "true" ]; then
+          echo "passed=false" >> "$GITHUB_OUTPUT"
+          echo "[FAIL] Infrastructure security scan failed with $total_critical critical vulnerabilities"
+          exit 1
+        else
+          echo "passed=true" >> "$GITHUB_OUTPUT"
+          echo "[PASS] Infrastructure security scan passed"
+        fi
+
+    - name: Upload Infrastructure Security Results
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
+      with:
+        sarif_file: security-results/
+        category: infrastructure-security
+      continue-on-error: true
