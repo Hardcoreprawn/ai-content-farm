@@ -114,9 +114,18 @@ runs:
           fi
         fi
 
-        # Get deployment URL
-        url=$(terraform output -raw site_url 2>/dev/null || \
-          echo "https://ai-content-farm-$env.azurecontainerapps.io")
+        # Get deployment URL - prefer custom domain if available, fallback to default
+        custom_url=$(terraform output -raw static_web_app_custom_domain 2>/dev/null || echo "")
+        default_url=$(terraform output -raw static_web_app_url 2>/dev/null || echo "")
+
+        if [[ -n "$custom_url" && "$custom_url" != "https://" ]]; then
+          url="$custom_url"
+        elif [[ -n "$default_url" ]]; then
+          url="$default_url"
+        else
+          url="https://ai-content-farm-$env.azurecontainerapps.io"
+        fi
+
         echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
 
     - name: Set Output
