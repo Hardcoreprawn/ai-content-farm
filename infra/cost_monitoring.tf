@@ -5,7 +5,7 @@ resource "azurerm_consumption_budget_resource_group" "main" {
   name              = "${var.resource_prefix}-budget"
   resource_group_id = azurerm_resource_group.main.id
 
-  amount     = 50 # Reduced budget to $50 monthly due to cost optimizations
+  amount     = 55 # Increased budget for pipeline testing (Sep 11, 2025) - was $50
   time_grain = "Monthly"
 
   time_period {
