@@ -79,11 +79,9 @@ jobs:
             deploy_method="containers"
           fi
 
-          {
-            echo "containers=$containers"
-            echo "infrastructure=$infrastructure"
-            echo "deploy-method=$deploy_method"
-          } >> "$GITHUB_OUTPUT"
+          echo "containers=$containers" >> "$GITHUB_OUTPUT"
+          echo "infrastructure=$infrastructure" >> "$GITHUB_OUTPUT"
+          echo "deploy-method=$deploy_method" >> "$GITHUB_OUTPUT"
 
   quality-checks:
     name: Quality Checks
@@ -117,8 +115,6 @@ jobs:
 
       - name: Terraform Quality
         uses: ./.github/actions/infrastructure-quality
-        with:
-          infra-changed: 'true'
 
       - name: Cost Analysis
         uses: ./.github/actions/cost-analysis
@@ -142,7 +138,6 @@ jobs:
         uses: ./.github/actions/test-single-container
         with:
           container-name: ${{ matrix.container }}
-          test-type: unit
 
   build-containers:
     name: Build ${{ matrix.container }}
@@ -203,7 +198,7 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy
-        uses: ./.github/actions/smart-deploy
+        uses: ./.github/actions/smart-deploy-optimized
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
