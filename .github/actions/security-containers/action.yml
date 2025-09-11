@@ -72,9 +72,10 @@ runs:
           # Scan built images
           containers=("content-collector" "content-processor" "site-generator")
           for container in "${containers[@]}"; do
-            image_name="${REGISTRY}/${REPOSITORY}:${IMAGE_TAG}"
-            echo "Scanning image: $image_name"
-            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            echo "Scanning image: ${REGISTRY}/${REPOSITORY}/${container}:${IMAGE_TAG}"
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v "${WORKSPACE_PATH}":/workspace \
               aquasec/trivy:latest image \
               --format json \
               --output "/workspace/security-results/trivy-image-${container}.json" \
