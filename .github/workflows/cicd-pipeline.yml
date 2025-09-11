@@ -70,7 +70,7 @@ jobs:
 
           if [[ ${#container_list[@]} -gt 0 ]]; then
             containers=$(printf '%s\n' "${container_list[@]}" | \
-                        sort -u | jq -R . | jq -s .)
+                        sort -u | jq -R . | jq -s . | jq -c .)
           fi
 
           if [[ "$infrastructure" == "true" ]]; then
