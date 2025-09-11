@@ -21,6 +21,7 @@ from endpoints import (
 )
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from models import CollectionRequest, DiscoveryRequest, SourceConfig
@@ -51,6 +52,33 @@ app = FastAPI(
     version="2.0.1",
     lifespan=lifespan,
 )
+
+# Add CORS middleware for security
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://*.azurecontainerapps.io",
+        "https://localhost:3000",
+    ],  # Restrict to known origins
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],  # Explicit methods
+    allow_headers=["Content-Type", "Authorization"],
+)
+
+
+# Add security headers middleware
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = (
+        "max-age=31536000; includeSubDomains"
+    )
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
 
 # Standard endpoints are now added via shared library above
 

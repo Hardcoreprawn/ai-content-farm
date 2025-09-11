@@ -27,6 +27,16 @@ venv/
 env/
 ENV/
 
+# Environment variables and secrets
+.env
+.env.local
+.env.production
+.env.staging
+*.key
+*.pem
+*.p12
+*.pfx
+
 # Azure Functions
 .python_packages/
 .azure/
