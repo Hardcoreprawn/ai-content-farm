@@ -70,7 +70,7 @@ runs:
       if: inputs.deployment-method == 'terraform'
       shell: bash
       run: |
-        echo "Performing full Terraform deployment..."
+        echo "Checking Terraform state and planning deployment..."
 
         cd infra
 
@@ -86,9 +86,22 @@ runs:
         terraform workspace select "$env" || \
           terraform workspace new "$env"
 
-        # Plan and apply
-        terraform plan
-        terraform apply -auto-approve
+        # Plan and check if there are changes
+        echo "Running terraform plan to check for changes..."
+        if terraform plan -detailed-exitcode -out=tfplan; then
+          echo "No changes detected in Terraform state"
+          echo "terraform-changes=false" >> "$GITHUB_OUTPUT"
+        else
+          exit_code=$?
+          if [[ $exit_code -eq 2 ]]; then
+            echo "Terraform changes detected, applying..."
+            terraform apply -auto-approve tfplan
+            echo "terraform-changes=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Terraform plan failed with exit code $exit_code"
+            exit $exit_code
+          fi
+        fi
 
         # Get deployment URL
         url=$(terraform output -raw site_url 2>/dev/null || \

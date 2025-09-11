@@ -75,7 +75,7 @@ jobs:
 
           if [[ "$containers" != "[]" ]]; then
             deploy_method="containers"
-          elif [[ "$infrastructure" == "true" ]]; then
+          else
             deploy_method="terraform"
           fi
 
@@ -178,7 +178,6 @@ jobs:
     if: |
       always() &&
       github.ref == 'refs/heads/main' &&
-      needs.detect-changes.outputs.deploy-method != 'skip' &&
       needs.build-containers.result == 'success' &&
       needs.terraform-checks.result == 'success'
     environment: production
