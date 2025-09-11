@@ -21,9 +21,15 @@ class ProcessingMetrics:
         self.processed_items += 1
 
     def increment_errors(self) -> None:
-        """Increment error counter."""
+        """Increment error counter with logging."""
         self.errors += 1
-        logger.warning(f"Processing error count: {self.errors}")
+        logger.warning(f"Processing error #{self.errors} recorded")
+
+    def get_error_rate(self) -> float:
+        """Get error rate as percentage."""
+        if self.processed_items == 0:
+            return 0.0
+        return (self.errors / self.processed_items) * 100.0
 
     def get_processing_rate(self) -> float:
         """Get items processed per second."""

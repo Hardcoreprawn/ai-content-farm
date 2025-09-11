@@ -16,9 +16,17 @@ class PerformanceMonitor:
         self.metrics = {}
 
     def record_metric(self, name: str, value: float) -> None:
-        """Record a performance metric."""
-        self.metrics[name] = {"value": value, "timestamp": time.time()}
-        logger.info(f"Performance metric: {name} = {value}")
+        """Record a performance metric with timestamp."""
+        self.metrics[name] = {
+            "value": value,
+            "timestamp": time.time(),
+            "uptime_at_record": self.get_uptime(),
+        }
+        logger.info(f"Performance metric recorded: {name} = {value}")
+
+    def get_metric_count(self) -> int:
+        """Get the total number of recorded metrics."""
+        return len(self.metrics)
 
     def get_uptime(self) -> float:
         """Get application uptime in seconds."""
