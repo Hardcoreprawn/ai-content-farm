@@ -461,8 +461,8 @@ jobs:
             # Container build will be handled by the smart-deploy action
           done
 
-          # Create registry images JSON for terraform deployment
-          REGISTRY_IMAGES_JSON=$(echo "$DISCOVERED_CONTAINERS" | jq -r 'to_entries | map({key: .value, value: {image: ("ghcr.io/hardcoreprawn/ai-content-farm/" + .value + ":${{ github.sha }}")}}) | from_entries')
+          # Create registry images JSON for terraform deployment (single line for GitHub Actions)
+          REGISTRY_IMAGES_JSON=$(echo "$DISCOVERED_CONTAINERS" | jq -c 'to_entries | map({key: .value, value: {image: ("ghcr.io/hardcoreprawn/ai-content-farm/" + .value + ":${{ github.sha }}")}}) | from_entries')
 
           echo "registry-images=$REGISTRY_IMAGES_JSON" >> "$GITHUB_OUTPUT"
           echo "[BUILD] Registry images JSON: $REGISTRY_IMAGES_JSON"
