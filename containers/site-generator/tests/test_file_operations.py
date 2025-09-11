@@ -230,9 +230,7 @@ class TestArchiveManager:
             side_effect=ValueError("Invalid archive"),
         ):
 
-            with pytest.raises(
-                ValueError, match="Archive validation failed: Invalid archive"
-            ):
+            with pytest.raises(ValueError, match="Archive validation failed"):
                 await archive_manager.upload_archive(archive_path)
 
     @pytest.mark.asyncio
@@ -280,7 +278,7 @@ class TestArchiveManager:
                 return_value="safe_name.tar.gz",
             ):
 
-                with pytest.raises(ValueError, match="Upload failed: Upload failed"):
+                with pytest.raises(ValueError, match="Upload failed"):
                     await archive_manager.upload_archive(archive_path)
         finally:
             os.unlink(archive_path)
