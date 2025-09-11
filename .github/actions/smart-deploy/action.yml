@@ -19,7 +19,8 @@ inputs:
     required: true
   terraform-storage-account:
     description: 'Terraform state storage account name'
-    required: true
+    required: false
+    default: 'aicontentfarmtfstate'
   github-token:
     description: 'GitHub token for registry access'
     required: true
@@ -80,12 +81,17 @@ runs:
 
         cd infra
 
-        # Initialize Terraform
+        # Initialize Terraform with backend config matching backend.tf
+        # Use the storage account from backend.tf unless overridden
         storage_account="${{ inputs.terraform-storage-account }}"
+        if [[ -z "$storage_account" ]]; then
+          storage_account="aicontentfarmtfstate"
+        fi
+
         terraform init \
           -backend-config="storage_account_name=$storage_account" \
-          -backend-config="container_name=terraform-state" \
-          -backend-config="key=${{ inputs.environment }}.tfstate"
+          -backend-config="container_name=tfstate" \
+          -backend-config="key=terraform-${{ inputs.environment }}.tfstate"
 
         # Select workspace
         env="${{ inputs.environment }}"
