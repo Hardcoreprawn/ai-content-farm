@@ -1,3 +1,0 @@
-# Root-level requirements for project-wide security scanning
-# This ensures Safety can scan the main development dependencies
--r requirements-dev.txt
