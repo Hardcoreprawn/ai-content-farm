@@ -209,10 +209,8 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           environment: production
-          deployment-method: >-
-            ${{ needs.detect-changes.outputs.deploy-method }}
-          terraform-storage-account: >-
-            ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT_PROD }}
+          deployment-method: ${{ needs.detect-changes.outputs.deploy-method }}
+          terraform-storage-account: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT_PROD }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           image-tag: ${{ github.sha }}
 
@@ -230,5 +228,5 @@ jobs:
     steps:
       - name: Generate Summary
         run: |
-          echo "# Pipeline Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Complete!" >> $GITHUB_STEP_SUMMARY
+          echo "# Pipeline Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "Complete!" >> "$GITHUB_STEP_SUMMARY"

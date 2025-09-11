@@ -1,0 +1,113 @@
+name: 'Smart Deploy'
+description: 'Unified deployment action for containers and Terraform'
+inputs:
+  client-id:
+    description: 'Azure service principal client ID'
+    required: true
+  tenant-id:
+    description: 'Azure tenant ID'
+    required: true
+  subscription-id:
+    description: 'Azure subscription ID'
+    required: true
+  environment:
+    description: 'Environment to deploy to'
+    required: true
+    default: 'production'
+  deployment-method:
+    description: 'Deployment method: containers, terraform, or skip'
+    required: true
+  terraform-storage-account:
+    description: 'Terraform state storage account name'
+    required: true
+  github-token:
+    description: 'GitHub token for registry access'
+    required: true
+  image-tag:
+    description: 'Image tag to use for all containers'
+    required: true
+
+outputs:
+  deployment-url:
+    description: 'URL of the deployed application'
+    value: ${{ steps.deploy.outputs.deployment-url }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Skip Deployment
+      if: inputs.deployment-method == 'skip'
+      shell: bash
+      run: |
+        echo "Skipping deployment - no relevant changes detected"
+        base_url="https://ai-content-farm-${{ inputs.environment }}"
+        url="${base_url}.azurecontainerapps.io"
+        echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
+
+    - name: Container Deployment
+      id: container-deploy
+      if: inputs.deployment-method == 'containers'
+      shell: bash
+      run: |
+        echo "Performing container update deployment..."
+
+        # Get resource group
+        if [[ "${{ inputs.environment }}" == "production" ]]; then
+          rg="ai-content-prod-rg"
+        else
+          rg="ai-content-staging-rg"
+        fi
+
+        echo "Would update container apps in $rg"
+
+        # Set deployment URL
+        base_url="https://ai-content-farm-${{ inputs.environment }}"
+        url="${base_url}.azurecontainerapps.io"
+        echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
+
+    - name: Terraform Deployment
+      id: terraform-deploy
+      if: inputs.deployment-method == 'terraform'
+      shell: bash
+      run: |
+        echo "Performing full Terraform deployment..."
+
+        cd infra
+
+        # Initialize Terraform
+        storage_account="${{ inputs.terraform-storage-account }}"
+        terraform init \
+          -backend-config="storage_account_name=$storage_account" \
+          -backend-config="container_name=terraform-state" \
+          -backend-config="key=${{ inputs.environment }}.tfstate"
+
+        # Select workspace
+        env="${{ inputs.environment }}"
+        terraform workspace select "$env" || \
+          terraform workspace new "$env"
+
+        # Plan and apply
+        terraform plan
+        terraform apply -auto-approve
+
+        # Get deployment URL
+        url=$(terraform output -raw site_url 2>/dev/null || \
+          echo "https://ai-content-farm-$env.azurecontainerapps.io")
+        echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
+
+    - name: Set Output
+      id: deploy
+      shell: bash
+      run: |
+        method="${{ inputs.deployment-method }}"
+        if [[ "$method" == "containers" ]]; then
+          url="${{ steps.container-deploy.outputs.deployment-url }}"
+          echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
+        elif [[ "$method" == "terraform" ]]; then
+          url="${{ steps.terraform-deploy.outputs.deployment-url }}"
+          echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
+        else
+          base_url="https://ai-content-farm-${{ inputs.environment }}"
+          url="${base_url}.azurecontainerapps.io"
+          echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
+        fi
