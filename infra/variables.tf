@@ -111,3 +111,22 @@ variable "infracost_api_key" {
   default     = ""
   sensitive   = true
 }
+
+# Certificate Management Configuration
+variable "certificate_email" {
+  description = "Email address for Let's Encrypt certificate notifications"
+  type        = string
+  default     = ""
+}
+
+variable "enable_mtls" {
+  description = "Enable mTLS for inter-service communication"
+  type        = bool
+  default     = true
+}
+
+variable "certificate_domains" {
+  description = "Additional domains to include in certificates"
+  type        = list(string)
+  default     = []
+}
