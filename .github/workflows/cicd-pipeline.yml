@@ -88,8 +88,6 @@ jobs:
   quality-checks:
     name: Quality Checks
     runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.deploy-method != 'skip'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -103,14 +101,11 @@ jobs:
           fail-on-critical: 'false'
 
       - name: Code Quality
-        if: needs.detect-changes.outputs.containers != '[]'
         uses: ./.github/actions/code-quality
 
   terraform-checks:
     name: Terraform Checks
     runs-on: ubuntu-latest
-    needs: detect-changes
-    if: needs.detect-changes.outputs.infrastructure == 'true'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -128,11 +123,10 @@ jobs:
   test-containers:
     name: Test ${{ matrix.container }}
     runs-on: ubuntu-latest
-    needs: [detect-changes, quality-checks]
-    if: needs.detect-changes.outputs.containers != '[]'
+    needs: [quality-checks]
     strategy:
       matrix:
-        container: ${{ fromJson(needs.detect-changes.outputs.containers) }}
+        container: [content-collector, content-processor, site-generator]
       fail-fast: false
     steps:
       - name: Checkout
@@ -147,14 +141,13 @@ jobs:
   build-containers:
     name: Build ${{ matrix.container }}
     runs-on: ubuntu-latest
-    needs: [detect-changes, test-containers]
+    needs: [test-containers]
     if: |
       always() &&
-      needs.detect-changes.outputs.containers != '[]' &&
       needs.test-containers.result == 'success'
     strategy:
       matrix:
-        container: ${{ fromJson(needs.detect-changes.outputs.containers) }}
+        container: [content-collector, content-processor, site-generator]
       fail-fast: false
     steps:
       - name: Checkout
@@ -186,10 +179,8 @@ jobs:
       always() &&
       github.ref == 'refs/heads/main' &&
       needs.detect-changes.outputs.deploy-method != 'skip' &&
-      (needs.build-containers.result == 'success' ||
-       needs.build-containers.result == 'skipped') &&
-      (needs.terraform-checks.result == 'success' ||
-       needs.terraform-checks.result == 'skipped')
+      needs.build-containers.result == 'success' &&
+      needs.terraform-checks.result == 'success'
     environment: production
     steps:
       - name: Checkout
