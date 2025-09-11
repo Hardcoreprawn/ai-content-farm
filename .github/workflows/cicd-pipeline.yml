@@ -73,10 +73,10 @@ jobs:
                         sort -u | jq -R . | jq -s . | jq -c .)
           fi
 
-          if [[ "$infrastructure" == "true" ]]; then
-            deploy_method="terraform"
-          elif [[ "$containers" != "[]" ]]; then
+          if [[ "$containers" != "[]" ]]; then
             deploy_method="containers"
+          elif [[ "$infrastructure" == "true" ]]; then
+            deploy_method="terraform"
           fi
 
           {
@@ -194,6 +194,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+
+      - name: Setup Terraform
+        if: needs.detect-changes.outputs.deploy-method == 'terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.5.0
 
       - name: Azure Login
         uses: azure/login@v2
