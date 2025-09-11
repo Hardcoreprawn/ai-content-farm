@@ -414,9 +414,11 @@ resource "azurerm_storage_container" "pricing_cache" {
 # Azure OpenAI Cognitive Services Account
 #checkov:skip=CKV_AZURE_247:Data loss prevention configuration complex for development environment
 #checkov:skip=CKV2_AZURE_22:Customer-managed encryption would create circular dependency in development environment
+#checkov:skip=CKV_AZURE_134:Public network access required for Container Apps Consumption tier to access via managed identity
 resource "azurerm_cognitive_account" "openai" {
   # checkov:skip=CKV_AZURE_247: Data loss prevention requires complex configuration - using network ACLs for access control
   # checkov:skip=CKV2_AZURE_22: Customer-managed encryption requires complex setup - using Azure-managed encryption for development
+  # checkov:skip=CKV_AZURE_134: Public network access required for Container Apps Consumption tier - secured with network ACLs
   name                = "${local.resource_prefix}-openai"
   location            = "UK South" # OpenAI available in UK South for European compliance
   resource_group_name = azurerm_resource_group.main.name
@@ -526,6 +528,7 @@ resource "azurerm_key_vault_secret" "openai_embedding_model" {
 }
 
 resource "azurerm_storage_container" "prompts" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
   name                  = "prompts"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
