@@ -8,8 +8,8 @@ FROM python:3.11-slim AS base
 
 # System dependencies (cached layer)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
+    build-essential=12.12 \
+    curl=8.14.1-2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user for security
@@ -20,14 +20,14 @@ WORKDIR /app
 # Install service dependencies
 COPY containers/content-processor/requirements.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r /tmp/requirements.txt
+    pip install --no-cache-dir -r /tmp/requirements.txt
 
 # Development/Test stage - includes development tools
 FROM base AS development
 
 # Install development tools for debugging
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install ipdb pdbpp rich
+    pip install --no-cache-dir ipdb pdbpp rich
 
 # Copy shared libraries
 COPY libs/ ./libs/

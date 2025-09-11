@@ -4,8 +4,8 @@ FROM python:3.11-slim AS base
 
 # System dependencies (cached layer)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
+    build-essential=12.12 \
+    curl=8.14.1-2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Create app user for security
@@ -16,7 +16,7 @@ WORKDIR /app
 # Install service dependencies
 COPY containers/content-collector/requirements.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install -r /tmp/requirements.txt
+    pip install --no-cache-dir -r /tmp/requirements.txt
 
 # 3. Copy shared libraries
 COPY libs/ ./libs/
@@ -33,7 +33,7 @@ FROM base AS development
 
 # Install development tools for debugging
 RUN --mount=type=cache,target=/root/.cache/pip \
-    pip install ipdb pdbpp
+    pip install --no-cache-dir ipdb pdbpp
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \

@@ -9,7 +9,7 @@ WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
+    curl=8.14.1-2 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
@@ -31,10 +31,17 @@ COPY libs/ /app/libs
 # Create necessary directories
 RUN mkdir -p /app/templates /app/static /app/output
 
+# Create non-root user for security
+RUN useradd --create-home --shell /bin/bash app && \
+    chown -R app:app /app
+
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV PORT=8000
 ENV ENVIRONMENT=development
+
+# Switch to non-root user
+USER app
 
 # Expose port
 EXPOSE ${PORT}
