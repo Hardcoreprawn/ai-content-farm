@@ -421,10 +421,11 @@ resource "azurerm_cognitive_account" "openai" {
 # Note: API key authentication is disabled (local_auth_enabled = false)
 # Services should use managed identity to authenticate with Azure OpenAI
 resource "azurerm_key_vault_secret" "openai_endpoint" {
-  name         = "azure-openai-endpoint"
-  value        = azurerm_cognitive_account.openai.endpoint
-  key_vault_id = azurerm_key_vault.main.id
-  content_type = "text/plain"
+  name            = "azure-openai-endpoint"
+  value           = azurerm_cognitive_account.openai.endpoint
+  key_vault_id    = azurerm_key_vault.main.id
+  content_type    = "text/plain"
+  expiration_date = timeadd(timestamp(), "8760h") # 1 year - infrastructure endpoint
   depends_on = [
     azurerm_key_vault_access_policy.developer_user,
     azurerm_key_vault_access_policy.github_actions_user
@@ -465,10 +466,11 @@ resource "azurerm_cognitive_deployment" "text_embedding_ada_002" {
 
 # Store model deployment names in Key Vault for container apps
 resource "azurerm_key_vault_secret" "openai_chat_model" {
-  name         = "azure-openai-chat-model"
-  value        = azurerm_cognitive_deployment.gpt_35_turbo.name
-  key_vault_id = azurerm_key_vault.main.id
-  content_type = "text/plain"
+  name            = "azure-openai-chat-model"
+  value           = azurerm_cognitive_deployment.gpt_35_turbo.name
+  key_vault_id    = azurerm_key_vault.main.id
+  content_type    = "text/plain"
+  expiration_date = timeadd(timestamp(), "8760h") # 1 year - model deployment name
   depends_on = [
     azurerm_key_vault_access_policy.developer_user,
     azurerm_key_vault_access_policy.github_actions_user
@@ -477,10 +479,11 @@ resource "azurerm_key_vault_secret" "openai_chat_model" {
 }
 
 resource "azurerm_key_vault_secret" "openai_embedding_model" {
-  name         = "azure-openai-embedding-model"
-  value        = azurerm_cognitive_deployment.text_embedding_ada_002.name
-  key_vault_id = azurerm_key_vault.main.id
-  content_type = "text/plain"
+  name            = "azure-openai-embedding-model"
+  value           = azurerm_cognitive_deployment.text_embedding_ada_002.name
+  key_vault_id    = azurerm_key_vault.main.id
+  content_type    = "text/plain"
+  expiration_date = timeadd(timestamp(), "8760h") # 1 year - model deployment name
   depends_on = [
     azurerm_key_vault_access_policy.developer_user,
     azurerm_key_vault_access_policy.github_actions_user

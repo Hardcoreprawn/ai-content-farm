@@ -124,6 +124,7 @@ get_azure_ad_token() {
 
 get_invalid_token() {
     # Create an obviously invalid token for testing
+    # nosemgrep: generic.secrets.security.detected-jwt-token.detected-jwt-token
     echo "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIsIng1dCI6IjFMVE16YWtpaGlSbGFfKzR0OXRGaEJmZ2FSUSIsImtpZCI6IjFMVE16YWtpaGlSbGFfKzR0OXRGaEJmZ2FSUSJHRU1TYWtpaGlSbGFfKzR0OXRGaEJmZ2FSUSJDVE1TYWtpaGlSbGFfKzR0OXRGaEJmZ2FSUSIsImtpZCI6IjFMVE16YWtpaGlSbGFfKzR0OXRGaEJmZ2FSUSIsInR5cCI6IkpXVCIsImFsZyI6IlJTMjU2IiwieDV0IjoiMUxUTXpha2loaVJsYV8rNHQ5dEZoQmZnYVJRIiwia2lkIjoiMUxUTXpha2loaVJsYV8rNHQ5dEZoQmZnYVJRIn0.INVALID_TOKEN_FOR_TESTING"
 }
 
@@ -352,6 +353,7 @@ test_token_expiry_handling() {
     log_info "Testing token expiry handling..."
 
     # Test with an expired token (simulated)
+    # nosemgrep: generic.secrets.security.detected-jwt-token.detected-jwt-token
     local expired_token="eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJhdWQiOiJhcGk6Ly9leGFtcGxlIiwiaXNzIjoiaHR0cHM6Ly9zdHMud2luZG93cy5uZXQvIiwiaWF0IjoxNjAwMDAwMDAwLCJuYmYiOjE2MDAwMDAwMDAsImV4cCI6MTYwMDAwMDAwMSwic3ViIjoidGVzdCIsIm5hbWUiOiJUZXN0IFVzZXIifQ.EXPIRED_TOKEN_SIGNATURE" # pragma: allowlist secret
 
     local containers=("$CONTENT_COLLECTOR_URL")
