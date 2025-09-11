@@ -41,7 +41,8 @@ runs:
       shell: bash
       run: |
         echo "Skipping deployment - no relevant changes detected"
-        base_url="https://ai-content-farm-${{ inputs.environment }}"
+        environment="$(printf '%s' '${{ inputs.environment }}' | sed 's/[^a-zA-Z0-9-]//g')"
+        base_url="https://ai-content-farm-${environment}"
         url="${base_url}.azurecontainerapps.io"
         echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
 
@@ -53,7 +54,8 @@ runs:
         echo "Performing container update deployment..."
 
         # Get resource group
-        if [[ "${{ inputs.environment }}" == "production" ]]; then
+        environment="$(printf '%s' '${{ inputs.environment }}' | sed 's/[^a-zA-Z0-9-]//g')"
+        if [[ "$environment" == "production" ]]; then
           rg="ai-content-prod-rg"
         else
           rg="ai-content-staging-rg"
@@ -83,7 +85,8 @@ runs:
 
         # Initialize Terraform with backend config matching backend.tf
         # Use the storage account from backend.tf unless overridden
-        storage_account="${{ inputs.terraform-storage-account }}"
+        storage_account="$(printf '%s' '${{ inputs.terraform-storage-account }}' | \
+          sed 's/[^a-zA-Z0-9-]//g')"
         if [[ -z "$storage_account" ]]; then
           storage_account="aicontentfarmtfstate"
         fi
@@ -132,7 +135,8 @@ runs:
       id: deploy
       shell: bash
       run: |
-        method="${{ inputs.deployment-method }}"
+        method="$(printf '%s' '${{ inputs.deployment-method }}' | \
+          sed 's/[^a-zA-Z0-9-]//g')"
         if [[ "$method" == "containers" ]]; then
           url="${{ steps.container-deploy.outputs.deployment-url }}"
           echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
@@ -140,7 +144,9 @@ runs:
           url="${{ steps.terraform-deploy.outputs.deployment-url }}"
           echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
         else
-          base_url="https://ai-content-farm-${{ inputs.environment }}"
+          environment="$(printf '%s' '${{ inputs.environment }}' | \
+            sed 's/[^a-zA-Z0-9-]//g')"
+          base_url="https://ai-content-farm-${environment}"
           url="${base_url}.azurecontainerapps.io"
           echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
         fi
