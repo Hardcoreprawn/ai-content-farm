@@ -1,5 +1,5 @@
 # Outputs
-# Trivial change to trigger infrastructure detection - 2025-08-25
+# Force deployment after Azure Functions removal - 2025-09-11
 
 output "resource_group_name" {
   description = "Name of the Azure resource group"
