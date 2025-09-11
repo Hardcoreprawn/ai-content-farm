@@ -93,10 +93,8 @@ runs:
           -backend-config="container_name=tfstate" \
           -backend-config="key=terraform-${{ inputs.environment }}.tfstate"
 
-        # Select workspace
-        env="${{ inputs.environment }}"
-        terraform workspace select "$env" || \
-          terraform workspace new "$env"
+        # Use default workspace with environment-specific state file
+        # No need to create separate workspaces as state files handle environment separation
 
         # Plan and check if there are changes
         echo "Running terraform plan to check for changes..."
