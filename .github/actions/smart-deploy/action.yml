@@ -69,8 +69,14 @@ runs:
       id: terraform-deploy
       if: inputs.deployment-method == 'terraform'
       shell: bash
+      env:
+        ARM_CLIENT_ID: ${{ inputs.client-id }}
+        ARM_TENANT_ID: ${{ inputs.tenant-id }}
+        ARM_SUBSCRIPTION_ID: ${{ inputs.subscription-id }}
+        ARM_USE_OIDC: true
       run: |
         echo "Checking Terraform state and planning deployment..."
+        echo "Using service principal authentication with OIDC"
 
         cd infra
 

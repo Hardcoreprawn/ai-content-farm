@@ -186,7 +186,6 @@ jobs:
         uses: actions/checkout@v5
 
       - name: Setup Terraform
-        if: needs.detect-changes.outputs.deploy-method == 'terraform'
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.5.0
