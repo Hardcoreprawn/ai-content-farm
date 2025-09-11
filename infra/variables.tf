@@ -17,7 +17,7 @@ variable "environment" {
   type        = string
   default     = "development"
   validation {
-    condition     = contains(["development", "staging", "production"], var.environment) || can(regex("^pr-[0-9]+$", var.environment))
+    condition     = can(regex("^(development|staging|production|pr-[0-9]+)$", var.environment))
     error_message = "Environment must be development, staging, production, or pr-{number} format."
   }
 }
