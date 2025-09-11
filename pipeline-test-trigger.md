@@ -1,4 +1,13 @@
-# CI/CD Pipeline Migration - Test Trigger
+# CI/CD Pipel### Current Test Run (Sep 11, 2025) - UPDATED
+**Changes made to test pipeline paths:**
+1. **Container changes**: Added monitoring.py to content-collector and content-processor
+2. **Infrastructure changes**: Updated cost monitoring budget (USD 50 to USD 55)
+3. **Documentation**: Updated main.tf with pipeline test comment
+4. **Pipeline fix**: Resolved JSON formatting in change detection (run 17641426883)
+
+**Now testing comprehensive pipeline with all changes...**
+
+**Expected pipeline behavior:**ration - Test Trigger
 
 This file was created to test the new optimized CI/CD pipeline.
 
