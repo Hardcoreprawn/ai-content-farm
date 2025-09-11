@@ -97,6 +97,7 @@ runs:
         # No need to create separate workspaces as state files handle environment separation
 
         # Plan and check if there are changes
+        env="${{ inputs.environment }}"
         echo "Running terraform plan to check for changes..."
         if terraform plan -detailed-exitcode -out=tfplan; then
           echo "No changes detected in Terraform state"
