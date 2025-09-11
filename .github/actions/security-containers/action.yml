@@ -1,10 +1,26 @@
 name: 'Security Container Scan'
-description: 'Container security scanning with Trivy'
+description: 'Container security scanning with Trivy - supports both Dockerfile and image scanning'
 inputs:
   fail-on-critical:
     description: 'Fail the action if critical vulnerabilities are found'
     required: false
     default: 'true'
+  scan-mode:
+    description: 'Scanning mode: dockerfile (pre-build) or image (post-build)'
+    required: false
+    default: 'dockerfile'
+  registry:
+    description: 'Container registry for image scanning'
+    required: false
+    default: 'ghcr.io'
+  repository:
+    description: 'Container repository for image scanning'
+    required: false
+    default: ''
+  image-tag:
+    description: 'Image tag for scanning built images'
+    required: false
+    default: 'latest'
 
 outputs:
   passed:
@@ -27,26 +43,53 @@ runs:
       shell: bash
       env:
         WORKSPACE_PATH: ${{ github.workspace }}
+        SCAN_MODE: ${{ inputs.scan-mode }}
+        REGISTRY: ${{ inputs.registry }}
+        REPOSITORY: ${{ inputs.repository }}
+        IMAGE_TAG: ${{ inputs.image-tag }}
       continue-on-error: true
       run: |
-        echo "Running Trivy container scan..."
-        # Scan all Dockerfiles
-        find . -name "Dockerfile" -type f | while read -r dockerfile; do
-          dockerfile_dir="$(dirname "$dockerfile")"
-          container_name="$(basename "$dockerfile_dir")"
-          echo "Scanning $container_name..."
-          if [ -d "$dockerfile_dir" ]; then
-            docker run --rm -v "${WORKSPACE_PATH}":/workspace \
-              aquasec/trivy:latest config "/workspace/$dockerfile_dir" \
+        echo "Running Trivy container scan in $SCAN_MODE mode..."
+
+        if [[ "$SCAN_MODE" == "dockerfile" ]]; then
+          echo "Scanning Dockerfiles for configuration issues..."
+          # Scan all Dockerfiles
+          find . -name "Dockerfile" -type f | while read -r dockerfile; do
+            dockerfile_dir="$(dirname "$dockerfile")"
+            container_name="$(basename "$dockerfile_dir")"
+            echo "Scanning Dockerfile for $container_name..."
+            if [ -d "$dockerfile_dir" ]; then
+              docker run --rm -v "${WORKSPACE_PATH}":/workspace \
+                aquasec/trivy:latest config "/workspace/$dockerfile_dir" \
+                --format json \
+                --output "/workspace/security-results/trivy-dockerfile-${container_name}.json" \
+                --severity HIGH,CRITICAL || true
+            fi
+          done
+
+        elif [[ "$SCAN_MODE" == "image" ]]; then
+          echo "Scanning built container images for vulnerabilities..."
+          # Scan built images
+          containers=("content-collector" "content-processor" "site-generator")
+          for container in "${containers[@]}"; do
+            image_name="${REGISTRY}/${REPOSITORY}:${IMAGE_TAG}"
+            echo "Scanning image: $image_name"
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+              aquasec/trivy:latest image \
               --format json \
-              --output "/workspace/security-results/trivy-${container_name}.json" \
-              --severity HIGH,CRITICAL || true
-          fi
-        done
+              --output "/workspace/security-results/trivy-image-${container}.json" \
+              --severity HIGH,CRITICAL \
+              "${REGISTRY}/${REPOSITORY}/${container}:${IMAGE_TAG}" || true
+          done
+        else
+          echo "Invalid scan mode: $SCAN_MODE"
+          exit 1
+        fi
 
     - name: Generate SBOM
       shell: bash
       continue-on-error: true
+      if: inputs.scan-mode == 'dockerfile'
       run: |
         echo "Generating SBOM..."
         make sbom || echo "SBOM generation completed with warnings"
@@ -56,23 +99,30 @@ runs:
       shell: bash
       env:
         FAIL_ON_CRITICAL: ${{ inputs.fail-on-critical }}
+        SCAN_MODE: ${{ inputs.scan-mode }}
       run: |
-        echo "Evaluating container security results..."
+        echo "Evaluating container security results for $SCAN_MODE scan..."
 
         total_critical=0
         total_high=0
 
-        # Trivy Container results
-        trivy_container_files=$(find security-results -name "trivy-*.json" 2>/dev/null | wc -l)
+        # Find Trivy results based on scan mode
+        if [[ "$SCAN_MODE" == "dockerfile" ]]; then
+          pattern="trivy-dockerfile-*.json"
+        else
+          pattern="trivy-image-*.json"
+        fi
+
+        trivy_container_files=$(find security-results -name "$pattern" 2>/dev/null | wc -l)
         if [ "$trivy_container_files" -gt 0 ]; then
-          for trivy_file in security-results/trivy-*.json; do
+          for trivy_file in security-results/$pattern; do
             if [ -f "$trivy_file" ] && [ -s "$trivy_file" ]; then
               container_critical="$(jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL") | .VulnerabilityID' "$trivy_file" 2>/dev/null | wc -l)" || container_critical="0"
               container_high="$(jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH") | .VulnerabilityID' "$trivy_file" 2>/dev/null | wc -l)" || container_high="0"
               total_critical=$((total_critical + container_critical))
               total_high=$((total_high + container_high))
-              container_name=$(basename "$trivy_file" .json | sed 's/trivy-//')
-              echo "Trivy Container ($container_name): $container_critical critical, $container_high high"
+              container_name=$(basename "$trivy_file" .json | sed "s/trivy-${SCAN_MODE}-//")
+              echo "Trivy $SCAN_MODE ($container_name): $container_critical critical, $container_high high"
             fi
           done
         else

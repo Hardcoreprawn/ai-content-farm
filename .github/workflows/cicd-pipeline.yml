@@ -121,6 +121,7 @@ jobs:
         uses: ./.github/actions/security-containers
         with:
           fail-on-critical: 'false'
+          scan-mode: 'dockerfile'
 
   security-code:
     name: Security Code
@@ -243,6 +244,33 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           image-tag: ${{ github.sha }}
 
+  security-container-images:
+    name: Security Container Images
+    runs-on: ubuntu-latest
+    needs: [build-containers]
+    if: |
+      always() &&
+      needs.build-containers.result == 'success'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Login to Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Container Image Security Scan
+        uses: ./.github/actions/security-containers
+        with:
+          fail-on-critical: 'false'
+          scan-mode: 'image'
+          registry: ${{ env.REGISTRY }}
+          repository: ${{ env.REPOSITORY }}
+          image-tag: ${{ github.sha }}
+
   summary:
     name: Summary
     runs-on: ubuntu-latest
@@ -252,6 +280,7 @@ jobs:
       - security-infrastructure
       - security-containers
       - security-code
+      - security-container-images
       - terraform-checks
       - test-containers
       - build-containers

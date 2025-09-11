@@ -15,8 +15,9 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements first for better caching
 COPY containers/site-generator/requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies with cache mount
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --no-cache-dir -r requirements.txt
 
 # Development stage
 FROM base AS development
