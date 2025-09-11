@@ -131,9 +131,25 @@ class ExternalAPIClient:
                     }
                 )
 
-        regions_configured = [ep.get("region", "unknown") for ep in endpoints]
+        # Log endpoint configuration (extract regions separately to avoid sensitive data flow)
+        configured_regions = []
+
+        # Primary endpoint region
+        if self.settings.azure_openai_endpoint:
+            configured_regions.append(
+                self._extract_region(self.settings.azure_openai_endpoint)
+            )
+
+        # Multi-region endpoint regions
+        for region in [APIRegion.UK_SOUTH, APIRegion.WEST_EUROPE]:
+            region_endpoint = self.settings.get_openai_endpoint_for_region(region.value)
+            if region_endpoint and region_endpoint not in [
+                ep["endpoint"] for ep in endpoints
+            ]:
+                configured_regions.append(region.value)
+
         self.logger.info(
-            f"Configured {len(regions_configured)} OpenAI endpoints: {regions_configured}"
+            f"Configured {len(configured_regions)} OpenAI endpoints: {configured_regions}"
         )
         return endpoints
 
