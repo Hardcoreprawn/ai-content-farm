@@ -134,7 +134,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "container_health" {
 
 # Certificate Renewal Workbook
 resource "azurerm_application_insights_workbook" "certificate_dashboard" {
-  name                = "${var.resource_prefix}-cert-dashboard"
+  name                = uuidv5("x500", "${var.resource_prefix}-cert-dashboard") # Generate UUID for workbook name
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
   display_name        = "Certificate Management Dashboard"
@@ -249,11 +249,11 @@ resource "azurerm_log_analytics_saved_search" "mtls_communication_health" {
 
   query = <<-EOT
     ContainerAppConsoleLogs_CL
-    | where Log_s contains "dapr" 
+    | where Log_s contains "dapr"
     | where Log_s contains "mTLS" or Log_s contains "certificate" or Log_s contains "TLS"
     | extend LogLevel = case(
         Log_s contains "error" or Log_s contains "ERROR", "Error",
-        Log_s contains "warn" or Log_s contains "WARN", "Warning", 
+        Log_s contains "warn" or Log_s contains "WARN", "Warning",
         Log_s contains "info" or Log_s contains "INFO", "Info",
         "Debug"
     )

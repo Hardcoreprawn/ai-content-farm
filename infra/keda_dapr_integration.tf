@@ -111,7 +111,7 @@ resource "azurerm_container_app_environment_dapr_component" "keda_http_scaler" {
 # Enhanced Container Apps with KEDA + Dapr scaling
 resource "azurerm_container_app" "content_collector_keda_dapr" {
   count                        = var.enable_mtls ? 1 : 0
-  name                         = "${var.resource_prefix}-collector-keda-dapr"
+  name                         = "${var.resource_prefix}-collector-keda" # Shortened to fit 32 char limit
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
