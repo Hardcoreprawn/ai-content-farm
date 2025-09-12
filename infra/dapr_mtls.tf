@@ -35,7 +35,7 @@ resource "azurerm_container_app_environment_dapr_component" "mtls_configuration"
   }
 
   # Scope to all services in the environment
-  scopes = ["*"]
+  scopes = ["default"]
 
   depends_on = [
     azurerm_key_vault.main,
@@ -90,7 +90,7 @@ resource "azurerm_container_app_environment_dapr_component" "access_control" {
     ])
   }
 
-  scopes = ["*"]
+  scopes = ["default"]
 
   depends_on = [
     azurerm_container_app_environment.main

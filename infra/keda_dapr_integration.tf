@@ -324,9 +324,8 @@ resource "azurerm_container_app" "work_queue_manager" {
   }
 
   dapr {
-    app_id       = "work-queue-manager"
-    app_port     = 3500
-    app_protocol = "http"
+    app_id = "work-queue-manager"
+    # No app_port needed for Dapr sidecar-only container
   }
 
   tags = local.common_tags

@@ -314,7 +314,15 @@ resource "azurerm_monitor_diagnostic_setting" "storage_logging" {
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
   enabled_log {
-    category_group = "allLogs"
+    category = "StorageRead"
+  }
+
+  enabled_log {
+    category = "StorageWrite"
+  }
+
+  enabled_log {
+    category = "StorageDelete"
   }
 
   enabled_metric {
@@ -329,7 +337,15 @@ resource "azurerm_monitor_diagnostic_setting" "storage_blob_logging" {
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
   enabled_log {
-    category_group = "allLogs"
+    category = "StorageRead"
+  }
+
+  enabled_log {
+    category = "StorageWrite"
+  }
+
+  enabled_log {
+    category = "StorageDelete"
   }
 
   enabled_metric {
