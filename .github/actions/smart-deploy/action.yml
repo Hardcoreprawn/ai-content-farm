@@ -102,7 +102,12 @@ runs:
         # Plan and check if there are changes
         env="${{ inputs.environment }}"
         echo "Running terraform plan to check for changes..."
-        if terraform plan -detailed-exitcode -out=tfplan; then
+        echo "Using image tag: ${{ inputs.image-tag }}"
+        echo "Environment: $env"
+
+        if terraform plan -detailed-exitcode -out=tfplan \
+          -var="image_tag=${{ inputs.image-tag }}" \
+          -var="environment=$env"; then
           echo "No changes detected in Terraform state"
           echo "terraform-changes=false" >> "$GITHUB_OUTPUT"
         else

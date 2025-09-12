@@ -73,11 +73,9 @@ jobs:
                         sort -u | jq -R . | jq -s . | jq -c .)
           fi
 
-          if [[ "$containers" != "[]" ]]; then
-            deploy_method="containers"
-          else
-            deploy_method="terraform"
-          fi
+          # Always run terraform to manage infrastructure state properly
+          # Terraform plan will detect if there are actual changes to deploy
+          deploy_method="terraform"
 
           {
             echo "containers=$containers"
