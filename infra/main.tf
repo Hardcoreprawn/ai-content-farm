@@ -308,50 +308,52 @@ resource "azurerm_storage_account" "main" {
 }
 
 # Enable Storage Analytics logging using modern diagnostic settings approach
-resource "azurerm_monitor_diagnostic_setting" "storage_logging" {
-  name                       = "${local.resource_prefix}-storage-logs"
-  target_resource_id         = azurerm_storage_account.main.id
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+# TODO: Re-enable after determining correct log categories for Storage Account
+# resource "azurerm_monitor_diagnostic_setting" "storage_logging" {
+#   name                       = "${local.resource_prefix}-storage-logs"
+#   target_resource_id         = azurerm_storage_account.main.id
+#   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  enabled_log {
-    category = "StorageRead"
-  }
+#   enabled_log {
+#     category = "StorageRead"
+#   }
 
-  enabled_log {
-    category = "StorageWrite"
-  }
+#   enabled_log {
+#     category = "StorageWrite"
+#   }
 
-  enabled_log {
-    category = "StorageDelete"
-  }
+#   enabled_log {
+#     category = "StorageDelete"
+#   }
 
-  enabled_metric {
-    category = "Transaction"
-  }
-}
+#   enabled_metric {
+#     category = "Transaction"
+#   }
+# }
 
 # Enable blob service diagnostic settings for security compliance
-resource "azurerm_monitor_diagnostic_setting" "storage_blob_logging" {
-  name                       = "${local.resource_prefix}-blob-logs"
-  target_resource_id         = "${azurerm_storage_account.main.id}/blobServices/default"
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
+# TODO: Re-enable after determining correct log categories for Blob service
+# resource "azurerm_monitor_diagnostic_setting" "storage_blob_logging" {
+#   name                       = "${local.resource_prefix}-blob-logs"
+#   target_resource_id         = "${azurerm_storage_account.main.id}/blobServices/default"
+#   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 
-  enabled_log {
-    category = "StorageRead"
-  }
+#   enabled_log {
+#     category = "StorageRead"
+#   }
 
-  enabled_log {
-    category = "StorageWrite"
-  }
+#   enabled_log {
+#     category = "StorageWrite"
+#   }
 
-  enabled_log {
-    category = "StorageDelete"
-  }
+#   enabled_log {
+#     category = "StorageDelete"
+#   }
 
-  enabled_metric {
-    category = "Transaction"
-  }
-}
+#   enabled_metric {
+#     category = "Transaction"
+#   }
+# }
 
 resource "azurerm_storage_container" "topics" {
   # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
