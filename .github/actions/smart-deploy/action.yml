@@ -105,52 +105,16 @@ runs:
         echo "Using image tag: ${{ inputs.image-tag }}"
         echo "Environment: $env"
 
-        # Run terraform plan and capture the exit code
-        echo "Running terraform plan with detailed-exitcode..."
-        echo "Pre-plan working directory: $(pwd)"
-
-        # Disable pipefail temporarily to ensure exit code capture works
-        set +e
-        set +o pipefail
-
-        terraform plan -detailed-exitcode -out=tfplan \
+        # Since we're in a deployment pipeline and want to apply changes,
+        # just run terraform apply directly with auto-approve
+        echo "Running terraform apply with auto-approve..."
+        terraform apply --auto-approve \
           -var="image_tag=${{ inputs.image-tag }}" \
           -var="environment=$env"
-        plan_exit_code=$?
 
-        # Re-enable error handling
-        set -e
-        set -o pipefail
-
-        echo "Terraform plan exit code: $plan_exit_code"
+        echo "Terraform deployment completed successfully"
+        echo "terraform-changes=true" >> "$GITHUB_OUTPUT"
         echo "Exit code meanings: 0=no changes, 1=error, 2=changes detected"
-
-        # Additional verification - check if plan file was created and has content
-        if [[ -f "tfplan" ]]; then
-          echo "Plan file exists and size is: $(stat -c%s tfplan) bytes"
-          # Try to get plan summary
-          set +e
-          terraform show -no-color tfplan | head -10 | grep -E "(Plan:|to add|to change|to destroy)" || echo "No plan summary found"
-          set -e
-        else
-          echo "ERROR: Plan file was not created!"
-        fi
-        echo "Exit code meanings: 0=no changes, 1=error, 2=changes detected"
-
-        if [[ $plan_exit_code -eq 0 ]]; then
-          echo "No changes detected in Terraform state (exit code 0)"
-          echo "terraform-changes=false" >> "$GITHUB_OUTPUT"
-        elif [[ $plan_exit_code -eq 2 ]]; then
-          echo "Terraform changes detected (exit code 2), applying..."
-          terraform apply -auto-approve tfplan
-          echo "terraform-changes=true" >> "$GITHUB_OUTPUT"
-        elif [[ $plan_exit_code -eq 1 ]]; then
-          echo "Terraform plan failed with error (exit code 1)"
-          exit 1
-        else
-          echo "Terraform plan returned unexpected exit code: $plan_exit_code"
-          exit $plan_exit_code
-        fi
 
         # Get deployment URL - prefer custom domain if available, fallback to default
         custom_url=$(terraform output -raw static_web_app_custom_domain 2>/dev/null || echo "")
