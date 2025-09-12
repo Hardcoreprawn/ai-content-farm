@@ -35,16 +35,15 @@ resource "azurerm_key_vault" "main" {
 
   # Network ACLs for security compliance
   network_acls {
-    default_action = "Deny"
+    default_action = "Allow" # Temporarily allow all during initial deployment
     bypass         = "AzureServices"
-    # Allow GitHub Actions IPs - these are the documented GitHub Actions IP ranges
-    ip_rules = [
-      "20.201.28.151/32", # GitHub Actions runner IPs
-      "20.205.243.166/32",
-      "20.87.245.0/24",
-      "20.118.201.0/24"
-    ]
-    # Allow Azure services to bypass the network ACL
+    # TODO: Re-enable IP restrictions after initial deployment
+    # ip_rules = [
+    #   "20.201.28.151/32", # GitHub Actions runner IPs
+    #   "20.205.243.166/32",
+    #   "20.87.245.0/24",
+    #   "20.118.201.0/24"
+    # ]
   }
 
   tags = {
@@ -439,15 +438,14 @@ resource "azurerm_cognitive_account" "openai" {
 
   # Network access restrictions - secured for Container Apps
   network_acls {
-    default_action = "Deny"
-    # Allow Azure services including Container Apps to access via managed identity
-    # Container Apps Consumption tier uses Azure backbone for service communication
-    ip_rules = [
-      "20.201.28.151/32", # GitHub Actions runner IPs for deployment
-      "20.205.243.166/32",
-      "20.87.245.0/24",
-      "20.118.201.0/24"
-    ]
+    default_action = "Allow" # Temporarily allow all during initial deployment
+    # TODO: Re-enable IP restrictions after initial deployment
+    # ip_rules = [
+    #   "20.201.28.151/32", # GitHub Actions runner IPs for deployment
+    #   "20.205.243.166/32",
+    #   "20.87.245.0/24",
+    #   "20.118.201.0/24"
+    # ]
   }
 
   tags = local.common_tags
