@@ -15,7 +15,7 @@ resource "azurerm_container_app_environment_dapr_component" "mtls_configuration"
 
   metadata {
     name  = "allowedOrigins"
-    value = "https://*.${azurerm_dns_zone.jablab.name}"
+    value = "https://*.jablab.dev"
   }
 
   metadata {
@@ -62,7 +62,7 @@ resource "azurerm_container_app_environment_dapr_component" "access_control" {
 
   metadata {
     name  = "trustDomain"
-    value = azurerm_dns_zone.jablab.name
+    value = "jablab.dev"
   }
 
   # Service-specific access policies
@@ -72,19 +72,19 @@ resource "azurerm_container_app_environment_dapr_component" "access_control" {
       {
         "appId" : "content-collector",
         "defaultAction" : "allow",
-        "trustDomain" : azurerm_dns_zone.jablab.name,
+        "trustDomain" : "jablab.dev",
         "namespace" : "default"
       },
       {
         "appId" : "content-processor",
         "defaultAction" : "allow",
-        "trustDomain" : azurerm_dns_zone.jablab.name,
+        "trustDomain" : "jablab.dev",
         "namespace" : "default"
       },
       {
         "appId" : "site-generator",
         "defaultAction" : "allow",
-        "trustDomain" : azurerm_dns_zone.jablab.name,
+        "trustDomain" : "jablab.dev",
         "namespace" : "default"
       }
     ])
@@ -178,7 +178,7 @@ locals {
       enabled           = var.enable_mtls
       workload_cert_ttl = "24h"
       allow_insecure    = false
-      trust_domain      = azurerm_dns_zone.jablab.name
+      trust_domain      = "jablab.dev"
     }
 
     # Service discovery
@@ -186,7 +186,7 @@ locals {
       component = "mdns"
       version   = "v1"
       configuration = {
-        addresses = ["api.${azurerm_dns_zone.jablab.name}:443"]
+        addresses = ["api.jablab.dev:443"]
       }
     }
   }

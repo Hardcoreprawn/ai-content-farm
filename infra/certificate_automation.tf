@@ -26,7 +26,7 @@ resource "azurerm_container_group" "certificate_renewal" {
     environment_variables = {
       RESOURCE_GROUP  = azurerm_resource_group.main.name
       KEY_VAULT_NAME  = azurerm_key_vault.main.name
-      DNS_ZONE        = azurerm_dns_zone.jablab.name
+      DNS_ZONE        = "jablab.dev"
       STORAGE_ACCOUNT = azurerm_storage_account.main.name
       AZURE_CLIENT_ID = azurerm_user_assigned_identity.cert_manager.client_id
     }
@@ -134,7 +134,7 @@ resource "azurerm_resource_group_template_deployment" "certificate_renewal_workf
                 type = "Http"
                 inputs = {
                   method = "POST"
-                  uri    = "https://api.${azurerm_dns_zone.jablab.name}/webhooks/certificate-renewal-completed"
+                  uri    = "https://api.jablab.dev/webhooks/certificate-renewal-completed"
                   headers = {
                     "Content-Type" = "application/json"
                   }

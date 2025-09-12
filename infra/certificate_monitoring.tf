@@ -10,13 +10,13 @@ resource "azurerm_monitor_action_group" "certificate_alerts" {
   # Email notification
   email_receiver {
     name          = "certificate-admin"
-    email_address = var.certificate_email != "" ? var.certificate_email : "admin@jablab.com"
+    email_address = var.certificate_email != "" ? var.certificate_email : "admin@jablab.dev"
   }
 
   # Webhook for automated renewal (optional)
   webhook_receiver {
     name        = "certificate-renewal-webhook"
-    service_uri = "https://api.${azurerm_dns_zone.jablab.name}/webhooks/certificate-renewal"
+    service_uri = "https://api.jablab.dev/webhooks/certificate-renewal"
   }
 
   tags = local.common_tags
@@ -196,7 +196,7 @@ resource "azurerm_consumption_budget_resource_group" "certificate_cost_budget" {
     threshold_type = "Actual"
 
     contact_emails = [
-      var.certificate_email != "" ? var.certificate_email : "admin@jablab.com"
+      var.certificate_email != "" ? var.certificate_email : "admin@jablab.dev"
     ]
   }
 
@@ -207,7 +207,7 @@ resource "azurerm_consumption_budget_resource_group" "certificate_cost_budget" {
     threshold_type = "Forecasted"
 
     contact_emails = [
-      var.certificate_email != "" ? var.certificate_email : "admin@jablab.com"
+      var.certificate_email != "" ? var.certificate_email : "admin@jablab.dev"
     ]
   }
 
@@ -215,8 +215,8 @@ resource "azurerm_consumption_budget_resource_group" "certificate_cost_budget" {
     dimension {
       name = "ResourceId"
       values = [
-        azurerm_key_vault.main.id,
-        azurerm_dns_zone.jablab.id
+        azurerm_key_vault.main.id
+        # Note: External jablab.dev DNS zone not included in budget tracking
       ]
     }
   }

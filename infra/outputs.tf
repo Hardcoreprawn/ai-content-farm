@@ -132,30 +132,8 @@ output "site_generator_name" {
   value       = azurerm_container_app.site_generator.name
 }
 
-# Static Web App outputs
-output "static_web_app_url" {
-  description = "Default URL of the Static Web App"
-  value       = "https://${azurerm_static_web_app.jablab.default_host_name}"
-}
-
-output "static_web_app_custom_domain" {
-  description = "Custom domain URL for jablab.com"
-  value       = "https://jablab.com"
-}
-
-output "static_web_app_name" {
-  description = "Name of the Static Web App"
-  value       = azurerm_static_web_app.jablab.name
-}
-
 # Function App outputs removed - Functions infrastructure cleaned up
 # Static site generation now handled by site-generator container
-
-# DNS Zone outputs
-output "dns_zone_name_servers" {
-  description = "Name servers for jablab.com DNS zone"
-  value       = azurerm_dns_zone.jablab.name_servers
-}
 
 # Pipeline Functions outputs removed - using container-based approach instead
 

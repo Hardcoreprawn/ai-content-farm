@@ -554,12 +554,12 @@ resource "azurerm_container_app" "site_generator" {
 
       env {
         name  = "SITE_DOMAIN"
-        value = "jablab.com"
+        value = "jablab.dev"
       }
 
       env {
         name  = "SITE_URL"
-        value = "https://jablab.com"
+        value = "https://jablab.dev"
       }
 
       env {

@@ -1,11 +1,22 @@
 # Certificate Management Infrastructure for mTLS
 # Implements Let's Encrypt integration with DNS-01 challenges for automated certificate issuance
 
+# Dedicated PKI Resource Group for certificate infrastructure
+resource "azurerm_resource_group" "pki" {
+  name     = "${var.resource_prefix}-pki-rg"
+  location = var.location
+
+  tags = merge(local.common_tags, {
+    Purpose = "pki-infrastructure"
+    Service = "certificate-management"
+  })
+}
+
 # User Assigned Identity for Certificate Management
 resource "azurerm_user_assigned_identity" "cert_manager" {
   name                = "${var.resource_prefix}-cert-manager"
   location            = var.location
-  resource_group_name = azurerm_resource_group.main.name
+  resource_group_name = azurerm_resource_group.pki.name
 
   tags = merge(local.common_tags, {
     Purpose = "certificate-management"
@@ -14,8 +25,9 @@ resource "azurerm_user_assigned_identity" "cert_manager" {
 }
 
 # Grant Certificate Manager identity access to DNS Zone for DNS-01 challenges
+# Note: References external jablab.dev DNS zone managed separately
 resource "azurerm_role_assignment" "cert_manager_dns_contributor" {
-  scope                = azurerm_dns_zone.jablab.id
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.dns_zones_resource_group != "" ? var.dns_zones_resource_group : azurerm_resource_group.main.name}/providers/Microsoft.Network/dnsZones/jablab.dev"
   role_definition_name = "DNS Zone Contributor"
   principal_id         = azurerm_user_assigned_identity.cert_manager.principal_id
 }
@@ -90,7 +102,7 @@ resource "azurerm_key_vault_secret" "acme_directory_url" {
 # Key Vault secret for certificate email contact
 resource "azurerm_key_vault_secret" "certificate_email" {
   name         = "certificate-email"
-  value        = var.certificate_email != "" ? var.certificate_email : "admin@jablab.com"
+  value        = var.certificate_email != "" ? var.certificate_email : "admin@jablab.dev"
   key_vault_id = azurerm_key_vault.main.id
   content_type = "text/plain"
 
@@ -107,25 +119,25 @@ resource "azurerm_key_vault_secret" "certificate_email" {
   ]
 }
 
-# Service domains for certificate generation
 locals {
-  service_domains = [
-    "api.${azurerm_dns_zone.jablab.name}",
-    "collector.${azurerm_dns_zone.jablab.name}",
-    "processor.${azurerm_dns_zone.jablab.name}",
-    "generator.${azurerm_dns_zone.jablab.name}",
-    "admin.${azurerm_dns_zone.jablab.name}"
+  # Certificate domains for jablab.dev services
+  certificate_domains = [
+    "api.jablab.dev",
+    "collector.jablab.dev",
+    "processor.jablab.dev",
+    "generator.jablab.dev",
+    "admin.jablab.dev"
   ]
 }
 
 # DNS TXT records for ACME challenges (placeholders)
 # These will be dynamically managed by the certificate automation
 resource "azurerm_dns_txt_record" "acme_challenge" {
-  for_each = toset(local.service_domains)
+  for_each = toset(local.certificate_domains)
 
   name                = "_acme-challenge.${split(".", each.value)[0]}"
-  zone_name           = azurerm_dns_zone.jablab.name
-  resource_group_name = azurerm_resource_group.main.name
+  zone_name           = "jablab.dev"
+  resource_group_name = var.dns_zones_resource_group != "" ? var.dns_zones_resource_group : azurerm_resource_group.main.name
   ttl                 = 60
 
   record {
@@ -145,8 +157,8 @@ resource "azurerm_dns_txt_record" "acme_challenge" {
 # DNS A records for service domains pointing to Container Apps
 resource "azurerm_dns_a_record" "service_api" {
   name                = "api"
-  zone_name           = azurerm_dns_zone.jablab.name
-  resource_group_name = azurerm_resource_group.main.name
+  zone_name           = "jablab.dev"
+  resource_group_name = var.dns_zones_resource_group != "" ? var.dns_zones_resource_group : azurerm_resource_group.main.name
   ttl                 = 300
   records             = [azurerm_container_app.content_collector.latest_revision_fqdn] # Will be updated post-deployment
 

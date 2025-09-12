@@ -13,12 +13,12 @@ variable "subscription_id" {
 }
 
 variable "environment" {
-  description = "Environment name (staging, production, or dynamic like pr-123)"
+  description = "Environment name (production only - dev/staging handled via container revisions)"
   type        = string
-  default     = "development"
+  default     = "production"
   validation {
-    condition     = can(regex("^(development|staging|production|pr-[0-9]+)$", var.environment))
-    error_message = "Environment must be development, staging, production, or pr-{number} format."
+    condition     = var.environment == "production"
+    error_message = "Only production environment supported. Use container revisions for dev/staging."
   }
 }
 
@@ -150,7 +150,7 @@ variable "certificate_services" {
 variable "certificate_domains" {
   description = "Additional domains to include in certificates"
   type        = list(string)
-  default     = ["jablab.com", "jablab.dev"]
+  default     = ["jablab.dev"]
 }
 
 variable "dns_zones_resource_group" {
