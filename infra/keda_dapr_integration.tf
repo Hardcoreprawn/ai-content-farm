@@ -266,22 +266,15 @@ resource "azurerm_container_app" "content_collector_keda_dapr" {
       concurrent_requests = 1
     }
 
-    # KEDA Custom scaler for Cosmos DB work queue
-    custom_scale_rule {
-      name             = "cosmosdb-work-queue-scaler"
-      custom_rule_type = "azure-cosmosdb"
-
-      metadata = {
-        connectionString = azurerm_cosmosdb_account.keda_state[0].primary_sql_connection_string
-        databaseName     = azurerm_cosmosdb_sql_database.keda_state[0].name
-        containerName    = azurerm_cosmosdb_sql_container.work_queue[0].name
-        query            = "SELECT VALUE COUNT(1) FROM c WHERE c.service_name = 'content-collector' AND c.status = 'pending'"
-        targetValue      = "1"
-      }
+    # KEDA HTTP scaler - fallback to Service Bus queue for now
+    azure_queue_scale_rule {
+      name         = "servicebus-queue-scaler"
+      queue_length = 1
+      queue_name   = "content-collection-requests"
 
       authentication {
-        secret_name       = "cosmosdb-connection" # pragma: allowlist secret
-        trigger_parameter = "connectionString"
+        secret_name       = "azure-servicebus-connection-string" # pragma: allowlist secret
+        trigger_parameter = "connection"
       }
     }
   }
