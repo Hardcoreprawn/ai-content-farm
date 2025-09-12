@@ -83,17 +83,17 @@ resource "azurerm_container_app" "content_collector_dapr" {
       }
 
       env {
-        name        = "REDDIT_CLIENT_ID"
+        name        = "REDDIT_CLIENT_ID" # pragma: allowlist secret
         secret_name = "reddit-client-id"
       }
 
       env {
         name        = "REDDIT_CLIENT_SECRET"
-        secret_name = "reddit-client-secret"
+        secret_name = "reddit-client-secret" # pragma: allowlist secret
       }
 
       env {
-        name        = "REDDIT_USER_AGENT"
+        name        = "REDDIT_USER_AGENT" # pragma: allowlist secret
         secret_name = "reddit-user-agent"
       }
 
@@ -119,7 +119,7 @@ resource "azurerm_container_app" "content_collector_dapr" {
       }
 
       env {
-        name        = "DAPR_TRUST_ANCHORS"
+        name        = "DAPR_TRUST_ANCHORS" # pragma: allowlist secret
         secret_name = "tls-certificate"
       }
 
@@ -160,7 +160,7 @@ resource "azurerm_container_app" "content_collector_dapr" {
   ]
 }
 
-# Update Content Processor with Dapr  
+# Update Content Processor with Dapr
 resource "azurerm_container_app" "content_processor_dapr" {
   count = var.enable_mtls ? 1 : 0
 
@@ -279,7 +279,7 @@ resource "azurerm_container_app" "content_processor_dapr" {
       }
 
       env {
-        name        = "DAPR_TRUST_ANCHORS"
+        name        = "DAPR_TRUST_ANCHORS" # pragma: allowlist secret
         secret_name = "tls-certificate"
       }
 
@@ -353,13 +353,7 @@ resource "azurerm_container_app" "site_generator_dapr" {
   ingress {
     external_enabled = true
     target_port      = 8000
-    transport        = "https"
-
-    # Custom domain for generator service
-    custom_domain {
-      name           = "generator.${azurerm_dns_zone.jablab.name}"
-      certificate_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.main.name}/providers/Microsoft.KeyVault/vaults/${azurerm_key_vault.main.name}/certificates/generator-${replace(azurerm_dns_zone.jablab.name, ".", "-")}"
-    }
+    transport        = "http"
 
     # IP restrictions for secure access
     ip_security_restriction {
@@ -413,7 +407,7 @@ resource "azurerm_container_app" "site_generator_dapr" {
       }
 
       env {
-        name        = "DAPR_TRUST_ANCHORS"
+        name        = "DAPR_TRUST_ANCHORS" # pragma: allowlist secret
         secret_name = "tls-certificate"
       }
 

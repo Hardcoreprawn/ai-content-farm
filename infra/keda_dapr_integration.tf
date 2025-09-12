@@ -291,7 +291,7 @@ resource "azurerm_container_app" "content_collector_keda_dapr" {
 # Work Queue Management Service (replaces Service Bus message sending)
 resource "azurerm_container_app" "work_queue_manager" {
   count                        = var.enable_mtls ? 1 : 0
-  name                         = "${var.resource_prefix}-work-queue-manager"
+  name                         = "${var.resource_prefix}-queue-mgr"
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"

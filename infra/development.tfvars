@@ -3,7 +3,7 @@ environment     = "development"
 resource_prefix = "ai-content-dev"
 
 # PKI Configuration
-enable_pki        = true
+enable_pki        = false
 primary_domain    = "jablab.dev"
 certificate_email = "dev@jablab.dev"
 
@@ -19,7 +19,7 @@ jablab_dev_resource_group = "jabr_personal"
 
 # KEDA and mTLS integration
 enable_keda = true
-enable_mtls = true
+enable_mtls = false
 
 # Development-specific settings
 location          = "uksouth"
