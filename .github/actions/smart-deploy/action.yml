@@ -105,30 +105,36 @@ runs:
         echo "Using image tag: ${{ inputs.image-tag }}"
         echo "Environment: $env"
 
-        # Debug environment
-        echo "=== DEBUG INFORMATION ==="
-        echo "Terraform version:"
-        terraform version
-        echo "Current working directory: $(pwd)"
-        echo "Available files:"
-        ls -la
-        echo "Environment variables affecting terraform:"
-        env | grep -E "(TF_|ARM_|AZURE_)" || echo "No TF/ARM/AZURE env vars found"
-        echo "========================="
-
         # Run terraform plan and capture the exit code
-        set +e  # Disable exit on error temporarily
-
         echo "Running terraform plan with detailed-exitcode..."
+        echo "Pre-plan working directory: $(pwd)"
+
+        # Disable pipefail temporarily to ensure exit code capture works
+        set +e
+        set +o pipefail
+
         terraform plan -detailed-exitcode -out=tfplan \
           -var="image_tag=${{ inputs.image-tag }}" \
           -var="environment=$env"
         plan_exit_code=$?
-        echo "DEBUG: Immediate exit code capture: $plan_exit_code"
-        echo "DEBUG: Dollar-question-mark value: $?"
-        set -e  # Re-enable exit on error
+
+        # Re-enable error handling
+        set -e
+        set -o pipefail
 
         echo "Terraform plan exit code: $plan_exit_code"
+        echo "Exit code meanings: 0=no changes, 1=error, 2=changes detected"
+
+        # Additional verification - check if plan file was created and has content
+        if [[ -f "tfplan" ]]; then
+          echo "Plan file exists and size is: $(stat -c%s tfplan) bytes"
+          # Try to get plan summary
+          set +e
+          terraform show -no-color tfplan | head -10 | grep -E "(Plan:|to add|to change|to destroy)" || echo "No plan summary found"
+          set -e
+        else
+          echo "ERROR: Plan file was not created!"
+        fi
         echo "Exit code meanings: 0=no changes, 1=error, 2=changes detected"
 
         if [[ $plan_exit_code -eq 0 ]]; then
