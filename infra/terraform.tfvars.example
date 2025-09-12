@@ -2,6 +2,27 @@
 environment = "development"
 resource_prefix = "ai-content-dev"
 
+# PKI and mTLS Configuration
+enable_pki = true
+enable_mtls = true
+primary_domain = "jablab.dev"
+certificate_email = "admin@jablab.dev"
+
+# Existing DNS zones resource groups (discovered from Azure)
+jablab_dev_resource_group = "jabr_personal"
+jablab_com_resource_group = "ai-content-prod-rg"
+
+certificate_services = [
+  "content-collector",
+  "content-processor",
+  "site-generator"
+]
+
+certificate_domains = [
+  "jablab.dev",
+  "jablab.com"
+]
+
 # Reddit API Configuration (can be overridden by Key Vault)
 # reddit_client_id = ""        # Set via Key Vault or terraform apply -var
 # reddit_client_secret = ""    # Set via Key Vault or terraform apply -var

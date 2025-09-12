@@ -116,7 +116,7 @@ variable "infracost_api_key" {
 variable "certificate_email" {
   description = "Email address for Let's Encrypt certificate notifications"
   type        = string
-  default     = ""
+  default     = "admin@jablab.dev"
 }
 
 variable "enable_mtls" {
@@ -125,8 +125,42 @@ variable "enable_mtls" {
   default     = true
 }
 
+variable "enable_pki" {
+  description = "Enable PKI infrastructure and certificate management"
+  type        = bool
+  default     = false
+}
+
+variable "primary_domain" {
+  description = "Primary domain for certificates (jablab.dev or jablab.com)"
+  type        = string
+  default     = "jablab.dev"
+}
+
+variable "certificate_services" {
+  description = "List of services that need certificates"
+  type        = list(string)
+  default = [
+    "content-collector",
+    "content-processor",
+    "site-generator"
+  ]
+}
+
 variable "certificate_domains" {
   description = "Additional domains to include in certificates"
   type        = list(string)
-  default     = []
+  default     = ["jablab.com", "jablab.dev"]
+}
+
+variable "dns_zones_resource_group" {
+  description = "Resource group containing existing DNS zones (empty = use main resource group)"
+  type        = string
+  default     = ""
+}
+
+variable "jablab_dev_resource_group" {
+  description = "Resource group for jablab.dev DNS zone"
+  type        = string
+  default     = "jabr_personal"
 }
