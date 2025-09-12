@@ -51,13 +51,7 @@ resource "azurerm_container_app" "content_collector_dapr" {
   ingress {
     external_enabled = true
     target_port      = 8000
-    transport        = "https" # Enable HTTPS for mTLS
-
-    # Custom domain configuration
-    custom_domain {
-      name           = "collector.${azurerm_dns_zone.jablab.name}"
-      certificate_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.main.name}/providers/Microsoft.KeyVault/vaults/${azurerm_key_vault.main.name}/certificates/collector-${replace(azurerm_dns_zone.jablab.name, ".", "-")}"
-    }
+    transport        = "http" # Fixed: Use HTTP instead of HTTPS for basic deployment
 
     traffic_weight {
       percentage      = 100
@@ -84,17 +78,17 @@ resource "azurerm_container_app" "content_collector_dapr" {
 
       env {
         name        = "REDDIT_CLIENT_ID" # pragma: allowlist secret
-        secret_name = "reddit-client-id"
+        secret_name = "reddit-client-id" # pragma: allowlist secret
       }
 
       env {
-        name        = "REDDIT_CLIENT_SECRET"
+        name        = "REDDIT_CLIENT_SECRET" # pragma: allowlist secret
         secret_name = "reddit-client-secret" # pragma: allowlist secret
       }
 
       env {
         name        = "REDDIT_USER_AGENT" # pragma: allowlist secret
-        secret_name = "reddit-user-agent"
+        secret_name = "reddit-user-agent" # pragma: allowlist secret
       }
 
       env {
@@ -120,7 +114,7 @@ resource "azurerm_container_app" "content_collector_dapr" {
 
       env {
         name        = "DAPR_TRUST_ANCHORS" # pragma: allowlist secret
-        secret_name = "tls-certificate"
+        secret_name = "tls-certificate"    # pragma: allowlist secret
       }
 
       # Service Bus configuration
@@ -145,7 +139,7 @@ resource "azurerm_container_app" "content_collector_dapr" {
       queue_length = 1
 
       authentication {
-        secret_name       = "azure-servicebus-connection-string"
+        secret_name       = "azure-servicebus-connection-string" # pragma: allowlist secret
         trigger_parameter = "connection"
       }
     }
@@ -204,13 +198,7 @@ resource "azurerm_container_app" "content_processor_dapr" {
   ingress {
     external_enabled = true
     target_port      = 8000
-    transport        = "https"
-
-    # Custom domain for processor service
-    custom_domain {
-      name           = "processor.${azurerm_dns_zone.jablab.name}"
-      certificate_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${azurerm_resource_group.main.name}/providers/Microsoft.KeyVault/vaults/${azurerm_key_vault.main.name}/certificates/processor-${replace(azurerm_dns_zone.jablab.name, ".", "-")}"
-    }
+    transport        = "http" # Fixed: Use HTTP instead of HTTPS for basic deployment
 
     # IP restrictions for secure access
     ip_security_restriction {
@@ -249,12 +237,12 @@ resource "azurerm_container_app" "content_processor_dapr" {
 
       env {
         name        = "AZURE_OPENAI_CHAT_MODEL"
-        secret_name = "openai-chat-model"
+        secret_name = "openai-chat-model" # pragma: allowlist secret
       }
 
       env {
         name        = "AZURE_OPENAI_EMBEDDING_MODEL"
-        secret_name = "openai-embedding-model"
+        secret_name = "openai-embedding-model" # pragma: allowlist secret
       }
 
       env {
@@ -280,7 +268,7 @@ resource "azurerm_container_app" "content_processor_dapr" {
 
       env {
         name        = "DAPR_TRUST_ANCHORS" # pragma: allowlist secret
-        secret_name = "tls-certificate"
+        secret_name = "tls-certificate"    # pragma: allowlist secret
       }
 
       # Service Bus configuration
@@ -304,7 +292,7 @@ resource "azurerm_container_app" "content_processor_dapr" {
       queue_length = 1
 
       authentication {
-        secret_name       = "azure-servicebus-connection-string"
+        secret_name       = "azure-servicebus-connection-string" # pragma: allowlist secret
         trigger_parameter = "connection"
       }
     }
@@ -323,7 +311,7 @@ resource "azurerm_container_app" "content_processor_dapr" {
 resource "azurerm_container_app" "site_generator_dapr" {
   count = var.enable_mtls ? 1 : 0
 
-  name                         = "${var.resource_prefix}-site-generator-dapr"
+  name                         = "${var.resource_prefix}-site-gen-dapr" # Shortened name to fit 32 char limit
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
@@ -408,7 +396,7 @@ resource "azurerm_container_app" "site_generator_dapr" {
 
       env {
         name        = "DAPR_TRUST_ANCHORS" # pragma: allowlist secret
-        secret_name = "tls-certificate"
+        secret_name = "tls-certificate"    # pragma: allowlist secret
       }
 
       # Service Bus configuration
@@ -432,7 +420,7 @@ resource "azurerm_container_app" "site_generator_dapr" {
       queue_length = 1
 
       authentication {
-        secret_name       = "azure-servicebus-connection-string"
+        secret_name       = "azure-servicebus-connection-string" # pragma: allowlist secret
         trigger_parameter = "connection"
       }
     }

@@ -122,14 +122,21 @@ resource "azurerm_container_app" "content_collector_keda_dapr" {
   }
 
   # mTLS certificates
-  secret {
-    name  = "tls-certificate"
-    value = azurerm_key_vault_certificate.service_certificates["content-collector"].certificate_data
+  # TLS certificates (only when PKI is enabled)
+  dynamic "secret" {
+    for_each = var.enable_pki ? [1] : []
+    content {
+      name  = "tls-certificate"
+      value = azurerm_key_vault_certificate.service_certificates["content-collector"].certificate_data
+    }
   }
 
-  secret {
-    name  = "tls-private-key"
-    value = azurerm_key_vault_secret.service_private_keys["content-collector"].value
+  dynamic "secret" {
+    for_each = var.enable_pki ? [1] : []
+    content {
+      name  = "tls-private-key"
+      value = azurerm_key_vault_secret.service_private_keys["content-collector"].value
+    }
   }
 
   # Reddit API secrets
@@ -281,11 +288,10 @@ resource "azurerm_container_app" "content_collector_keda_dapr" {
 
   tags = local.common_tags
 
-  depends_on = [
+  depends_on = concat([
     azurerm_container_app_environment_dapr_component.mtls_configuration,
-    azurerm_container_app_environment_dapr_component.keda_state_store,
-    azurerm_key_vault_certificate.service_certificates
-  ]
+    azurerm_container_app_environment_dapr_component.keda_state_store
+  ], var.enable_pki ? [azurerm_key_vault_certificate.service_certificates] : [])
 }
 
 # Work Queue Management Service (replaces Service Bus message sending)
