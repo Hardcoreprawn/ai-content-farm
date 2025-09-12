@@ -107,6 +107,8 @@ runs:
 
         # Run terraform plan and capture the exit code
         set +e  # Disable exit on error temporarily
+
+        echo "Running terraform plan with detailed-exitcode..."
         terraform plan -detailed-exitcode -out=tfplan \
           -var="image_tag=${{ inputs.image-tag }}" \
           -var="environment=$env"
@@ -114,16 +116,20 @@ runs:
         set -e  # Re-enable exit on error
 
         echo "Terraform plan exit code: $plan_exit_code"
+        echo "Exit code meanings: 0=no changes, 1=error, 2=changes detected"
 
         if [[ $plan_exit_code -eq 0 ]]; then
-          echo "No changes detected in Terraform state"
+          echo "No changes detected in Terraform state (exit code 0)"
           echo "terraform-changes=false" >> "$GITHUB_OUTPUT"
         elif [[ $plan_exit_code -eq 2 ]]; then
-          echo "Terraform changes detected, applying..."
+          echo "Terraform changes detected (exit code 2), applying..."
           terraform apply -auto-approve tfplan
           echo "terraform-changes=true" >> "$GITHUB_OUTPUT"
+        elif [[ $plan_exit_code -eq 1 ]]; then
+          echo "Terraform plan failed with error (exit code 1)"
+          exit 1
         else
-          echo "Terraform plan failed with exit code $plan_exit_code"
+          echo "Terraform plan returned unexpected exit code: $plan_exit_code"
           exit $plan_exit_code
         fi
 
