@@ -105,6 +105,17 @@ runs:
         echo "Using image tag: ${{ inputs.image-tag }}"
         echo "Environment: $env"
 
+        # Debug environment
+        echo "=== DEBUG INFORMATION ==="
+        echo "Terraform version:"
+        terraform version
+        echo "Current working directory: $(pwd)"
+        echo "Available files:"
+        ls -la
+        echo "Environment variables affecting terraform:"
+        env | grep -E "(TF_|ARM_|AZURE_)" || echo "No TF/ARM/AZURE env vars found"
+        echo "========================="
+
         # Run terraform plan and capture the exit code
         set +e  # Disable exit on error temporarily
 
@@ -113,6 +124,8 @@ runs:
           -var="image_tag=${{ inputs.image-tag }}" \
           -var="environment=$env"
         plan_exit_code=$?
+        echo "DEBUG: Immediate exit code capture: $plan_exit_code"
+        echo "DEBUG: Dollar-question-mark value: $?"
         set -e  # Re-enable exit on error
 
         echo "Terraform plan exit code: $plan_exit_code"
