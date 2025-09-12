@@ -288,10 +288,10 @@ resource "azurerm_container_app" "content_collector_keda_dapr" {
 
   tags = local.common_tags
 
-  depends_on = concat([
+  depends_on = [
     azurerm_container_app_environment_dapr_component.mtls_configuration,
     azurerm_container_app_environment_dapr_component.keda_state_store
-  ], var.enable_pki ? [azurerm_key_vault_certificate.service_certificates] : [])
+  ]
 }
 
 # Work Queue Management Service (replaces Service Bus message sending)
