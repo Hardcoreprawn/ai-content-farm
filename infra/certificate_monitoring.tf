@@ -13,11 +13,11 @@ resource "azurerm_monitor_action_group" "certificate_alerts" {
     email_address = var.certificate_email != "" ? var.certificate_email : "admin@jablab.dev"
   }
 
-  # Webhook for automated renewal (optional)
-  webhook_receiver {
-    name        = "certificate-renewal-webhook"
-    service_uri = "https://api.jablab.dev/webhooks/certificate-renewal"
-  }
+  # Webhook for automated renewal (commented out due to WebhookServiceUriBlocked error)
+  # webhook_receiver {
+  #   name        = "certificate-renewal-webhook"
+  #   service_uri = "https://api.jablab.dev/webhooks/certificate-renewal"
+  # }
 
   tags = local.common_tags
 }

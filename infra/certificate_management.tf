@@ -25,9 +25,9 @@ resource "azurerm_user_assigned_identity" "cert_manager" {
 }
 
 # Grant Certificate Manager identity access to DNS Zone for DNS-01 challenges
-# Note: References external jablab.dev DNS zone managed separately
+# Note: References external jablab.dev DNS zone managed in jabr_personal resource group
 resource "azurerm_role_assignment" "cert_manager_dns_contributor" {
-  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.dns_zones_resource_group != "" ? var.dns_zones_resource_group : azurerm_resource_group.main.name}/providers/Microsoft.Network/dnsZones/jablab.dev"
+  scope                = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/resourceGroups/${var.jablab_dev_resource_group}/providers/Microsoft.Network/dnsZones/jablab.dev"
   role_definition_name = "DNS Zone Contributor"
   principal_id         = azurerm_user_assigned_identity.cert_manager.principal_id
 }
@@ -137,7 +137,7 @@ resource "azurerm_dns_txt_record" "acme_challenge" {
 
   name                = "_acme-challenge.${split(".", each.value)[0]}"
   zone_name           = "jablab.dev"
-  resource_group_name = var.dns_zones_resource_group != "" ? var.dns_zones_resource_group : azurerm_resource_group.main.name
+  resource_group_name = var.jablab_dev_resource_group
   ttl                 = 60
 
   record {
@@ -158,7 +158,7 @@ resource "azurerm_dns_txt_record" "acme_challenge" {
 resource "azurerm_dns_a_record" "service_api" {
   name                = "api"
   zone_name           = "jablab.dev"
-  resource_group_name = var.dns_zones_resource_group != "" ? var.dns_zones_resource_group : azurerm_resource_group.main.name
+  resource_group_name = var.jablab_dev_resource_group
   ttl                 = 300
   records             = [azurerm_container_app.content_collector.latest_revision_fqdn] # Will be updated post-deployment
 

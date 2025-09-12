@@ -9,7 +9,7 @@ resource "azurerm_consumption_budget_resource_group" "main" {
   time_grain = "Monthly"
 
   time_period {
-    start_date = "2025-08-01T00:00:00Z"
+    start_date = "${formatdate("YYYY-MM", timestamp())}-01T00:00:00Z"
     end_date   = "2030-12-31T00:00:00Z"
   }
 
@@ -38,8 +38,12 @@ resource "azurerm_consumption_budget_resource_group" "main" {
     operator  = "GreaterThan"
 
     contact_emails = [
-      "admin@example.com" # Placeholder - replace with actual admin email
+      "hardcoreprawn@duck.com" # Placeholder - replace with actual admin email
     ]
+  }
+
+  lifecycle {
+    ignore_changes = [time_period[0].start_date]
   }
 }
 
