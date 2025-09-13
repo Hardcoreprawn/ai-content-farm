@@ -304,7 +304,7 @@ resource "azurerm_container_app" "work_queue_manager" {
   template {
     container {
       name   = "work-queue-manager"
-      image  = "mcr.microsoft.com/dapr/daprd:1.12.0" # Lightweight Dapr sidecar
+      image  = "mcr.microsoft.com/dapr/daprd:1.14.4" # Lightweight Dapr sidecar
       cpu    = 0.25
       memory = "0.5Gi"
 
