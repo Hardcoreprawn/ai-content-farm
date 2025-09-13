@@ -239,7 +239,6 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "certificate_renewal_s
     threshold               = 1
     operator                = "GreaterThanOrEqual"
     resource_id_column      = "_ResourceId"
-    metric_measure_column   = "SuccessRate"
 
     failing_periods {
       minimum_failing_periods_to_trigger_alert = 1

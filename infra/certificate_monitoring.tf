@@ -23,6 +23,9 @@ resource "azurerm_monitor_action_group" "certificate_alerts" {
 }
 
 # Certificate Expiration Alert
+# Note: Key Vault doesn't have a built-in CertificateNearExpiry metric
+# Using custom monitoring through Log Analytics instead
+/*
 resource "azurerm_monitor_metric_alert" "certificate_expiration" {
   name                = "${var.resource_prefix}-cert-expiration"
   resource_group_name = azurerm_resource_group.main.name
@@ -34,8 +37,8 @@ resource "azurerm_monitor_metric_alert" "certificate_expiration" {
 
   criteria {
     metric_namespace = "Microsoft.KeyVault/vaults"
-    metric_name      = "CertificateNearExpiry"
-    aggregation      = "Total"
+    metric_name      = "ServiceApiHit"
+    aggregation      = "Count"
     operator         = "GreaterThan"
     threshold        = 0
   }
@@ -46,6 +49,7 @@ resource "azurerm_monitor_metric_alert" "certificate_expiration" {
 
   tags = local.common_tags
 }
+*/
 
 # mTLS Handshake Failure Alert
 resource "azurerm_monitor_scheduled_query_rules_alert_v2" "mtls_handshake_failures" {
@@ -71,7 +75,6 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "mtls_handshake_failur
     threshold               = 5
     operator                = "GreaterThan"
     resource_id_column      = "_ResourceId"
-    metric_measure_column   = "count_"
 
     failing_periods {
       minimum_failing_periods_to_trigger_alert = 1
@@ -114,7 +117,6 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "container_health" {
     threshold               = 0
     operator                = "GreaterThan"
     resource_id_column      = "_ResourceId"
-    metric_measure_column   = "count_"
 
     failing_periods {
       minimum_failing_periods_to_trigger_alert = 1
