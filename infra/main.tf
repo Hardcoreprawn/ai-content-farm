@@ -552,6 +552,8 @@ resource "azurerm_storage_container" "prompts" {
 
 # Resource lock to prevent accidental deletion
 # Created LAST to avoid blocking infrastructure updates during deployment
+# Note: Temporarily disabled during deployment to allow resource cleanup
+/*
 resource "azurerm_management_lock" "resource_group_lock" {
   name       = "resource-group-lock"
   scope      = azurerm_resource_group.main.id
@@ -588,5 +590,6 @@ resource "azurerm_management_lock" "resource_group_lock" {
     azurerm_key_vault_access_policy.github_actions_user
   ]
 }
+*/
 
 # Force infrastructure deployment trigger

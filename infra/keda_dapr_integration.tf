@@ -205,12 +205,16 @@ resource "azurerm_container_app" "content_collector_keda_dapr" {
 
       env {
         name  = "DAPR_MTLS_ENABLED"
-        value = "true"
+        value = var.enable_pki ? "true" : "false"
       }
 
-      env {
-        name        = "DAPR_TRUST_ANCHORS" # pragma: allowlist secret
-        secret_name = "tls-certificate"    # pragma: allowlist secret
+      # mTLS Trust Anchors (only when PKI is enabled)
+      dynamic "env" {
+        for_each = var.enable_pki ? [1] : []
+        content {
+          name        = "DAPR_TRUST_ANCHORS" # pragma: allowlist secret
+          secret_name = "tls-certificate"    # pragma: allowlist secret
+        }
       }
 
       # Service discovery

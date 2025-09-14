@@ -52,6 +52,8 @@ resource "azurerm_monitor_metric_alert" "certificate_expiration" {
 */
 
 # mTLS Handshake Failure Alert
+# Note: Temporarily disabled until Log Analytics tables are populated with data
+/*
 resource "azurerm_monitor_scheduled_query_rules_alert_v2" "mtls_handshake_failures" {
   name                = "${var.resource_prefix}-mtls-failures"
   resource_group_name = azurerm_resource_group.main.name
@@ -91,8 +93,11 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "mtls_handshake_failur
 
   tags = local.common_tags
 }
+*/
 
 # Container App Health Monitoring
+# Note: Temporarily disabled until Log Analytics tables are populated with data
+/*
 resource "azurerm_monitor_scheduled_query_rules_alert_v2" "container_health" {
   name                = "${var.resource_prefix}-container-health"
   resource_group_name = azurerm_resource_group.main.name
@@ -133,6 +138,7 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "container_health" {
 
   tags = local.common_tags
 }
+*/
 
 # Certificate Renewal Workbook
 resource "azurerm_application_insights_workbook" "certificate_dashboard" {
