@@ -275,13 +275,6 @@ resource "azurerm_container_app" "content_collector" {
     value = azurerm_servicebus_namespace.main.default_primary_connection_string
   }
 
-  # Dapr configuration for mTLS
-  dapr {
-    app_id       = "content-collector"
-    app_port     = 8000
-    app_protocol = "http"
-  }
-
   ingress {
     external_enabled = true
     target_port      = 8000

@@ -119,11 +119,7 @@ variable "certificate_email" {
   default     = "admin@jablab.dev"
 }
 
-variable "enable_mtls" {
-  description = "Enable mTLS for inter-service communication"
-  type        = bool
-  default     = true
-}
+# mTLS variables removed - DAPR infrastructure deprecated in favor of scale-to-zero architecture
 
 variable "enable_pki" {
   description = "Enable PKI infrastructure and certificate management"
