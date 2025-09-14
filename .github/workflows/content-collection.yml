@@ -1,0 +1,129 @@
+---
+name: Scheduled Content Collection
+
+on:
+  schedule:
+    # Run every 4 hours at minute 0: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
+    - cron: '0 */4 * * *'
+  workflow_dispatch:
+    # Allow manual triggering for testing
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+jobs:
+  trigger-content-collection:
+    name: Trigger Content Collection
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'  # Only run on main branch
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get Container App URL
+        id: get-url
+        run: |
+          # Get the content collector container app URL
+          URL=$(az containerapp show \
+            --name "ai-content-farm-collector" \
+            --resource-group "ai-content-farm-rg" \
+            --query "properties.configuration.ingress.fqdn" \
+            --output tsv)
+
+          if [ -z "$URL" ]; then
+            echo "[FAIL] Failed to get container app URL"
+            exit 1
+          fi
+
+          echo "CONTENT_COLLECTOR_URL=https://$URL" >> "$GITHUB_OUTPUT"
+          echo "[PASS] Content Collector URL: https://$URL"
+
+      - name: Send Collection Request to Service Bus
+        run: |
+          # Create collection request payload
+          cat > collection_request.json << 'EOF'
+          {
+            "service_name": "github-actions",
+            "operation": "collect_content",
+            "payload": {
+              "sources": [
+                {
+                  "type": "reddit",
+                  "subreddits": ["technology", "programming", "artificial", "MachineLearning"],
+                  "limit": 25
+                },
+                {
+                  "type": "rss",
+                  "urls": [
+                    "https://feeds.feedburner.com/oreilly/radar",
+                    "https://aws.amazon.com/blogs/aws/feed/"
+                  ],
+                  "limit": 15
+                }
+              ],
+              "deduplicate": true,
+              "similarity_threshold": 0.8,
+              "save_to_storage": true
+            },
+            "metadata": {
+              "triggered_by": "github_actions",
+              "workflow": "${{ github.workflow }}",
+              "run_id": "${{ github.run_id }}",
+              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            }
+          }
+          EOF
+
+          echo "[INFO] Collection request payload:"
+          jq . collection_request.json
+
+      - name: Send Service Bus Message
+        run: |
+          # Send the message to Service Bus queue using Azure CLI
+          az servicebus message send \
+            --namespace-name "ai-content-farm-sb" \
+            --queue-name "content-collection-requests" \
+            --body @collection_request.json \
+            --time-to-live "PT30M" \
+            --correlation-id "${{ github.run_id }}" \
+            --properties "triggered_by=github_actions" "workflow=${{ github.workflow }}"
+
+          echo "[PASS] Content collection request sent to Service Bus"
+          echo "[INFO] KEDA will scale up the content collector to process the request"
+
+      - name: Verify Queue Status
+        run: |
+          # Check that the message was queued successfully
+          QUEUE_COUNT=$(az servicebus queue show \
+            --namespace-name "ai-content-farm-sb" \
+            --name "content-collection-requests" \
+            --query "messageCount" \
+            --output tsv)
+
+          echo "[STATS] Messages in queue: $QUEUE_COUNT"
+
+          if [ "$QUEUE_COUNT" -gt 0 ]; then
+            echo "[PASS] Message successfully queued for processing"
+          else
+            echo "[WARN] No messages in queue - this may be normal if processed immediately"
+          fi
+
+      - name: Log Completion
+        run: |
+          echo "[COMPLETE] Content collection workflow completed"
+          echo "[SCHEDULE] Next scheduled run: $(date -d '+4 hours' -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "[MONITOR] Monitor processing at: ${{ steps.get-url.outputs.CONTENT_COLLECTOR_URL }}/health"

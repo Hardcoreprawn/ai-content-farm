@@ -1,334 +1,302 @@
 """
 Service Bus Endpoints for Content Processor
 
-Implements Phase 1 Security Implementation endpoints for Service Bus message processing.
-These endpoints handle Service Bus messages sent by Logic Apps, replacing direct HTTP calls.
-
-Features:
-- Service Bus message polling and processing
-- KEDA scaling integration
-- Content processing and AI generation via Service Bus
-- Standard error handling and logging
+Implements Service Bus message processing for content processing requests.
+Uses shared Service Bus router base and existing processor functionality.
 """
 
-import json
 import logging
 from typing import Any, Dict
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from pydantic import BaseModel, Field
-
-from libs.service_bus_client import (
-    ServiceBusClient,
-    ServiceBusConfig,
-    ServiceBusPollingService,
-    create_service_bus_client,
-)
-from libs.shared_models import StandardResponse, create_service_dependency
+from libs.service_bus_router import ServiceBusRouterBase
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/internal", tags=["Service Bus"])
-
-# Service metadata dependency
-service_metadata = create_service_dependency("content-processor")
 
 
-class ServiceBusStatusResponse(BaseModel):
-    """Service Bus status response model."""
+class ContentProcessorServiceBusRouter(ServiceBusRouterBase):
+    """Service Bus router for content processing service."""
 
-    connection_status: str = Field(..., description="Service Bus connection status")
-    queue_name: str = Field(..., description="Configured queue name")
-    namespace: str = Field(..., description="Service Bus namespace")
-    last_poll_time: str = Field(..., description="Last polling time")
-    messages_processed: int = Field(..., description="Total messages processed")
+    def __init__(self):
+        super().__init__(
+            service_name="content-processor",
+            queue_name="content-processing-requests",
+            prefix="/internal",
+        )
 
+    async def process_message_payload(
+        self, payload: Dict[str, Any], operation: str
+    ) -> Dict[str, Any]:
+        """
+        Process content processing requests from Service Bus.
 
-class ServiceBusProcessResponse(BaseModel):
-    """Service Bus process response model."""
+        Args:
+            payload: Processing request payload with collection data
+            operation: Operation type (process_content, generate, etc.)
 
-    messages_received: int = Field(..., description="Number of messages received")
-    messages_processed: int = Field(
-        ..., description="Number of messages processed successfully"
-    )
-    messages_failed: int = Field(
-        ..., description="Number of messages that failed processing"
-    )
-
-
-# Global Service Bus client (initialized on first use)
-_service_bus_client: ServiceBusClient = None
-
-
-async def get_service_bus_client() -> ServiceBusClient:
-    """Get or create Service Bus client."""
-    global _service_bus_client
-
-    if _service_bus_client is None:
+        Returns:
+            Dict with processing results
+        """
         try:
-            config = ServiceBusConfig.from_environment()
-            _service_bus_client = ServiceBusClient(config)
-            await _service_bus_client.connect()
-            logger.info("Service Bus client initialized")
+            if operation == "process_content":
+                return await self._process_collected_content(payload)
+            elif operation == "generate":
+                return await self._generate_content(payload)
+            else:
+                logger.error(f"Unknown operation: {operation}")
+                return {"status": "error", "error": f"Unknown operation: {operation}"}
+
         except Exception as e:
-            logger.error("Failed to initialize Service Bus client")
-            logger.debug(f"Service Bus initialization error details: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail="Service Bus client initialization failed",
+            logger.error(f"Content processing failed: {e}")
+            return {"status": "error", "error": str(e)}
+
+    async def _process_collected_content(
+        self, payload: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Process collected content items using existing processor."""
+        try:
+            collection_id = payload.get("collection_id")
+            storage_location = payload.get("storage_location")
+
+            if not collection_id or not storage_location:
+                return {
+                    "status": "error",
+                    "error": "Missing collection_id or storage_location",
+                }
+
+            # Load collected content from storage
+            from libs.blob_storage import BlobStorageClient
+
+            storage = BlobStorageClient()
+
+            # Parse storage location (format: container/path/to/file.json)
+            parts = storage_location.split("/", 1)
+            if len(parts) != 2:
+                return {
+                    "status": "error",
+                    "error": f"Invalid storage location format: {storage_location}",
+                }
+
+            container_name, blob_name = parts
+            content_json = storage.download_text(container_name, blob_name)
+
+            import json
+
+            content_data = json.loads(content_json)
+            collected_items = content_data.get("items", [])
+
+            # Use existing processing service to enhance content
+            from processing_service import (
+                ContentProcessingService,
+                ProcessingRequest,
+                ProcessingStatus,
             )
 
-    return _service_bus_client
+            from config import settings
 
+            processor = ContentProcessingService(settings)
 
-@router.post(
-    "/process-servicebus-message",
-    response_model=StandardResponse[ServiceBusProcessResponse],
-)
-async def process_servicebus_message(
-    background_tasks: BackgroundTasks, metadata=Depends(service_metadata)
-) -> StandardResponse[ServiceBusProcessResponse]:
-    """
-    Poll Service Bus queue and process messages.
+            # Process content using existing logic
+            enhanced_items = []
+            for i, item in enumerate(collected_items):
+                # Convert to format expected by processor
+                processing_request = ProcessingRequest(
+                    topic_id=f"{collection_id}_{i}",
+                    content=item.get("content", "") or item.get("summary", ""),
+                    metadata={
+                        "title": item.get("title", ""),
+                        "url": item.get("url", ""),
+                        "source": item.get("source", ""),
+                    },
+                )
 
-    This endpoint is called by KEDA when messages are available in the queue.
-    It processes content processing requests sent by the content collection pipeline.
+                # Process the item
+                result = await processor.process_content(processing_request)
 
-    Returns:
-        StandardResponse with processing statistics
-    """
-    try:
-        client = await get_service_bus_client()
-
-        # Receive messages from Service Bus
-        messages = await client.receive_messages(
-            max_messages=5
-        )  # Lower batch for processing
-
-        messages_processed = 0
-        messages_failed = 0
-
-        for message in messages:
-            try:
-                # Parse message body
-                message_body = str(message)
-                message_data = json.loads(message_body)
-
-                logger.info(f"Processing Service Bus message: {message.message_id}")
-
-                # Extract processing request from message payload
-                if "payload" in message_data:
-                    processing_request = message_data["payload"]
-                    operation = message_data.get("operation", "process")
-
-                    # Route to appropriate processing endpoint
-                    result = None
-                    if operation == "process":
-                        # Standard content processing
-                        from endpoints.processing_router import process_content_batch
-
-                        result = await process_content_batch(processing_request)
-
-                    elif operation == "generate":
-                        # AI content generation
-                        from endpoints.generation_router import generate_content_batch
-
-                        result = await generate_content_batch(processing_request)
-
-                    elif operation == "enrich":
-                        # Content enrichment
-                        from endpoints.processing_router import enrich_content_batch
-
-                        result = await enrich_content_batch(processing_request)
-
-                    else:
-                        logger.error(f"Unknown operation: {operation}")
-                        await client.dead_letter_message(
-                            message, f"Unknown operation: {operation}"
-                        )
-                        messages_failed += 1
-                        continue
-
-                    if result and result.get("status") == "success":
-                        # Acknowledge successful processing
-                        await client.complete_message(message)
-                        messages_processed += 1
-                        logger.info(
-                            f"Successfully processed message: {message.message_id}"
-                        )
-                    else:
-                        # Processing failed, abandon message for retry
-                        await client.abandon_message(message)
-                        messages_failed += 1
-                        logger.error(
-                            f"Processing failed for message: {message.message_id}"
-                        )
-
+                if result.status == ProcessingStatus.COMPLETED:
+                    enhanced_item = item.copy()
+                    enhanced_item.update(
+                        {
+                            "processed_content": result.processed_content,
+                            "quality_score": result.quality_score,
+                            "processing_time": result.processing_time,
+                            "model_used": result.model_used,
+                            "enhanced_at": _get_current_iso_timestamp(),
+                        }
+                    )
+                    enhanced_items.append(enhanced_item)
                 else:
-                    # Invalid message format
-                    await client.dead_letter_message(message, "Invalid message format")
-                    messages_failed += 1
-                    logger.error(f"Invalid message format: {message.message_id}")
+                    # Keep original item if processing failed
+                    item["processing_error"] = (
+                        result.error_message or "Processing failed"
+                    )
+                    enhanced_items.append(item)
 
-            except json.JSONDecodeError as e:
-                # Invalid JSON, dead letter the message
-                await client.dead_letter_message(message, "Invalid JSON format")
-                messages_failed += 1
-                logger.error(f"Invalid JSON in message {message.message_id}")
-                logger.debug(f"JSON decode error details: {e}")
+            # Save processed content and trigger site generation
+            result = await self._save_processed_content(collection_id, enhanced_items)
 
-            except Exception as e:
-                # Processing error, abandon for retry
-                await client.abandon_message(message)
-                messages_failed += 1
-                logger.error(f"Error processing message {message.message_id}")
-                logger.debug(f"Processing error details: {e}")
+            # Send message to site generator
+            await self._send_site_generation_request(result)
 
-        response_data = ServiceBusProcessResponse(
-            messages_received=len(messages),
-            messages_processed=messages_processed,
-            messages_failed=messages_failed,
-        )
+            logger.info(
+                f"Processed {len(enhanced_items)} items for collection {collection_id}"
+            )
+            return {
+                "status": "success",
+                "processed_items": enhanced_items,
+                "collection_id": collection_id,
+                "storage_location": result.get("storage_location"),
+                "success": True,
+            }
 
-        return StandardResponse(
-            status="success",
-            message=f"Processed {messages_processed} messages successfully",
-            data=response_data,
-            metadata=metadata,
-        )
+        except Exception as e:
+            logger.error(f"Failed to process collected content: {e}")
+            return {"status": "error", "error": str(e)}
 
-    except Exception as e:
-        logger.error("Service Bus message processing failed")
-        logger.debug(f"Message processing error details: {e}")
-        return StandardResponse(
-            status="error",
-            message="Service Bus message processing failed",
-            data=ServiceBusProcessResponse(
-                messages_received=0, messages_processed=0, messages_failed=0
-            ),
-            errors=["Message processing encountered an internal error"],
-            metadata=metadata,
-        )
+    async def _generate_content(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate new content using existing content generator."""
+        try:
+            from content_generation import GenerationRequest, get_content_generator
+
+            generator = get_content_generator()
+
+            # Extract generation parameters
+            topic = payload.get("topic", "")
+            content_type = payload.get("content_type", "blog")
+            sources = payload.get("sources", [])
+
+            if not topic:
+                return {
+                    "status": "error",
+                    "error": "Missing topic for content generation",
+                }
+
+            # Create generation request
+            request = GenerationRequest(
+                topic=topic, content_type=content_type, sources=sources
+            )
+
+            # Generate content
+            generated_content = await generator.generate_content(request)
+
+            return {
+                "status": "success",
+                "generated_content": generated_content.model_dump(),
+                "success": True,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to generate content: {e}")
+            return {"status": "error", "error": str(e)}
+
+    async def _save_processed_content(
+        self, collection_id: str, processed_items: list
+    ) -> Dict[str, Any]:
+        """Save processed content to storage."""
+        try:
+            import json
+            from datetime import datetime, timezone
+
+            from libs.blob_storage import BlobContainers, BlobStorageClient
+
+            storage = BlobStorageClient()
+
+            # Prepare the processed data
+            processed_data = {
+                "collection_id": collection_id,
+                "processed_at": datetime.now(timezone.utc).isoformat(),
+                "items_count": len(processed_items),
+                "items": processed_items,
+                "format_version": "1.0",
+            }
+
+            # Generate storage path
+            timestamp = datetime.now(timezone.utc)
+            blob_name = f"processed/{timestamp.strftime('%Y/%m/%d')}/{collection_id}_processed.json"
+
+            # Save processed content
+            content_json = json.dumps(processed_data, indent=2, ensure_ascii=False)
+            storage.upload_text(
+                container_name=BlobContainers.COLLECTED_CONTENT,
+                blob_name=blob_name,
+                content=content_json,
+                content_type="application/json",
+            )
+
+            return {
+                "storage_location": f"{BlobContainers.COLLECTED_CONTENT}/{blob_name}",
+                "items_count": len(processed_items),
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to save processed content: {e}")
+            raise
+
+    async def _send_site_generation_request(
+        self, processing_result: Dict[str, Any]
+    ) -> bool:
+        """Send site generation request to Service Bus."""
+        try:
+            import os
+            from datetime import datetime, timezone
+
+            from libs.service_bus_client import (
+                ServiceBusClient,
+                ServiceBusConfig,
+                ServiceBusMessageModel,
+            )
+
+            # Create config for site generation requests queue
+            config = ServiceBusConfig(
+                namespace=os.getenv("SERVICE_BUS_NAMESPACE", ""),
+                queue_name="site-generation-requests",
+                max_wait_time=30,
+                max_messages=10,
+                retry_attempts=3,
+            )
+
+            client = ServiceBusClient(config)
+            await client.connect()
+
+            # Create site generation request message
+            message = ServiceBusMessageModel(
+                service_name="content-processor",
+                operation="generate_site",
+                payload={
+                    "processed_content_location": processing_result["storage_location"],
+                    "items_count": processing_result["items_count"],
+                },
+                metadata={
+                    "source_service": "content-processor",
+                    "target_service": "site-generator",
+                    "content_type": "processed_content",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+
+            success = await client.send_message(message)
+            if success:
+                logger.info(
+                    f"Sent site generation request for {processing_result['storage_location']}"
+                )
+
+            return success
+
+        except Exception as e:
+            logger.error(f"Failed to send site generation request: {e}")
+            return False
+
+    def get_max_messages(self) -> int:
+        """Content processor handles fewer messages due to AI processing overhead."""
+        return 3
 
 
-@router.get(
-    "/servicebus-status", response_model=StandardResponse[ServiceBusStatusResponse]
-)
-async def get_servicebus_status(
-    metadata=Depends(service_metadata),
-) -> StandardResponse[ServiceBusStatusResponse]:
-    """
-    Get Service Bus connection and queue status.
+def _get_current_iso_timestamp():
+    """Helper to get current ISO timestamp."""
+    from datetime import datetime, timezone
 
-    Returns:
-        StandardResponse with Service Bus status information
-    """
-    try:
-        client = await get_service_bus_client()
-        health_info = await client.health_check()
-
-        status_data = ServiceBusStatusResponse(
-            connection_status=health_info.get("status", "unknown"),
-            queue_name=client.config.queue_name,
-            namespace=client.config.namespace,
-            last_poll_time=health_info.get("timestamp", ""),
-            messages_processed=0,  # TODO: Add tracking of processed message count
-        )
-
-        return StandardResponse(
-            status="success",
-            message="Service Bus status retrieved successfully",
-            data=status_data,
-            metadata=metadata,
-        )
-
-    except Exception as e:
-        logger.error("Failed to get Service Bus status")
-        logger.debug(f"Service Bus status error details: {e}")
-        return StandardResponse(
-            status="error",
-            message="Failed to get Service Bus status",
-            data=ServiceBusStatusResponse(
-                connection_status="error",
-                queue_name="unknown",
-                namespace="unknown",
-                last_poll_time="",
-                messages_processed=0,
-            ),
-            errors=["Service Bus status check encountered an internal error"],
-            metadata=metadata,
-        )
+    return datetime.now(timezone.utc).isoformat()
 
 
-@router.post("/start-servicebus-polling")
-async def start_servicebus_polling(
-    background_tasks: BackgroundTasks, metadata=Depends(service_metadata)
-) -> StandardResponse[Dict[str, Any]]:
-    """
-    Start background Service Bus message polling.
-
-    This endpoint starts a background task that continuously polls
-    the Service Bus queue for messages. Used in conjunction with KEDA scaling.
-
-    Returns:
-        StandardResponse with polling status
-    """
-    try:
-        client = await get_service_bus_client()
-
-        # Define message handler function
-        async def message_handler(message_data: Dict[str, Any]) -> bool:
-            """Handle received Service Bus messages."""
-            try:
-                if "payload" in message_data:
-                    processing_request = message_data["payload"]
-                    operation = message_data.get("operation", "process")
-
-                    # Route to appropriate processing endpoint
-                    result = None
-                    if operation == "process":
-                        from endpoints.processing_router import process_content_batch
-
-                        result = await process_content_batch(processing_request)
-                    elif operation == "generate":
-                        from endpoints.generation_router import generate_content_batch
-
-                        result = await generate_content_batch(processing_request)
-                    elif operation == "enrich":
-                        from endpoints.processing_router import enrich_content_batch
-
-                        result = await enrich_content_batch(processing_request)
-
-                    return result and result.get("status") == "success"
-                else:
-                    logger.error("Invalid message format received")
-                    return False
-
-            except Exception as e:
-                logger.error(f"Message handler error: {e}")
-                return False
-
-        # Create and start polling service
-        polling_service = ServiceBusPollingService(
-            client, message_handler, poll_interval=5
-        )
-
-        # Start polling in background
-        background_tasks.add_task(polling_service.start_polling)
-
-        return StandardResponse(
-            status="success",
-            message="Service Bus polling started successfully",
-            data={"polling_status": "started", "poll_interval": 5},
-            metadata=metadata,
-        )
-
-    except Exception as e:
-        logger.error("Failed to start Service Bus polling")
-        logger.debug(f"Service Bus polling error details: {e}")
-        return StandardResponse(
-            status="error",
-            message="Failed to start Service Bus polling",
-            data={"polling_status": "failed"},
-            errors=["Service Bus polling startup encountered an internal error"],
-            metadata=metadata,
-        )
+# Create router instance
+service_bus_router = ContentProcessorServiceBusRouter()
+router = service_bus_router.router

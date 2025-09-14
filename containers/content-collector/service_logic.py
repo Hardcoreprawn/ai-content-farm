@@ -13,6 +13,11 @@ from typing import Any, Dict, List, Optional
 from content_processing import collect_content_batch, deduplicate_content
 
 from libs.blob_storage import BlobContainers, BlobStorageClient
+from libs.service_bus_client import (
+    ServiceBusClient,
+    ServiceBusConfig,
+    ServiceBusMessageModel,
+)
 
 
 class MockBlobStorageClient:
@@ -61,12 +66,82 @@ class ContentCollectorService:
         else:
             self.storage = BlobStorageClient()
 
+        # Initialize Service Bus client for sending processing requests
+        self.service_bus_client = None
+
         self.stats = {
             "total_collections": 0,
             "successful_collections": 0,
             "failed_collections": 0,
             "last_collection": None,
         }
+
+    async def _get_service_bus_client(self) -> Optional[ServiceBusClient]:
+        """Get or create Service Bus client for sending messages."""
+        if self.service_bus_client is None:
+            try:
+                # Create config for content processing requests queue
+                config = ServiceBusConfig(
+                    namespace=os.getenv("SERVICE_BUS_NAMESPACE", ""),
+                    queue_name="content-processing-requests",  # Send to processing queue
+                    max_wait_time=30,
+                    max_messages=10,
+                    retry_attempts=3,
+                )
+                self.service_bus_client = ServiceBusClient(config)
+                await self.service_bus_client.connect()
+            except Exception as e:
+                # Log error but don't fail the whole operation
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.error(f"Failed to initialize Service Bus client: {e}")
+                return None
+
+        return self.service_bus_client
+
+    async def _send_processing_request(self, collection_result: Dict[str, Any]) -> bool:
+        """Send content processing request to Service Bus."""
+        try:
+            service_bus = await self._get_service_bus_client()
+            if not service_bus:
+                return False
+
+            # Create processing request message
+            message = ServiceBusMessageModel(
+                service_name="content-collector",
+                operation="process_content",
+                payload={
+                    "collection_id": collection_result["collection_id"],
+                    "storage_location": collection_result["storage_location"],
+                    "items_count": len(collection_result["collected_items"]),
+                    "metadata": collection_result["metadata"],
+                },
+                metadata={
+                    "source_service": "content-collector",
+                    "target_service": "content-processor",
+                    "content_type": "collected_content",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+
+            success = await service_bus.send_message(message)
+            if success:
+                import logging
+
+                logger = logging.getLogger(__name__)
+                logger.info(
+                    f"Sent processing request for collection {collection_result['collection_id']}"
+                )
+
+            return success
+
+        except Exception as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(f"Failed to send processing request: {e}")
+            return False
 
     async def collect_and_store_content(
         self,
@@ -142,13 +217,19 @@ class ContentCollectorService:
             self.stats["successful_collections"] += 1
             self.stats["last_collection"] = metadata["timestamp"]
 
-            return {
+            result = {
                 "collection_id": collection_id,
                 "collected_items": collected_items,
                 "metadata": metadata,
                 "timestamp": metadata["timestamp"],
                 "storage_location": storage_location,
             }
+
+            # Send processing request to Service Bus if we have content
+            if collected_items and storage_location:
+                await self._send_processing_request(result)
+
+            return result
 
         except Exception as e:
             self.stats["total_collections"] += 1
