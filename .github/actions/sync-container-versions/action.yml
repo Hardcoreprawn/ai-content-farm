@@ -1,0 +1,123 @@
+name: 'Sync Container Versions'
+description: 'Compare GHCR container versions with Container Apps and update if newer'
+
+inputs:
+  registry:
+    description: 'Container registry URL'
+    required: true
+  repository:
+    description: 'Container repository name'
+    required: true
+  image-tag:
+    description: 'New image tag to sync'
+    required: true
+  resource-group:
+    description: 'Azure resource group name'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Compare and Update Container Versions
+      shell: bash
+      run: |
+        echo "[SYNC] Starting container version sync..."
+
+        # Container Apps to check
+        declare -A containers=(
+          ["ai-content-dev-collector"]="content-collector"
+          ["ai-content-dev-processor"]="content-processor"
+          ["ai-content-dev-site-generator"]="site-generator"
+        )
+
+        NEW_TAG="${{ inputs.image-tag }}"
+        REGISTRY="${{ inputs.registry }}"
+        REPOSITORY="${{ inputs.repository }}"
+        RESOURCE_GROUP="${{ inputs.resource-group }}"
+
+        echo "[INFO] Checking container versions:"
+        echo "  Registry: $REGISTRY"
+        echo "  Repository: $REPOSITORY"
+        echo "  New Tag: $NEW_TAG"
+        echo "  Resource Group: $RESOURCE_GROUP"
+        echo
+
+        updated_count=0
+
+        for app_name in "${!containers[@]}"; do
+          container_name="${containers[$app_name]}"
+
+          echo "[SCAN] Checking $app_name ($container_name)..."
+
+          # Get current container image from Container App
+          current_image=$(az containerapp show \
+            --name "$app_name" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "properties.template.containers[0].image" \
+            --output tsv 2>/dev/null || echo "")
+
+          if [[ -z "$current_image" ]]; then
+            echo "  [WARN] Could not retrieve current image for $app_name, skipping..."
+            continue
+          fi
+
+          # Extract current tag
+          current_tag=$(echo "$current_image" | sed 's/.*://')
+          new_image="$REGISTRY/$REPOSITORY/$container_name:$NEW_TAG"
+
+          echo "  [CURRENT] $current_image"
+          echo "  [NEW]     $new_image"
+
+          if [[ "$current_tag" != "$NEW_TAG" ]]; then
+            echo "  [UPDATE] Updating $app_name to tag $NEW_TAG..."
+
+            # Update container app with new image
+            az containerapp update \
+              --name "$app_name" \
+              --resource-group "$RESOURCE_GROUP" \
+              --image "$new_image" \
+              --output none
+
+            if [[ $? -eq 0 ]]; then
+              echo "  [PASS] Successfully updated $app_name"
+              ((updated_count++))
+            else
+              echo "  [FAIL] Failed to update $app_name"
+            fi
+          else
+            echo "  [PASS] $app_name already at correct version"
+          fi
+          echo
+        done
+
+        echo "[COMPLETE] Container sync complete!"
+        echo "[STATS] Updated $updated_count containers"
+
+        # Add to job summary
+        {
+          echo "## Container Sync Results"
+          echo ""
+          echo "| Container App | Status |"
+          echo "|---------------|--------|"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+        for app_name in "${!containers[@]}"; do
+          container_name="${containers[$app_name]}"
+          current_image=$(az containerapp show \
+            --name "$app_name" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "properties.template.containers[0].image" \
+            --output tsv 2>/dev/null || echo "Error")
+          current_tag=$(echo "$current_image" | sed 's/.*://')
+
+          if [[ "$current_tag" == "$NEW_TAG" ]]; then
+            status="[PASS] Synced to $NEW_TAG"
+          else
+            status="[WARN] Failed or skipped"
+          fi
+
+          echo "| $app_name | $status |" >> "$GITHUB_STEP_SUMMARY"
+        done
+
+        echo "" >> "$GITHUB_STEP_SUMMARY"
+        echo "**Total Updated:** $updated_count containers" >> "$GITHUB_STEP_SUMMARY"

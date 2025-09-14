@@ -204,11 +204,10 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-containers, terraform-checks, security-infrastructure, security-containers, security-code]
+    needs: [detect-changes, terraform-checks, security-infrastructure, security-containers, security-code]
     if: |
       always() &&
       github.ref == 'refs/heads/main' &&
-      needs.build-containers.result == 'success' &&
       needs.terraform-checks.result == 'success' &&
       needs.security-infrastructure.result == 'success' &&
       needs.security-containers.result == 'success' &&
@@ -241,6 +240,35 @@ jobs:
           terraform-storage-account: ${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT_PROD }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           image-tag: ${{ github.sha }}
+
+  container-sync:
+    name: Container Sync
+    runs-on: ubuntu-latest
+    needs: [deploy, build-containers]
+    if: |
+      always() &&
+      github.ref == 'refs/heads/main' &&
+      needs.deploy.result == 'success' &&
+      needs.build-containers.result == 'success'
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sync Container Versions
+        uses: ./.github/actions/sync-container-versions
+        with:
+          registry: ${{ env.REGISTRY }}
+          repository: ${{ env.REPOSITORY }}
+          image-tag: ${{ github.sha }}
+          resource-group: ai-content-dev-rg
 
   security-container-images:
     name: Security Container Images
@@ -283,6 +311,7 @@ jobs:
       - test-containers
       - build-containers
       - deploy
+      - container-sync
     if: always()
     steps:
       - name: Generate Summary

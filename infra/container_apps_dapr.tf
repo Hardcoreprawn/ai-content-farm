@@ -17,7 +17,7 @@ resource "azurerm_container_app" "content_collector_dapr" {
 
   # Dapr configuration for mTLS
   dapr {
-    app_id       = "content-collector"
+    app_id       = "content-collector-dapr"
     app_port     = 8000
     app_protocol = "http"
   }
@@ -170,7 +170,7 @@ resource "azurerm_container_app" "content_processor_dapr" {
 
   # Dapr configuration for mTLS
   dapr {
-    app_id       = "content-processor"
+    app_id       = "content-processor-dapr"
     app_port     = 8000
     app_protocol = "http"
   }
@@ -323,7 +323,7 @@ resource "azurerm_container_app" "site_generator_dapr" {
 
   # Dapr configuration for mTLS
   dapr {
-    app_id       = "site-generator"
+    app_id       = "site-generator-dapr"
     app_port     = 8000
     app_protocol = "http"
   }
