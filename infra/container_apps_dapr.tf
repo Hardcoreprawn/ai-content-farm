@@ -149,8 +149,8 @@ resource "azurerm_container_app" "content_collector_dapr" {
 
   depends_on = [
     azurerm_container_app_environment_dapr_component.mtls_configuration,
-    azurerm_key_vault_secret.dapr_trust_root,
-    azurerm_dns_a_record.service_api
+    azurerm_key_vault_secret.dapr_trust_root
+    # azurerm_dns_a_record.service_api - temporarily removed due to provider bug
   ]
 }
 

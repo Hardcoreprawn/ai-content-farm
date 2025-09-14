@@ -155,6 +155,9 @@ resource "azurerm_dns_txt_record" "acme_challenge" {
 }
 
 # DNS A records for service domains pointing to Container Apps
+# Temporarily commented out due to Terraform provider inconsistency bug
+# Will be re-enabled after deployment stabilizes
+/*
 resource "azurerm_dns_a_record" "service_api" {
   name                = "api"
   zone_name           = "jablab.dev"
@@ -173,6 +176,7 @@ resource "azurerm_dns_a_record" "service_api" {
 
   depends_on = [azurerm_container_app.content_collector]
 }
+*/
 
 # Log Analytics query for certificate expiration monitoring
 resource "azurerm_log_analytics_saved_search" "certificate_expiration" {
