@@ -23,24 +23,22 @@ env:
   REPOSITORY: hardcoreprawn/ai-content-farm
 
 jobs:
-  # === CHANGE DETECTION ===
+  # === FOUNDATION PHASE ===
   detect-changes:
     name: Detect Changes
     runs-on: ubuntu-latest
+    if: github.actor != 'dependabot[bot]'
     outputs:
       containers: ${{ steps.changes.outputs.containers }}
       infrastructure: ${{ steps.changes.outputs.infrastructure }}
       deploy-method: ${{ steps.changes.outputs.deploy-method }}
-      is-dependabot: ${{ steps.changes.outputs.is-dependabot }}
-      requires-terraform: ${{ steps.changes.outputs.requires-terraform }}
-      requires-full-pipeline: ${{ steps.changes.outputs.requires-full-pipeline }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
           fetch-depth: 2
 
-      - name: Detect Changes and Actor
+      - name: Detect Changes
         id: changes
         run: |
           changed_files=$(git diff --name-only HEAD~1 HEAD || echo "")
@@ -48,18 +46,7 @@ jobs:
           infrastructure="false"
           deploy_method="skip"
           container_list=()
-          is_dependabot="false"
-          requires_terraform="false"
-          requires_full_pipeline="true"
 
-          # Check if this is a dependabot PR
-          if [[ "${{ github.actor }}" == "dependabot[bot]" ]]; then
-            is_dependabot="true"
-            requires_full_pipeline="false"
-            echo "[DEPENDABOT] PR detected - optimizing pipeline"
-          fi
-
-          # Analyze changed files
           while IFS= read -r file; do
             case "$file" in
               containers/*/*)
@@ -78,63 +65,25 @@ jobs:
                 ;;
               infra/*|*.tf|*.tfvars)
                 infrastructure="true"
-                requires_terraform="true"
-                requires_full_pipeline="true"
                 ;;
             esac
           done <<< "$changed_files"
-
-          # For dependabot PRs with only requirements changes, skip terraform
-          if [[ "$is_dependabot" == "true" ]]; then
-            # Check if only dependency files changed
-            dependency_only="true"
-            while IFS= read -r file; do
-              case "$file" in
-                requirements*.txt|containers/*/requirements.txt|pyproject.toml)
-                  # These are dependency files - OK for dependabot
-                  ;;
-                *)
-                  # Any other file means it's not a pure dependency update
-                  dependency_only="false"
-                  requires_full_pipeline="true"
-                  ;;
-              esac
-            done <<< "$changed_files"
-
-            if [[ "$dependency_only" == "true" ]]; then
-              requires_terraform="false"
-              echo "[SKIP] Pure dependency update detected - skipping terraform checks"
-            fi
-          fi
 
           if [[ ${#container_list[@]} -gt 0 ]]; then
             containers=$(printf '%s\n' "${container_list[@]}" | \
                         sort -u | jq -R . | jq -s . | jq -c .)
           fi
 
-          # Set deployment method
-          if [[ "$requires_terraform" == "true" ]]; then
-            deploy_method="terraform"
-          fi
+          # Always run terraform to manage infrastructure state properly
+          # Terraform plan will detect if there are actual changes to deploy
+          deploy_method="terraform"
 
           {
             echo "containers=$containers"
             echo "infrastructure=$infrastructure"
             echo "deploy-method=$deploy_method"
-            echo "is-dependabot=$is_dependabot"
-            echo "requires-terraform=$requires_terraform"
-            echo "requires-full-pipeline=$requires_full_pipeline"
           } >> "$GITHUB_OUTPUT"
 
-          # Debug output
-          echo "[CONFIG] Pipeline Configuration:"
-          echo "  - Is Dependabot: $is_dependabot"
-          echo "  - Requires Terraform: $requires_terraform"
-          echo "  - Requires Full Pipeline: $requires_full_pipeline"
-          echo "  - Containers: $containers"
-          echo "  - Infrastructure: $infrastructure"
-
-  # === ALWAYS RUN (LIGHTWEIGHT) ===
   quality-checks:
     name: Quality Checks
     runs-on: ubuntu-latest
@@ -148,18 +97,68 @@ jobs:
       - name: Code Quality
         uses: ./.github/actions/code-quality
 
-  # === CONTAINER TRACK (ALWAYS FOR CONTAINER CHANGES) ===
+  security-infrastructure:
+    name: Security Infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Infrastructure Security Scan
+        uses: ./.github/actions/security-infrastructure
+        with:
+          fail-on-critical: 'false'
+
+  security-containers:
+    name: Security Containers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Container Security Scan
+        uses: ./.github/actions/security-containers
+        with:
+          fail-on-critical: 'false'
+          scan-mode: 'dockerfile'
+
+  security-code:
+    name: Security Code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Code Security Scan
+        uses: ./.github/actions/security-code
+        with:
+          fail-on-critical: 'false'
+
+  terraform-checks:
+    name: Terraform Checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Terraform Quality
+        uses: ./.github/actions/infrastructure-quality
+        with:
+          infra-changed: 'true'
+
+      - name: Cost Analysis
+        uses: ./.github/actions/cost-analysis
+        with:
+          infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+  # === CONTAINER TRACK ===
   test-containers:
     name: Test ${{ matrix.container }}
     runs-on: ubuntu-latest
-    needs: [detect-changes, quality-checks]
-    if: |
-      always() &&
-      needs.quality-checks.result == 'success' &&
-      fromJSON(needs.detect-changes.outputs.containers)[0] != null
+    needs: [quality-checks]
     strategy:
       matrix:
-        container: ${{ fromJSON(needs.detect-changes.outputs.containers) }}
+        container: [content-collector, content-processor, site-generator]
       fail-fast: false
     steps:
       - name: Checkout
@@ -174,14 +173,13 @@ jobs:
   build-containers:
     name: Build ${{ matrix.container }}
     runs-on: ubuntu-latest
-    needs: [detect-changes, test-containers]
+    needs: [test-containers]
     if: |
       always() &&
-      needs.test-containers.result == 'success' &&
-      fromJSON(needs.detect-changes.outputs.containers)[0] != null
+      needs.test-containers.result == 'success'
     strategy:
       matrix:
-        container: ${{ fromJSON(needs.detect-changes.outputs.containers) }}
+        container: [content-collector, content-processor, site-generator]
       fail-fast: false
     steps:
       - name: Checkout
@@ -205,42 +203,13 @@ jobs:
           repository: ${{ env.REPOSITORY }}
           tag: ${{ github.sha }}
 
-  # === SECURITY TRACK ===
-  security-code:
-    name: Security Code
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Code Security Scan
-        uses: ./.github/actions/security-code
-        with:
-          fail-on-critical: 'false'
-
-  security-containers:
-    name: Security Containers
-    runs-on: ubuntu-latest
-    needs: [detect-changes]
-    if: needs.detect-changes.outputs.requires-full-pipeline == 'true'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Container Security Scan
-        uses: ./.github/actions/security-containers
-        with:
-          fail-on-critical: 'false'
-          scan-mode: 'dockerfile'
-
   security-container-images:
     name: Security Container Images
     runs-on: ubuntu-latest
-    needs: [detect-changes, build-containers]
+    needs: [build-containers]
     if: |
       always() &&
-      needs.build-containers.result == 'success' &&
-      fromJSON(needs.detect-changes.outputs.containers)[0] != null
+      needs.build-containers.result == 'success'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -261,41 +230,7 @@ jobs:
           repository: ${{ env.REPOSITORY }}
           image-tag: ${{ github.sha }}
 
-  # === INFRASTRUCTURE TRACK (CONDITIONAL) ===
-  security-infrastructure:
-    name: Security Infrastructure
-    runs-on: ubuntu-latest
-    needs: [detect-changes]
-    if: needs.detect-changes.outputs.requires-terraform == 'true'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Infrastructure Security Scan
-        uses: ./.github/actions/security-infrastructure
-        with:
-          fail-on-critical: 'false'
-
-  terraform-checks:
-    name: Terraform Checks
-    runs-on: ubuntu-latest
-    needs: [detect-changes]
-    if: needs.detect-changes.outputs.requires-terraform == 'true'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Terraform Quality
-        uses: ./.github/actions/infrastructure-quality
-        with:
-          infra-changed: ${{ needs.detect-changes.outputs.infrastructure }}
-
-      - name: Cost Analysis
-        uses: ./.github/actions/cost-analysis
-        with:
-          infracost-api-key: ${{ secrets.INFRACOST_API_KEY }}
-
-  # === DEPLOYMENT ===
+  # === INFRASTRUCTURE TRACK (PARALLEL) ===
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
@@ -303,7 +238,6 @@ jobs:
     if: |
       always() &&
       github.ref == 'refs/heads/main' &&
-      needs.detect-changes.outputs.requires-terraform == 'true' &&
       needs.terraform-checks.result == 'success' &&
       needs.security-infrastructure.result == 'success'
     environment: production
@@ -335,15 +269,15 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           image-tag: ${{ github.sha }}
 
-  # === CONTAINER SYNC ===
+  # === FINAL SYNC ===
   container-sync:
     name: Container Sync
     runs-on: ubuntu-latest
-    needs: [detect-changes, deploy, security-container-images]
+    needs: [deploy, security-container-images]
     if: |
       always() &&
       github.ref == 'refs/heads/main' &&
-      (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
+      needs.deploy.result == 'success' &&
       needs.security-container-images.result == 'success'
     environment: production
     steps:
@@ -372,9 +306,9 @@ jobs:
     needs:
       - detect-changes
       - quality-checks
-      - security-code
-      - security-containers
       - security-infrastructure
+      - security-containers
+      - security-code
       - security-container-images
       - terraform-checks
       - test-containers
@@ -385,45 +319,5 @@ jobs:
     steps:
       - name: Generate Summary
         run: |
-          {
-            echo "# Pipeline Summary"
-            echo ""
-
-            # Pipeline type
-            if [[ "${{ needs.detect-changes.outputs.is-dependabot }}" == "true" ]]; then
-              echo "[DEPENDABOT] **Dependabot Pipeline**"
-              if [[ "${{ needs.detect-changes.outputs.requires-terraform }}" == "false" ]]; then
-                echo "[SKIP] Pure dependency update - Terraform checks skipped"
-              fi
-            else
-              echo "[FULL] **Full CI/CD Pipeline**"
-            fi
-
-            echo ""
-            echo "## Jobs Executed:"
-
-            # Show which jobs ran
-            echo "- [PASS] Quality Checks"
-            echo "- [PASS] Security Code Scan"
-
-            if [[ "${{ needs.test-containers.result }}" != "skipped" ]]; then
-              echo "- [PASS] Container Tests"
-            fi
-
-            if [[ "${{ needs.security-containers.result }}" != "skipped" ]]; then
-              echo "- [PASS] Container Security"
-            fi
-
-            if [[ "${{ needs.terraform-checks.result }}" != "skipped" ]]; then
-              echo "- [PASS] Terraform Checks"
-            else
-              echo "- [SKIP] Terraform Checks (skipped)"
-            fi
-
-            if [[ "${{ needs.deploy.result }}" != "skipped" ]]; then
-              echo "- [PASS] Deployment"
-            fi
-
-            echo ""
-            echo "Pipeline completed successfully!"
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "# Pipeline Summary" >> "$GITHUB_STEP_SUMMARY"
+          echo "Complete!" >> "$GITHUB_STEP_SUMMARY"

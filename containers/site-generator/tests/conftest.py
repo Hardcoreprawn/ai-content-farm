@@ -205,18 +205,14 @@ def mock_generator(
 
     from site_generator import SiteGenerator
 
-    with patch(
-        "site_generator.BlobStorageClient", return_value=mock_blob_client
-    ), patch("site_generator.Config", return_value=mock_config), patch(
-        "site_generator.ContentManager", return_value=mock_content_manager
-    ), patch(
-        "site_generator.ArchiveManager", return_value=mock_archive_manager
-    ), patch(
-        "site_generator.SecurityValidator", return_value=mock_security_validator
-    ), patch(
-        "site_generator.MarkdownService", return_value=mock_markdown_service
-    ), patch(
-        "site_generator.SiteService", return_value=mock_site_service
+    with (
+        patch("site_generator.BlobStorageClient", return_value=mock_blob_client),
+        patch("site_generator.Config", return_value=mock_config),
+        patch("site_generator.ContentManager", return_value=mock_content_manager),
+        patch("site_generator.ArchiveManager", return_value=mock_archive_manager),
+        patch("site_generator.SecurityValidator", return_value=mock_security_validator),
+        patch("site_generator.MarkdownService", return_value=mock_markdown_service),
+        patch("site_generator.SiteService", return_value=mock_site_service),
     ):
 
         generator = SiteGenerator()

@@ -204,7 +204,7 @@ async def save_discovery_results(result: DiscoveryResult, blob_client) -> None:
         blob_name = f"topic_discovery_{timestamp}.json"
 
         # Save to collected content container
-        blob_client.upload_json(
+        await blob_client.upload_json(
             container_name=BlobContainers.COLLECTED_CONTENT,
             blob_name=blob_name,
             data=result.model_dump(),

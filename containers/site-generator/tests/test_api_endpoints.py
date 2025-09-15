@@ -18,9 +18,10 @@ from models import GenerationResponse, SiteStatus
 sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 
 # Mock dependencies before importing main
-with patch("site_generator.BlobStorageClient"), patch(
-    "main.SiteGenerator"
-) as mock_site_gen_class:
+with (
+    patch("site_generator.BlobStorageClient"),
+    patch("main.SiteGenerator") as mock_site_gen_class,
+):
     mock_site_gen_instance = AsyncMock()
     mock_site_gen_instance.generator_id = "test_generator_123"
     mock_site_gen_class.return_value = mock_site_gen_instance

@@ -5,10 +5,22 @@ Implements Service Bus message processing for content collection requests.
 Uses shared Service Bus router base for consistency across services.
 """
 
+import asyncio
+import json
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from pydantic import BaseModel, Field
+
+from libs.service_bus_client import (
+    ServiceBusClient,
+    ServiceBusConfig,
+    ServiceBusPollingService,
+    create_service_bus_client,
+)
 from libs.service_bus_router import ServiceBusRouterBase
+from libs.shared_models import StandardResponse, create_service_dependency
 
 logger = logging.getLogger(__name__)
 
@@ -76,21 +88,6 @@ class ContentCollectorServiceBusRouter(ServiceBusRouterBase):
 service_bus_router = ContentCollectorServiceBusRouter()
 router = service_bus_router.router
 
-import asyncio
-import json
-import logging
-from typing import Any, Dict, Optional
-
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from pydantic import BaseModel, Field
-
-from libs.service_bus_client import (
-    ServiceBusClient,
-    ServiceBusConfig,
-    ServiceBusPollingService,
-    create_service_bus_client,
-)
-from libs.shared_models import StandardResponse, create_service_dependency
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/internal", tags=["Service Bus"])
