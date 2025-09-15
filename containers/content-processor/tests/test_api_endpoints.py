@@ -21,6 +21,7 @@ def test_root_endpoint():
     assert data["status"] == "success"
     assert "data" in data
     assert data["data"]["service"] == "content-processor"
+    # Updated to match config version
     assert data["data"]["version"] == "1.0.0"
 
 
@@ -76,6 +77,7 @@ def test_openapi_json():
 def test_process_endpoint_post():
     """Test main processing endpoint."""
     test_data = {
+        "topic_id": "test-topic-123",
         "content": "Test content to process",
         "processing_type": "enhancement",
         "options": {"quality_threshold": 0.8},
@@ -119,12 +121,17 @@ def test_error_handling():
     # Test invalid JSON to main process endpoint
     response = client.post("/process", json={"invalid": "data"})
 
-    # Should handle the error gracefully with FastAPI validation error format
-    assert response.status_code in [400, 422]
+    # Should handle the error gracefully with our standardized validation error format
+    assert response.status_code == 422
     data = response.json()
 
-    # FastAPI validation errors have "detail" field
-    assert "detail" in data
+    # Our standardized error format
+    assert data["status"] == "error"
+    assert data["message"] == "Request validation failed"
+    assert "errors" in data
+    assert "metadata" in data
+    assert isinstance(data["errors"], list)
+    assert len(data["errors"]) > 0
 
 
 def test_nonexistent_endpoint():
@@ -135,3 +142,13 @@ def test_nonexistent_endpoint():
     data = response.json()
 
     assert data["status"] == "error"
+    assert data["message"] == "Endpoint not found"
+    assert "data" in data
+    assert "errors" in data
+    assert "metadata" in data
+
+    # Check 404-specific data
+    assert data["data"]["requested_path"] == "/nonexistent"
+    assert data["data"]["requested_method"] == "GET"
+    assert "available_endpoints" in data["data"]
+    assert "documentation" in data["data"]

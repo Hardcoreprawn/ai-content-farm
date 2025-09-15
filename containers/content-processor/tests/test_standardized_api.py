@@ -67,7 +67,8 @@ class TestStandardizedEndpoints:
         assert "data" in data
 
         health_data = data["data"]
-        assert health_data["status"] == "healthy"  # Health status is in data.status
+        # Health status is in data.status
+        assert health_data["status"] == "healthy"
         assert "service" in health_data
         assert "uptime_seconds" in health_data
         assert "dependencies" in health_data
@@ -173,10 +174,15 @@ class TestErrorHandling:
         # Should handle validation error securely
         if response.status_code == 422:
             data = response.json()
-            # Our custom validation handler should provide error_id or correlation_id
-            # Currently FastAPI default handler is being used, so this test may fail
-            # TODO: Ensure our custom validation handler is being called
-            assert "detail" in data  # FastAPI default validation response
+            # Our custom validation handler provides standardized format
+            assert data["status"] == "error"
+            assert data["message"] == "Request validation failed"
+            assert "errors" in data
+            assert "metadata" in data
+            assert isinstance(data["errors"], list)
+            # Should not expose sensitive internal details
+            assert "traceback" not in str(data).lower()
+            assert "file path" not in str(data).lower()
 
 
 class TestConfiguration:

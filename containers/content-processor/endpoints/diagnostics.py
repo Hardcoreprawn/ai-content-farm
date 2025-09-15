@@ -8,7 +8,7 @@ from typing import Any, Dict
 
 from fastapi import APIRouter, Depends
 
-from config import ENVIRONMENT
+from config import ENVIRONMENT, settings
 from libs.shared_models import StandardResponse, create_service_dependency
 from libs.standard_endpoints import (
     create_standard_health_endpoint,
@@ -28,7 +28,7 @@ router.add_api_route(
     create_standard_root_endpoint(
         service_name="content-processor",
         description="AI-powered content processing service",
-        version="1.0.2",
+        version=settings.service_version,
     ),
     methods=["GET"],
     summary="Service Root",
@@ -39,7 +39,7 @@ router.add_api_route(
     "/health",
     create_standard_health_endpoint(
         service_name="content-processor",
-        version="1.0.2",
+        version=settings.service_version,
         environment=ENVIRONMENT,
         service_metadata_dep=service_metadata,
     ),
@@ -52,7 +52,7 @@ router.add_api_route(
     "/status",
     create_standard_status_endpoint(
         service_name="content-processor",
-        version="1.0.2",
+        version=settings.service_version,
         environment=ENVIRONMENT,
         service_metadata_dep=service_metadata,
     ),
