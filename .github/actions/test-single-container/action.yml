@@ -119,16 +119,15 @@ runs:
           pytest_args="$pytest_args -x"
         fi
 
-        # Run unit tests for specific container from the container directory
-        cd "containers/${CONTAINER_NAME}" && \
-        PYTHONPATH="$GITHUB_WORKSPACE/containers/${CONTAINER_NAME}:$GITHUB_WORKSPACE/libs:$PYTHONPATH" python -m pytest \
+        # Run unit tests for specific container with isolated PYTHONPATH
+        PYTHONPATH="$GITHUB_WORKSPACE/containers/${CONTAINER_NAME}:$GITHUB_WORKSPACE/libs" python -m pytest \
           $pytest_args \
           -m "unit or not integration" \
-          --cov="." \
-          --cov-report=xml:"../../coverage-${CONTAINER_NAME}-unit.xml" \
+          --cov="containers/${CONTAINER_NAME}" \
+          --cov-report=xml:"coverage-${CONTAINER_NAME}-unit.xml" \
           --cov-report=term-missing \
-          --junit-xml="../../test-results-${CONTAINER_NAME}-unit.xml" \
-          . \
+          --junit-xml="test-results-${CONTAINER_NAME}-unit.xml" \
+          "containers/${CONTAINER_NAME}/tests" \
           || echo "unit_test_failed=true" >> $GITHUB_ENV
 
     - name: Run Integration Tests
@@ -145,16 +144,15 @@ runs:
           pytest_args="$pytest_args -x"
         fi
 
-        # Run integration tests for specific container from the container directory
-        cd "containers/${CONTAINER_NAME}" && \
-        PYTHONPATH="$GITHUB_WORKSPACE/containers/${CONTAINER_NAME}:$GITHUB_WORKSPACE/libs:$PYTHONPATH" python -m pytest \
+        # Run integration tests for specific container with isolated PYTHONPATH
+        PYTHONPATH="$GITHUB_WORKSPACE/containers/${CONTAINER_NAME}:$GITHUB_WORKSPACE/libs" python -m pytest \
           $pytest_args \
           -m integration \
-          --cov="." \
-          --cov-report=xml:"../../coverage-${CONTAINER_NAME}-integration.xml" \
+          --cov="containers/${CONTAINER_NAME}" \
+          --cov-report=xml:"coverage-${CONTAINER_NAME}-integration.xml" \
           --cov-report=term-missing \
-          --junit-xml="../../test-results-${CONTAINER_NAME}-integration.xml" \
-          . \
+          --junit-xml="test-results-${CONTAINER_NAME}-integration.xml" \
+          "containers/${CONTAINER_NAME}/tests" \
           || echo "integration_test_failed=true" >> $GITHUB_ENV
 
     - name: Run Smoke Tests
@@ -165,14 +163,13 @@ runs:
       run: |
         echo "[SMOKE] Running smoke tests for ${CONTAINER_NAME}..."
 
-        # Run quick health check tests from the container directory
-        cd "containers/${CONTAINER_NAME}" && \
-        PYTHONPATH="$GITHUB_WORKSPACE/containers/${CONTAINER_NAME}:$GITHUB_WORKSPACE/libs:$PYTHONPATH" python -m pytest \
+        # Run quick health check tests with isolated PYTHONPATH
+        PYTHONPATH="$GITHUB_WORKSPACE/containers/${CONTAINER_NAME}:$GITHUB_WORKSPACE/libs" python -m pytest \
           -m "unit and not slow" \
           --maxfail=1 \
           --tb=short \
           -q \
-          . \
+          "containers/${CONTAINER_NAME}/tests" \
           || echo "smoke_test_failed=true" >> $GITHUB_ENV
 
     - name: Calculate Coverage

@@ -2,7 +2,7 @@
 # Web Framework
 fastapi~=0.116.1
 uvicorn[standard]~=0.35.0
-pydantic~=2.11.7
+pydantic~=2.11.9
 pydantic-settings~=2.10.1
 
 # HTTP & Data Processing  
@@ -14,20 +14,20 @@ python-dateutil~=2.9.0.post0
 # Content Sources
 praw~=7.8.1
 asyncpraw~=7.8.1
-feedparser~=6.0.11
+feedparser~=6.0.12
 beautifulsoup4~=4.13.5
 lxml~=4.9.3
 
 # Azure Services
-azure-keyvault-secrets~=4.7.0
+azure-keyvault-secrets~=4.10.0
 azure-identity~=1.24.0
 azure-storage-blob~=12.26.0
 azure-servicebus~=7.12.3
 
 # Testing & Development
 pytest~=8.4.2
-pytest-asyncio~=1.1.0
-pytest-cov~=6.3.0
+pytest-asyncio~=1.2.0
+pytest-cov~=7.0.0
 black~=25.1.0
 isort~=6.0.1
 mypy~=1.17.1

@@ -21,6 +21,10 @@ inputs:
     description: 'Image tag for scanning built images'
     required: false
     default: 'latest'
+  container-name:
+    description: 'Specific container to scan (e.g., site-generator). If not provided, scans all containers.'
+    required: false
+    default: ''
 
 outputs:
   passed:
@@ -47,30 +51,40 @@ runs:
         REGISTRY: ${{ inputs.registry }}
         REPOSITORY: ${{ inputs.repository }}
         IMAGE_TAG: ${{ inputs.image-tag }}
+        TARGET_CONTAINER: ${{ inputs.container-name }}
       continue-on-error: true
       run: |
         echo "Running Trivy container scan in $SCAN_MODE mode..."
 
+        # If a specific container is provided, use that; otherwise scan all
+        if [[ -n "$TARGET_CONTAINER" ]]; then
+          containers=("$TARGET_CONTAINER")
+          echo "Scanning specific container: $TARGET_CONTAINER"
+        else
+          containers=("content-collector" "content-processor" "site-generator")
+          echo "Scanning all containers"
+        fi
+
         if [[ "$SCAN_MODE" == "dockerfile" ]]; then
           echo "Scanning Dockerfiles for configuration issues..."
-          # Scan all Dockerfiles
-          find . -name "Dockerfile" -type f | while read -r dockerfile; do
-            dockerfile_dir="$(dirname "$dockerfile")"
-            container_name="$(basename "$dockerfile_dir")"
-            echo "Scanning Dockerfile for $container_name..."
-            if [ -d "$dockerfile_dir" ]; then
+          # Scan Dockerfiles for specified containers
+          for container in "${containers[@]}"; do
+            dockerfile_path="containers/$container/Dockerfile"
+            if [ -f "$dockerfile_path" ]; then
+              echo "Scanning Dockerfile for $container..."
               docker run --rm -v "${WORKSPACE_PATH}":/workspace \
-                aquasec/trivy:latest config "/workspace/$dockerfile_dir" \
+                aquasec/trivy:latest config "/workspace/containers/$container" \
                 --format json \
-                --output "/workspace/security-results/trivy-dockerfile-${container_name}.json" \
+                --output "/workspace/security-results/trivy-dockerfile-${container}.json" \
                 --severity HIGH,CRITICAL || true
+            else
+              echo "Warning: Dockerfile not found for $container at $dockerfile_path"
             fi
           done
 
         elif [[ "$SCAN_MODE" == "image" ]]; then
           echo "Scanning built container images for vulnerabilities..."
-          # Scan built images
-          containers=("content-collector" "content-processor" "site-generator")
+          # Scan built images for specified containers
           for container in "${containers[@]}"; do
             echo "Scanning image: ${REGISTRY}/${REPOSITORY}/${container}:${IMAGE_TAG}"
             docker run --rm \
