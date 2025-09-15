@@ -236,13 +236,17 @@ jobs:
           scan-mode: 'dockerfile'
 
   security-container-images:
-    name: Security Container Images
+    name: Security ${{ matrix.container }}
     runs-on: ubuntu-latest
     needs: [detect-changes, build-containers]
     if: |
       always() &&
       needs.build-containers.result == 'success' &&
       fromJSON(needs.detect-changes.outputs.containers)[0] != null
+    strategy:
+      matrix:
+        container: ${{ fromJSON(needs.detect-changes.outputs.containers) }}
+      fail-fast: false
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -262,6 +266,7 @@ jobs:
           registry: ${{ env.REGISTRY }}
           repository: ${{ env.REPOSITORY }}
           image-tag: ${{ github.sha }}
+          container-name: ${{ matrix.container }}
 
   # === INFRASTRUCTURE TRACK (CONDITIONAL) ===
   security-infrastructure:
@@ -339,14 +344,19 @@ jobs:
 
   # === CONTAINER SYNC ===
   container-sync:
-    name: Container Sync
+    name: Sync ${{ matrix.container }}
     runs-on: ubuntu-latest
     needs: [detect-changes, deploy, security-container-images]
     if: |
       always() &&
       github.ref == 'refs/heads/main' &&
       (needs.deploy.result == 'success' || needs.deploy.result == 'skipped') &&
-      needs.security-container-images.result == 'success'
+      needs.security-container-images.result == 'success' &&
+      fromJSON(needs.detect-changes.outputs.containers)[0] != null
+    strategy:
+      matrix:
+        container: ${{ fromJSON(needs.detect-changes.outputs.containers) }}
+      fail-fast: false
     environment: production
     steps:
       - name: Checkout
@@ -366,6 +376,7 @@ jobs:
           repository: ${{ env.REPOSITORY }}
           image-tag: ${{ github.sha }}
           resource-group: ai-content-dev-rg
+          container-name: ${{ matrix.container }}
 
   # === SUMMARY ===
   summary:

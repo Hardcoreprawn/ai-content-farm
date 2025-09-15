@@ -14,6 +14,9 @@ inputs:
   resource-group:
     description: 'Azure resource group name'
     required: true
+  container-name:
+    description: 'Specific container to sync (e.g., site-generator)'
+    required: true
 
 runs:
   using: 'composite'
@@ -21,9 +24,9 @@ runs:
     - name: Compare and Update Container Versions
       shell: bash
       run: |
-        echo "[SYNC] Starting container version sync..."
+        echo "[SYNC] Starting container version sync for specific container..."
 
-        # Container Apps to check
+        # Container Apps mapping
         declare -A containers=(
           ["ai-content-dev-collector"]="content-collector"
           ["ai-content-dev-processor"]="content-processor"
@@ -34,90 +37,101 @@ runs:
         REGISTRY="${{ inputs.registry }}"
         REPOSITORY="${{ inputs.repository }}"
         RESOURCE_GROUP="${{ inputs.resource-group }}"
+        TARGET_CONTAINER="${{ inputs.container-name }}"
 
-        echo "[INFO] Checking container versions:"
+        echo "[INFO] Syncing container version:"
         echo "  Registry: $REGISTRY"
         echo "  Repository: $REPOSITORY"
         echo "  New Tag: $NEW_TAG"
         echo "  Resource Group: $RESOURCE_GROUP"
+        echo "  Target Container: $TARGET_CONTAINER"
         echo
 
-        updated_count=0
-
-        for app_name in "${!containers[@]}"; do
-          container_name="${containers[$app_name]}"
-
-          echo "[SCAN] Checking $app_name ($container_name)..."
-
-          # Get current container image from Container App
-          current_image=$(az containerapp show \
-            --name "$app_name" \
-            --resource-group "$RESOURCE_GROUP" \
-            --query "properties.template.containers[0].image" \
-            --output tsv 2>/dev/null || echo "")
-
-          if [[ -z "$current_image" ]]; then
-            echo "  [WARN] Could not retrieve current image for $app_name, skipping..."
-            continue
+        # Find the Azure Container App name for this container
+        app_name=""
+        for container_app in "${!containers[@]}"; do
+          if [[ "${containers[$container_app]}" == "$TARGET_CONTAINER" ]]; then
+            app_name="$container_app"
+            break
           fi
-
-          # Extract current tag
-          current_tag=$(echo "$current_image" | sed 's/.*://')
-          new_image="$REGISTRY/$REPOSITORY/$container_name:$NEW_TAG"
-
-          echo "  [CURRENT] $current_image"
-          echo "  [NEW]     $new_image"
-
-          if [[ "$current_tag" != "$NEW_TAG" ]]; then
-            echo "  [UPDATE] Updating $app_name to tag $NEW_TAG..."
-
-            # Update container app with new image
-            az containerapp update \
-              --name "$app_name" \
-              --resource-group "$RESOURCE_GROUP" \
-              --image "$new_image" \
-              --output none
-
-            if [[ $? -eq 0 ]]; then
-              echo "  [PASS] Successfully updated $app_name"
-              ((updated_count++))
-            else
-              echo "  [FAIL] Failed to update $app_name"
-            fi
-          else
-            echo "  [PASS] $app_name already at correct version"
-          fi
-          echo
         done
 
-        echo "[COMPLETE] Container sync complete!"
-        echo "[STATS] Updated $updated_count containers"
+        if [[ -z "$app_name" ]]; then
+          echo "[ERROR] No Azure Container App found for container: $TARGET_CONTAINER"
+          echo "Available containers: ${containers[@]}"
+          exit 1
+        fi
+
+        echo "[SCAN] Checking $app_name ($TARGET_CONTAINER)..."
+
+        # Get current container image from Container App
+        current_image=$(az containerapp show \
+          --name "$app_name" \
+          --resource-group "$RESOURCE_GROUP" \
+          --query "properties.template.containers[0].image" \
+          --output tsv 2>/dev/null || echo "")
+
+        if [[ -z "$current_image" ]]; then
+          echo "  [WARN] Could not retrieve current image for $app_name, creating new deployment..."
+          current_tag="none"
+        else
+          # Extract current tag
+          current_tag=$(echo "$current_image" | sed 's/.*://')
+        fi
+
+        new_image="$REGISTRY/$REPOSITORY/$TARGET_CONTAINER:$NEW_TAG"
+
+        echo "  [CURRENT] $current_image"
+        echo "  [NEW]     $new_image"
+
+        update_success=false
+        if [[ "$current_tag" != "$NEW_TAG" ]]; then
+          echo "  [UPDATE] Updating $app_name to tag $NEW_TAG..."
+
+          # Update container app with new image
+          az containerapp update \
+            --name "$app_name" \
+            --resource-group "$RESOURCE_GROUP" \
+            --image "$new_image" \
+            --output none
+
+          if [[ $? -eq 0 ]]; then
+            echo "  [PASS] Successfully updated $app_name"
+            update_success=true
+          else
+            echo "  [FAIL] Failed to update $app_name"
+            exit 1
+          fi
+        else
+          echo "  [PASS] $app_name already at correct version"
+          update_success=true
+        fi
+
+        echo "[COMPLETE] Container sync complete for $TARGET_CONTAINER!"
 
         # Add to job summary
         {
-          echo "## Container Sync Results"
+          echo "## Container Sync Results - $TARGET_CONTAINER"
           echo ""
-          echo "| Container App | Status |"
-          echo "|---------------|--------|"
+          echo "| Container App | Current Image | Status |"
+          echo "|---------------|---------------|--------|"
         } >> "$GITHUB_STEP_SUMMARY"
 
-        for app_name in "${!containers[@]}"; do
-          container_name="${containers[$app_name]}"
-          current_image=$(az containerapp show \
-            --name "$app_name" \
-            --resource-group "$RESOURCE_GROUP" \
-            --query "properties.template.containers[0].image" \
-            --output tsv 2>/dev/null || echo "Error")
-          current_tag=$(echo "$current_image" | sed 's/.*://')
+        # Get final image to confirm
+        final_image=$(az containerapp show \
+          --name "$app_name" \
+          --resource-group "$RESOURCE_GROUP" \
+          --query "properties.template.containers[0].image" \
+          --output tsv 2>/dev/null || echo "Error")
+        final_tag=$(echo "$final_image" | sed 's/.*://')
 
-          if [[ "$current_tag" == "$NEW_TAG" ]]; then
-            status="[PASS] Synced to $NEW_TAG"
-          else
-            status="[WARN] Failed or skipped"
-          fi
+        if [[ "$final_tag" == "$NEW_TAG" ]]; then
+          status="[PASS] Synced to $NEW_TAG"
+        else
+          status="[FAIL] Failed to sync"
+        fi
 
-          echo "| $app_name | $status |" >> "$GITHUB_STEP_SUMMARY"
-        done
+        echo "| $app_name | $final_image | $status |" >> "$GITHUB_STEP_SUMMARY"
 
         echo "" >> "$GITHUB_STEP_SUMMARY"
         echo "**Total Updated:** $updated_count containers" >> "$GITHUB_STEP_SUMMARY"
