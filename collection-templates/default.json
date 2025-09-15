@@ -1,0 +1,22 @@
+{
+    "sources": [
+        {
+            "type": "reddit",
+            "subreddits": [
+                "technology",
+                "programming",
+                "science",
+                "worldnews",
+                "news"
+            ],
+            "limit": 15,
+            "criteria": {
+                "min_score": 10,
+                "time_filter": "day"
+            }
+        }
+    ],
+    "deduplicate": true,
+    "similarity_threshold": 0.8,
+    "save_to_storage": true
+}

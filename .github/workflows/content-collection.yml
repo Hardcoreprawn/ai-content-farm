@@ -7,8 +7,16 @@ on:
     - cron: '0 */4 * * *'
   workflow_dispatch:  # Allow manual triggering
     inputs:
+      run_all_templates:
+        description: 'Run all templates for deduplication stress testing'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
       template:
-        description: 'Collection template to use'
+        description: 'Single collection template to use (ignored if run_all_templates is true)'
         required: false
         default: 'default.json'
         type: choice
@@ -26,6 +34,7 @@ env:
   AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
   AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
   AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  RUN_ALL_TEMPLATES: ${{ inputs.run_all_templates || 'false' }}
   COLLECTION_TEMPLATE: ${{ inputs.template || 'default.json' }}
 
 jobs:
@@ -63,49 +72,125 @@ jobs:
           echo "CONTENT_COLLECTOR_URL=https://$URL" >> "$GITHUB_OUTPUT"
           echo "[PASS] Content Collector URL: https://$URL"
 
-      - name: Load Collection Template
+      - name: Load Collection Template(s)
         run: |
-          # Load the specified collection template
-          TEMPLATE_FILE="collection-templates/${{ env.COLLECTION_TEMPLATE }}"
+          if [ "${{ env.RUN_ALL_TEMPLATES }}" = "true" ]; then
+            echo "[INFO] Running ALL templates for deduplication stress testing"
+            echo "ALL_TEMPLATES=true" >> "$GITHUB_ENV"
 
-          if [ ! -f "$TEMPLATE_FILE" ]; then
-            echo "[ERROR] Template file not found: $TEMPLATE_FILE"
+            # List all available templates
             echo "[INFO] Available templates:"
             ls -la collection-templates/
-            exit 1
+
+            # Verify all template files exist and are valid JSON
+            for template in collection-templates/*.json; do
+              echo "[INFO] Validating template: $template"
+              if ! jq . "$template" > /dev/null; then
+                echo "[ERROR] Invalid JSON in template: $template"
+                exit 1
+              fi
+            done
+
+            echo "[INFO] All templates validated successfully"
+          else
+            # Single template mode
+            TEMPLATE_FILE="collection-templates/${{ env.COLLECTION_TEMPLATE }}"
+
+            if [ ! -f "$TEMPLATE_FILE" ]; then
+              echo "[ERROR] Template file not found: $TEMPLATE_FILE"
+              echo "[INFO] Available templates:"
+              ls -la collection-templates/
+              exit 1
+            fi
+
+            echo "[INFO] Using single collection template: $TEMPLATE_FILE"
+            cp "$TEMPLATE_FILE" collection_request.json
+
+            echo "[INFO] Collection request payload:"
+            jq . collection_request.json
           fi
 
-          echo "[INFO] Using collection template: $TEMPLATE_FILE"
-          cp "$TEMPLATE_FILE" collection_request.json
-
-          echo "[INFO] Collection request payload:"
-          jq . collection_request.json
-
-      - name: Send Collection Request
+      - name: Send Collection Request(s)
         run: |
-          # Send collection request to the content collector API
-          # This will trigger internal Service Bus processing and KEDA scaling
-          echo "[INFO] Sending collection request to: ${{ steps.get-url.outputs.CONTENT_COLLECTOR_URL }}/collections"
+          if [ "${{ env.ALL_TEMPLATES }}" = "true" ]; then
+            echo "[INFO] === DEDUPLICATION STRESS TEST: Running ALL templates ==="
 
-          RESPONSE=$(curl -s -X POST "${{ steps.get-url.outputs.CONTENT_COLLECTOR_URL }}/collections" \
-            -H "Content-Type: application/json" \
-            -d @collection_request.json \
-            -w "HTTPSTATUS:%{http_code}")
+            # Send requests for all templates sequentially
+            SUCCESS_COUNT=0
+            TOTAL_COUNT=0
 
-          HTTP_CODE="${RESPONSE##*HTTPSTATUS:}"
-          RESPONSE_BODY="${RESPONSE%HTTPSTATUS:*}"
+            for template in collection-templates/*.json; do
+              TEMPLATE_NAME=$(basename "$template")
+              TOTAL_COUNT=$((TOTAL_COUNT + 1))
 
-          echo "[INFO] HTTP Status: $HTTP_CODE"
-          echo "[INFO] Response:"
-          echo "$RESPONSE_BODY" | jq . || echo "$RESPONSE_BODY"
+              echo ""
+              echo "[INFO] === Processing template $TOTAL_COUNT: $TEMPLATE_NAME ==="
 
-          if [ "$HTTP_CODE" -ne 200 ]; then
-            echo "[ERROR] Collection request failed with status $HTTP_CODE"
-            exit 1
+              echo "[INFO] Template payload:"
+              jq . "$template"
+
+              echo "[INFO] Sending collection request to: ${{ steps.get-url.outputs.CONTENT_COLLECTOR_URL }}/collections"
+
+              RESPONSE=$(curl -s -X POST "${{ steps.get-url.outputs.CONTENT_COLLECTOR_URL }}/collections" \
+                -H "Content-Type: application/json" \
+                -d @"$template" \
+                -w "HTTPSTATUS:%{http_code}")
+
+              HTTP_CODE="${RESPONSE##*HTTPSTATUS:}"
+              RESPONSE_BODY="${RESPONSE%HTTPSTATUS:*}"
+
+              echo "[INFO] HTTP Status for $TEMPLATE_NAME: $HTTP_CODE"
+              echo "[INFO] Response:"
+              echo "$RESPONSE_BODY" | jq . || echo "$RESPONSE_BODY"
+
+              if [ "$HTTP_CODE" -eq 200 ]; then
+                echo "[PASS] Template $TEMPLATE_NAME sent successfully"
+                SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+              else
+                echo "[ERROR] Template $TEMPLATE_NAME failed with status $HTTP_CODE"
+              fi
+
+              # Small delay between requests to avoid overwhelming the system
+              sleep 2
+            done
+
+            echo ""
+            echo "[SUMMARY] Deduplication stress test completed"
+            echo "[SUMMARY] Templates processed: $SUCCESS_COUNT/$TOTAL_COUNT successful"
+
+            if [ "$SUCCESS_COUNT" -eq 0 ]; then
+              echo "[ERROR] All templates failed - exiting"
+              exit 1
+            elif [ "$SUCCESS_COUNT" -lt "$TOTAL_COUNT" ]; then
+              echo "[WARNING] Some templates failed, but continuing..."
+            else
+              echo "[PASS] All templates sent successfully - deduplication system will be tested!"
+            fi
+
+          else
+            # Single template mode
+            echo "[INFO] Sending single collection request to: ${{ steps.get-url.outputs.CONTENT_COLLECTOR_URL }}/collections"
+
+            RESPONSE=$(curl -s -X POST "${{ steps.get-url.outputs.CONTENT_COLLECTOR_URL }}/collections" \
+              -H "Content-Type: application/json" \
+              -d @collection_request.json \
+              -w "HTTPSTATUS:%{http_code}")
+
+            HTTP_CODE="${RESPONSE##*HTTPSTATUS:}"
+            RESPONSE_BODY="${RESPONSE%HTTPSTATUS:*}"
+
+            echo "[INFO] HTTP Status: $HTTP_CODE"
+            echo "[INFO] Response:"
+            echo "$RESPONSE_BODY" | jq . || echo "$RESPONSE_BODY"
+
+            if [ "$HTTP_CODE" -ne 200 ]; then
+              echo "[ERROR] Collection request failed with status $HTTP_CODE"
+              exit 1
+            fi
+
+            echo "[PASS] Content collection request sent successfully"
+            echo "[INFO] Template used: ${{ env.COLLECTION_TEMPLATE }}"
           fi
-
-          echo "[PASS] Content collection request sent successfully"
-          echo "[INFO] Template used: ${{ env.COLLECTION_TEMPLATE }}"
 
       - name: Verify Collection Status
         run: |
@@ -119,6 +204,17 @@ jobs:
       - name: Log Completion
         run: |
           echo "[COMPLETE] Content collection workflow completed"
-          echo "[TEMPLATE] Used template: ${{ env.COLLECTION_TEMPLATE }}"
+
+          if [ "${{ env.ALL_TEMPLATES }}" = "true" ]; then
+            echo "[MODE] Deduplication stress test mode - ALL templates processed"
+            echo "[TEMPLATES] All available templates in collection-templates/ were used"
+            echo "[DEDUPE] Deduplication system will process overlapping content from multiple sources"
+            echo "[MONITOR] Check storage for final deduplicated results"
+          else
+            echo "[MODE] Single template mode"
+            echo "[TEMPLATE] Used template: ${{ env.COLLECTION_TEMPLATE }}"
+          fi
+
           echo "[SCHEDULE] Next scheduled run: $(date -d '+4 hours' -u '+%Y-%m-%d %H:%M:%S UTC')"
           echo "[MONITOR] Monitor processing at: ${{ steps.get-url.outputs.CONTENT_COLLECTOR_URL }}/health"
+          echo "[STORAGE] Check collected content in Azure Storage for deduplication results"

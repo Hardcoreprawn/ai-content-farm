@@ -249,6 +249,10 @@ resource "azurerm_container_app" "content_collector" {
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
 
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
+
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.containers.id]
@@ -369,6 +373,10 @@ resource "azurerm_container_app" "content_processor" {
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
 
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
+
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.containers.id]
@@ -488,6 +496,10 @@ resource "azurerm_container_app" "site_generator" {
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
+
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
 
   identity {
     type         = "UserAssigned"

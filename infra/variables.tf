@@ -160,3 +160,16 @@ variable "jablab_dev_resource_group" {
   type        = string
   default     = "jabr_personal"
 }
+
+# User access configuration
+variable "developer_email" {
+  description = "Developer email for blob storage access"
+  type        = string
+  default     = "j.brewster_outlook.com#EXT#@jbrewster.onmicrosoft.com"
+}
+
+variable "developer_ip" {
+  description = "Developer static IP for storage account access"
+  type        = string
+  default     = "81.2.90.47"
+}

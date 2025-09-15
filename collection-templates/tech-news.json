@@ -1,0 +1,27 @@
+{
+  "sources": [
+    {
+      "type": "reddit",
+      "subreddits": [
+        "programming",
+        "webdev",
+        "MachineLearning",
+        "artificial",
+        "technology",
+        "Python",
+        "javascript",
+        "docker",
+        "kubernetes",
+        "aws"
+      ],
+      "limit": 20,
+      "criteria": {
+        "min_score": 25,
+        "time_filter": "day"
+      }
+    }
+  ],
+  "deduplicate": true,
+  "similarity_threshold": 0.85,
+  "save_to_storage": true
+}

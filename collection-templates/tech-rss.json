@@ -1,0 +1,97 @@
+{
+    "sources": [
+        {
+            "type": "rss",
+            "feed_urls": [
+                "https://feeds.feedburner.com/TechCrunch",
+                "https://www.wired.com/feed/rss",
+                "https://arstechnica.com/feed/",
+                "https://rss.slashdot.org/Slashdot/slashdot",
+                "https://www.theregister.com/headlines.atom",
+                "https://thenewstack.io/feed/",
+                "https://feeds.feedburner.com/venturebeat/SZYF",
+                "https://www.engadget.com/rss.xml",
+                "https://feeds.feedburner.com/ommalik",
+                "https://www.theverge.com/rss/index.xml",
+                "https://feeds.feedburner.com/readwriteweb",
+                "https://feeds.feedburner.com/Techcrunch",
+                "https://feeds.feedburner.com/TheNextWeb",
+                "https://feeds.feedburner.com/Mashable",
+                "https://techcrunch.com/feed/",
+                "https://www.zdnet.com/news/rss.xml",
+                "https://www.computerworld.com/news/feed",
+                "https://www.infoworld.com/news/feed",
+                "https://www.gizmodo.com/rss",
+                "https://feeds.feedburner.com/fastcompany/headlines"
+            ],
+            "limit": 5,
+            "criteria": {
+                "topics": [
+                    "artificial intelligence",
+                    "machine learning",
+                    "cloud computing",
+                    "cybersecurity",
+                    "blockchain",
+                    "quantum computing",
+                    "edge computing",
+                    "devops",
+                    "kubernetes",
+                    "docker",
+                    "microservices",
+                    "api",
+                    "data science",
+                    "big data",
+                    "iot",
+                    "5g",
+                    "autonomous vehicles",
+                    "robotics",
+                    "virtual reality",
+                    "augmented reality",
+                    "fintech",
+                    "startup",
+                    "venture capital",
+                    "tech acquisition",
+                    "open source",
+                    "programming",
+                    "software development",
+                    "web development",
+                    "mobile development",
+                    "game development"
+                ],
+                "exclude_keywords": [
+                    "review",
+                    "unboxing",
+                    "deal",
+                    "sale",
+                    "discount",
+                    "coupon",
+                    "sponsored",
+                    "advertisement",
+                    "celebrity",
+                    "gossip"
+                ]
+            }
+        }
+    ],
+    "deduplicate": true,
+    "similarity_threshold": 0.85,
+    "save_to_storage": true,
+    "metadata": {
+        "template_name": "tech-rss",
+        "description": "Collection from prominent technology RSS feeds with topic filtering",
+        "focus_areas": [
+            "Emerging Technologies",
+            "Software Development",
+            "Enterprise Tech",
+            "Startup Ecosystem",
+            "Tech Industry News"
+        ],
+        "update_frequency": "hourly",
+        "content_types": [
+            "news_articles",
+            "analysis",
+            "product_announcements",
+            "industry_reports"
+        ]
+    }
+}

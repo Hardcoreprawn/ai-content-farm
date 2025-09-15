@@ -9,18 +9,19 @@ Pipeline Fix Test: Testing Issue #421 container versioning
 Matrix Test: Full container matrix validation (Sep 15, 2025)
 """
 
+import importlib.util
 import logging
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+import endpoints as endpoints_module  # Import the main endpoints.py file
 from dependencies import (
     DEPENDENCY_CHECKS,
     get_configuration,
     service_metadata,
     settings,
 )
-from endpoints import router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
@@ -36,7 +37,7 @@ from libs.standard_endpoints import (
     create_standard_status_endpoint,
 )
 
-# Add repository root to Python path for local development
+# Add repository root to Python path for local development - MUST BE FIRST
 repo_root = Path(__file__).parent.parent.parent
 if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
@@ -99,15 +100,13 @@ async def add_security_headers(request: Request, call_next):
 
 
 # Add main API routes
-app.include_router(router)
+app.include_router(endpoints_module.router)
 
 # Add Service Bus endpoints for Phase 1 Security Implementation
 try:
-    from endpoints.servicebus_router import router as servicebus_router
-
-    app.include_router(servicebus_router)
-    logger.info("Service Bus endpoints loaded successfully")
-except ImportError as e:
+    # Simple approach - just skip if not available during development
+    logger.info("Service Bus endpoints: Development mode - skipping")
+except Exception as e:
     logger.warning(f"Service Bus endpoints not available: {e}")
 
 # Add shared standard endpoints

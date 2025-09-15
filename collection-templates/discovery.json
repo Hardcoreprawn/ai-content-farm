@@ -1,0 +1,22 @@
+{
+    "sources": [
+        {
+            "type": "reddit",
+            "subreddits": [
+                "futurology",
+                "TrendingTopics",
+                "emerging_tech",
+                "startups",
+                "innovation"
+            ],
+            "limit": 8,
+            "criteria": {
+                "min_score": 15,
+                "time_filter": "day"
+            }
+        }
+    ],
+    "deduplicate": true,
+    "similarity_threshold": 0.7,
+    "save_to_storage": true
+}

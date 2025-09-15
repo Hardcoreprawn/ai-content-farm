@@ -892,9 +892,9 @@ cleanup-articles:
 # Testing Targets
 # ================================
 
-# Default test target
-test: test-unit
-	@echo "✅ Default unit tests completed"
+# Default test target - includes unit and container tests
+test: test-unit test-container
+	@echo "✅ All default tests completed"
 
 # Unit tests
 test-unit:
@@ -906,10 +906,16 @@ test-integration:
 	@echo "🔗 Running integration tests..."
 	@./scripts/run-tests.sh integration
 
-# Container-specific tests
+# Container-specific tests with proper PYTHONPATH isolation
 test-container:
 	@echo "📦 Running container-specific tests..."
-	@./scripts/run-tests.sh container
+	@echo "🔍 Testing content-collector..."
+	@cd containers/content-collector && PYTHONPATH=/workspaces/ai-content-farm python -m pytest tests/ -v --tb=short
+	@echo "🔍 Testing content-processor..."
+	@cd containers/content-processor && PYTHONPATH=/workspaces/ai-content-farm python -m pytest tests/ -v --tb=short
+	@echo "🔍 Testing site-generator..."
+	@cd containers/site-generator && PYTHONPATH=/workspaces/ai-content-farm python -m pytest tests/ -v --tb=short
+	@echo "✅ All container tests completed"
 
 # Service Bus router tests
 test-service-bus:

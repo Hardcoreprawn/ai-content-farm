@@ -113,7 +113,7 @@ output "storage_prompts_container_name" {
 # Content Processor Container App outputs
 output "content_processor_url" {
   description = "URL of the Content Processor Container App"
-  value       = "https://${azurerm_container_app.content_processor.latest_revision_fqdn}"
+  value       = "https://${azurerm_container_app.content_processor.ingress[0].fqdn}"
 }
 
 output "content_processor_name" {
@@ -124,7 +124,7 @@ output "content_processor_name" {
 # Site Generator Container App outputs
 output "site_generator_url" {
   description = "URL of the Site Generator Container App"
-  value       = "https://${azurerm_container_app.site_generator.latest_revision_fqdn}"
+  value       = "https://${azurerm_container_app.site_generator.ingress[0].fqdn}"
 }
 
 output "site_generator_name" {
@@ -138,3 +138,13 @@ output "site_generator_name" {
 # Pipeline Functions outputs removed - using container-based approach instead
 
 # Scheduler outputs removed - scheduler infrastructure deprecated and removed
+
+# Developer access configuration
+output "developer_access" {
+  description = "Developer access configuration for storage"
+  value = {
+    email     = var.developer_email
+    ip        = var.developer_ip
+    object_id = data.azuread_user.developer.object_id
+  }
+}
