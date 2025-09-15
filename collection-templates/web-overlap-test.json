@@ -1,0 +1,75 @@
+{
+  "name": "Web Overlap Test",
+  "description": "Test template with overlapping web sources to challenge deduplication - includes some tech sites that might overlap with RSS feeds",
+  "sources": [
+    {
+      "type": "web",
+      "websites": [
+        "techcrunch.com",
+        "arstechnica.com",
+        "theverge.com",
+        "wired.com",
+        "engadget.com",
+        "mashable.com",
+        "gizmodo.com",
+        "venturebeat.com"
+      ],
+      "topics": [
+        "technology",
+        "startups",
+        "gadgets",
+        "innovation",
+        "web development",
+        "mobile apps",
+        "artificial intelligence",
+        "cybersecurity"
+      ]
+    },
+    {
+      "type": "web",
+      "websites": [
+        "techcrunch.com",
+        "reddit.com/r/technology",
+        "hackernews.ycombinator.com",
+        "stackoverflow.com",
+        "github.com",
+        "medium.com",
+        "dev.to",
+        "producthunt.com"
+      ],
+      "topics": [
+        "programming",
+        "software engineering",
+        "developer tools",
+        "open source",
+        "product launches",
+        "tech news",
+        "coding tutorials",
+        "technology trends"
+      ]
+    },
+    {
+      "type": "web",
+      "websites": [
+        "arstechnica.com",
+        "theverge.com",
+        "slashdot.org",
+        "9to5mac.com",
+        "androidpolice.com",
+        "xda-developers.com",
+        "tomshardware.com",
+        "anandtech.com"
+      ],
+      "topics": [
+        "hardware reviews",
+        "mobile technology",
+        "consumer electronics",
+        "tech analysis",
+        "gaming hardware",
+        "enterprise technology",
+        "tech industry news",
+        "product reviews"
+      ]
+    }
+  ]
+}

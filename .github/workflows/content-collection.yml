@@ -6,6 +6,17 @@ on:
     # Run every 4 hours at minute 0: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
     - cron: '0 */4 * * *'
   workflow_dispatch:  # Allow manual triggering
+    inputs:
+      template:
+        description: 'Collection template to use'
+        required: false
+        default: 'default.json'
+        type: choice
+        options:
+          - default.json
+          - discovery.json
+          - tech-rss.json
+          - web-overlap-test.json
 
 permissions:
   contents: read
@@ -15,6 +26,7 @@ env:
   AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
   AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
   AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+  COLLECTION_TEMPLATE: ${{ inputs.template || 'default.json' }}
 
 jobs:
   trigger-content-collection:
@@ -51,56 +63,49 @@ jobs:
           echo "CONTENT_COLLECTOR_URL=https://$URL" >> "$GITHUB_OUTPUT"
           echo "[PASS] Content Collector URL: https://$URL"
 
-      - name: Send Collection Request to Service Bus
+      - name: Load Collection Template
         run: |
-          # Create collection request payload
-          cat > collection_request.json << 'EOF'
-          {
-            "service_name": "github-actions",
-            "operation": "collect_content",
-            "payload": {
-              "sources": [
-                {
-                  "type": "reddit",
-                  "subreddits": ["technology", "programming", "artificial", "MachineLearning"],
-                  "limit": 25
-                },
-                {
-                  "type": "rss",
-                  "urls": [
-                    "https://feeds.feedburner.com/oreilly/radar",
-                    "https://aws.amazon.com/blogs/aws/feed/"
-                  ],
-                  "limit": 15
-                }
-              ],
-              "deduplicate": true,
-              "similarity_threshold": 0.8,
-              "save_to_storage": true
-            },
-            "metadata": {
-              "triggered_by": "github_actions",
-              "workflow": "${{ github.workflow }}",
-              "run_id": "${{ github.run_id }}",
-              "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            }
-          }
-          EOF
+          # Load the specified collection template
+          TEMPLATE_FILE="collection-templates/${{ env.COLLECTION_TEMPLATE }}"
+
+          if [ ! -f "$TEMPLATE_FILE" ]; then
+            echo "[ERROR] Template file not found: $TEMPLATE_FILE"
+            echo "[INFO] Available templates:"
+            ls -la collection-templates/
+            exit 1
+          fi
+
+          echo "[INFO] Using collection template: $TEMPLATE_FILE"
+          cp "$TEMPLATE_FILE" collection_request.json
 
           echo "[INFO] Collection request payload:"
           jq . collection_request.json
 
-      - name: Send Service Bus Message
+      - name: Send Collection Request
         run: |
-          # Use HTTP call instead of Service Bus CLI (which has limited support)
-          # Call the content collector directly to trigger collection via Service Bus
-          curl -X POST "${{ steps.get-url.outputs.CONTENT_COLLECTOR_URL }}/collections" \
+          # Send collection request to the content collector API
+          # This will trigger internal Service Bus processing and KEDA scaling
+          echo "[INFO] Sending collection request to: ${{ steps.get-url.outputs.CONTENT_COLLECTOR_URL }}/collections"
+
+          RESPONSE=$(curl -s -X POST "${{ steps.get-url.outputs.CONTENT_COLLECTOR_URL }}/collections" \
             -H "Content-Type: application/json" \
             -d @collection_request.json \
-            -w "HTTP Status: %{http_code}\n"
+            -w "HTTPSTATUS:%{http_code}")
 
-          echo "[PASS] Content collection request sent via HTTP API"
-          echo "[INFO] This triggers internal Service Bus processing and KEDA scaling"
+          HTTP_CODE="${RESPONSE##*HTTPSTATUS:}"
+          RESPONSE_BODY="${RESPONSE%HTTPSTATUS:*}"
+
+          echo "[INFO] HTTP Status: $HTTP_CODE"
+          echo "[INFO] Response:"
+          echo "$RESPONSE_BODY" | jq . || echo "$RESPONSE_BODY"
+
+          if [ "$HTTP_CODE" -ne 200 ]; then
+            echo "[ERROR] Collection request failed with status $HTTP_CODE"
+            exit 1
+          fi
+
+          echo "[PASS] Content collection request sent successfully"
+          echo "[INFO] Template used: ${{ env.COLLECTION_TEMPLATE }}"
 
       - name: Verify Collection Status
         run: |
@@ -114,5 +119,6 @@ jobs:
       - name: Log Completion
         run: |
           echo "[COMPLETE] Content collection workflow completed"
+          echo "[TEMPLATE] Used template: ${{ env.COLLECTION_TEMPLATE }}"
           echo "[SCHEDULE] Next scheduled run: $(date -d '+4 hours' -u '+%Y-%m-%d %H:%M:%S UTC')"
           echo "[MONITOR] Monitor processing at: ${{ steps.get-url.outputs.CONTENT_COLLECTOR_URL }}/health"
