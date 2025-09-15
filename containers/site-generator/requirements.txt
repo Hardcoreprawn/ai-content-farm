@@ -28,7 +28,7 @@ azure-servicebus~=7.12.3
 
 # Testing & Development
 pytest~=8.4.2
-pytest-asyncio~=1.1.0
+pytest-asyncio~=1.2.0
 pytest-cov~=6.3.0
 black~=25.1.0
 isort~=6.0.1
