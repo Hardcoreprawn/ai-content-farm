@@ -33,6 +33,12 @@ updates:
     open-pull-requests-limit: 3
     # Group ALL libs updates to prevent conflicts
     groups:
+      libs-updates:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+          - "minor"
 
   # =============================================================================
   # CONTAINERS - Individual service dependencies
