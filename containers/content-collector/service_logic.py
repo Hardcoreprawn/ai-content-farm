@@ -23,7 +23,7 @@ from libs.service_bus_client import (
 class MockBlobStorageClient:
     """Mock blob storage client for testing."""
 
-    def upload_text(
+    async def upload_text(
         self,
         container_name: str,
         blob_name: str,
@@ -33,7 +33,7 @@ class MockBlobStorageClient:
     ) -> str:
         return f"mock://blob/{blob_name}"
 
-    def upload_json(
+    async def upload_json(
         self,
         container_name: str,
         blob_name: str,
@@ -268,7 +268,7 @@ class ContentCollectorService:
 
         # Save to blob storage
         content_json = json.dumps(content_data, indent=2, ensure_ascii=False)
-        self.storage.upload_text(
+        await self.storage.upload_text(
             container_name=container_name,
             blob_name=blob_name,
             content=content_json,
