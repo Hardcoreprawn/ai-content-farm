@@ -168,6 +168,12 @@ variable "developer_email" {
   default     = "j.brewster_outlook.com#EXT#@jbrewster.onmicrosoft.com"
 }
 
+variable "developer_object_id" {
+  description = "Developer Azure AD object ID for blob storage access"
+  type        = string
+  default     = "e96077a7-82ec-4be0-86d5-ac85fdec6312"
+}
+
 variable "developer_ip" {
   description = "Developer static IP for storage account access"
   type        = string

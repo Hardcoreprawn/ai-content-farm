@@ -145,6 +145,6 @@ output "developer_access" {
   value = {
     email     = var.developer_email
     ip        = var.developer_ip
-    object_id = data.azuread_user.developer.object_id
+    object_id = var.developer_object_id
   }
 }

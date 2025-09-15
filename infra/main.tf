@@ -357,23 +357,18 @@ resource "azurerm_storage_account" "main" {
 #   }
 # }
 
-# Data source for current user to grant storage access
-data "azuread_user" "developer" {
-  user_principal_name = var.developer_email
-}
-
 # Grant developer Storage Blob Data Contributor access for management
 resource "azurerm_role_assignment" "developer_storage_blob_data_contributor" {
   scope                = azurerm_storage_account.main.id
   role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = data.azuread_user.developer.object_id
+  principal_id         = var.developer_object_id
 }
 
 # Grant developer Reader access to the storage account
 resource "azurerm_role_assignment" "developer_storage_reader" {
   scope                = azurerm_storage_account.main.id
   role_definition_name = "Reader"
-  principal_id         = data.azuread_user.developer.object_id
+  principal_id         = var.developer_object_id
 }
 
 resource "azurerm_storage_container" "topics" {
