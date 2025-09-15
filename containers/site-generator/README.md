@@ -4,7 +4,7 @@ Python-based JAMStack static site generator for AI Content Farm. Converts proces
 
 *Version: 1.0.0 - Initial Release*
 
-<!-- Testing PYTHONPATH import fix in CI -->
+<!-- Testing PYTHONPATH import fix in CI - run 2 -->
 
 ## 🎯 Purpose
 
