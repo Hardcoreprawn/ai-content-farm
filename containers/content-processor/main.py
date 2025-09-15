@@ -21,21 +21,13 @@ from dependencies import (
     service_metadata,
     settings,
 )
-from endpoints import servicebus_router
+from endpoints import diagnostics_router, servicebus_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from config import ContentProcessorSettings
 from libs.shared_models import StandardError
-from libs.standard_endpoints import (
-    create_standard_404_handler,
-    create_standard_health_endpoint,
-    create_standard_root_endpoint,
-    create_standard_status_endpoint,
-)
 
 # Add repository root to Python path for local development - MUST BE FIRST
 repo_root = Path(__file__).parent.parent.parent
@@ -100,51 +92,9 @@ async def add_security_headers(request: Request, call_next):
 
 
 # Add main API routes
-app.include_router(servicebus_router)
-
-# Add Service Bus endpoints for Phase 1 Security Implementation
-try:
-    # Simple approach - just skip if not available during development
-    logger.info("Service Bus endpoints: Development mode - skipping")
-except Exception as e:
-    logger.warning(f"Service Bus endpoints not available: {e}")
-
-# Add shared standard endpoints
-app.add_api_route(
-    "/",
-    create_standard_root_endpoint(
-        service_name="content-processor",
-        description="AI-powered content processing and enhancement service",
-        version=settings.service_version,
-        service_metadata_dep=service_metadata,
-    ),
-)
-
-app.add_api_route(
-    "/status",
-    create_standard_status_endpoint(
-        service_name="content-processor",
-        version=settings.service_version,
-        environment=settings.environment,
-        service_metadata_dep=service_metadata,
-    ),
-)
-
-app.add_api_route(
-    "/health",
-    create_standard_health_endpoint(
-        service_name="content-processor",
-        version=settings.service_version,
-        environment=settings.environment,
-        dependency_checks=DEPENDENCY_CHECKS,
-        service_metadata_dep=service_metadata,
-    ),
-)
-
-# Add standardized 404 error handler
-app.add_exception_handler(
-    StarletteHTTPException, create_standard_404_handler("content-processor")
-)
+# Includes /, /health, /status, /processing/diagnostics
+app.include_router(diagnostics_router)
+app.include_router(servicebus_router)  # /internal Service Bus endpoints
 
 
 if __name__ == "__main__":

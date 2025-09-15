@@ -164,6 +164,9 @@ def get_config() -> ContentProcessorSettings:
 # Configure logging on import
 settings.setup_logging()
 
+# Export environment constant for compatibility
+ENVIRONMENT = settings.environment
+
 logger = logging.getLogger(__name__)
 logger.info(
     f"Content Processor configuration loaded: {settings.service_name} v{settings.service_version} "
