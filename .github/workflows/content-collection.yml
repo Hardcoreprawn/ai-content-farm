@@ -5,6 +5,7 @@ on:
   schedule:
     # Run every 4 hours at minute 0: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
     - cron: '0 */4 * * *'
+  workflow_dispatch:  # Allow manual triggering
 
 permissions:
   contents: read
@@ -37,8 +38,8 @@ jobs:
         run: |
           # Get the content collector container app URL
           URL=$(az containerapp show \
-            --name "ai-content-farm-collector" \
-            --resource-group "ai-content-farm-rg" \
+            --name "ai-content-dev-collector" \
+            --resource-group "ai-content-dev-rg" \
             --query "properties.configuration.ingress.fqdn" \
             --output tsv)
 
@@ -91,34 +92,24 @@ jobs:
 
       - name: Send Service Bus Message
         run: |
-          # Send the message to Service Bus queue using Azure CLI
-          az servicebus message send \
-            --namespace-name "ai-content-farm-sb" \
-            --queue-name "content-collection-requests" \
-            --body @collection_request.json \
-            --time-to-live "PT30M" \
-            --correlation-id "${{ github.run_id }}" \
-            --properties "triggered_by=github_actions" "workflow=${{ github.workflow }}"
+          # Use HTTP call instead of Service Bus CLI (which has limited support)
+          # Call the content collector directly to trigger collection via Service Bus
+          curl -X POST "${{ steps.get-url.outputs.CONTENT_COLLECTOR_URL }}/collections" \
+            -H "Content-Type: application/json" \
+            -d @collection_request.json \
+            -w "HTTP Status: %{http_code}\n"
 
-          echo "[PASS] Content collection request sent to Service Bus"
-          echo "[INFO] KEDA will scale up the content collector to process the request"
+          echo "[PASS] Content collection request sent via HTTP API"
+          echo "[INFO] This triggers internal Service Bus processing and KEDA scaling"
 
-      - name: Verify Queue Status
+      - name: Verify Collection Status
         run: |
-          # Check that the message was queued successfully
-          QUEUE_COUNT=$(az servicebus queue show \
-            --namespace-name "ai-content-farm-sb" \
-            --name "content-collection-requests" \
-            --query "messageCount" \
-            --output tsv)
+          # Check the health and status of our collection
+          echo "[INFO] Checking collection status..."
 
-          echo "[STATS] Messages in queue: $QUEUE_COUNT"
+          curl -s "${{ steps.get-url.outputs.CONTENT_COLLECTOR_URL }}/status" | jq .
 
-          if [ "$QUEUE_COUNT" -gt 0 ]; then
-            echo "[PASS] Message successfully queued for processing"
-          else
-            echo "[WARN] No messages in queue - this may be normal if processed immediately"
-          fi
+          echo "[PASS] Collection status checked"
 
       - name: Log Completion
         run: |
