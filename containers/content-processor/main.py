@@ -15,13 +15,13 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-import endpoints as endpoints_module  # Import the main endpoints.py file
 from dependencies import (
     DEPENDENCY_CHECKS,
     get_configuration,
     service_metadata,
     settings,
 )
+from endpoints import servicebus_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
@@ -100,7 +100,7 @@ async def add_security_headers(request: Request, call_next):
 
 
 # Add main API routes
-app.include_router(endpoints_module.router)
+app.include_router(servicebus_router)
 
 # Add Service Bus endpoints for Phase 1 Security Implementation
 try:
