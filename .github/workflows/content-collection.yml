@@ -5,8 +5,6 @@ on:
   schedule:
     # Run every 4 hours at minute 0: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 UTC
     - cron: '0 */4 * * *'
-  workflow_dispatch:
-    # Allow manual triggering for testing
 
 permissions:
   contents: read

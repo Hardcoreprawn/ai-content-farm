@@ -90,7 +90,7 @@ jobs:
             dependency_only="true"
             while IFS= read -r file; do
               case "$file" in
-                requirements*.txt|containers/*/requirements.txt|pyproject.toml)
+                requirements*.txt|containers/*/requirements.txt|pyproject.toml|poetry.lock|package*.json)
                   # These are dependency files - OK for dependabot
                   ;;
                 *)
@@ -103,7 +103,9 @@ jobs:
 
             if [[ "$dependency_only" == "true" ]]; then
               requires_terraform="false"
-              echo "[SKIP] Pure dependency update detected - skipping terraform checks"
+              echo "[SKIP] Pure dependency update detected - fast track enabled"
+              echo "  - Skipping: Terraform, Infrastructure scans"
+              echo "  - Running: Security scans, Tests for affected containers, Auto-merge"
             fi
           fi
 
