@@ -14,7 +14,7 @@ python-dateutil~=2.9.0.post0
 # Content Sources
 praw~=7.8.1
 asyncpraw~=7.8.1
-feedparser~=6.0.11
+feedparser~=6.0.12
 beautifulsoup4~=4.13.5
 lxml~=4.9.3
 
