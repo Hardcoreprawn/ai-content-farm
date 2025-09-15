@@ -14,7 +14,7 @@ python-multipart~=0.0.20
 python-dateutil~=2.9.0.post0
 
 # Template Engine & Static Site Generation
-jinja2~=3.1.4
+jinja2~=3.1.6
 werkzeug~=3.1.3
 markdown~=3.9.0
 beautifulsoup4~=4.13.5
