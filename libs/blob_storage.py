@@ -387,7 +387,7 @@ class BlobStorageClient:
             logger.error(f"Failed to get container client for '{container_name}': {e}")
             raise
 
-    def upload_json(
+    async def upload_json(
         self,
         container_name: str,
         blob_name: str,
@@ -438,7 +438,7 @@ class BlobStorageClient:
             logger.error(f"Failed to upload JSON to {container_name}/{blob_name}: {e}")
             raise
 
-    def upload_text(
+    async def upload_text(
         self,
         container_name: str,
         blob_name: str,
@@ -446,7 +446,11 @@ class BlobStorageClient:
         content_type: str = "text/plain",
         metadata: Optional[Dict[str, str]] = None,
     ) -> str:
-        """Upload text content to blob storage."""
+        """Upload text content to blob storage.
+
+        Returns:
+            str: The URL of the uploaded blob
+        """
         try:
             if self._mock:
                 self.ensure_container(container_name)
@@ -486,6 +490,27 @@ class BlobStorageClient:
         except Exception as e:
             logger.error(f"Failed to upload text to {container_name}/{blob_name}: {e}")
             raise
+
+    async def upload_text_with_success(
+        self,
+        container_name: str,
+        blob_name: str,
+        content: str,
+        content_type: str = "text/plain",
+        metadata: Optional[Dict[str, str]] = None,
+    ) -> bool:
+        """Upload text content to blob storage and return success status.
+
+        Returns:
+            bool: True if upload succeeded, False otherwise
+        """
+        try:
+            await self.upload_text(
+                container_name, blob_name, content, content_type, metadata
+            )
+            return True
+        except Exception:
+            return False
 
     async def upload_binary(
         self,
@@ -612,7 +637,34 @@ class BlobStorageClient:
             logger.error(f"Failed to upload site files to {container_name}: {e}")
             raise
 
-    def download_json(self, container_name: str, blob_name: str) -> Dict[str, Any]:
+    async def blob_exists(self, container_name: str, blob_name: str) -> bool:
+        """Check if a blob exists in the container.
+
+        Args:
+            container_name: Name of the container
+            blob_name: Name of the blob
+
+        Returns:
+            bool: True if blob exists, False otherwise
+        """
+        try:
+            if self._mock:
+                key = f"{container_name}/{blob_name}"
+                return key in _MOCK_BLOBS
+
+            container_client = self.ensure_container(container_name)
+            blob_client = container_client.get_blob_client(blob_name)
+            return blob_client.exists()
+
+        except Exception as e:
+            logger.error(
+                f"Failed to check blob existence {container_name}/{blob_name}: {e}"
+            )
+            return False
+
+    async def download_json(
+        self, container_name: str, blob_name: str
+    ) -> Dict[str, Any]:
         """Download and parse JSON data from blob storage."""
         try:
             if self._mock:
@@ -645,7 +697,7 @@ class BlobStorageClient:
             )
             raise
 
-    def download_text(self, container_name: str, blob_name: str) -> str:
+    async def download_text(self, container_name: str, blob_name: str) -> str:
         """Download text content from blob storage."""
         try:
             if self._mock:
@@ -653,7 +705,7 @@ class BlobStorageClient:
                 blob = _MOCK_BLOBS.get(key)
                 if not blob:
                     logger.warning(f"Blob not found: {key}")
-                    return ""
+                    raise ResourceNotFoundError(f"Blob not found: {key}")
                 content = blob.get("content", "")
                 return content if isinstance(content, str) else json.dumps(content)
 
@@ -675,7 +727,9 @@ class BlobStorageClient:
             )
             raise
 
-    def list_blobs(self, container_name: str, prefix: str = "") -> List[Dict[str, Any]]:
+    async def list_blobs(
+        self, container_name: str, prefix: str = ""
+    ) -> List[Dict[str, Any]]:
         """List blobs in a container with optional prefix filter."""
         try:
             if self._mock:
@@ -737,7 +791,7 @@ class BlobStorageClient:
             logger.error(f"Failed to list blobs from {container_name}: {e}")
             raise
 
-    def delete_blob(self, container_name: str, blob_name: str) -> bool:
+    async def delete_blob(self, container_name: str, blob_name: str) -> bool:
         """Delete a blob from storage."""
         try:
             if self._mock:

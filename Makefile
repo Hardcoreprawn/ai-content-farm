@@ -1,9 +1,7 @@
 # Makefile for AI Content Farm Project
 # Trigger pipeline for Terraform Docker fix test
 
-.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format terraform-quality terraform-quality-fix apply verify destroy security-scan cost-estimate sbom trivy terrascan co	@echo "🔍 Running Safety for dependency vulnerabilities..."
-	@if command -v pip >/dev/null 2>&1; then \
-		pip install -q "safety~=3.6.1" 2>/dev/null || pip install -q safety; \ct-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles scan-containers yamllint actionlint lint-workflows lint-actions check-emojis lint-python lint-python-all flake8 black-check black-format isort-check isort-format mypy pylint format-python lint-container lint-all quality-check
+.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format terraform-quality terraform-quality-fix apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles scan-containers yamllint actionlint lint-workflows lint-actions check-emojis lint-python lint-python-all flake8 black-check black-format isort-check isort-format mypy pylint format-python lint-container lint-all quality-check test test-unit test-integration test-container test-service-bus test-functional test-all test-coverage
 
 help:
 	@echo "Available targets:"
@@ -27,6 +25,16 @@ help:
 	@echo "  security-scan   - Alias for scan-parallel (GitHub Actions compatibility)"
 	@echo "  cache-pull      - Pre-pull all analysis container images"
 	@echo "  cache-clean     - Clean analysis caches and results"
+	@echo ""
+	@echo "Testing:"
+	@echo "  test            - Run unit tests (default)"
+	@echo "  test-unit       - Run unit tests only"
+	@echo "  test-integration - Run integration tests"
+	@echo "  test-container  - Run container-specific tests"
+	@echo "  test-service-bus - Run Service Bus router tests"
+	@echo "  test-functional - Run functional tests (requires deployed services)"
+	@echo "  test-all        - Run all tests except functional"
+	@echo "  test-coverage   - Run tests with coverage report"
 	@echo ""
 	@echo "Infrastructure:"
 	@echo "  terraform-quality - Run Terraform format & validate checks"
@@ -871,7 +879,6 @@ publish-articles:
 
 content-status:
 	@echo "📈 Content processing status..."
-	export AZURE_STORAGE_CONNECTION_STRING="DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;" && \
 	cd containers/content-processor && python3 -m pip install -r requirements.txt --quiet && \
 	python3 main.py --mode status
 
@@ -880,4 +887,52 @@ cleanup-articles:
 	@echo "🧹 Cleaning up duplicate articles..."
 	cd content_processor && python3 -m pip install -r requirements.txt --quiet
 	cd content_processor && python3 content_publisher.py --cleanup-only
+
+# ================================
+# Testing Targets
+# ================================
+
+# Default test target
+test: test-unit
+	@echo "✅ Default unit tests completed"
+
+# Unit tests
+test-unit:
+	@echo "🧪 Running unit tests..."
+	@./scripts/run-tests.sh unit
+
+# Integration tests
+test-integration:
+	@echo "🔗 Running integration tests..."
+	@./scripts/run-tests.sh integration
+
+# Container-specific tests
+test-container:
+	@echo "📦 Running container-specific tests..."
+	@./scripts/run-tests.sh container
+
+# Service Bus router tests
+test-service-bus:
+	@echo "🚌 Running Service Bus router tests..."
+	@./scripts/run-tests.sh service-bus
+
+# Functional tests (requires deployed services)
+test-functional:
+	@echo "🌐 Running functional tests..."
+	@./scripts/run-tests.sh functional
+
+# All tests except functional
+test-all:
+	@echo "🔍 Running all tests..."
+	@./scripts/run-tests.sh all
+
+# Tests with coverage report
+test-coverage:
+	@echo "📊 Running tests with coverage..."
+	@./scripts/run-tests.sh coverage
+
+# Fast test execution (skip slow tests)
+test-fast:
+	@echo "⚡ Running fast tests..."
+	@./scripts/run-tests.sh all --fast
 	@echo "Cleanup complete!"

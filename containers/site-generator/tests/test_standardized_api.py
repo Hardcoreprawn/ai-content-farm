@@ -21,9 +21,10 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent / "libs"))
 # Import the shared test suite
 
 # Mock dependencies before importing main
-with patch("site_generator.BlobStorageClient"), patch(
-    "main.SiteGenerator"
-) as mock_site_gen_class:
+with (
+    patch("site_generator.BlobStorageClient"),
+    patch("main.SiteGenerator") as mock_site_gen_class,
+):
     mock_site_gen_instance = AsyncMock()
     mock_site_gen_instance.generator_id = "test_generator_123"
     mock_site_gen_instance.check_blob_connectivity.return_value = True

@@ -278,3 +278,58 @@ class BlobOperations:
         except Exception as e:
             logger.error(f"Failed to copy blob: {e}")
             return False
+
+    def download_file(
+        self, container_name: str, blob_name: str, file_path: str
+    ) -> bool:
+        """Download a blob to a file (alias for download_to_file)."""
+        return self.download_to_file(container_name, blob_name, file_path)
+
+    def upload_json_data(
+        self, container_name: str, blob_name: str, data: Dict[str, Any]
+    ) -> bool:
+        """Upload JSON data to blob storage."""
+        try:
+            json_string = json.dumps(data)
+            return self.upload_data(
+                container_name, blob_name, json_string, "application/json"
+            )
+        except Exception as e:
+            logger.error(f"Failed to upload JSON data: {e}")
+            return False
+
+    def download_json_data(
+        self, container_name: str, blob_name: str
+    ) -> Optional[Dict[str, Any]]:
+        """Download JSON data from blob storage (alias for download_json)."""
+        return self.download_json(container_name, blob_name)
+
+    def list_blobs_in_container(self, container_name: str) -> List[str]:
+        """List blob names in a container."""
+        try:
+            container_client = self.blob_service_client.get_container_client(
+                container_name
+            )
+            blob_names = []
+            for blob in container_client.list_blobs():
+                blob_names.append(blob.name)
+            return blob_names
+        except Exception as e:
+            logger.error(f"Failed to list blobs in container {container_name}: {e}")
+            return []
+
+    def create_container_if_not_exists(self, container_name: str) -> bool:
+        """Create a container if it doesn't exist."""
+        try:
+            container_client = self.blob_service_client.get_container_client(
+                container_name
+            )
+            container_client.create_container()
+            logger.info(f"Created container: {container_name}")
+            return True
+        except Exception as e:
+            if "ContainerAlreadyExists" in str(e):
+                logger.debug(f"Container {container_name} already exists")
+                return True
+            logger.error(f"Failed to create container {container_name}: {e}")
+            return False

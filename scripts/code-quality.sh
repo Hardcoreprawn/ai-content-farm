@@ -158,7 +158,7 @@ if [[ "$CHECK_IMPORTS" == "true" ]]; then
 fi
 
 if [[ "$CHECK_LINTING" == "true" ]]; then
-    run_check "flake8 linting" "flake8 ." || exit_code=1
+    run_check "flake8 linting" "flake8 --config=config/.flake8 ." || exit_code=1
 fi
 
 if [[ "$CHECK_TYPES" == "true" ]]; then

@@ -5,7 +5,10 @@ Azure Key Vault integration for Content Collector.
 Provides secure credential retrieval from Azure Key Vault.
 """
 
+import importlib.util
 import logging
+
+# Import config with explicit path resolution to avoid conflicts
 import os
 import sys
 from typing import Any, Dict, Optional
@@ -14,7 +17,18 @@ from azure.core.exceptions import AzureError
 from azure.identity import DefaultAzureCredential, ManagedIdentityCredential
 from azure.keyvault.secrets import SecretClient
 
-from config import config
+# Ensure we're importing from the content-collector config
+current_dir = os.path.dirname(__file__)
+config_path = os.path.join(current_dir, "config.py")
+
+# Load the config module directly to avoid naming conflicts
+spec = importlib.util.spec_from_file_location("content_collector_config", config_path)
+if spec and spec.loader:
+    config_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config_module)
+    config = config_module.config
+else:
+    raise ImportError("Could not load content-collector config module")
 
 # Add parent directories to path for imports
 sys.path.append(os.path.dirname(__file__))

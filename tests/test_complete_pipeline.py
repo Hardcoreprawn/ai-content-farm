@@ -172,7 +172,7 @@ async def test_complete_pipeline():
     missing_vars = []
     for var in required_env_vars:
         # Skip vars we don't have in dev
-        if not var in ["AZURE_CLIENT_ID", "SERVICE_BUS_NAMESPACE", "BLOB_EVENTS_QUEUE"]:
+        if var not in ["AZURE_CLIENT_ID", "SERVICE_BUS_NAMESPACE", "BLOB_EVENTS_QUEUE"]:
             continue
         # Skip actual check for dev environment
 

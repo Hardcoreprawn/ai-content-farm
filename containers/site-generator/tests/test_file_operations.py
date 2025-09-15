@@ -74,12 +74,16 @@ class TestArchiveManager:
     async def test_create_site_archive_success(self, archive_manager, temp_site_dir):
         """Test successful site archive creation."""
         # Mock security validation to pass
-        with patch("file_operations.SecurityValidator.validate_site_directory"), patch(
-            "file_operations.SecurityValidator.sanitize_filename",
-            return_value="test_theme",
-        ), patch(
-            "file_operations.SecurityValidator.validate_path_within_base",
-            return_value=True,
+        with (
+            patch("file_operations.SecurityValidator.validate_site_directory"),
+            patch(
+                "file_operations.SecurityValidator.sanitize_filename",
+                return_value="test_theme",
+            ),
+            patch(
+                "file_operations.SecurityValidator.validate_path_within_base",
+                return_value=True,
+            ),
         ):
 
             archive_path = await archive_manager.create_site_archive(
@@ -110,11 +114,16 @@ class TestArchiveManager:
         self, archive_manager, temp_site_dir
     ):
         """Test archive creation when archive path validation fails."""
-        with patch("file_operations.SecurityValidator.validate_site_directory"), patch(
-            "file_operations.SecurityValidator.sanitize_filename", return_value="theme"
-        ), patch(
-            "file_operations.SecurityValidator.validate_path_within_base",
-            return_value=False,
+        with (
+            patch("file_operations.SecurityValidator.validate_site_directory"),
+            patch(
+                "file_operations.SecurityValidator.sanitize_filename",
+                return_value="theme",
+            ),
+            patch(
+                "file_operations.SecurityValidator.validate_path_within_base",
+                return_value=False,
+            ),
         ):
 
             with pytest.raises(
@@ -193,11 +202,12 @@ class TestArchiveManager:
 
         try:
             # Mock validation to pass
-            with patch(
-                "file_operations.SecurityValidator.validate_archive_file"
-            ), patch(
-                "file_operations.SecurityValidator.sanitize_blob_name",
-                return_value="safe_name.tar.gz",
+            with (
+                patch("file_operations.SecurityValidator.validate_archive_file"),
+                patch(
+                    "file_operations.SecurityValidator.sanitize_blob_name",
+                    return_value="safe_name.tar.gz",
+                ),
             ):
 
                 await archive_manager.upload_archive(archive_path, "test-container")
@@ -241,11 +251,12 @@ class TestArchiveManager:
             archive_path = Path(temp_file.name)
 
         try:
-            with patch(
-                "file_operations.SecurityValidator.validate_archive_file"
-            ), patch(
-                "file_operations.SecurityValidator.sanitize_blob_name",
-                return_value="safe_name.tar.gz",
+            with (
+                patch("file_operations.SecurityValidator.validate_archive_file"),
+                patch(
+                    "file_operations.SecurityValidator.sanitize_blob_name",
+                    return_value="safe_name.tar.gz",
+                ),
             ):
 
                 await archive_manager.upload_archive(
@@ -271,11 +282,12 @@ class TestArchiveManager:
                 "Upload failed"
             )
 
-            with patch(
-                "file_operations.SecurityValidator.validate_archive_file"
-            ), patch(
-                "file_operations.SecurityValidator.sanitize_blob_name",
-                return_value="safe_name.tar.gz",
+            with (
+                patch("file_operations.SecurityValidator.validate_archive_file"),
+                patch(
+                    "file_operations.SecurityValidator.sanitize_blob_name",
+                    return_value="safe_name.tar.gz",
+                ),
             ):
 
                 with pytest.raises(ValueError, match="Upload failed"):
