@@ -21,7 +21,7 @@ from dependencies import (
     service_metadata,
     settings,
 )
-from endpoints import diagnostics_router, servicebus_router
+from endpoints import diagnostics_router, processing_router, servicebus_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
@@ -94,6 +94,8 @@ async def add_security_headers(request: Request, call_next):
 # Add main API routes
 # Includes /, /health, /status, /processing/diagnostics
 app.include_router(diagnostics_router)
+# /process, /process/types, /process/status
+app.include_router(processing_router)
 app.include_router(servicebus_router)  # /internal Service Bus endpoints
 
 

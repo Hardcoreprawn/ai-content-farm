@@ -37,7 +37,12 @@ router.add_api_route(
 
 router.add_api_route(
     "/health",
-    create_standard_health_endpoint(service_metadata),
+    create_standard_health_endpoint(
+        service_name="content-processor",
+        version="1.0.2",
+        environment=ENVIRONMENT,
+        service_metadata_dep=service_metadata,
+    ),
     methods=["GET"],
     summary="Health Check",
     description="Check service health and dependencies",
@@ -45,7 +50,12 @@ router.add_api_route(
 
 router.add_api_route(
     "/status",
-    create_standard_status_endpoint(service_metadata),
+    create_standard_status_endpoint(
+        service_name="content-processor",
+        version="1.0.2",
+        environment=ENVIRONMENT,
+        service_metadata_dep=service_metadata,
+    ),
     methods=["GET"],
     summary="Service Status",
     description="Get detailed service status and configuration",
@@ -88,16 +98,19 @@ async def get_processing_diagnostics(
         }
 
         return StandardResponse(
-            success=True,
-            data=diagnostics,
+            status="success",
             message="Content processor diagnostics retrieved successfully",
+            data=diagnostics,
+            errors=None,
             metadata=metadata,
         )
 
     except Exception as e:
         return StandardResponse(
-            success=False,
-            error=f"Failed to get diagnostics: {str(e)}",
+            status="error",
+            message=f"Failed to get diagnostics: {str(e)}",
+            data=None,
+            errors=[str(e)],
             metadata=metadata,
         )
 
