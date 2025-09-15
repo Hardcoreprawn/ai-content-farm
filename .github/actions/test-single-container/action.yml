@@ -121,7 +121,7 @@ runs:
 
         # Run unit tests for specific container from the container directory
         cd "containers/${CONTAINER_NAME}" && \
-        PYTHONPATH="$GITHUB_WORKSPACE/containers/${CONTAINER_NAME}:$GITHUB_WORKSPACE/libs:$PYTHONPATH" python -m pytest \
+        PYTHONPATH="$GITHUB_WORKSPACE/containers/${CONTAINER_NAME}:$GITHUB_WORKSPACE/libs" python -m pytest \
           $pytest_args \
           -m "unit or not integration" \
           --cov="." \
@@ -147,7 +147,7 @@ runs:
 
         # Run integration tests for specific container from the container directory
         cd "containers/${CONTAINER_NAME}" && \
-        PYTHONPATH="$GITHUB_WORKSPACE/containers/${CONTAINER_NAME}:$GITHUB_WORKSPACE/libs:$PYTHONPATH" python -m pytest \
+        PYTHONPATH="$GITHUB_WORKSPACE/containers/${CONTAINER_NAME}:$GITHUB_WORKSPACE/libs" python -m pytest \
           $pytest_args \
           -m integration \
           --cov="." \
@@ -167,7 +167,7 @@ runs:
 
         # Run quick health check tests from the container directory
         cd "containers/${CONTAINER_NAME}" && \
-        PYTHONPATH="$GITHUB_WORKSPACE/containers/${CONTAINER_NAME}:$GITHUB_WORKSPACE/libs:$PYTHONPATH" python -m pytest \
+        PYTHONPATH="$GITHUB_WORKSPACE/containers/${CONTAINER_NAME}:$GITHUB_WORKSPACE/libs" python -m pytest \
           -m "unit and not slow" \
           --maxfail=1 \
           --tb=short \
