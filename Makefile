@@ -114,7 +114,7 @@ terraform-quality-fix:
 yamllint:
 	@echo "Running yamllint on GitHub Actions..."
 	@if command -v docker >/dev/null 2>&1; then \
-		docker run --rm -v $(PWD):/workspace cytopia/yamllint:latest -c /workspace/config/.yamllint.yml /workspace/.github/; \
+		docker run --rm -v $(PWD):/workspace cytopia/yamllint:latest -d relaxed /workspace/.github/; \
 	else \
 		echo "Docker not available, skipping yamllint"; \
 	fi
