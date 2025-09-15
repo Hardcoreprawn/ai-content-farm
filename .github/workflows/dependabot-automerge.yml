@@ -2,6 +2,9 @@ name: 'Dependabot Auto-merge'
 on:
   pull_request:
     types: [opened, synchronize, reopened]
+  workflow_run:
+    workflows: ["Optimized CI/CD Pipeline"]
+    types: [completed]
 
 permissions:
   contents: write
@@ -25,6 +28,44 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
+      - name: Analyze change type
+        id: change-analysis
+        run: |
+          # Get list of changed files
+          changed_files=$(gh pr view ${{ github.event.pull_request.number }} --json files --jq '.files[].path')
+
+          is_pure_dependency="true"
+          affected_containers=()
+
+          echo "[SCAN] Analyzing changed files:"
+          while IFS= read -r file; do
+            echo "  - $file"
+            case "$file" in
+              requirements*.txt|containers/*/requirements.txt|pyproject.toml)
+                # Extract container name if it's a container-specific requirements file
+                if [[ "$file" =~ containers/([^/]+)/requirements\.txt ]]; then
+                  container="${BASH_REMATCH[1]}"
+                  affected_containers+=("$container")
+                fi
+                ;;
+              *)
+                echo "[WARN] Non-dependency file detected: $file"
+                is_pure_dependency="false"
+                ;;
+            esac
+          done <<< "$changed_files"
+
+          containers_json=$(printf '%s\n' "${affected_containers[@]}" | sort -u | jq -R . | jq -s . | jq -c .)
+
+          echo "is-pure-dependency=$is_pure_dependency" >> "$GITHUB_OUTPUT"
+          echo "affected-containers=$containers_json" >> "$GITHUB_OUTPUT"
+
+          echo "[CONFIG] Analysis Results:"
+          echo "  - Pure dependency update: $is_pure_dependency"
+          echo "  - Affected containers: $containers_json"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Basic security scan
         uses: ./.github/actions/security-scan
         with:
@@ -40,38 +81,106 @@ jobs:
             echo "[WARN] Major version update detected - manual review recommended"
           else
             echo "is-major=false" >> "$GITHUB_OUTPUT"
-            echo "[PASS] Safe dependency update (patch/minor)"
+            echo "[PASS] Safe dependency update (${{ steps.metadata.outputs.update-type }})"
           fi
 
-      - name: Enable auto-merge (non-major updates)
-        if: steps.version-check.outputs.is-major == 'false'
+      - name: Wait for CI pipeline
+        if: |
+          steps.version-check.outputs.is-major == 'false' &&
+          steps.change-analysis.outputs.is-pure-dependency == 'true'
+        run: |
+          echo "⏳ Waiting for optimized CI pipeline to complete..."
+
+          # Wait for the main CI pipeline to complete
+          max_wait=1800  # 30 minutes
+          wait_time=0
+          check_interval=30
+
+          while [ $wait_time -lt $max_wait ]; do
+            # Check if the pipeline has completed
+            status=$(gh pr checks ${{ github.event.pull_request.number }} --json conclusion,name --jq '.[] | select(.name == "Summary") | .conclusion')
+
+            if [[ "$status" == "SUCCESS" ]]; then
+              echo "[PASS] CI pipeline completed successfully!"
+              break
+            elif [[ "$status" == "FAILURE" ]] || [[ "$status" == "CANCELLED" ]]; then
+              echo "[FAIL] CI pipeline failed or was cancelled"
+              exit 1
+            else
+              echo "⏳ Pipeline still running... (waited ${wait_time}s)"
+              sleep $check_interval
+              wait_time=$((wait_time + check_interval))
+            fi
+          done
+
+          if [ $wait_time -ge $max_wait ]; then
+            echo "⏰ Timeout waiting for CI pipeline"
+            exit 1
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge (safe updates)
+        if: |
+          steps.version-check.outputs.is-major == 'false' &&
+          steps.change-analysis.outputs.is-pure-dependency == 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
           echo "[AUTO-MERGE] Enabling auto-merge for safe dependency update"
-          gh pr comment "$PR_NUMBER" --body "[AUTO-MERGE] **Safe dependency update** - Auto-merge enabled for ${{ steps.metadata.outputs.update-type }} update."
+
+          # Add informative comment
+          gh pr comment "$PR_NUMBER" --body "## [DEPENDABOT] Auto-merge
+
+          [PASS] **Safe dependency update detected**
+
+          **Update Details:**
+          - Type: ${{ steps.metadata.outputs.update-type }}
+          - Dependencies: ${{ steps.metadata.outputs.dependency-names }}
+          - Affected containers: ${{ steps.change-analysis.outputs.affected-containers }}
+
+          **Checks Passed:**
+          - [PASS] Pure dependency update (no code changes)
+          - [PASS] Non-major version update
+          - [PASS] Security scan passed
+          - [PASS] Optimized CI pipeline passed (Terraform checks skipped)
+
+          Auto-merge enabled!"
+
+          # Enable auto-merge
           gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
 
-      - name: Request review for major updates
-        if: steps.version-check.outputs.is-major == 'true'
+      - name: Request review for major updates or complex changes
+        if: |
+          steps.version-check.outputs.is-major == 'true' ||
+          steps.change-analysis.outputs.is-pure-dependency == 'false'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo "[REVIEW] Major version update requires manual review"
-          gh pr comment "$PR_NUMBER" --body "[REVIEW REQUIRED] **Major version update detected**
+          if [[ "${{ steps.version-check.outputs.is-major }}" == "true" ]]; then
+            reason="Major version update"
+            details="Major versions may include breaking changes that require manual review and testing."
+          else
+            reason="Complex changes detected"
+            details="This PR includes changes beyond simple dependency updates."
+          fi
 
-          This PR updates **${{ steps.metadata.outputs.dependency-names }}** with a major version change (${{ steps.metadata.outputs.update-type }}).
+          echo "[REVIEW] $reason - manual review required"
+          gh pr comment "$PR_NUMBER" --body "## [REVIEW] Manual Review Required
 
-          **Why manual review is needed:**
-          - Major versions may include breaking changes
-          - API changes could affect functionality
-          - Testing may be required to ensure compatibility
+          **Reason:** $reason
+
+          **Details:** $details
+
+          **This PR updates:** ${{ steps.metadata.outputs.dependency-names }}
+          **Update type:** ${{ steps.metadata.outputs.update-type }}
+          **Affected containers:** ${{ steps.change-analysis.outputs.affected-containers }}
 
           **Next steps:**
-          1. Review the changelog for breaking changes
+          1. Review the changes and changelog for breaking changes
           2. Test locally if needed
           3. Approve and merge manually when ready
 
-          Security scan has passed, so this update is safe from a security perspective."
+          **Note:** Security scan has passed, so this update is safe from a security perspective."
