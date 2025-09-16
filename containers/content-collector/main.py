@@ -28,6 +28,7 @@ from fastapi.routing import APIRoute
 from models import CollectionRequest, DiscoveryRequest, SourceConfig
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from libs.background_poller import BackgroundPoller
 from libs.shared_models import StandardResponse, create_service_dependency
 
 # Configure logging
@@ -40,10 +41,29 @@ service_metadata = create_service_dependency("content-womble")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Manage application lifecycle."""
+    """Application lifespan manager with background Service Bus polling."""
     logger.info("Content Womble starting up...")
-    yield
-    logger.info("Content Womble shutting down...")
+
+    # Start background Service Bus polling for KEDA scaling
+    from endpoints.servicebus_router import service_bus_router as sb_router
+
+    poller = BackgroundPoller(
+        service_bus_router=sb_router,
+        poll_interval=5.0,  # Check every 5 seconds when processing
+        max_poll_attempts=3,  # Try 3 times before longer sleep
+        empty_queue_sleep=30.0,  # Sleep 30s when queue consistently empty
+    )
+
+    try:
+        await poller.start()
+        logger.info("Background Service Bus polling started")
+
+        yield
+
+    finally:
+        logger.info("Stopping background Service Bus polling")
+        await poller.stop()
+        logger.info("Content Womble shutting down...")
 
 
 # Initialize FastAPI app
