@@ -166,6 +166,17 @@ class ServiceBusClient:
         """
         try:
             # Use connection string if available, otherwise use managed identity
+            logger.info(f"=== SERVICE BUS AUTH DEBUG ===")
+            logger.info(
+                f"Connection string length: {len(self.config.connection_string) if self.config.connection_string else 0}"
+            )
+            logger.info(
+                f"Connection string starts with: {self.config.connection_string[:50] if self.config.connection_string else 'None'}"
+            )
+            logger.info(f"Namespace: {self.config.namespace}")
+            logger.info(f"Queue: {self.config.queue_name}")
+            logger.info(f"=== END DEBUG ===")
+
             if self.config.connection_string:
                 self._client = AzureServiceBusClient.from_connection_string(
                     conn_str=self.config.connection_string
