@@ -101,6 +101,36 @@ class ServiceBusRouterBase(ABC):
             """Get Service Bus connection and queue status."""
             return await self._get_servicebus_status_impl(metadata)
 
+        @self.router.get(
+            "/scaling-metrics",
+            response_model=StandardResponse,
+        )
+        async def get_scaling_metrics(
+            metadata=Depends(self.service_metadata),
+        ) -> StandardResponse:
+            """Get scaling performance metrics for this service."""
+            try:
+                from libs.scaling_metrics import get_metrics_collector
+
+                metrics = get_metrics_collector(self.service_name)
+                summary = metrics.get_performance_summary()
+
+                return StandardResponse(
+                    status="success",
+                    message="Scaling metrics retrieved",
+                    data=summary,
+                    errors=[],
+                    metadata=metadata,
+                )
+            except Exception as e:
+                return StandardResponse(
+                    status="error",
+                    message="Failed to retrieve scaling metrics",
+                    data={},
+                    errors=[str(e)],
+                    metadata=metadata,
+                )
+
     async def _get_service_bus_client(self) -> ServiceBusClient:
         """Get or create Service Bus client."""
         if self._service_bus_client is None:
@@ -127,9 +157,29 @@ class ServiceBusRouterBase(ABC):
     async def _process_servicebus_message_impl(
         self, metadata: Dict[str, Any]
     ) -> StandardResponse[ServiceBusProcessResponse]:
-        """Standard Service Bus message processing implementation."""
+        """Standard Service Bus message processing implementation with metrics collection."""
+        import time
+        import uuid
+
+        batch_start_time = time.time() * 1000  # Start timing the batch
+        batch_id = str(uuid.uuid4())[:8]
+
         try:
+            # Import metrics collector
+            from libs.scaling_metrics import get_metrics_collector
+
+            metrics = get_metrics_collector(self.service_name)
+
             client = await self._get_service_bus_client()
+
+            # Get queue depth before processing
+            queue_depth_before = None
+            try:
+                queue_props = await client.get_queue_properties()
+                if queue_props.get("status") == "healthy":
+                    queue_depth_before = queue_props.get("active_message_count")
+            except Exception as e:
+                logger.debug(f"Could not get queue depth before processing: {e}")
 
             # Receive messages from Service Bus
             messages = await client.receive_messages(
@@ -139,7 +189,13 @@ class ServiceBusRouterBase(ABC):
             messages_processed = 0
             messages_failed = 0
 
-            for message in messages:
+            for batch_position, message in enumerate(messages):
+                message_start_time = (
+                    time.time() * 1000
+                )  # Start timing individual message
+                message_success = False
+                error_type = None
+
                 try:
                     # Parse message body
                     message_body = str(message)
@@ -158,6 +214,7 @@ class ServiceBusRouterBase(ABC):
                         # Acknowledge successful processing
                         await client.complete_message(message)
                         messages_processed += 1
+                        message_success = True
                         logger.info(
                             f"Successfully processed message: {message.message_id}"
                         )
@@ -165,6 +222,7 @@ class ServiceBusRouterBase(ABC):
                         # Processing failed, abandon message for retry
                         await client.abandon_message(message)
                         messages_failed += 1
+                        error_type = "processing_failed"
                         logger.error(
                             f"Processing failed for message: {message.message_id}"
                         )
@@ -173,13 +231,54 @@ class ServiceBusRouterBase(ABC):
                     # Invalid JSON, dead letter the message
                     await client.dead_letter_message(message, "Invalid JSON format")
                     messages_failed += 1
+                    error_type = "invalid_json"
                     logger.error(f"Invalid JSON in message {message.message_id}: {e}")
 
                 except Exception as e:
                     # Processing error, abandon for retry
                     await client.abandon_message(message)
                     messages_failed += 1
+                    error_type = "processing_error"
                     logger.error(f"Error processing message {message.message_id}: {e}")
+
+                finally:
+                    # Record individual message processing metrics
+                    message_end_time = time.time() * 1000
+                    processing_time_ms = int(message_end_time - message_start_time)
+
+                    metrics.record_message_processing(
+                        message_id=message.message_id,
+                        queue_name=self.queue_name,
+                        processing_time_ms=processing_time_ms,
+                        batch_size=len(messages),
+                        batch_position=batch_position,
+                        success=message_success,
+                        error_type=error_type,
+                    )
+
+            # Get queue depth after processing
+            queue_depth_after = None
+            try:
+                queue_props = await client.get_queue_properties()
+                if queue_props.get("status") == "healthy":
+                    queue_depth_after = queue_props.get("active_message_count")
+            except Exception as e:
+                logger.debug(f"Could not get queue depth after processing: {e}")
+
+            # Record batch processing metrics
+            batch_end_time = time.time() * 1000
+            total_processing_time_ms = int(batch_end_time - batch_start_time)
+
+            metrics.record_batch_processing(
+                batch_id=batch_id,
+                queue_name=self.queue_name,
+                batch_size=len(messages),
+                total_processing_time_ms=total_processing_time_ms,
+                messages_processed=messages_processed,
+                messages_failed=messages_failed,
+                queue_depth_before=queue_depth_before,
+                queue_depth_after=queue_depth_after,
+            )
 
             response_data = ServiceBusProcessResponse(
                 messages_received=len(messages),
