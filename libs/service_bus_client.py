@@ -223,13 +223,24 @@ class ServiceBusClient:
 
             max_msg_count = max_messages or self.config.max_messages
 
-            # Create receiver if not exists
+            # Create receiver if not exists or if it was closed
             if not self._receiver:
                 self._receiver = self._client.get_queue_receiver(
                     queue_name=self.config.queue_name
                 )
 
-            async with self._receiver:
+            try:
+                # Don't use async with here - let the receiver stay open
+                messages = await self._receiver.receive_messages(
+                    max_message_count=max_msg_count,
+                    max_wait_time=self.config.max_wait_time,
+                )
+            except Exception as receiver_error:
+                # If receiver failed (likely closed), recreate it and try again
+                logger.warning(f"Receiver error, recreating: {receiver_error}")
+                self._receiver = self._client.get_queue_receiver(
+                    queue_name=self.config.queue_name
+                )
                 messages = await self._receiver.receive_messages(
                     max_message_count=max_msg_count,
                     max_wait_time=self.config.max_wait_time,
