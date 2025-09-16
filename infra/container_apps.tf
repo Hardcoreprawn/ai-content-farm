@@ -357,15 +357,15 @@ resource "azurerm_container_app" "content_collector" {
     max_replicas = 2
 
     # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
-    # Updated for KEDA 2.17+ best practices
+    # Content collector handles collection requests (fewer, larger operations)
     custom_scale_rule {
       name             = "servicebus-queue-scaler"
       custom_rule_type = "azure-servicebus"
       metadata = {
         queueName              = azurerm_servicebus_queue.content_collection_requests.name
         namespace              = azurerm_servicebus_namespace.main.name
-        messageCount           = "3" # Scale when 3+ messages (balanced responsiveness vs efficiency)
-        activationMessageCount = "1" # Activate scaling when 1+ message (prevents unnecessary scaling)
+        messageCount           = "1" # Process collection requests immediately
+        activationMessageCount = "1" # Activate when any collection request arrives
       }
 
       authentication {
@@ -491,15 +491,15 @@ resource "azurerm_container_app" "content_processor" {
     max_replicas = 3
 
     # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
-    # Updated for KEDA 2.17+ best practices
+    # Updated for individual item processing (responsive scaling)
     custom_scale_rule {
       name             = "servicebus-queue-scaler"
       custom_rule_type = "azure-servicebus"
       metadata = {
         queueName              = azurerm_servicebus_queue.content_processing_requests.name
         namespace              = azurerm_servicebus_namespace.main.name
-        messageCount           = "3" # Scale when 3+ messages (balanced responsiveness vs efficiency)
-        activationMessageCount = "1" # Activate scaling when 1+ message (prevents unnecessary scaling)
+        messageCount           = "1" # Scale immediately when individual items arrive
+        activationMessageCount = "1" # Activate scaling when 1+ item needs processing
       }
 
       authentication {
@@ -636,15 +636,15 @@ resource "azurerm_container_app" "site_generator" {
     max_replicas = 2
 
     # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
-    # Updated for KEDA 2.17+ best practices
+    # Site generator handles generation requests for processed content
     custom_scale_rule {
       name             = "servicebus-queue-scaler"
       custom_rule_type = "azure-servicebus"
       metadata = {
         queueName              = azurerm_servicebus_queue.site_generation_requests.name
         namespace              = azurerm_servicebus_namespace.main.name
-        messageCount           = "3" # Scale when 3+ messages (balanced responsiveness vs efficiency)
-        activationMessageCount = "1" # Activate scaling when 1+ message (prevents unnecessary scaling)
+        messageCount           = "1" # Process generation requests immediately
+        activationMessageCount = "1" # Activate when any generation request arrives
       }
 
       authentication {

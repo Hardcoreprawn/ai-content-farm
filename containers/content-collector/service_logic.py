@@ -101,46 +101,81 @@ class ContentCollectorService:
         return self.service_bus_client
 
     async def _send_processing_request(self, collection_result: Dict[str, Any]) -> bool:
-        """Send content processing request to Service Bus."""
+        """Send individual content processing requests to Service Bus for each collected item.
+
+        This sends one message per collected item to enable immediate processing
+        and responsive scaling, rather than waiting for multiple collections to batch.
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         try:
             service_bus = await self._get_service_bus_client()
             if not service_bus:
                 return False
 
-            # Create processing request message
-            message = ServiceBusMessageModel(
-                service_name="content-collector",
-                operation="process_content",
-                payload={
-                    "collection_id": collection_result["collection_id"],
-                    "storage_location": collection_result["storage_location"],
-                    "items_count": len(collection_result["collected_items"]),
-                    "metadata": collection_result["metadata"],
-                },
-                metadata={
-                    "source_service": "content-collector",
-                    "target_service": "content-processor",
-                    "content_type": "collected_content",
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                },
+            collected_items = collection_result.get("collected_items", [])
+            if not collected_items:
+                logger.info("No items to send for processing")
+                return True
+
+            success_count = 0
+            total_items = len(collected_items)
+
+            logger.info(
+                f"Sending {total_items} individual processing requests for collection {collection_result['collection_id']}"
             )
 
-            success = await service_bus.send_message(message)
-            if success:
-                import logging
+            # Send individual processing request for each collected item
+            for index, item in enumerate(collected_items):
+                try:
+                    # Create processing request message for individual item
+                    message = ServiceBusMessageModel(
+                        service_name="content-collector",
+                        operation="process_item",  # Changed from process_content to process_item
+                        payload={
+                            "collection_id": collection_result["collection_id"],
+                            "item_index": index,
+                            "item_data": item,  # Send the actual item data
+                            "collection_metadata": collection_result["metadata"],
+                            "storage_location": collection_result[
+                                "storage_location"
+                            ],  # For reference
+                        },
+                        metadata={
+                            "source_service": "content-collector",
+                            "target_service": "content-processor",
+                            "content_type": "individual_item",
+                            "collection_id": collection_result["collection_id"],
+                            "item_index": index,
+                            "total_items": total_items,
+                            "timestamp": datetime.now(timezone.utc).isoformat(),
+                        },
+                    )
 
-                logger = logging.getLogger(__name__)
-                logger.info(
-                    f"Sent processing request for collection {collection_result['collection_id']}"
-                )
+                    success = await service_bus.send_message(message)
+                    if success:
+                        success_count += 1
+                    else:
+                        logger.warning(
+                            f"Failed to send processing request for item {index}"
+                        )
 
-            return success
+                except Exception as e:
+                    logger.error(
+                        f"Failed to send processing request for item {index}: {e}"
+                    )
+
+            logger.info(
+                f"Successfully sent {success_count}/{total_items} individual processing requests for collection {collection_result['collection_id']}"
+            )
+
+            # Return True if we sent at least some messages successfully
+            return success_count > 0
 
         except Exception as e:
-            import logging
-
-            logger = logging.getLogger(__name__)
-            logger.error(f"Failed to send processing request: {e}")
+            logger.error(f"Failed to send processing requests: {e}")
             return False
 
     async def collect_and_store_content(

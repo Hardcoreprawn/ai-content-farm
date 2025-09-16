@@ -39,6 +39,8 @@ class ContentProcessorServiceBusRouter(ServiceBusRouterBase):
         try:
             if operation == "process_content":
                 return await self._process_collected_content(payload)
+            elif operation == "process_item":
+                return await self._process_individual_item(payload)
             elif operation == "generate":
                 return await self._generate_content(payload)
             else:
@@ -47,6 +49,106 @@ class ContentProcessorServiceBusRouter(ServiceBusRouterBase):
 
         except Exception as e:
             logger.error(f"Content processing failed: {e}")
+            return {"status": "error", "error": str(e)}
+
+    async def _process_individual_item(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """Process a single content item from the collector.
+
+        This handles individual items sent by the new collector architecture
+        for immediate processing and responsive scaling.
+        """
+        try:
+            collection_id = payload.get("collection_id")
+            item_index = payload.get("item_index")
+            item_data = payload.get("item_data")
+
+            if not collection_id or item_index is None or not item_data:
+                return {
+                    "status": "error",
+                    "error": "Missing collection_id, item_index, or item_data",
+                }
+
+            logger.info(
+                f"Processing individual item {item_index} for collection {collection_id}"
+            )
+
+            # Import processor here to avoid circular imports
+            from libs.content_processor import ContentProcessor, ProcessingStatus
+            from libs.shared_models import ContentProcessingRequest
+
+            processor = ContentProcessor()
+
+            # Create processing request from the item data
+            processing_request = ContentProcessingRequest(
+                content=item_data.get("content", ""),
+                title=item_data.get("title", ""),
+                source_url=item_data.get("url", item_data.get("source_url", "")),
+                content_type=item_data.get("content_type", "text"),
+                metadata=item_data.get("metadata", {}),
+            )
+
+            # Process the item
+            result = await processor.process_content(processing_request)
+
+            if result.status == ProcessingStatus.COMPLETED:
+                # Enhance the original item with processing results
+                enhanced_item = item_data.copy()
+                enhanced_item.update(
+                    {
+                        "processed_content": result.processed_content,
+                        "quality_score": result.quality_score,
+                        "processing_time": result.processing_time,
+                        "model_used": result.model_used,
+                        "enhanced_at": _get_current_iso_timestamp(),
+                        "processing_status": "completed",
+                    }
+                )
+
+                # Save individual processed item to storage
+                storage_result = await self._save_individual_processed_item(
+                    collection_id, item_index, enhanced_item
+                )
+
+                logger.info(
+                    f"Successfully processed item {item_index} for collection {collection_id}"
+                )
+
+                return {
+                    "status": "success",
+                    "processed_item": enhanced_item,
+                    "collection_id": collection_id,
+                    "item_index": item_index,
+                    "storage_location": storage_result.get("storage_location"),
+                    "success": True,
+                }
+            else:
+                # Processing failed, but don't lose the item
+                item_data["processing_error"] = (
+                    result.error_message or "Processing failed"
+                )
+                item_data["processing_status"] = "failed"
+
+                # Save failed item to storage for tracking
+                storage_result = await self._save_individual_processed_item(
+                    collection_id, item_index, item_data
+                )
+
+                logger.warning(
+                    f"Processing failed for item {item_index} in collection {collection_id}: {result.error_message}"
+                )
+
+                return {
+                    "status": "partial_success",
+                    "processed_item": item_data,
+                    "collection_id": collection_id,
+                    "item_index": item_index,
+                    "storage_location": storage_result.get("storage_location"),
+                    "error": result.error_message,
+                    "success": False,
+                }
+
+        except Exception as e:
+            logger.error(f"Failed to process individual item: {e}")
             return {"status": "error", "error": str(e)}
 
     async def _process_collected_content(
@@ -229,6 +331,49 @@ class ContentProcessorServiceBusRouter(ServiceBusRouterBase):
 
         except Exception as e:
             logger.error(f"Failed to save processed content: {e}")
+            raise
+
+    async def _save_individual_processed_item(
+        self, collection_id: str, item_index: int, processed_item: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Save individual processed item to storage."""
+        try:
+            import json
+            from datetime import datetime, timezone
+
+            from libs.blob_storage import BlobContainers, BlobStorageClient
+
+            storage = BlobStorageClient()
+
+            # Prepare the processed item data
+            item_data = {
+                "collection_id": collection_id,
+                "item_index": item_index,
+                "processed_at": datetime.now(timezone.utc).isoformat(),
+                "item": processed_item,
+                "format_version": "1.0",
+            }
+
+            # Generate storage path for individual item
+            timestamp = datetime.now(timezone.utc)
+            blob_name = f"processed/{timestamp.strftime('%Y/%m/%d')}/{collection_id}_item_{item_index:03d}.json"
+
+            # Save processed item
+            content_json = json.dumps(item_data, indent=2, ensure_ascii=False)
+            await storage.upload_text(
+                container_name=BlobContainers.COLLECTED_CONTENT,
+                blob_name=blob_name,
+                content=content_json,
+                content_type="application/json",
+            )
+
+            return {
+                "storage_location": f"{BlobContainers.COLLECTED_CONTENT}/{blob_name}",
+                "item_index": item_index,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to save individual processed item: {e}")
             raise
 
     async def _send_site_generation_request(
