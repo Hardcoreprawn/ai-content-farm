@@ -340,6 +340,11 @@ resource "azurerm_container_app" "content_collector" {
         name  = "SERVICE_BUS_QUEUE_NAME"
         value = azurerm_servicebus_queue.content_collection_requests.name
       }
+
+      env {
+        name        = "SERVICE_BUS_CONNECTION_STRING"
+        secret_name = "azure-servicebus-connection-string"
+      }
     }
 
     min_replicas = 0
@@ -466,6 +471,11 @@ resource "azurerm_container_app" "content_processor" {
       env {
         name  = "SERVICE_BUS_QUEUE_NAME"
         value = azurerm_servicebus_queue.content_processing_requests.name
+      }
+
+      env {
+        name        = "SERVICE_BUS_CONNECTION_STRING"
+        secret_name = "azure-servicebus-connection-string"
       }
     }
 
@@ -604,6 +614,11 @@ resource "azurerm_container_app" "site_generator" {
       env {
         name  = "SERVICE_BUS_QUEUE_NAME"
         value = azurerm_servicebus_queue.site_generation_requests.name
+      }
+
+      env {
+        name        = "SERVICE_BUS_CONNECTION_STRING"
+        secret_name = "azure-servicebus-connection-string"
       }
     }
 

@@ -78,6 +78,9 @@ class ServiceBusConfig(BaseModel):
 
     namespace: str = Field(..., description="Service Bus namespace")
     queue_name: str = Field(..., description="Queue name")
+    connection_string: str = Field(
+        default="", description="Service Bus connection string (optional)"
+    )
     max_wait_time: int = Field(
         default=1, description="Max wait time for receiving messages"
     )
@@ -87,14 +90,20 @@ class ServiceBusConfig(BaseModel):
     retry_attempts: int = Field(default=3, description="Number of retry attempts")
 
     @classmethod
-    def from_environment(cls) -> "ServiceBusConfig":
-        """Create configuration from environment variables."""
+    def from_environment(
+        cls, queue_name: str = "content-processing-requests"
+    ) -> "ServiceBusConfig":
+        """Create config from environment variables."""
+        namespace = os.getenv("SERVICE_BUS_NAMESPACE", "").strip()
+        connection_string = os.getenv("SERVICE_BUS_CONNECTION_STRING", "").strip()
+
+        if not namespace:
+            raise ValueError("SERVICE_BUS_NAMESPACE environment variable is required")
+
         return cls(
-            namespace=os.getenv("SERVICE_BUS_NAMESPACE", ""),
-            queue_name=os.getenv("SERVICE_BUS_QUEUE_NAME", ""),
-            max_wait_time=int(os.getenv("SERVICE_BUS_MAX_WAIT_TIME", "1")),
-            max_messages=int(os.getenv("SERVICE_BUS_MAX_MESSAGES", "10")),
-            retry_attempts=int(os.getenv("SERVICE_BUS_RETRY_ATTEMPTS", "3")),
+            namespace=namespace,
+            queue_name=queue_name,
+            connection_string=connection_string,
         )
 
 
@@ -133,22 +142,30 @@ class ServiceBusClient:
     async def connect(self) -> None:
         """Establish connection to Service Bus."""
         try:
-            if not self.config.namespace:
-                raise ValueError(
-                    "SERVICE_BUS_NAMESPACE environment variable is required"
+            # Use connection string if available, otherwise use managed identity
+            if self.config.connection_string:
+                self._client = AzureServiceBusClient.from_connection_string(
+                    conn_str=self.config.connection_string
+                )
+                logger.info(f"Connected to Service Bus using connection string")
+            else:
+                if not self.config.namespace:
+                    raise ValueError(
+                        "SERVICE_BUS_NAMESPACE environment variable is required when not using connection string"
+                    )
+
+                # Construct fully qualified namespace
+                fully_qualified_namespace = (
+                    f"{self.config.namespace}.servicebus.windows.net"
                 )
 
-            # Construct fully qualified namespace
-            fully_qualified_namespace = (
-                f"{self.config.namespace}.servicebus.windows.net"
-            )
-
-            self._client = AzureServiceBusClient(
-                fully_qualified_namespace=fully_qualified_namespace,
-                credential=self.credential,
-            )
-
-            logger.info(f"Connected to Service Bus namespace: {self.config.namespace}")
+                self._client = AzureServiceBusClient(
+                    fully_qualified_namespace=fully_qualified_namespace,
+                    credential=self.credential,
+                )
+                logger.info(
+                    f"Connected to Service Bus namespace: {self.config.namespace}"
+                )
 
         except Exception as e:
             logger.error(f"Failed to connect to Service Bus: {e}")
@@ -320,7 +337,6 @@ class ServiceBusClient:
             await self._receiver.dead_letter_message(
                 message,
                 reason=reason,
-                description=f"Dead lettered at {datetime.now(timezone.utc).isoformat()}",
             )
             logger.warning(f"Message dead lettered: {message.message_id} - {reason}")
             return True
