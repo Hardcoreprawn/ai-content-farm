@@ -124,7 +124,7 @@ class TestServiceBusIntegration:
 
     @pytest.mark.asyncio
     async def test_send_processing_request_success(self, service):
-        """Test successful processing request sending."""
+        """Test successful individual processing request sending."""
         mock_service_bus = AsyncMock()
         mock_service_bus.send_message.return_value = True
         service.service_bus_client = mock_service_bus
@@ -139,14 +139,23 @@ class TestServiceBusIntegration:
         result = await service._send_processing_request(collection_result)
 
         assert result is True
-        mock_service_bus.send_message.assert_called_once()
+        # Should send one message per collected item (2 items = 2 calls)
+        assert mock_service_bus.send_message.call_count == 2
 
-        # Verify message structure
-        sent_message = mock_service_bus.send_message.call_args[0][0]
-        assert sent_message.service_name == "content-collector"
-        assert sent_message.operation == "process_content"
-        assert sent_message.payload["collection_id"] == "test_collection"
-        assert sent_message.payload["items_count"] == 2
+        # Verify first message structure (individual item processing)
+        first_call = mock_service_bus.send_message.call_args_list[0][0][0]
+        assert first_call.service_name == "content-collector"
+        assert first_call.operation == "process_item"  # Changed from process_content
+        assert first_call.payload["collection_id"] == "test_collection"
+        assert first_call.payload["item_index"] == 0
+        assert first_call.payload["item_data"] == {"id": 1}
+        assert first_call.metadata["content_type"] == "individual_item"
+        assert first_call.metadata["total_items"] == 2
+
+        # Verify second message structure
+        second_call = mock_service_bus.send_message.call_args_list[1][0][0]
+        assert second_call.payload["item_index"] == 1
+        assert second_call.payload["item_data"] == {"id": 2}
 
     @pytest.mark.asyncio
     async def test_send_processing_request_no_service_bus(self, service):
@@ -158,16 +167,58 @@ class TestServiceBusIntegration:
 
     @pytest.mark.asyncio
     async def test_send_processing_request_send_failure(self, service):
-        """Test processing request when sending fails."""
+        """Test processing request when some sends fail."""
+        mock_service_bus = AsyncMock()
+        # First message succeeds, second fails - should still return True (partial success)
+        mock_service_bus.send_message.side_effect = [True, False]
+        service.service_bus_client = mock_service_bus
+
+        collection_result = {
+            "collection_id": "test",
+            "collected_items": [{"id": 1}, {"id": 2}],
+            "metadata": {},
+            "storage_location": "test/path",
+        }
+
+        result = await service._send_processing_request(collection_result)
+
+        # Should return True because at least one message was sent successfully
+        assert result is True
+        assert mock_service_bus.send_message.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_send_processing_request_all_failures(self, service):
+        """Test processing request when all sends fail."""
         mock_service_bus = AsyncMock()
         mock_service_bus.send_message.return_value = False
+        service.service_bus_client = mock_service_bus
+
+        collection_result = {
+            "collection_id": "test",
+            "collected_items": [{"id": 1}],
+            "metadata": {},
+            "storage_location": "test/path",
+        }
+
+        result = await service._send_processing_request(collection_result)
+
+        # Should return False when all messages fail to send
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_send_processing_request_empty_items(self, service):
+        """Test processing request with no items to process."""
+        mock_service_bus = AsyncMock()
         service.service_bus_client = mock_service_bus
 
         result = await service._send_processing_request(
             {"collection_id": "test", "collected_items": []}
         )
 
-        assert result is False
+        # Should return True for empty collections (nothing to fail)
+        assert result is True
+        # No messages should be sent for empty collections
+        mock_service_bus.send_message.assert_not_called()
 
 
 @pytest.mark.unit

@@ -61,6 +61,7 @@ COPY containers/content-processor/ .
 # Service configuration optimized for production
 ENV SERVICE_NAME=content-processor
 ENV LOG_LEVEL=info
+ENV PYTHONPATH=/app
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
