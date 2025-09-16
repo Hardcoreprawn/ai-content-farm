@@ -142,20 +142,15 @@ class TestServiceBusIntegration:
         # Should send one wake-up message per collection (not per item)
         assert mock_service_bus.send_message.call_count == 1
 
-        # Verify first message structure (individual item processing)
-        first_call = mock_service_bus.send_message.call_args_list[0][0][0]
-        assert first_call.service_name == "content-collector"
-        assert first_call.operation == "process_item"  # Changed from process_content
-        assert first_call.payload["collection_id"] == "test_collection"
-        assert first_call.payload["item_index"] == 0
-        assert first_call.payload["item_data"] == {"id": 1}
-        assert first_call.metadata["content_type"] == "individual_item"
-        assert first_call.metadata["total_items"] == 2
-
-        # Verify second message structure
-        second_call = mock_service_bus.send_message.call_args_list[1][0][0]
-        assert second_call.payload["item_index"] == 1
-        assert second_call.payload["item_data"] == {"id": 2}
+        # Verify wake-up message structure
+        wake_up_call = mock_service_bus.send_message.call_args_list[0][0][0]
+        assert wake_up_call.service_name == "content-collector"
+        assert wake_up_call.operation == "wake_up"
+        assert wake_up_call.payload["collection_id"] == "test_collection"
+        assert wake_up_call.payload["items_count"] == 2
+        assert wake_up_call.payload["trigger_reason"] == "new_collection"
+        assert wake_up_call.metadata["content_type"] == "wake_up_signal"
+        assert wake_up_call.metadata["target_service"] == "content-processor"
 
     @pytest.mark.asyncio
     async def test_send_processing_request_no_service_bus(self, service):
