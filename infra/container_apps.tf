@@ -274,6 +274,12 @@ resource "azurerm_container_app" "content_collector" {
   }
 
   # Service Bus connection string for KEDA scaling (Phase 1 Security Implementation)
+  # NOTE: Azure Container Apps KEDA requires connection string authentication for Service Bus.
+  # While KEDA itself supports Azure Workload Identity (managed identity) for Service Bus,
+  # Azure Container Apps' implementation only supports connection string authentication
+  # for Service Bus scalers as of 2025. This forces us to use connection string auth
+  # for both KEDA scaling AND application code to prevent authentication mismatches
+  # that cause messages to remain stuck in queues.
   secret {
     name  = "azure-servicebus-connection-string"
     value = azurerm_servicebus_namespace.main.default_primary_connection_string
@@ -351,13 +357,15 @@ resource "azurerm_container_app" "content_collector" {
     max_replicas = 2
 
     # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
+    # Updated for KEDA 2.17+ best practices
     custom_scale_rule {
       name             = "servicebus-queue-scaler"
       custom_rule_type = "azure-servicebus"
       metadata = {
-        queueName    = azurerm_servicebus_queue.content_collection_requests.name
-        messageCount = "1"
-        namespace    = azurerm_servicebus_namespace.main.name
+        queueName              = azurerm_servicebus_queue.content_collection_requests.name
+        namespace              = azurerm_servicebus_namespace.main.name
+        messageCount           = "3" # Scale when 3+ messages (balanced responsiveness vs efficiency)
+        activationMessageCount = "1" # Activate scaling when 1+ message (prevents unnecessary scaling)
       }
 
       authentication {
@@ -483,13 +491,15 @@ resource "azurerm_container_app" "content_processor" {
     max_replicas = 3
 
     # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
+    # Updated for KEDA 2.17+ best practices
     custom_scale_rule {
       name             = "servicebus-queue-scaler"
       custom_rule_type = "azure-servicebus"
       metadata = {
-        queueName    = azurerm_servicebus_queue.content_processing_requests.name
-        messageCount = "1"
-        namespace    = azurerm_servicebus_namespace.main.name
+        queueName              = azurerm_servicebus_queue.content_processing_requests.name
+        namespace              = azurerm_servicebus_namespace.main.name
+        messageCount           = "3" # Scale when 3+ messages (balanced responsiveness vs efficiency)
+        activationMessageCount = "1" # Activate scaling when 1+ message (prevents unnecessary scaling)
       }
 
       authentication {
@@ -626,13 +636,15 @@ resource "azurerm_container_app" "site_generator" {
     max_replicas = 2
 
     # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
+    # Updated for KEDA 2.17+ best practices
     custom_scale_rule {
       name             = "servicebus-queue-scaler"
       custom_rule_type = "azure-servicebus"
       metadata = {
-        queueName    = azurerm_servicebus_queue.site_generation_requests.name
-        messageCount = "1"
-        namespace    = azurerm_servicebus_namespace.main.name
+        queueName              = azurerm_servicebus_queue.site_generation_requests.name
+        namespace              = azurerm_servicebus_namespace.main.name
+        messageCount           = "3" # Scale when 3+ messages (balanced responsiveness vs efficiency)
+        activationMessageCount = "1" # Activate scaling when 1+ message (prevents unnecessary scaling)
       }
 
       authentication {

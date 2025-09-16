@@ -74,7 +74,22 @@ class ServiceBusMessageModel(BaseModel):
 
 
 class ServiceBusConfig(BaseModel):
-    """Service Bus configuration model."""
+    """Service Bus configuration model.
+
+    Note: KEDA scaling in Azure Container Apps requires connection string authentication
+    for Service Bus, not managed identity. While Azure Container Apps supports managed
+    identity for scale rules with some Azure services (Storage Queues, Event Hubs),
+    Service Bus scale rules currently require connection string authentication.
+
+    This is a limitation of Azure Container Apps' KEDA implementation, not KEDA itself.
+    KEDA supports Azure Workload Identity (managed identity) for Service Bus, but
+    Azure Container Apps' implementation only supports connection string auth for
+    Service Bus scalers as of 2025.
+
+    Therefore, we must use the same connection string for both KEDA scaling AND
+    application code to ensure consistent authentication and prevent messages from
+    being stuck in queues due to authentication mismatches.
+    """
 
     namespace: str = Field(..., description="Service Bus namespace")
     queue_name: str = Field(..., description="Queue name")
@@ -140,7 +155,15 @@ class ServiceBusClient:
         await self.close()
 
     async def connect(self) -> None:
-        """Establish connection to Service Bus."""
+        """Establish connection to Service Bus.
+
+        Note: Azure Container Apps KEDA scaling requires connection string authentication
+        for Service Bus. While we prefer managed identity for security, we must use
+        connection string authentication to match KEDA's requirements and prevent
+        authentication mismatches that cause messages to remain stuck in queues.
+
+        See ServiceBusConfig docstring for full technical details.
+        """
         try:
             # Use connection string if available, otherwise use managed identity
             if self.config.connection_string:
