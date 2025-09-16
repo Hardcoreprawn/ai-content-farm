@@ -1,10 +1,38 @@
 # TODO - AI Content Farm
 
 **Status**: 🎉 **PHASE 1 COMPLETE** - MVP Logic App Successfully Deployed & Validated  
+**Current Priority**: 🔧 **STORAGE QUEUE MIGRATION** - Fix Service Bus authentication issues  
 **Next Priority**: 🔒 **SECURITY HARDENING** - Address security concerns before Phase 2  
-**Goal**: Secure foundation → Enhanced multi-topic scheduler intelligence
+**Goal**: Storage Queue migration → Secure foundation → Enhanced multi-topic scheduler intelligence
 
 ## ✅ Recent Achievements
+
+### 🚨 URGENT: Service Bus Authentication Issue - BLOCKING WAKE-UP PATTERN
+**Issue**: Container Apps managed identity conflicts with Service Bus connection strings for KEDA scaling
+**Root Cause**: Azure Container Apps forces managed identity authentication, but KEDA Service Bus scaler requires connection strings
+**Impact**: Wake-up messages remain unconsumed in Service Bus queue, blocking content processing automation
+**Solution**: Migrate from Service Bus to Azure Storage Queues (supports both managed identity and KEDA scaling)
+
+### 🔧 Storage Queue Migration Plan - IN PROGRESS
+**Target**: Replace Service Bus with Storage Queues to resolve authentication conflicts
+
+#### Phase 1: Infrastructure Migration ⏳
+- [ ] **Remove Service Bus** from Terraform (`infra/container_apps.tf`)
+- [ ] **Add Storage Queues** infrastructure with managed identity support
+- [ ] **Update KEDA scaling rules** to use `azure-queue` scaler instead of `azure-servicebus`
+- [ ] **Deploy infrastructure changes** and verify queue creation
+
+#### Phase 2: Application Migration ⏳  
+- [ ] **Create Storage Queue client** (`libs/storage_queue_client.py`) modeled after Service Bus client
+- [ ] **Update wake-up pattern** to use Storage Queues instead of Service Bus
+- [ ] **Modify all containers** to use Storage Queue client for message processing
+- [ ] **Remove Service Bus dependencies** from all containers
+
+#### Phase 3: Validation ⏳
+- [ ] **Test wake-up pattern** end-to-end with Storage Queues
+- [ ] **Verify KEDA scaling** works with managed identity authentication  
+- [ ] **Validate message processing** in all containers
+- [ ] **Document Storage Queue architecture** and benefits
 
 ### 🎯 Phase 1: MVP Scheduler - ✅ COMPLETED ✅
 **Achievement**: **Complete end-to-end automated content collection pipeline operational**

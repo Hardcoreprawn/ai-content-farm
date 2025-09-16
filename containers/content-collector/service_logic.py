@@ -42,10 +42,12 @@ class MockBlobStorageClient:
     ) -> str:
         return f"mock://blob/{blob_name}"
 
-    def download_text(self, container_name: str, blob_name: str) -> str:
+    async def download_text(self, container_name: str, blob_name: str) -> str:
         return '{"mock": "data"}'
 
-    def list_blobs(self, container_name: str, prefix: str = "") -> List[Dict[str, Any]]:
+    async def list_blobs(
+        self, container_name: str, prefix: str = ""
+    ) -> List[Dict[str, Any]]:
         return []
 
 
@@ -66,8 +68,8 @@ class ContentCollectorService:
         else:
             self.storage = BlobStorageClient()
 
-        # Initialize Service Bus client for sending processing requests
-        self.service_bus_client = None
+        # Initialize Storage Queue client for sending processing requests
+        self.queue_client = None
 
         self.stats = {
             "total_collections": 0,
@@ -76,32 +78,8 @@ class ContentCollectorService:
             "last_collection": None,
         }
 
-    async def _get_service_bus_client(self) -> Optional[ServiceBusClient]:
-        """Get or create Service Bus client for sending messages."""
-        if self.service_bus_client is None:
-            try:
-                # Create config for content processing requests queue
-                config = ServiceBusConfig(
-                    namespace=os.getenv("SERVICE_BUS_NAMESPACE", ""),
-                    queue_name="content-processing-requests",  # Send to processing queue
-                    max_wait_time=30,
-                    max_messages=10,
-                    retry_attempts=3,
-                )
-                self.service_bus_client = ServiceBusClient(config)
-                await self.service_bus_client.connect()
-            except Exception as e:
-                # Log error but don't fail the whole operation
-                import logging
-
-                logger = logging.getLogger(__name__)
-                logger.error(f"Failed to initialize Service Bus client: {e}")
-                return None
-
-        return self.service_bus_client
-
     async def _send_processing_request(self, collection_result: Dict[str, Any]) -> bool:
-        """Send wake-up message to Service Bus to trigger content processing.
+        """Send wake-up message to Storage Queue to trigger content processing.
 
         Sends a single wake-up message that causes the processor to scan
         blob storage and process all available collections, including this one.
@@ -111,9 +89,7 @@ class ContentCollectorService:
         logger = logging.getLogger(__name__)
 
         try:
-            service_bus = await self._get_service_bus_client()
-            if not service_bus:
-                return False
+            from libs.queue_client import send_wake_up_message
 
             collection_id = collection_result.get("collection_id")
             total_items = len(collection_result.get("collected_items", []))
@@ -122,10 +98,10 @@ class ContentCollectorService:
                 f"Sending wake-up message for collection {collection_id} ({total_items} items collected)"
             )
 
-            # Create wake-up message for the processor
-            message = ServiceBusMessageModel(
+            # Send wake-up message to the processor using our unified interface
+            result = await send_wake_up_message(
+                queue_name="content-processing-requests",
                 service_name="content-collector",
-                operation="wake_up",  # Simple wake-up operation
                 payload={
                     "trigger_reason": "new_collection",
                     "collection_id": collection_id,
@@ -133,28 +109,12 @@ class ContentCollectorService:
                     "storage_location": collection_result.get("storage_location"),
                     "message": f"Content collected for {collection_id}, processor should scan storage",
                 },
-                metadata={
-                    "source_service": "content-collector",
-                    "target_service": "content-processor",
-                    "content_type": "wake_up_signal",
-                    "collection_id": collection_id,
-                    "items_count": total_items,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                },
             )
 
-            success = await service_bus.send_message(message)
-
-            if success:
-                logger.info(
-                    f"Wake-up message sent successfully for collection {collection_id}"
-                )
-                return True
-            else:
-                logger.warning(
-                    f"Failed to send wake-up message for collection {collection_id}"
-                )
-                return False
+            logger.info(
+                f"Wake-up message sent successfully for collection {collection_id}, message_id: {result['message_id']}"
+            )
+            return True
 
         except Exception as e:
             logger.error(f"Failed to send wake-up message: {e}")
@@ -298,7 +258,7 @@ class ContentCollectorService:
         """Get current service statistics."""
         return self.stats.copy()
 
-    def get_recent_collections(self, limit: int = 10) -> List[Dict[str, Any]]:
+    async def get_recent_collections(self, limit: int = 10) -> List[Dict[str, Any]]:
         """
         Get list of recent collections from blob storage.
 
@@ -311,7 +271,7 @@ class ContentCollectorService:
         try:
             # List recent collection files
             container_name = BlobContainers.COLLECTED_CONTENT
-            blobs = self.storage.list_blobs(
+            blobs = await self.storage.list_blobs(
                 container_name=container_name, prefix="collections/"
             )
 
@@ -346,12 +306,14 @@ class ContentCollectorService:
             # If we can't access storage, return empty list
             return []
 
-    def get_collection_by_id(self, collection_id: str) -> Optional[Dict[str, Any]]:
+    async def get_collection_by_id(
+        self, collection_id: str
+    ) -> Optional[Dict[str, Any]]:
         """
-        Retrieve a specific collection from blob storage.
+        Get collection data by ID.
 
         Args:
-            collection_id: Collection identifier
+            collection_id: The collection identifier
 
         Returns:
             Collection data or None if not found
@@ -359,7 +321,7 @@ class ContentCollectorService:
         try:
             # Search for the collection file
             container_name = "raw-content"
-            blobs = self.storage.list_blobs(
+            blobs = await self.storage.list_blobs(
                 container_name=container_name, prefix="collections/"
             )
 
@@ -375,7 +337,7 @@ class ContentCollectorService:
                 return None
 
             # Load the collection data
-            content = self.storage.download_text(
+            content = await self.storage.download_text(
                 container_name=container_name, blob_name=target_blob
             )
 

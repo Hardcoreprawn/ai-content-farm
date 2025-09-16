@@ -59,7 +59,8 @@ class WakeUpPatternValidator:
             method = getattr(service, "_send_processing_request", None)
             if method:
                 signature = inspect.signature(method)
-                logger.info(f"✓ _send_processing_request method found: {signature}")
+                logger.info(
+                    f"✓ _send_processing_request method found: {signature}")
 
                 # Check if it's the wake-up pattern (collection_result parameter, not individual items)
                 params = list(signature.parameters.keys())
@@ -89,8 +90,7 @@ class WakeUpPatternValidator:
         """Validate that the processor handles wake-up messages correctly with Storage Queues."""
         try:
             logger.info(
-                "🔍 Validating processor wake-up message handling with Storage Queues..."
-            )
+                "🔍 Validating processor wake-up message handling with Storage Queues...")
 
             # Check source code for wake-up pattern instead of importing
             processor_router_path = Path(
@@ -103,8 +103,7 @@ class WakeUpPatternValidator:
                     "/workspaces/ai-content-farm/containers/content-processor/endpoints/servicebus_router.py"
                 )
                 logger.warning(
-                    "⚠️ Storage Queue router not found, checking Service Bus router for migration"
-                )
+                    "⚠️ Storage Queue router not found, checking Service Bus router for migration")
 
             if not processor_router_path.exists():
                 logger.error("✗ No processor router file found")
@@ -125,7 +124,8 @@ class WakeUpPatternValidator:
                     found_indicators.append(indicator)
                     logger.info(f"✓ Found wake-up indicator: {indicator}")
                 else:
-                    logger.warning(f"⚠️ Missing wake-up indicator: {indicator}")
+                    logger.warning(
+                        f"⚠️ Missing wake-up indicator: {indicator}")
 
             if len(found_indicators) >= 2:  # At least 2/3 indicators
                 logger.info("✓ Wake-up processing logic detected in processor")
@@ -144,7 +144,8 @@ class WakeUpPatternValidator:
     async def validate_keda_configuration(self) -> bool:
         """Validate KEDA scaling configuration for Storage Queue responsiveness."""
         try:
-            logger.info("🔍 Validating Storage Queue KEDA scaling configuration...")
+            logger.info(
+                "🔍 Validating Storage Queue KEDA scaling configuration...")
 
             # Check Terraform configuration for KEDA scaling rules
             container_apps_tf = Path(
@@ -168,10 +169,12 @@ class WakeUpPatternValidator:
             passed = 0
             for check_str, description in checks:
                 if check_str in tf_content:
-                    logger.info(f"✓ Found Storage Queue scaling config: {description}")
+                    logger.info(
+                        f"✓ Found Storage Queue scaling config: {description}")
                     passed += 1
                 else:
-                    logger.warning(f"⚠️ Missing Storage Queue config: {description}")
+                    logger.warning(
+                        f"⚠️ Missing Storage Queue config: {description}")
 
             if passed >= 3:  # At least scaler type, queue length, and scale rule
                 logger.info(
@@ -181,8 +184,7 @@ class WakeUpPatternValidator:
                 return True
             else:
                 logger.error(
-                    "✗ KEDA not configured for Storage Queue responsive scaling"
-                )
+                    "✗ KEDA not configured for Storage Queue responsive scaling")
                 return False
 
         except Exception as e:
@@ -204,16 +206,11 @@ class WakeUpPatternValidator:
                 logger.info("✓ Storage Queue client library available")
                 checks.append(True)
             except Exception as e:
-                logger.warning(
-                    f"⚠️ Storage Queue client library issue (expected during migration): {e}"
-                )
+                logger.warning(f"⚠️ Storage Queue client library issue (expected during migration): {e}")
                 # Try Service Bus as fallback during migration
                 try:
                     from libs.service_bus_client import ServiceBusClient
-
-                    logger.info(
-                        "✓ Service Bus client library available (fallback during migration)"
-                    )
+                    logger.info("✓ Service Bus client library available (fallback during migration)")
                     checks.append(True)
                 except Exception as e2:
                     logger.error(f"✗ No queue client library available: {e2}")
@@ -246,7 +243,63 @@ class WakeUpPatternValidator:
 
             success_rate = sum(checks) / len(checks)
             if success_rate >= 0.75:  # 75% of integrations working
-                logger.info(f"✓ Integration points mostly working ({success_rate:.1%})")
+                logger.info(
+                    f"✓ Integration points mostly working ({success_rate:.1%})")
+                self.test_results["end_to_end_flow_working"] = True
+                return True
+            else:
+                logger.error(
+                    f"✗ Too many integration issues ({success_rate:.1%} working)"
+                )
+                return False
+
+        except Exception as e:
+            logger.error(f"✗ Integration validation failed: {e}")
+            return False
+                from libs.storage_queue_client import StorageQueueClient
+
+                logger.info("✓ Storage Queue client library available")
+                checks.append(True)
+            except Exception as e:
+                logger.warning(f"⚠️ Storage Queue client library issue (expected during migration): {e}")
+                # Try Service Bus as fallback during migration
+                try:
+                    from libs.service_bus_client import ServiceBusClient
+                    logger.info("✓ Service Bus client library available (fallback during migration)")
+                    checks.append(True)
+                except Exception as e2:
+                    logger.error(f"✗ No queue client library available: {e2}")
+                    checks.append(False)
+
+            # Check blob storage integration
+            try:
+                from libs.blob_storage import BlobStorageClient
+
+                logger.info("✓ Blob storage client library available")
+                checks.append(True)
+            except Exception as e:
+                logger.error(f"✗ Blob storage client library issue: {e}")
+                checks.append(False)
+
+            # Check processor core logic
+            try:
+                processor_path = Path(
+                    "/workspaces/ai-content-farm/containers/content-processor/processor.py"
+                )
+                if processor_path.exists():
+                    logger.info("✓ Content processor core logic file exists")
+                    checks.append(True)
+                else:
+                    logger.error("✗ Content processor core logic file missing")
+                    checks.append(False)
+            except Exception as e:
+                logger.error(f"✗ Content processor core logic issue: {e}")
+                checks.append(False)
+
+            success_rate = sum(checks) / len(checks)
+            if success_rate >= 0.75:  # 75% of integrations working
+                logger.info(
+                    f"✓ Integration points mostly working ({success_rate:.1%})")
                 self.test_results["end_to_end_flow_working"] = True
                 return True
             else:
@@ -268,7 +321,8 @@ class WakeUpPatternValidator:
 
         # Run all validation tests
         validations = [
-            ("Collector Sends Wake-Up Messages", self.validate_collector_wake_up_logic),
+            ("Collector Sends Wake-Up Messages",
+             self.validate_collector_wake_up_logic),
             (
                 "Processor Handles Wake-Up Messages",
                 self.validate_processor_wake_up_logic,
@@ -311,10 +365,12 @@ class WakeUpPatternValidator:
             )
             return True
         elif passed >= total * 0.75:
-            logger.info("⚠️  Most validations passed - minor issues to address")
+            logger.info(
+                "⚠️  Most validations passed - minor issues to address")
             return True
         else:
-            logger.info("⚠️  Some validations failed - review above for details")
+            logger.info(
+                "⚠️  Some validations failed - review above for details")
             return False
 
 

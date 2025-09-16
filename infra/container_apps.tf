@@ -117,16 +117,10 @@ resource "azurerm_role_assignment" "containers_cognitive_services_openai_user" {
   principal_id         = azurerm_user_assigned_identity.containers.principal_id
 }
 
-# Grant container identity access to Service Bus (Phase 1 Security Implementation)
-resource "azurerm_role_assignment" "containers_servicebus_data_receiver" {
-  scope                = azurerm_servicebus_namespace.main.id
-  role_definition_name = "Azure Service Bus Data Receiver"
-  principal_id         = azurerm_user_assigned_identity.containers.principal_id
-}
-
-resource "azurerm_role_assignment" "containers_servicebus_data_sender" {
-  scope                = azurerm_servicebus_namespace.main.id
-  role_definition_name = "Azure Service Bus Data Sender"
+# Grant container identity access to Storage Queues (replaces Service Bus)
+resource "azurerm_role_assignment" "containers_storage_queue_data_contributor" {
+  scope                = azurerm_storage_account.main.id
+  role_definition_name = "Storage Queue Data Contributor"
   principal_id         = azurerm_user_assigned_identity.containers.principal_id
 }
 
@@ -166,81 +160,9 @@ resource "azurerm_eventgrid_system_topic" "storage" {
   tags = local.common_tags
 }
 
-# Service Bus Namespace for event processing
-#checkov:skip=CKV_AZURE_199:Double encryption complex and costly for development environment
-#checkov:skip=CKV_AZURE_201:Customer-managed encryption complex setup for development environment
-resource "azurerm_servicebus_namespace" "main" {
-  # checkov:skip=CKV_AZURE_201: Customer-managed encryption requires complex setup - using Azure-managed encryption for development
-  # checkov:skip=CKV_AZURE_199: Double encryption requires complex configuration - single encryption sufficient for development
-  name                = "${var.resource_prefix}-servicebus"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.main.name
-  sku                 = "Standard" # Downgrade from Premium for significant cost savings
-
-  # Security configurations - Standard SKU limitations
-  public_network_access_enabled = true  # Standard SKU cannot disable public access
-  local_auth_enabled            = false # Disable local authentication
-  minimum_tls_version           = "1.2" # Use latest TLS
-
-  # Enable managed identity
-  identity {
-    type = "SystemAssigned"
-  }
-
-  # Note: Standard SKU limitations vs Premium:
-  # - Cannot disable public network access (security trade-off)
-  # - No customer-managed encryption keys
-  # - No virtual network integration
-  # - Saves $600+/month vs Premium
-
-  tags = local.common_tags
-}
-
-# Service Bus customer-managed encryption disabled for development environment
-# This would be enabled in production with proper key management
-
-# Service Bus Queues for container services (Phase 1 Security Implementation)
-resource "azurerm_servicebus_queue" "content_collection_requests" {
-  name         = "content-collection-requests"
-  namespace_id = azurerm_servicebus_namespace.main.id
-
-  max_size_in_megabytes                = 1024
-  dead_lettering_on_message_expiration = true
-  default_message_ttl                  = "PT30M" # 30 minutes TTL
-  max_delivery_count                   = 3
-
-  # Enable duplicate detection for idempotency
-  requires_duplicate_detection            = true
-  duplicate_detection_history_time_window = "PT10M"
-}
-
-resource "azurerm_servicebus_queue" "content_processing_requests" {
-  name         = "content-processing-requests"
-  namespace_id = azurerm_servicebus_namespace.main.id
-
-  max_size_in_megabytes                = 1024
-  dead_lettering_on_message_expiration = true
-  default_message_ttl                  = "PT30M" # 30 minutes TTL
-  max_delivery_count                   = 3
-
-  # Enable duplicate detection for idempotency
-  requires_duplicate_detection            = true
-  duplicate_detection_history_time_window = "PT10M"
-}
-
-resource "azurerm_servicebus_queue" "site_generation_requests" {
-  name         = "site-generation-requests"
-  namespace_id = azurerm_servicebus_namespace.main.id
-
-  max_size_in_megabytes                = 1024
-  dead_lettering_on_message_expiration = true
-  default_message_ttl                  = "PT30M" # 30 minutes TTL
-  max_delivery_count                   = 3
-
-  # Enable duplicate detection for idempotency
-  requires_duplicate_detection            = true
-  duplicate_detection_history_time_window = "PT10M"
-}
+# Storage Queue configuration replaces Service Bus for better Container Apps integration
+# Storage Queues support managed identity authentication with KEDA scaling
+# This resolves the authentication conflict between managed identity and connection strings
 
 # Content Collector Container App
 resource "azurerm_container_app" "content_collector" {
@@ -273,17 +195,9 @@ resource "azurerm_container_app" "content_collector" {
     value = azurerm_key_vault_secret.reddit_user_agent.value
   }
 
-  # Service Bus connection string for KEDA scaling (Phase 1 Security Implementation)
-  # NOTE: Azure Container Apps KEDA requires connection string authentication for Service Bus.
-  # While KEDA itself supports Azure Workload Identity (managed identity) for Service Bus,
-  # Azure Container Apps' implementation only supports connection string authentication
-  # for Service Bus scalers as of 2025. This forces us to use connection string auth
-  # for both KEDA scaling AND application code to prevent authentication mismatches
-  # that cause messages to remain stuck in queues.
-  secret {
-    name  = "azure-servicebus-connection-string"
-    value = azurerm_servicebus_namespace.main.default_primary_connection_string
-  }
+  # Storage Queue configuration (replaces Service Bus for Container Apps compatibility)
+  # Storage Queues support managed identity authentication with KEDA scaling
+  # This resolves authentication conflicts between managed identity and connection strings
 
   ingress {
     external_enabled = true
@@ -336,41 +250,25 @@ resource "azurerm_container_app" "content_collector" {
         value = "production"
       }
 
-      # Service Bus configuration for Phase 1 Security Implementation
+      # Storage Queue configuration for wake-up pattern
       env {
-        name  = "SERVICE_BUS_NAMESPACE"
-        value = azurerm_servicebus_namespace.main.name
-      }
-
-      env {
-        name  = "SERVICE_BUS_QUEUE_NAME"
-        value = azurerm_servicebus_queue.content_collection_requests.name
-      }
-
-      env {
-        name        = "SERVICE_BUS_CONNECTION_STRING"
-        secret_name = "azure-servicebus-connection-string"
+        name  = "STORAGE_QUEUE_NAME"
+        value = azurerm_storage_queue.content_collection_requests.name
       }
     }
 
     min_replicas = 0
     max_replicas = 2
 
-    # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
-    # Content collector handles collection requests (fewer, larger operations)
+    # KEDA scaling rules for Storage Queue messages with managed identity
+    # Storage Queues support both managed identity and KEDA scaling
     custom_scale_rule {
-      name             = "servicebus-queue-scaler"
-      custom_rule_type = "azure-servicebus"
+      name             = "storage-queue-scaler"
+      custom_rule_type = "azure-queue"
       metadata = {
-        queueName              = azurerm_servicebus_queue.content_collection_requests.name
-        namespace              = azurerm_servicebus_namespace.main.name
-        messageCount           = "1" # Process collection requests immediately
-        activationMessageCount = "1" # Activate when any collection request arrives
-      }
-
-      authentication {
-        secret_name       = "azure-servicebus-connection-string" # pragma: allowlist secret
-        trigger_parameter = "connection"
+        queueName   = azurerm_storage_queue.content_collection_requests.name
+        accountName = azurerm_storage_account.main.name
+        queueLength = "1" # Process collection requests immediately
       }
     }
   }
@@ -409,11 +307,7 @@ resource "azurerm_container_app" "content_processor" {
     value = azurerm_key_vault_secret.openai_embedding_model.value
   }
 
-  # Service Bus connection string for KEDA scaling (Phase 1 Security Implementation)
-  secret {
-    name  = "azure-servicebus-connection-string"
-    value = azurerm_servicebus_namespace.main.default_primary_connection_string
-  }
+  # Storage Queue configuration (replaces Service Bus)
 
   ingress {
     external_enabled = true
@@ -470,41 +364,25 @@ resource "azurerm_container_app" "content_processor" {
         value = "production"
       }
 
-      # Service Bus configuration for Phase 1 Security Implementation
+      # Storage Queue configuration for wake-up pattern
       env {
-        name  = "SERVICE_BUS_NAMESPACE"
-        value = azurerm_servicebus_namespace.main.name
-      }
-
-      env {
-        name  = "SERVICE_BUS_QUEUE_NAME"
-        value = azurerm_servicebus_queue.content_processing_requests.name
-      }
-
-      env {
-        name        = "SERVICE_BUS_CONNECTION_STRING"
-        secret_name = "azure-servicebus-connection-string"
+        name  = "STORAGE_QUEUE_NAME"
+        value = azurerm_storage_queue.content_processing_requests.name
       }
     }
 
     min_replicas = 0
     max_replicas = 3
 
-    # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
+    # KEDA scaling rules for Storage Queue messages with managed identity
     # Updated for individual item processing (responsive scaling)
     custom_scale_rule {
-      name             = "servicebus-queue-scaler"
-      custom_rule_type = "azure-servicebus"
+      name             = "storage-queue-scaler"
+      custom_rule_type = "azure-queue"
       metadata = {
-        queueName              = azurerm_servicebus_queue.content_processing_requests.name
-        namespace              = azurerm_servicebus_namespace.main.name
-        messageCount           = "1" # Scale immediately when individual items arrive
-        activationMessageCount = "1" # Activate scaling when 1+ item needs processing
-      }
-
-      authentication {
-        secret_name       = "azure-servicebus-connection-string" # pragma: allowlist secret
-        trigger_parameter = "connection"
+        queueName   = azurerm_storage_queue.content_processing_requests.name
+        accountName = azurerm_storage_account.main.name
+        queueLength = "1" # Scale immediately when individual items arrive
       }
     }
   }
@@ -534,11 +412,7 @@ resource "azurerm_container_app" "site_generator" {
     identity_ids = [azurerm_user_assigned_identity.containers.id]
   }
 
-  # Service Bus connection string for KEDA scaling (Phase 1 Security Implementation)
-  secret {
-    name  = "azure-servicebus-connection-string"
-    value = azurerm_servicebus_namespace.main.default_primary_connection_string
-  }
+  # Storage Queue configuration (replaces Service Bus)
 
   ingress {
     external_enabled = true
@@ -615,41 +489,25 @@ resource "azurerm_container_app" "site_generator" {
         value = "production"
       }
 
-      # Service Bus configuration for Phase 1 Security Implementation
+      # Storage Queue configuration for wake-up pattern
       env {
-        name  = "SERVICE_BUS_NAMESPACE"
-        value = azurerm_servicebus_namespace.main.name
-      }
-
-      env {
-        name  = "SERVICE_BUS_QUEUE_NAME"
-        value = azurerm_servicebus_queue.site_generation_requests.name
-      }
-
-      env {
-        name        = "SERVICE_BUS_CONNECTION_STRING"
-        secret_name = "azure-servicebus-connection-string"
+        name  = "STORAGE_QUEUE_NAME"
+        value = azurerm_storage_queue.site_generation_requests.name
       }
     }
 
     min_replicas = 0
     max_replicas = 2
 
-    # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
+    # KEDA scaling rules for Storage Queue messages with managed identity
     # Site generator handles generation requests for processed content
     custom_scale_rule {
-      name             = "servicebus-queue-scaler"
-      custom_rule_type = "azure-servicebus"
+      name             = "storage-queue-scaler"
+      custom_rule_type = "azure-queue"
       metadata = {
-        queueName              = azurerm_servicebus_queue.site_generation_requests.name
-        namespace              = azurerm_servicebus_namespace.main.name
-        messageCount           = "1" # Process generation requests immediately
-        activationMessageCount = "1" # Activate when any generation request arrives
-      }
-
-      authentication {
-        secret_name       = "azure-servicebus-connection-string" # pragma: allowlist secret
-        trigger_parameter = "connection"
+        queueName   = azurerm_storage_queue.site_generation_requests.name
+        accountName = azurerm_storage_account.main.name
+        queueLength = "1" # Process generation requests immediately
       }
     }
   }

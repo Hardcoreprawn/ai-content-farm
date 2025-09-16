@@ -265,7 +265,6 @@ resource "azurerm_application_insights" "main" {
 }
 
 resource "azurerm_storage_account" "main" {
-  # checkov:skip=CKV_AZURE_33: Not using queues
   # checkov:skip=CKV_AZURE_35: Needed for initial setup
   # checkov:skip=CKV_AZURE_59: Using for testing
   # checkov:skip=CKV_AZURE_206: LRS is sufficient for this use case
@@ -275,7 +274,6 @@ resource "azurerm_storage_account" "main" {
   # checkov:skip=CKV2_AZURE_40: Shared Key authorization required for Terraform compatibility; access is restricted and secure
   # checkov:skip=CKV2_AZURE_41: No SAS tokens used
   # nosemgrep: terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass
-  # nosemgrep: terraform.azure.security.storage.storage-queue-services-logging.storage-queue-services-logging
   # nosemgrep: terraform.azure.security.storage.storage-analytics-logging.storage-analytics-logging
   # Note: Modern diagnostic settings approach implemented below for comprehensive logging
   name                          = "${local.clean_prefix}st${random_string.suffix.result}"
@@ -440,6 +438,23 @@ resource "azurerm_storage_container" "pricing_cache" {
   name                  = "pricing-cache"
   storage_account_id    = azurerm_storage_account.main.id
   container_access_type = "private"
+}
+
+# Storage Queues for container service communication (replaces Service Bus)
+# Using Storage Queues to resolve Container Apps managed identity vs Service Bus connection string conflicts
+resource "azurerm_storage_queue" "content_collection_requests" {
+  name                 = "content-collection-requests"
+  storage_account_name = azurerm_storage_account.main.name
+}
+
+resource "azurerm_storage_queue" "content_processing_requests" {
+  name                 = "content-processing-requests"
+  storage_account_name = azurerm_storage_account.main.name
+}
+
+resource "azurerm_storage_queue" "site_generation_requests" {
+  name                 = "site-generation-requests"
+  storage_account_name = azurerm_storage_account.main.name
 }
 
 # Container services now handle the content processing pipeline

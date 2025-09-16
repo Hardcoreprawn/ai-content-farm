@@ -10,10 +10,13 @@ authors = [ { name = "ai-content-farm" } ]
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
-    "azure-storage-blob>=12.0.0",
-    "azure-identity>=1.15.0",
-    "pydantic-settings>=2.10.1",
+    "azure-identity",
+    "azure-storage-blob",
+    "azure-storage-queue",
+    "pydantic",
+    "pydantic-settings",
+    "aiofiles",
 ]
 
 [tool.setuptools]
-py-modules = ["shared_models", "blob_storage"]
+py-modules = ["shared_models", "blob_storage", "storage_queue_client"]

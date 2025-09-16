@@ -10,6 +10,12 @@
 
 **Achievement**: Successfully merged content-generator into content-processor, reducing complexity from 4 to 3 containers while maintaining all functionality.
 
+### 🚨 Current Issue: Service Bus Authentication Conflict
+**Problem**: Azure Container Apps managed identity conflicts with Service Bus connection strings required for KEDA scaling  
+**Impact**: Wake-up pattern messages remain unconsumed, blocking automated content processing  
+**Solution**: **Migrating to Azure Storage Queues** (supports both managed identity and KEDA scaling)  
+**Status**: Migration in progress - infrastructure and application updates required
+
 ### What's Working ✅
 - **✅ Simplified Architecture**: Clean 3-container design (collector → processor → generator)
 - **✅ Enhanced content-processor**: Now handles both processing AND AI generation
@@ -28,11 +34,20 @@
 ## 🏗️ Current Clean Architecture
 
 **Before (Complex)**: 4 containers with unclear data flow  
-**After (Clean)**: 3 containers with clear responsibilities
+**After (Clean)**: 3 containers with clear responsibilities  
+**Planned**: Storage Queue migration to fix authentication issues
 
 ```
-Reddit/Web → content-collector → content-processor → site-generator → jablab.com
+Reddit/Web → content-collector → [Storage Queue] → content-processor → site-generator → jablab.com
+                                      ↑
+                              KEDA Scaling (Managed Identity)
+                              Wake-up Pattern Processing
 ```
+
+**Storage Queue Migration** (In Progress):
+- **Problem**: Service Bus authentication conflicts with Container Apps managed identity
+- **Solution**: Azure Storage Queues support both managed identity and KEDA scaling
+- **Benefits**: Resolves wake-up pattern blocking, maintains security best practices
 
 1. **content-collector** (FastAPI)
    - Fetch Reddit trending topics every 6 hours
