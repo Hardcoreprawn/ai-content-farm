@@ -79,7 +79,7 @@ class ServiceBusConfig(BaseModel):
     namespace: str = Field(..., description="Service Bus namespace")
     queue_name: str = Field(..., description="Queue name")
     max_wait_time: int = Field(
-        default=30, description="Max wait time for receiving messages"
+        default=1, description="Max wait time for receiving messages"
     )
     max_messages: int = Field(
         default=10, description="Max messages to receive per poll"
@@ -92,7 +92,7 @@ class ServiceBusConfig(BaseModel):
         return cls(
             namespace=os.getenv("SERVICE_BUS_NAMESPACE", ""),
             queue_name=os.getenv("SERVICE_BUS_QUEUE_NAME", ""),
-            max_wait_time=int(os.getenv("SERVICE_BUS_MAX_WAIT_TIME", "30")),
+            max_wait_time=int(os.getenv("SERVICE_BUS_MAX_WAIT_TIME", "1")),
             max_messages=int(os.getenv("SERVICE_BUS_MAX_MESSAGES", "10")),
             retry_attempts=int(os.getenv("SERVICE_BUS_RETRY_ATTEMPTS", "3")),
         )
