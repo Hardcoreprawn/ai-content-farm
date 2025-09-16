@@ -346,10 +346,14 @@ resource "azurerm_container_app" "content_collector" {
     max_replicas = 2
 
     # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
-    azure_queue_scale_rule {
-      name         = "servicebus-queue-scaler"
-      queue_name   = azurerm_servicebus_queue.content_collection_requests.name
-      queue_length = 1
+    custom_scale_rule {
+      name             = "servicebus-queue-scaler"
+      custom_rule_type = "azure-servicebus"
+      metadata = {
+        queueName    = azurerm_servicebus_queue.content_collection_requests.name
+        messageCount = "1"
+        namespace    = azurerm_servicebus_namespace.main.name
+      }
 
       authentication {
         secret_name       = "azure-servicebus-connection-string" # pragma: allowlist secret
@@ -469,10 +473,14 @@ resource "azurerm_container_app" "content_processor" {
     max_replicas = 3
 
     # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
-    azure_queue_scale_rule {
-      name         = "servicebus-queue-scaler"
-      queue_name   = azurerm_servicebus_queue.content_processing_requests.name
-      queue_length = 1
+    custom_scale_rule {
+      name             = "servicebus-queue-scaler"
+      custom_rule_type = "azure-servicebus"
+      metadata = {
+        queueName    = azurerm_servicebus_queue.content_processing_requests.name
+        messageCount = "1"
+        namespace    = azurerm_servicebus_namespace.main.name
+      }
 
       authentication {
         secret_name       = "azure-servicebus-connection-string" # pragma: allowlist secret
@@ -603,10 +611,14 @@ resource "azurerm_container_app" "site_generator" {
     max_replicas = 2
 
     # KEDA scaling rules for Service Bus messages (Phase 1 Security Implementation)
-    azure_queue_scale_rule {
-      name         = "servicebus-queue-scaler"
-      queue_name   = azurerm_servicebus_queue.site_generation_requests.name
-      queue_length = 1
+    custom_scale_rule {
+      name             = "servicebus-queue-scaler"
+      custom_rule_type = "azure-servicebus"
+      metadata = {
+        queueName    = azurerm_servicebus_queue.site_generation_requests.name
+        messageCount = "1"
+        namespace    = azurerm_servicebus_namespace.main.name
+      }
 
       authentication {
         secret_name       = "azure-servicebus-connection-string" # pragma: allowlist secret

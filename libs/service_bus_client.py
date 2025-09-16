@@ -349,6 +349,88 @@ class ServiceBusClient:
             return {
                 "status": "unhealthy",
                 "error": str(e),
+            }
+
+    async def get_queue_properties(self) -> Dict[str, Any]:
+        """
+        Get queue properties including message counts and status.
+
+        Returns:
+            Dict with queue properties and message counts
+        """
+        try:
+            if not self._client:
+                await self.connect()
+
+            # Get queue runtime properties using the management client
+            from azure.identity import DefaultAzureCredential
+            from azure.servicebus.management import ServiceBusAdministrationClient
+
+            # Create management client for getting queue properties
+            mgmt_client = ServiceBusAdministrationClient(
+                fully_qualified_namespace=f"{self.config.namespace}.servicebus.windows.net",
+                credential=DefaultAzureCredential(),
+            )
+
+            # Get queue runtime properties
+            queue_runtime_properties = mgmt_client.get_queue_runtime_properties(
+                queue_name=self.config.queue_name
+            )
+
+            # Safely get message counts with null checks
+            active_count = (
+                getattr(queue_runtime_properties, "active_message_count", 0) or 0
+            )
+            dead_letter_count = (
+                getattr(queue_runtime_properties, "dead_letter_message_count", 0) or 0
+            )
+            scheduled_count = (
+                getattr(queue_runtime_properties, "scheduled_message_count", 0) or 0
+            )
+            transfer_count = (
+                getattr(queue_runtime_properties, "transfer_message_count", 0) or 0
+            )
+            transfer_dead_letter_count = (
+                getattr(
+                    queue_runtime_properties, "transfer_dead_letter_message_count", 0
+                )
+                or 0
+            )
+            size_bytes = getattr(queue_runtime_properties, "size_in_bytes", 0) or 0
+
+            # Safely get timestamp attributes
+            created_at = getattr(queue_runtime_properties, "created_at", None)
+            updated_at = getattr(queue_runtime_properties, "updated_at", None)
+            accessed_at = getattr(queue_runtime_properties, "accessed_at", None)
+
+            return {
+                "queue_name": self.config.queue_name,
+                "active_message_count": active_count,
+                "dead_letter_message_count": dead_letter_count,
+                "scheduled_message_count": scheduled_count,
+                "transfer_message_count": transfer_count,
+                "transfer_dead_letter_message_count": transfer_dead_letter_count,
+                "total_message_count": (
+                    active_count
+                    + dead_letter_count
+                    + scheduled_count
+                    + transfer_count
+                    + transfer_dead_letter_count
+                ),
+                "size_in_bytes": size_bytes,
+                "created_at": created_at.isoformat() if created_at else None,
+                "updated_at": updated_at.isoformat() if updated_at else None,
+                "accessed_at": accessed_at.isoformat() if accessed_at else None,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "status": "healthy",
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get queue properties: {e}")
+            return {
+                "queue_name": self.config.queue_name,
+                "status": "error",
+                "error": str(e),
                 "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 

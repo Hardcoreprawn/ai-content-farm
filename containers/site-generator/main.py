@@ -14,6 +14,7 @@ import asyncio
 import logging
 import os
 import sys
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
@@ -28,6 +29,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from config import Config
 from libs import SecureErrorHandler
+from libs.background_poller import BackgroundPoller
 from libs.shared_models import (
     StandardResponse,
     create_service_dependency,
@@ -73,6 +75,34 @@ def get_site_generator() -> SiteGenerator:
 # Initialize secure error handler for legacy endpoints
 error_handler = SecureErrorHandler("site-generator")
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager with background Service Bus polling."""
+    logger.info("Site Generator starting up...")
+
+    # Start background Service Bus polling for KEDA scaling
+    from servicebus_router import service_bus_router as sb_router
+
+    poller = BackgroundPoller(
+        service_bus_router=sb_router,
+        poll_interval=5.0,  # Check every 5 seconds when processing
+        max_poll_attempts=3,  # Try 3 times before longer sleep
+        empty_queue_sleep=30.0,  # Sleep 30s when queue consistently empty
+    )
+
+    try:
+        await poller.start()
+        logger.info("Background Service Bus polling started")
+
+        yield
+
+    finally:
+        logger.info("Stopping background Service Bus polling")
+        await poller.stop()
+        logger.info("Site Generator shutting down...")
+
+
 # Initialize FastAPI app
 app = FastAPI(
     title="AI Content Farm - Site Generator",
@@ -80,6 +110,7 @@ app = FastAPI(
     version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # Add CORS middleware for security

@@ -9,6 +9,7 @@ Pipeline Fix Test: Testing Issue #421 container versioning
 Matrix Test: Full container matrix validation (Sep 15, 2025)
 """
 
+import asyncio
 import importlib.util
 import logging
 import sys
@@ -30,6 +31,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from libs.background_poller import BackgroundPoller
 from libs.shared_models import (
     StandardError,
     StandardResponse,
@@ -49,18 +51,92 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Global flag to control background polling
+_polling_active = False
+
+
+async def background_service_bus_poller():
+    """
+    Background task for continuous Service Bus message polling.
+
+    Implements the KEDA pattern:
+    1. Wake up on container start
+    2. Check queue for messages
+    3. Process messages until queue is empty
+    4. Sleep briefly and repeat
+    5. KEDA scales down when no messages for extended period
+    """
+    global _polling_active
+    _polling_active = True
+
+    logger.info("Starting background Service Bus polling")
+
+    # Get the Service Bus router instance
+    from endpoints.servicebus_router import service_bus_router
+
+    poll_interval = 5  # seconds between polls when queue is empty
+
+    while _polling_active:
+        try:
+            # Call the internal Service Bus processing endpoint
+            logger.debug("Polling Service Bus for messages...")
+
+            # Create fake metadata for internal call
+            metadata = await create_service_dependency("content-processor")()
+
+            # Process messages using the existing router
+            result = await service_bus_router._process_servicebus_message_impl(metadata)
+
+            if result.status == "success" and result.data:
+                messages_processed = result.data.messages_processed
+                if messages_processed > 0:
+                    logger.info(
+                        f"Background polling processed {messages_processed} messages"
+                    )
+                    # If we processed messages, check again immediately
+                    continue
+                else:
+                    logger.debug("No messages found, sleeping...")
+
+            # Sleep before next poll
+            await asyncio.sleep(poll_interval)
+
+        except Exception as e:
+            logger.error(f"Error in background Service Bus polling: {e}")
+            # Sleep longer on error to avoid spam
+            await asyncio.sleep(poll_interval * 2)
+
+    logger.info("Background Service Bus polling stopped")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager."""
+    """Application lifespan manager with background Service Bus polling."""
     logger.info("Starting Content Processor service")
     logger.info(f"Service version: {settings.service_version}")
     logger.info(f"Environment: {settings.environment}")
     logger.info(f"Log level: {settings.log_level}")
 
-    yield
+    # Start background Service Bus polling for KEDA scaling
+    from endpoints.servicebus_router import service_bus_router as sb_router
 
-    logger.info("Shutting down Content Processor service")
+    poller = BackgroundPoller(
+        service_bus_router=sb_router,
+        poll_interval=5.0,  # Check every 5 seconds when processing
+        max_poll_attempts=3,  # Try 3 times before longer sleep
+        empty_queue_sleep=30.0,  # Sleep 30s when queue consistently empty
+    )
+
+    try:
+        await poller.start()
+        logger.info("Background Service Bus polling started")
+
+        yield
+
+    finally:
+        logger.info("Stopping background Service Bus polling")
+        await poller.stop()
+        logger.info("Shutting down Content Processor service")
 
 
 # Initialize FastAPI app
