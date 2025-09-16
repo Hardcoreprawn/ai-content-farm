@@ -27,29 +27,54 @@ class ContentProcessorServiceBusRouter(ServiceBusRouterBase):
         self, payload: Dict[str, Any], operation: str
     ) -> Dict[str, Any]:
         """
-        Process content processing requests from Service Bus.
+        Process wake-up messages from Service Bus.
+
+        The Service Bus message is just a wake-up signal. The actual work
+        is to scan blob storage and process all available collections.
 
         Args:
-            payload: Processing request payload with collection data
-            operation: Operation type (process_content, generate, etc.)
+            payload: Wake-up message payload (content doesn't matter)
+            operation: Operation type (ignored - we always do full scan)
 
         Returns:
             Dict with processing results
         """
         try:
-            if operation == "process_content":
-                return await self._process_collected_content(payload)
-            elif operation == "process_item":
-                return await self._process_individual_item(payload)
-            elif operation == "generate":
-                return await self._generate_content(payload)
-            else:
-                logger.error(f"Unknown operation: {operation}")
-                return {"status": "error", "error": f"Unknown operation: {operation}"}
+            logger.info(
+                "Received wake-up signal from Service Bus - scanning for available work"
+            )
+
+            # Import processor here to avoid circular imports
+            from processor import ContentProcessor
+
+            processor = ContentProcessor()
+
+            # Process all available work (this scans blob storage)
+            result = await processor.process_available_work(
+                batch_size=50,  # Process up to 50 items per wake-up
+                priority_threshold=0.0,  # Process all available content
+            )
+
+            logger.info(
+                f"Wake-up processing completed: {result.topics_processed} topics processed, "
+                f"{result.articles_generated} articles generated, "
+                f"${result.total_cost:.4f} cost, "
+                f"{result.processing_time:.2f}s duration"
+            )
+
+            return {
+                "status": "success",
+                "message": "Wake-up processing completed",
+                "topics_processed": result.topics_processed,
+                "articles_generated": result.articles_generated,
+                "total_cost": result.total_cost,
+                "processing_time": result.processing_time,
+                "wake_up_trigger": True,
+            }
 
         except Exception as e:
-            logger.error(f"Content processing failed: {e}")
-            return {"status": "error", "error": str(e)}
+            logger.error(f"Wake-up processing failed: {e}")
+            return {"status": "error", "error": str(e), "wake_up_trigger": True}
 
     async def _process_individual_item(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Process a single content item from the collector.

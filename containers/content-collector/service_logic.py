@@ -101,10 +101,10 @@ class ContentCollectorService:
         return self.service_bus_client
 
     async def _send_processing_request(self, collection_result: Dict[str, Any]) -> bool:
-        """Send individual content processing requests to Service Bus for each collected item.
+        """Send wake-up message to Service Bus to trigger content processing.
 
-        This sends one message per collected item to enable immediate processing
-        and responsive scaling, rather than waiting for multiple collections to batch.
+        Sends a single wake-up message that causes the processor to scan
+        blob storage and process all available collections, including this one.
         """
         import logging
 
@@ -115,67 +115,49 @@ class ContentCollectorService:
             if not service_bus:
                 return False
 
-            collected_items = collection_result.get("collected_items", [])
-            if not collected_items:
-                logger.info("No items to send for processing")
+            collection_id = collection_result.get("collection_id")
+            total_items = len(collection_result.get("collected_items", []))
+
+            logger.info(
+                f"Sending wake-up message for collection {collection_id} ({total_items} items collected)"
+            )
+
+            # Create wake-up message for the processor
+            message = ServiceBusMessageModel(
+                service_name="content-collector",
+                operation="wake_up",  # Simple wake-up operation
+                payload={
+                    "trigger_reason": "new_collection",
+                    "collection_id": collection_id,
+                    "items_count": total_items,
+                    "storage_location": collection_result.get("storage_location"),
+                    "message": f"Content collected for {collection_id}, processor should scan storage",
+                },
+                metadata={
+                    "source_service": "content-collector",
+                    "target_service": "content-processor",
+                    "content_type": "wake_up_signal",
+                    "collection_id": collection_id,
+                    "items_count": total_items,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+
+            success = await service_bus.send_message(message)
+
+            if success:
+                logger.info(
+                    f"Wake-up message sent successfully for collection {collection_id}"
+                )
                 return True
-
-            success_count = 0
-            total_items = len(collected_items)
-
-            logger.info(
-                f"Sending {total_items} individual processing requests for collection {collection_result['collection_id']}"
-            )
-
-            # Send individual processing request for each collected item
-            for index, item in enumerate(collected_items):
-                try:
-                    # Create processing request message for individual item
-                    message = ServiceBusMessageModel(
-                        service_name="content-collector",
-                        operation="process_item",  # Changed from process_content to process_item
-                        payload={
-                            "collection_id": collection_result["collection_id"],
-                            "item_index": index,
-                            "item_data": item,  # Send the actual item data
-                            "collection_metadata": collection_result["metadata"],
-                            "storage_location": collection_result[
-                                "storage_location"
-                            ],  # For reference
-                        },
-                        metadata={
-                            "source_service": "content-collector",
-                            "target_service": "content-processor",
-                            "content_type": "individual_item",
-                            "collection_id": collection_result["collection_id"],
-                            "item_index": index,
-                            "total_items": total_items,
-                            "timestamp": datetime.now(timezone.utc).isoformat(),
-                        },
-                    )
-
-                    success = await service_bus.send_message(message)
-                    if success:
-                        success_count += 1
-                    else:
-                        logger.warning(
-                            f"Failed to send processing request for item {index}"
-                        )
-
-                except Exception as e:
-                    logger.error(
-                        f"Failed to send processing request for item {index}: {e}"
-                    )
-
-            logger.info(
-                f"Successfully sent {success_count}/{total_items} individual processing requests for collection {collection_result['collection_id']}"
-            )
-
-            # Return True if we sent at least some messages successfully
-            return success_count > 0
+            else:
+                logger.warning(
+                    f"Failed to send wake-up message for collection {collection_id}"
+                )
+                return False
 
         except Exception as e:
-            logger.error(f"Failed to send processing requests: {e}")
+            logger.error(f"Failed to send wake-up message: {e}")
             return False
 
     async def collect_and_store_content(

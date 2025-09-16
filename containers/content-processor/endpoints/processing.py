@@ -105,6 +105,60 @@ async def get_processing_types(
     )
 
 
+@router.post(
+    "/wake-up",
+    response_model=StandardResponse,
+    summary="Wake Up Processor",
+    description="Wake up the processor to scan and process all available content",
+)
+async def wake_up_processor(
+    metadata: Dict[str, Any] = Depends(service_metadata),
+):
+    """
+    Wake up the processor to scan blob storage and process all available content.
+
+    This endpoint provides the same functionality as Service Bus wake-up messages
+    but can be triggered manually for testing or manual processing.
+    """
+    try:
+        # Import processor here to avoid circular imports
+        from processor import ContentProcessor
+
+        processor = ContentProcessor()
+
+        # Process all available work (this scans blob storage)
+        result = await processor.process_available_work(
+            batch_size=50,  # Process up to 50 items per wake-up
+            priority_threshold=0.0,  # Process all available content
+        )
+
+        return StandardResponse(
+            status="success",
+            data={
+                "topics_processed": result.topics_processed,
+                "articles_generated": result.articles_generated,
+                "total_cost": result.total_cost,
+                "processing_time": result.processing_time,
+                "trigger_type": "manual_api",
+                "batch_size": 50,
+                "priority_threshold": 0.0,
+            },
+            message=f"Wake-up processing completed: {result.topics_processed} topics processed, {result.articles_generated} articles generated",
+            errors=None,
+            metadata=metadata,
+        )
+
+    except Exception as e:
+        error_message = ErrorCodes.secure_internal_error(e, "wake_up_processor")
+        return StandardResponse(
+            status="error",
+            data={"trigger_type": "manual_api"},
+            message="Wake-up processing failed",
+            errors=[str(error_message)],
+            metadata=metadata,
+        )
+
+
 @router.get(
     "/status",
     response_model=StandardResponse,
@@ -127,6 +181,7 @@ async def get_processing_status(
                 "ai_processing",
                 "batch_operations",
                 "real_time_processing",
+                "wake_up_processing",
             ],
         },
         message="Processing service is operational",
