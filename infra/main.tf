@@ -369,6 +369,20 @@ resource "azurerm_role_assignment" "developer_storage_reader" {
   principal_id         = var.developer_object_id
 }
 
+# Grant developer Storage Queue Data Contributor access for queue management and monitoring
+resource "azurerm_role_assignment" "developer_storage_queue_data_contributor" {
+  scope                = azurerm_storage_account.main.id
+  role_definition_name = "Storage Queue Data Contributor"
+  principal_id         = var.developer_object_id
+}
+
+# Grant developer Storage Queue Data Reader access for queue monitoring
+resource "azurerm_role_assignment" "developer_storage_queue_data_reader" {
+  scope                = azurerm_storage_account.main.id
+  role_definition_name = "Storage Queue Data Reader"
+  principal_id         = var.developer_object_id
+}
+
 resource "azurerm_storage_container" "topics" {
   # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
   name                  = "content-topics"
