@@ -195,6 +195,11 @@ resource "azurerm_container_app" "content_collector" {
     value = azurerm_key_vault_secret.reddit_user_agent.value
   }
 
+  secret {
+    name  = "storage-account-connection"
+    value = azurerm_storage_account.main.primary_connection_string
+  }
+
   # Storage Queue configuration (replaces Service Bus for Container Apps compatibility)
   # Storage Queues support managed identity authentication with KEDA scaling
   # This resolves authentication conflicts between managed identity and connection strings
@@ -270,6 +275,10 @@ resource "azurerm_container_app" "content_collector" {
         accountName = azurerm_storage_account.main.name
         queueLength = "1" # Process collection requests immediately
       }
+      authentication {
+        secret_name       = "storage-account-connection"
+        trigger_parameter = "connection"
+      }
     }
   }
 
@@ -305,6 +314,11 @@ resource "azurerm_container_app" "content_processor" {
   secret {
     name  = "openai-embedding-model"
     value = azurerm_key_vault_secret.openai_embedding_model.value
+  }
+
+  secret {
+    name  = "storage-account-connection"
+    value = azurerm_storage_account.main.primary_connection_string
   }
 
   # Storage Queue configuration (replaces Service Bus)
@@ -384,6 +398,10 @@ resource "azurerm_container_app" "content_processor" {
         accountName = azurerm_storage_account.main.name
         queueLength = "1" # Scale immediately when individual items arrive
       }
+      authentication {
+        secret_name       = "storage-account-connection"
+        trigger_parameter = "connection"
+      }
     }
   }
 
@@ -410,6 +428,11 @@ resource "azurerm_container_app" "site_generator" {
   identity {
     type         = "UserAssigned"
     identity_ids = [azurerm_user_assigned_identity.containers.id]
+  }
+
+  secret {
+    name  = "storage-account-connection"
+    value = azurerm_storage_account.main.primary_connection_string
   }
 
   # Storage Queue configuration (replaces Service Bus)
@@ -508,6 +531,10 @@ resource "azurerm_container_app" "site_generator" {
         queueName   = azurerm_storage_queue.site_generation_requests.name
         accountName = azurerm_storage_account.main.name
         queueLength = "1" # Process generation requests immediately
+      }
+      authentication {
+        secret_name       = "storage-account-connection"
+        trigger_parameter = "connection"
       }
     }
   }
