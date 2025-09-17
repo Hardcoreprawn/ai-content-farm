@@ -43,7 +43,8 @@ class TestContentCollectorServiceInit:
     def test_init_in_pytest_environment(self):
         """Test initialization in pytest environment uses mock storage."""
         service = ContentCollectorService()
-        assert isinstance(service.storage, MockBlobStorageClient)
+        # Check that it's a mock storage client by checking the class name
+        assert service.storage.__class__.__name__ == "MockBlobStorageClient"
 
     @patch.dict(os.environ, {}, clear=True)
     @patch("service_logic.BlobStorageClient")

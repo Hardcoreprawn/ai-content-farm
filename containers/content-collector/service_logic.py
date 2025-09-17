@@ -312,3 +312,39 @@ class ContentCollectorService:
 
         except Exception:
             return None
+
+    def _generate_collection_id(self) -> str:
+        """Generate a unique collection ID with timestamp."""
+        timestamp = datetime.now(timezone.utc)
+        return f"content_collection_{timestamp.strftime('%Y%m%d_%H%M%S')}"
+
+    def _get_storage_path(self, collection_id: str) -> str:
+        """Generate storage path for a collection."""
+        # Extract date from collection ID - look for YYYYMMDD_HHMMSS pattern
+        import re
+
+        # Look for 8-digit date followed by underscore and 6-digit time
+        date_match = re.search(r"(\d{8})_(\d{6})", collection_id)
+
+        if date_match:
+            date_part = date_match.group(1)  # YYYYMMDD
+            # Format as YYYY/MM/DD
+            year = date_part[:4]
+            month = date_part[4:6]
+            day = date_part[6:8]
+        else:
+            # Fallback to current date if pattern not found
+            now = datetime.now(timezone.utc)
+            year = now.strftime("%Y")
+            month = now.strftime("%m")
+            day = now.strftime("%d")
+
+        return f"{BlobContainers.COLLECTED_CONTENT}/collections/{year}/{month}/{day}/{collection_id}.json"
+
+    async def _list_collection_files(
+        self, prefix: str = "collections/"
+    ) -> List[Dict[str, Any]]:
+        """List collection files from storage."""
+        return await self.storage.list_blobs(
+            container_name=BlobContainers.COLLECTED_CONTENT, prefix=prefix
+        )

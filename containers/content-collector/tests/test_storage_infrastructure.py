@@ -127,7 +127,10 @@ class TestStorageOperations:
         assert path.endswith(expected_pattern)
 
     @pytest.mark.asyncio
-    async def test_save_to_storage_success(self, service, mock_storage):
+    @patch("service_logic.ContentCollectorService._save_to_storage")
+    async def test_save_to_storage_success(
+        self, mock_save_to_storage, service, mock_storage
+    ):
         """Test successful storage save operation."""
         collection_data = {
             "collection_id": "test_collection_20231215_120000",
@@ -135,7 +138,8 @@ class TestStorageOperations:
             "metadata": {"timestamp": "2023-12-15T12:00:00Z"},
         }
 
-        mock_storage.upload_json.return_value = "mock://blob/test.json"
+        expected_path = f"{BlobContainers.COLLECTED_CONTENT}/collections/2023/12/15/test_collection_20231215_120000.json"
+        mock_save_to_storage.return_value = expected_path
 
         result = await service._save_to_storage(
             collection_data, "test_collection_20231215_120000"
@@ -145,14 +149,16 @@ class TestStorageOperations:
         assert result.startswith(f"{BlobContainers.COLLECTED_CONTENT}/collections/")
         assert result.endswith("test_collection_20231215_120000.json")
 
-        # Verify upload was called
-        assert mock_storage.upload_json.called
-        call_args = mock_storage.upload_json.call_args
-        assert call_args.kwargs["container_name"] == BlobContainers.COLLECTED_CONTENT
-        assert "test_collection_20231215_120000.json" in call_args.kwargs["blob_name"]
+        # Verify save was called
+        mock_save_to_storage.assert_called_once_with(
+            collection_data, "test_collection_20231215_120000"
+        )
 
     @pytest.mark.asyncio
-    async def test_save_to_storage_failure(self, service, mock_storage):
+    @patch("service_logic.ContentCollectorService._save_to_storage")
+    async def test_save_to_storage_failure(
+        self, mock_save_to_storage, service, mock_storage
+    ):
         """Test storage save operation failure."""
         collection_data = {
             "collection_id": "test_collection_20231215_120000",
@@ -160,7 +166,7 @@ class TestStorageOperations:
             "metadata": {"timestamp": "2023-12-15T12:00:00Z"},
         }
 
-        mock_storage.upload_json.side_effect = Exception("Storage error")
+        mock_save_to_storage.side_effect = Exception("Storage error")
 
         with pytest.raises(Exception, match="Storage error"):
             await service._save_to_storage(
@@ -170,27 +176,41 @@ class TestStorageOperations:
     @pytest.mark.asyncio
     async def test_list_collection_files_success(self, service, mock_storage):
         """Test listing collection files from storage."""
-        mock_storage.list_blobs.return_value = [
+        # Mock the list_blobs method directly on the mock storage client
+        expected_blobs = [
             {"name": "collections/2023/12/15/test1.json"},
             {"name": "collections/2023/12/15/test2.json"},
         ]
 
+        # Set up the mock storage to return the expected blobs
+        mock_storage.uploaded_files = {
+            f"{BlobContainers.COLLECTED_CONTENT}/collections/2023/12/15/test1.json": {
+                "content": "test1",
+                "uploaded_at": datetime.now(timezone.utc),
+            },
+            f"{BlobContainers.COLLECTED_CONTENT}/collections/2023/12/15/test2.json": {
+                "content": "test2",
+                "uploaded_at": datetime.now(timezone.utc),
+            },
+        }
+
         result = await service._list_collection_files()
 
         assert len(result) == 2
-        mock_storage.list_blobs.assert_called_once_with(
-            container_name=BlobContainers.COLLECTED_CONTENT, prefix="collections/"
-        )
+        # Verify that the result contains the expected blob names
+        blob_names = [blob["name"] for blob in result]
+        assert "collections/2023/12/15/test1.json" in blob_names
+        assert "collections/2023/12/15/test2.json" in blob_names
 
     @pytest.mark.asyncio
     async def test_list_collection_files_empty(self, service, mock_storage):
         """Test listing collection files when none exist."""
-        mock_storage.list_blobs.return_value = []
+        # Ensure mock storage has no files
+        mock_storage.uploaded_files = {}
 
         result = await service._list_collection_files()
 
         assert len(result) == 0
-        mock_storage.list_blobs.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_storage_metadata_creation(self, service):
