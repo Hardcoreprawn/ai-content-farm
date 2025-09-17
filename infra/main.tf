@@ -120,7 +120,7 @@ resource "azurerm_key_vault_secret" "reddit_client_id" {
 
   # External secret - don't auto-update activation date or manually set values
   lifecycle {
-    ignore_changes = [not_before_date, value]
+    ignore_changes = [not_before_date, value, expiration_date]
   }
 
   tags = {
@@ -143,7 +143,7 @@ resource "azurerm_key_vault_secret" "reddit_client_secret" {
 
   # External secret - don't auto-update expiration date or manually set values
   lifecycle {
-    ignore_changes = [not_before_date, value]
+    ignore_changes = [not_before_date, value, expiration_date]
   }
 
   depends_on = [
@@ -189,7 +189,7 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
 
   # External secret - don't auto-update expiration date
   lifecycle {
-    ignore_changes = [not_before_date, value]
+    ignore_changes = [not_before_date, value, expiration_date]
   }
 
   depends_on = [
@@ -523,6 +523,12 @@ resource "azurerm_key_vault_secret" "openai_endpoint" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "8760h") # 1 year - infrastructure endpoint
+
+  # Prevent expiration date churn
+  lifecycle {
+    ignore_changes = [expiration_date]
+  }
+
   depends_on = [
     azurerm_key_vault_access_policy.developer_user,
     azurerm_key_vault_access_policy.github_actions_user
@@ -568,6 +574,12 @@ resource "azurerm_key_vault_secret" "openai_chat_model" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "8760h") # 1 year - model deployment name
+
+  # Prevent expiration date churn
+  lifecycle {
+    ignore_changes = [expiration_date]
+  }
+
   depends_on = [
     azurerm_key_vault_access_policy.developer_user,
     azurerm_key_vault_access_policy.github_actions_user
@@ -581,6 +593,12 @@ resource "azurerm_key_vault_secret" "openai_embedding_model" {
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "8760h") # 1 year - model deployment name
+
+  # Prevent expiration date churn
+  lifecycle {
+    ignore_changes = [expiration_date]
+  }
+
   depends_on = [
     azurerm_key_vault_access_policy.developer_user,
     azurerm_key_vault_access_policy.github_actions_user

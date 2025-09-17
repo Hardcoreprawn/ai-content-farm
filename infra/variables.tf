@@ -53,6 +53,17 @@ variable "image_tag" {
   default     = "latest"
 }
 
+# Image fallback strategy when requested tag doesn't exist
+variable "image_fallback_strategy" {
+  description = "Fallback tag to use when the requested image tag doesn't exist (latest, main, or none)"
+  type        = string
+  default     = "latest"
+  validation {
+    condition     = contains(["latest", "main", "none"], var.image_fallback_strategy)
+    error_message = "Image fallback strategy must be one of: latest, main, none."
+  }
+}
+
 # Container image configuration for deployments
 variable "container_images" {
   description = "Map of container names to their full registry URLs with tags - can be overridden with specific image references"

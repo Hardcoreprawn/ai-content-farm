@@ -110,6 +110,17 @@ output "storage_prompts_container_name" {
   value = azurerm_storage_container.prompts.name
 }
 
+# Content Collector Container App outputs
+output "content_collector_url" {
+  description = "URL of the Content Collector Container App"
+  value       = "https://${azurerm_container_app.content_collector.ingress[0].fqdn}"
+}
+
+output "content_collector_name" {
+  description = "Name of the Content Collector Container App"
+  value       = azurerm_container_app.content_collector.name
+}
+
 # Content Processor Container App outputs
 output "content_processor_url" {
   description = "URL of the Content Processor Container App"

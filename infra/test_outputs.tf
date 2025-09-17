@@ -1,6 +1,6 @@
-# Test output to verify dynamic container discovery
-output "discovered_containers" {
-  value = local.discovered_containers
+# Test output to verify dynamic container discovery with fallback
+output "discovered_container_images" {
+  value = data.external.container_discovery.result
 }
 
 output "container_images" {
