@@ -1,0 +1,140 @@
+{
+  "collection_id": "collection_20250917_210952",
+  "metadata": {
+    "total_sources": 1,
+    "sources_processed": 1,
+    "total_collected": 3,
+    "source_breakdown": {
+      "web_count": 3
+    },
+    "deduplication": {
+      "enabled": true,
+      "original_count": 3,
+      "deduplicated_count": 3,
+      "removed_count": 0,
+      "similarity_threshold": 0.8
+    },
+    "processing_time_seconds": 0.224,
+    "collection_id": "collection_20250917_210952",
+    "timestamp": "2025-09-17T21:09:53.079291+00:00",
+    "total_items": 3
+  },
+  "items": [
+    {
+      "id": "theregister_3146",
+      "source": "web",
+      "site": "theregister",
+      "site_name": "The Register",
+      "title": "AMD tries to catch CUDA with performance-boosting ROCm 7 software",
+      "content": "House of Zen promises 3.5x improvement in inference and 3x uplift in training perf over last-gen software AMD closed the performance gap with Nvidia's Blackwell accelerators with the launch of the MI355X this spring. Now the company just needs to overcome Nvidia's CUDA software advantage and make that perf more accessible to developers. …",
+      "url": "https://go.theregister.com/feed/www.theregister.com/2025/09/17/amd_rocm_7_chases_nvidia_cuda/",
+      "author": "Tobias Mann",
+      "score": 0,
+      "num_comments": 0,
+      "content_type": "article",
+      "created_at": "2025-09-17T20:40:31+00:00",
+      "collected_at": "2025-09-17T21:09:53.079016+00:00",
+      "raw_data": {
+        "rss_entry": {
+          "title": "AMD tries to catch CUDA with performance-boosting ROCm 7 software",
+          "link": "https://go.theregister.com/feed/www.theregister.com/2025/09/17/amd_rocm_7_chases_nvidia_cuda/",
+          "published": "2025-09-17T20:40:31.00Z",
+          "summary": "<h4>House of Zen promises 3.5x improvement in inference and 3x uplift in training perf over last-gen software</h4> <p>AMD closed the performance gap with Nvidia's Blackwell accelerators with the launch of the MI355X this spring. Now the company just needs to overcome Nvidia's CUDA software advantage and make that perf more accessible to developers. …</p>",
+          "tags": []
+        },
+        "source": "web",
+        "source_type": "rss_feed",
+        "site": "theregister",
+        "collected_at": "2025-09-17T21:09:53.079025+00:00"
+      },
+      "source_type": "web",
+      "source_config": {
+        "type": "web",
+        "subreddits": null,
+        "limit": 3,
+        "criteria": {}
+      }
+    },
+    {
+      "id": "arstechnica_80638",
+      "source": "web",
+      "site": "arstechnica",
+      "site_name": "Ars Technica",
+      "title": "Why, as a responsible adult, SimCity 2000 hits differently",
+      "content": "After years as a parent and homeowner, I sympathize more with my virtual citizens.",
+      "url": "https://arstechnica.com/gaming/2025/09/thirty-years-later-simcity-2000-hasnt-changed-but-i-have/",
+      "author": "Kyle Orland",
+      "score": 0,
+      "num_comments": 0,
+      "content_type": "article",
+      "created_at": "2025-09-17T20:25:06+00:00",
+      "collected_at": "2025-09-17T21:09:52.942535+00:00",
+      "raw_data": {
+        "rss_entry": {
+          "title": "Why, as a responsible adult, SimCity 2000 hits differently",
+          "link": "https://arstechnica.com/gaming/2025/09/thirty-years-later-simcity-2000-hasnt-changed-but-i-have/",
+          "published": "Wed, 17 Sep 2025 20:25:06 +0000",
+          "summary": "After years as a parent and homeowner, I sympathize more with my virtual citizens.",
+          "tags": [
+            "Gaming",
+            "C:\\ArsGames",
+            "gaming",
+            "GOG-Ars",
+            "maxis",
+            "SIM",
+            "SimCity",
+            "simulation",
+            "Will Wright"
+          ]
+        },
+        "source": "web",
+        "source_type": "rss_feed",
+        "site": "arstechnica",
+        "collected_at": "2025-09-17T21:09:52.942548+00:00"
+      },
+      "source_type": "web",
+      "source_config": {
+        "type": "web",
+        "subreddits": null,
+        "limit": 3,
+        "criteria": {}
+      }
+    },
+    {
+      "id": "theregister_25319",
+      "source": "web",
+      "site": "theregister",
+      "site_name": "The Register",
+      "title": "Scattered Spider gang feigns retirement, breaks into bank instead",
+      "content": "You didn't really trust the crims to keep their word, did you? Spiders don't change their stripes. Despite gang members' recent retirement claims, Scattered Spider hasn't exited the cybercrime business and instead has shifted focus to the financial sector, with a recent digital intrusion at a US bank.…",
+      "url": "https://go.theregister.com/feed/www.theregister.com/2025/09/17/scattered_spider_bank_attack/",
+      "author": "Jessica Lyons",
+      "score": 0,
+      "num_comments": 0,
+      "content_type": "article",
+      "created_at": "2025-09-17T18:37:36+00:00",
+      "collected_at": "2025-09-17T21:09:53.079054+00:00",
+      "raw_data": {
+        "rss_entry": {
+          "title": "Scattered Spider gang feigns retirement, breaks into bank instead",
+          "link": "https://go.theregister.com/feed/www.theregister.com/2025/09/17/scattered_spider_bank_attack/",
+          "published": "2025-09-17T18:37:36.00Z",
+          "summary": "<h4>You didn't really trust the crims to keep their word, did you?</h4> <p>Spiders don't change their stripes. Despite gang members' recent retirement claims, Scattered Spider hasn't exited the cybercrime business and instead has shifted focus to the financial sector, with a recent digital intrusion at a US bank.…</p>",
+          "tags": []
+        },
+        "source": "web",
+        "source_type": "rss_feed",
+        "site": "theregister",
+        "collected_at": "2025-09-17T21:09:53.079059+00:00"
+      },
+      "source_type": "web",
+      "source_config": {
+        "type": "web",
+        "subreddits": null,
+        "limit": 3,
+        "criteria": {}
+      }
+    }
+  ],
+  "format_version": "1.0"
+}

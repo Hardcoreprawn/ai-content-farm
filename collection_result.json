@@ -1,0 +1,20 @@
+{
+  "collection_id": "collection_20250917_210809",
+  "metadata": {
+    "total_sources": 1,
+    "sources_processed": 1,
+    "total_collected": 0,
+    "source_breakdown": {
+      "reddit_count": 0
+    },
+    "deduplication": {
+      "enabled": false
+    },
+    "processing_time_seconds": 0.205,
+    "collection_id": "collection_20250917_210809",
+    "timestamp": "2025-09-17T21:08:09.607442+00:00",
+    "total_items": 0
+  },
+  "items": [],
+  "format_version": "1.0"
+}
