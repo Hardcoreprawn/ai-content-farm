@@ -125,18 +125,43 @@ class StorageQueueClient(QueueClientInterface):
         logger.info(f"StorageQueueClient initialized for queue: {queue_name}")
 
     async def connect(self) -> None:
-        """Establish connection to Storage Queue using managed identity."""
+        """Establish connection to Storage Queue using managed identity or Azurite."""
         try:
-            from azure.identity.aio import DefaultAzureCredential
             from azure.storage.queue.aio import QueueClient
-
-            credential = DefaultAzureCredential()
-
-            self._queue_client = QueueClient(
-                account_url=f"https://{self.storage_account_name}.queue.core.windows.net",
-                queue_name=self.queue_name,
-                credential=credential,
-            )
+            
+            # Check for local development with Azurite
+            connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
+            
+            if (connection_string and 
+                "devstoreaccount1" in connection_string and 
+                "azurite" in connection_string):
+                # Local development with Azurite
+                # Build Azurite queue connection string
+                azurite_queue_connection = connection_string
+                if "QueueEndpoint=" not in azurite_queue_connection:
+                    # Add queue endpoint if missing
+                    if "azurite:10000" in azurite_queue_connection:
+                        azurite_queue_connection = azurite_queue_connection.replace(
+                            "BlobEndpoint=http://azurite:10000/devstoreaccount1;",
+                            "BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;"
+                        )
+                
+                logger.info(f"Using Azurite connection for queue: {self.queue_name}")
+                self._queue_client = QueueClient.from_connection_string(
+                    conn_str=azurite_queue_connection,
+                    queue_name=self.queue_name
+                )
+            else:
+                # Production Azure with managed identity
+                from azure.identity.aio import DefaultAzureCredential
+                
+                credential = DefaultAzureCredential()
+                self._queue_client = QueueClient(
+                    account_url=f"https://{self.storage_account_name}.queue.core.windows.net",
+                    queue_name=self.queue_name,
+                    credential=credential,
+                )
+                logger.info(f"Using managed identity for queue: {self.queue_name}")
 
             # Ensure queue exists
             try:
