@@ -6,6 +6,8 @@ A humble content collection service for the AI Content Farm pipeline.
 
 The Content Womble is the entry point of the AI Content Farm pipeline. This charming service diligently collects, analyzes, and organizes content from various sources (primarily Reddit) following proper FastAPI patterns and standardized response formats.
 
+<!-- Updated: 2025-09-17 - Pipeline deployment verification -->
+
 ## Key Features
 
 - **Standardized API**: FastAPI-native with consistent StandardResponse format

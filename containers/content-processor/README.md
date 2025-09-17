@@ -2,6 +2,8 @@
 
 The Content Processor is the core intelligence of the AI content farm. It uses a **functional, lease-based work queue** to process topics into high-quality articles through iterative improvement and comprehensive cost tracking.
 
+<!-- Updated: 2025-09-17 - Pipeline deployment verification -->
+
 ## 🎯 Project Goals
 
 **Primary Objective**: Create "honest, trustworthy articles which aren't biased" with eventual 2-3 minute read summaries for daily content consumption.
