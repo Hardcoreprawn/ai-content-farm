@@ -7,41 +7,43 @@
 
 ## ✅ Recent Achievements
 
-### 🚨 URGENT: Service Bus Authentication Issue - BLOCKING WAKE-UP PATTERN
-**Issue**: Container Apps managed identity conflicts with Service Bus connection strings for KEDA scaling
-**Root Cause**: Azure Container Apps forces managed identity authentication, but KEDA Service Bus scaler requires connection strings
-**Impact**: Wake-up messages remain unconsumed in Service Bus queue, blocking content processing automation
-**Solution**: Migrate from Service Bus to Azure Storage Queues (supports both managed identity and KEDA scaling)
+### 🚨 NEW DISCOVERY: Queue Automation Gap - Issue #513
+**Issue**: Content-collector saves to blob storage but doesn't queue processing requests
+**Root Cause**: Missing queue automation logic in collector after successful content save
+**Impact**: End-to-end automation broken - processing pipeline not triggered automatically
+**Evidence**: BBC collection test saved 3 items to blob storage but no queue messages created
+**Solution**: Add queue automation to content-collector (Issue #513)
 
-### 🔧 Storage Queue Migration Plan - IN PROGRESS
-**Target**: Replace Service Bus with Storage Queues to resolve authentication conflicts
+### 🔧 Infrastructure Status - ✅ COMPLETE ✅  
+**Target**: Storage Queues with KEDA scaling - **ALREADY IMPLEMENTED**
 
-#### Phase 1: Infrastructure Migration ⏳
-- [ ] **Remove Service Bus** from Terraform (`infra/container_apps.tf`)
-- [ ] **Add Storage Queues** infrastructure with managed identity support
-- [ ] **Update KEDA scaling rules** to use `azure-queue` scaler instead of `azure-servicebus`
-- [ ] **Deploy infrastructure changes** and verify queue creation
+#### ✅ Infrastructure Complete
+- ✅ **Storage Queues exist** (`content-processing-requests`, `site-generation-requests`)
+- ✅ **KEDA scaling configured** on content-processor with `azure-queue` scaler  
+- ✅ **Managed identity authentication** working for blob storage and queues
+- ✅ **Storage Queue client** available in libs package
 
-#### Phase 2: Application Migration ⏳  
-- [ ] **Create Storage Queue client** (`libs/storage_queue_client.py`) modeled after Service Bus client
-- [ ] **Update wake-up pattern** to use Storage Queues instead of Service Bus
-- [ ] **Modify all containers** to use Storage Queue client for message processing
-- [ ] **Remove Service Bus dependencies** from all containers
+#### ❌ Application Integration Issues
+- ✅ **Content-collector** saves to blob storage successfully
+- ❌ **Queue automation missing** - collector doesn't queue processing requests (Issue #513)
+- ❌ **Manual API endpoints missing** - processor/generator lack manual triggers (Issue #512)
+- ✅ **KEDA scaling ready** - confirmed working configuration
 
-#### Phase 3: Validation ⏳
-- [ ] **Test wake-up pattern** end-to-end with Storage Queues
-- [ ] **Verify KEDA scaling** works with managed identity authentication  
-- [ ] **Validate message processing** in all containers
-- [ ] **Document Storage Queue architecture** and benefits
+#### 🔄 Next Steps for Full Automation  
+- [ ] **Fix queue automation** in content-collector (Issue #513)
+- [ ] **Add manual API endpoints** to processor/generator (Issue #512)
+- [ ] **Test end-to-end pipeline** with both manual and automatic triggers
+- [ ] **Verify KEDA scaling** triggers correctly with queue messages
 
-### 🎯 Phase 1: MVP Scheduler - ✅ COMPLETED ✅
-**Achievement**: **Complete end-to-end automated content collection pipeline operational**
+### 🎯 Phase 1: MVP Infrastructure - ✅ COMPLETED ✅
+**Achievement**: **Infrastructure and basic collection functionality operational**
 
-**Validation Results (2025-09-09):**
-- ✅ **30 Reddit posts collected** successfully via Logic App automation
-- ✅ **46,926 bytes of content** saved to Azure Storage
-- ✅ **Dynamic Terraform references** working (stable Container App FQDN)
-- ✅ **Budget lifecycle optimization** prevents unnecessary recreation  
+**Infrastructure Validation (2025-09-17):**
+- ✅ **Storage Queues deployed** with KEDA scaling configuration
+- ✅ **Content collection working** (BBC test: 3 items saved successfully)
+- ✅ **Dependency consolidation** implemented via libs package
+- ✅ **Environment detection** fixed (prod vs dev resource groups)
+- ✅ **CI/CD pipeline** validates builds and tests successfully  
 - ✅ **6-hour recurrence schedule** operational and validated
 
 ### Major Accomplishments Complete
