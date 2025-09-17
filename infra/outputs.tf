@@ -8,7 +8,7 @@ output "resource_group_name" {
 
 output "resource_prefix" {
   description = "Resource prefix used for naming resources"
-  value       = var.resource_prefix
+  value       = local.resource_prefix
 }
 
 # Function App outputs removed - container services don't need these

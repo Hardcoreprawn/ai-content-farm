@@ -2,7 +2,7 @@
 
 # Budget for the entire resource group
 resource "azurerm_consumption_budget_resource_group" "main" {
-  name              = "${var.resource_prefix}-budget"
+  name              = "${local.resource_prefix}-budget"
   resource_group_id = azurerm_resource_group.main.id
 
   amount     = 55 # Increased budget for pipeline testing (Sep 11, 2025) - was $50
@@ -49,7 +49,7 @@ resource "azurerm_consumption_budget_resource_group" "main" {
 
 # Monitor Azure OpenAI usage specifically
 resource "azurerm_monitor_action_group" "cost_alerts" {
-  name                = "${var.resource_prefix}-cost-alerts"
+  name                = "${local.resource_prefix}-cost-alerts"
   resource_group_name = azurerm_resource_group.main.name
   short_name          = "costAlert"
 
@@ -61,7 +61,7 @@ resource "azurerm_monitor_action_group" "cost_alerts" {
 
 # Alert for high Azure OpenAI costs
 resource "azurerm_monitor_metric_alert" "openai_cost" {
-  name                = "${var.resource_prefix}-openai-cost-alert"
+  name                = "${local.resource_prefix}-openai-cost-alert"
   resource_group_name = azurerm_resource_group.main.name
   scopes              = [azurerm_cognitive_account.openai.id]
   description         = "Alert when OpenAI costs exceed threshold"

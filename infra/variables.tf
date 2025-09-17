@@ -37,7 +37,7 @@ variable "branch_name" {
 variable "resource_prefix" {
   description = "Prefix for all resource names (will be dynamic for ephemeral environments)"
   type        = string
-  default     = "ai-content-dev"
+  default     = ""
 }
 
 variable "test_feature_flag" {
@@ -65,8 +65,21 @@ locals {
   # Use environment_name if provided (for ephemeral), otherwise use environment
   effective_environment = var.environment_name != "" ? var.environment_name : var.environment
 
+  # Map full environment names to shorter prefixes for Azure resource naming
+  environment_short_names = {
+    production  = "prod"
+    development = "dev"
+    staging     = "stage"
+  }
+
+  # Get short name for current environment
+  short_env = lookup(local.environment_short_names, local.effective_environment, local.effective_environment)
+
   # Dynamic resource prefix based on environment
-  resource_prefix = var.environment_name != "" ? "ai-content-${var.environment_name}" : var.resource_prefix
+  # Use custom prefix if provided, otherwise generate from environment with short names
+  resource_prefix = var.resource_prefix != "" ? var.resource_prefix : (
+    var.environment_name != "" ? "ai-content-${var.environment_name}" : "ai-content-${local.short_env}"
+  )
 
   # Container images are now dynamically discovered in container_discovery.tf
   # This local is kept for backwards compatibility but will use discovered containers

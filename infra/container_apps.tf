@@ -3,7 +3,7 @@
 # Container Apps Environment - reusing main Log Analytics workspace for cost efficiency
 # Using Consumption plan without VNet integration for simplicity and cost optimization
 resource "azurerm_container_app_environment" "main" {
-  name                       = "${var.resource_prefix}-env"
+  name                       = "${local.resource_prefix}-env"
   location                   = var.location
   resource_group_name        = azurerm_resource_group.main.name
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id # Reuse main workspace
@@ -16,7 +16,7 @@ resource "azurerm_container_app_environment" "main" {
 
 # Managed Identity for containers
 resource "azurerm_user_assigned_identity" "containers" {
-  name                = "${var.resource_prefix}-containers-identity"
+  name                = "${local.resource_prefix}-containers-identity"
   location            = var.location
   resource_group_name = azurerm_resource_group.main.name
 
@@ -25,7 +25,7 @@ resource "azurerm_user_assigned_identity" "containers" {
 
 # Managed Identity for GitHub Actions CI/CD
 resource "azurerm_user_assigned_identity" "github_actions" {
-  name                = "${var.resource_prefix}-github-actions"
+  name                = "${local.resource_prefix}-github-actions"
   location            = var.location
   resource_group_name = azurerm_resource_group.main.name
 
@@ -69,7 +69,7 @@ resource "azurerm_federated_identity_credential" "github_pr" {
 # This resource is kept commented for future upgrade to Premium SKU if needed
 #
 # resource "azurerm_user_assigned_identity" "servicebus" {
-#   name                = "${var.resource_prefix}-servicebus-identity"
+#   name                = "${local.resource_prefix}-servicebus-identity"
 #   location            = var.location
 #   resource_group_name = azurerm_resource_group.main.name
 #   tags = local.common_tags
@@ -151,7 +151,7 @@ resource "azurerm_key_vault_access_policy" "github_actions" {
 
 # Event Grid System Topic for Storage Account - used by Azure Functions for pipeline automation
 resource "azurerm_eventgrid_system_topic" "storage" {
-  name                   = "${var.resource_prefix}-storage-events"
+  name                   = "${local.resource_prefix}-storage-events"
   location               = var.location
   resource_group_name    = azurerm_resource_group.main.name
   source_arm_resource_id = azurerm_storage_account.main.id
@@ -166,7 +166,7 @@ resource "azurerm_eventgrid_system_topic" "storage" {
 
 # Content Collector Container App
 resource "azurerm_container_app" "content_collector" {
-  name                         = "${var.resource_prefix}-collector"
+  name                         = "${local.resource_prefix}-collector"
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
@@ -286,7 +286,7 @@ resource "azurerm_container_app" "content_collector" {
 
 # Content Processor Container App
 resource "azurerm_container_app" "content_processor" {
-  name                         = "${var.resource_prefix}-processor"
+  name                         = "${local.resource_prefix}-processor"
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
@@ -404,7 +404,7 @@ resource "azurerm_container_app" "content_processor" {
 
 # Site Generator Container App
 resource "azurerm_container_app" "site_generator" {
-  name                         = "${var.resource_prefix}-site-generator"
+  name                         = "${local.resource_prefix}-site-generator"
   container_app_environment_id = azurerm_container_app_environment.main.id
   resource_group_name          = azurerm_resource_group.main.name
   revision_mode                = "Single"
