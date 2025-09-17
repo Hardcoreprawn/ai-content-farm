@@ -8,53 +8,17 @@ import json
 import os
 import time
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 from content_processing import collect_content_batch, deduplicate_content
 
 from libs.blob_storage import BlobContainers, BlobStorageClient
-from libs.service_bus_client import (
-    ServiceBusClient,
-    ServiceBusConfig,
-    ServiceBusMessageModel,
-)
-
-
-class MockBlobStorageClient:
-    """Mock blob storage client for testing."""
-
-    async def upload_text(
-        self,
-        container_name: str,
-        blob_name: str,
-        content: str,
-        content_type: str = "text/plain",
-        metadata: Optional[Dict[str, str]] = None,
-    ) -> str:
-        return f"mock://blob/{blob_name}"
-
-    async def upload_json(
-        self,
-        container_name: str,
-        blob_name: str,
-        data: Dict[str, Any],
-        metadata: Optional[Dict[str, str]] = None,
-    ) -> str:
-        return f"mock://blob/{blob_name}"
-
-    async def download_text(self, container_name: str, blob_name: str) -> str:
-        return '{"mock": "data"}'
-
-    async def list_blobs(
-        self, container_name: str, prefix: str = ""
-    ) -> List[Dict[str, Any]]:
-        return []
 
 
 class ContentCollectorService:
     """Service for collecting and storing content."""
 
-    def __init__(self, storage_client: Optional[BlobStorageClient] = None):
+    def __init__(self, storage_client: Optional[Union[BlobStorageClient, Any]] = None):
         """Initialize the content collector service.
 
         Args:
@@ -64,6 +28,9 @@ class ContentCollectorService:
         if storage_client:
             self.storage = storage_client
         elif os.getenv("PYTEST_CURRENT_TEST"):  # Running in pytest
+            # Import here to avoid circular imports
+            from tests.test_fixtures import MockBlobStorageClient
+
             self.storage = MockBlobStorageClient()
         else:
             self.storage = BlobStorageClient()
