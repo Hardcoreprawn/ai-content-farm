@@ -29,8 +29,10 @@ FROM base AS development
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir ipdb pdbpp rich
 
-# Copy shared libraries
+# Copy shared libraries and install with Azure dependencies and dev tools
 COPY libs/ ./libs/
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -e "./libs/[dev]"
 
 # Copy application code
 COPY containers/content-processor/ .
@@ -52,8 +54,10 @@ CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload
 # Production stage - minimal, secure, optimized
 FROM base AS production
 
-# Copy shared libraries
+# Copy shared libraries and install with Azure dependencies
 COPY libs/ ./libs/
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -e ./libs/
 
 # Copy application code
 COPY containers/content-processor/ .

@@ -18,8 +18,10 @@ COPY containers/content-collector/requirements.txt /tmp/
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --no-cache-dir -r /tmp/requirements.txt
 
-# 3. Copy shared libraries
+# 3. Install shared libraries with Azure dependencies
 COPY libs/ ./libs/
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -e "./libs/[dev]"
 
 # 4. Copy application code (changes most frequently)
 COPY containers/content-collector/ .

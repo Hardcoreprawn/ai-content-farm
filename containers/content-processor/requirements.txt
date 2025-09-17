@@ -1,13 +1,6 @@
-# Content Processor - Complete Dependencies
-# Web Framework
-fastapi~=0.116.1
-uvicorn[standard]~=0.35.0
-pydantic~=2.11.9
-pydantic-settings~=2.10.1
+# Content Processor - Specific Dependencies
 
-# HTTP & Data Processing
-httpx~=0.28.1
-requests~=2.32.5
+# HTTP & Data Processing (not in shared libs)
 python-multipart~=0.0.20
 python-dateutil~=2.9.0.post0
 tenacity~=9.0.0
@@ -20,18 +13,3 @@ python-docx~=1.2.0
 beautifulsoup4~=4.13.5
 lxml~=4.9.3
 aiohttp~=3.12.15
-
-# Azure Services
-azure-keyvault-secrets~=4.10.0
-azure-identity~=1.25.0
-azure-storage-blob~=12.26.0
-azure-servicebus~=7.14.2
-
-# Testing & Development
-pytest~=8.4.2
-pytest-asyncio~=1.1.0
-pytest-cov~=6.3.0
-black~=25.1.0
-isort~=6.0.1
-mypy~=1.18.1
-types-requests~=2.31.0.20240406

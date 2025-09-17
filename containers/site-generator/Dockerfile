@@ -25,8 +25,10 @@ FROM base AS development
 # Copy application code
 COPY containers/site-generator/ .
 
-# Copy shared libraries
+# Copy shared libraries and install with Azure dependencies and dev tools
 COPY libs/ /app/libs
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -e "/app/libs/[dev]"
 
 # Create necessary directories
 RUN mkdir -p /app/templates /app/static /app/output
@@ -55,8 +57,10 @@ FROM base AS production
 # Copy application code
 COPY containers/site-generator/ .
 
-# Copy shared libraries
+# Copy shared libraries and install with Azure dependencies
 COPY libs/ /app/libs
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -e /app/libs/
 
 # Create necessary directories
 RUN mkdir -p /app/templates /app/static /app/output

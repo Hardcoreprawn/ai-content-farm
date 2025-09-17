@@ -13,9 +13,25 @@ dependencies = [
     "azure-identity",
     "azure-storage-blob",
     "azure-storage-queue",
+    "azure-servicebus",
+    "azure-keyvault-secrets",
     "pydantic",
     "pydantic-settings",
     "aiofiles",
+    "fastapi",
+    "uvicorn[standard]",
+    "httpx",
+    "requests",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "pytest-cov",
+    "black",
+    "isort",
+    "mypy",
 ]
 
 [tool.setuptools]
