@@ -246,7 +246,7 @@ class TestStorageQueueIntegration:
         collection_result = {
             "collection_id": "test_format_20231215_120000",
             "collected_items": [{"id": 1}, {"id": 2}, {"id": 3}],
-            "storage_location": "raw-content/collections/2023/12/15/test_format_20231215_120000.json",
+            "storage_location": "collected-content/collections/2023/12/15/test_format_20231215_120000.json",
         }
 
         await service._send_processing_request(collection_result)
@@ -267,7 +267,7 @@ class TestStorageQueueIntegration:
         assert payload["items_count"] == 3
         assert (
             payload["storage_location"]
-            == "raw-content/collections/2023/12/15/test_format_20231215_120000.json"
+            == "collected-content/collections/2023/12/15/test_format_20231215_120000.json"
         )
         assert "Content collected for test_format_20231215_120000" in payload["message"]
         assert "processor should scan storage" in payload["message"]

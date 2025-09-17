@@ -31,7 +31,7 @@ class TestQueueIntegration:
         return ContentCollectorService(storage_client=MockBlobStorageClient())
 
     @pytest.mark.asyncio
-    @patch("service_logic.send_wake_up_message")
+    @patch("libs.queue_client.send_wake_up_message")
     async def test_send_processing_request_success(self, mock_send_wake_up, service):
         """Test successful processing request sending."""
         # Mock successful wake-up message
@@ -58,7 +58,7 @@ class TestQueueIntegration:
         assert call_args[1]["payload"]["items_count"] == 2
 
     @pytest.mark.asyncio
-    @patch("service_logic.send_wake_up_message")
+    @patch("libs.queue_client.send_wake_up_message")
     async def test_send_processing_request_queue_failure(
         self, mock_send_wake_up, service
     ):
@@ -79,7 +79,7 @@ class TestQueueIntegration:
         mock_send_wake_up.assert_called_once()
 
     @pytest.mark.asyncio
-    @patch("service_logic.send_wake_up_message")
+    @patch("libs.queue_client.send_wake_up_message")
     async def test_send_processing_request_empty_items(
         self, mock_send_wake_up, service
     ):
@@ -105,7 +105,7 @@ class TestQueueIntegration:
         assert call_args[1]["payload"]["items_count"] == 0
 
     @pytest.mark.asyncio
-    @patch("service_logic.send_wake_up_message")
+    @patch("libs.queue_client.send_wake_up_message")
     async def test_send_processing_request_no_storage_location(
         self, mock_send_wake_up, service
     ):

@@ -325,7 +325,7 @@ def expected_wake_up_message():
             "trigger_reason": "new_collection",
             "collection_id": "test_collection_20230815_120000",
             "items_count": 2,
-            "storage_location": "raw-content/collections/2023/08/15/test_collection_20230815_120000.json",
+            "storage_location": "collected-content/collections/2023/08/15/test_collection_20230815_120000.json",
             "message": "Content collected for test_collection_20230815_120000, processor should scan storage",
         },
     }

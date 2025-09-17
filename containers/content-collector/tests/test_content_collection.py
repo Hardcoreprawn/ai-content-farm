@@ -54,7 +54,7 @@ class TestContentCollection:
 
     @pytest.mark.asyncio
     @patch("service_logic.collect_content_batch")
-    @patch("service_logic.send_wake_up_message")
+    @patch("libs.queue_client.send_wake_up_message")
     async def test_collect_and_store_content_success(
         self, mock_wake_up, mock_collect, service, sample_sources
     ):
@@ -230,17 +230,18 @@ class TestContentCollection:
         )
 
         # Verify storage location format
-        assert storage_location.startswith("raw-content/collections/")
+        assert storage_location.startswith("collected-content/collections/")
         assert collection_id in storage_location
         assert storage_location.endswith(".json")
 
         # Verify content was stored
-        blob_name = storage_location.replace("raw-content/", "")
-        stored_content = service.storage.get_stored_content("raw-content", blob_name)
-        assert stored_content is not None
+        blob_name = storage_location.replace("collected-content/", "")
+        stored_key = f"collected-content/{blob_name}"
+        assert stored_key in service.storage.uploaded_files
 
         # Verify stored structure
-        stored_data = json.loads(stored_content["content"])
+        stored_content = service.storage.uploaded_files[stored_key]["content"]
+        stored_data = json.loads(stored_content)
         assert stored_data["collection_id"] == collection_id
         assert stored_data["items"] == collected_items
         assert stored_data["metadata"] == metadata
