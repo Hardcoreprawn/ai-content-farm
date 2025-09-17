@@ -377,7 +377,7 @@ jobs:
           registry: ${{ env.REGISTRY }}
           repository: ${{ env.REPOSITORY }}
           image-tag: ${{ github.sha }}
-          resource-group: ai-content-dev-rg
+          resource-group: ${{ github.ref == 'refs/heads/main' && 'ai-content-prod-rg' || 'ai-content-dev-rg' }}
           container-name: ${{ matrix.container }}
 
   # === SUMMARY ===

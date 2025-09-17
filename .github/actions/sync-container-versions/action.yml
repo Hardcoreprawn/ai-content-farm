@@ -26,11 +26,18 @@ runs:
       run: |
         echo "[SYNC] Starting container version sync for specific container..."
 
-        # Container Apps mapping
+        # Determine environment prefix from resource group
+        if [[ "${{ inputs.resource-group }}" == *"prod"* ]]; then
+          ENV_PREFIX="prod"
+        else
+          ENV_PREFIX="dev"
+        fi
+
+        # Container Apps mapping with dynamic environment prefix
         declare -A containers=(
-          ["ai-content-dev-collector"]="content-collector"
-          ["ai-content-dev-processor"]="content-processor"
-          ["ai-content-dev-site-generator"]="site-generator"
+          ["ai-content-${ENV_PREFIX}-collector"]="content-collector"
+          ["ai-content-${ENV_PREFIX}-processor"]="content-processor"
+          ["ai-content-${ENV_PREFIX}-site-generator"]="site-generator"
         )
 
         NEW_TAG="${{ inputs.image-tag }}"

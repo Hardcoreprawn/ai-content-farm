@@ -59,8 +59,8 @@ jobs:
         run: |
           # Get the content collector container app URL
           URL=$(az containerapp show \
-            --name "ai-content-dev-collector" \
-            --resource-group "ai-content-dev-rg" \
+            --name "ai-content-prod-collector" \
+            --resource-group "ai-content-prod-rg" \
             --query "properties.configuration.ingress.fqdn" \
             --output tsv)
 
