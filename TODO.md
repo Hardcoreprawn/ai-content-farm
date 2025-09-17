@@ -261,11 +261,27 @@ curl -X GET "https://<content-collector-url>/health"
 
 ### Standard API Pattern
 ```
-GET  /health              # Health check
-GET  /status              # Detailed status  
-GET  /docs                # Auto-generated docs
-POST /process             # Main business logic (or /generate for content-processor)
-GET  /                    # Service info
+# Common endpoints (all services)
+GET  /                    # Service info with available endpoints
+GET  /health              # Health check  
+GET  /status              # Detailed operational status
+GET  /docs                # Auto-generated API docs
+
+# Service-specific business logic endpoints
+## Content Collector ✅ IMPLEMENTED
+POST /collections         # Create/trigger collections
+POST /discoveries         # Content discovery
+GET  /sources             # List available sources
+
+## Content Processor ❌ MISSING - See Issue #512
+POST /process             # Process collected content
+POST /generate            # AI content generation
+GET  /queue/status        # Processing queue status
+
+## Site Generator ❌ MISSING - See Issue #512
+POST /generate            # Generate static sites
+POST /publish             # Publish generated content
+GET  /sites               # List generated sites
 ```
 
 ### Standard Response Format
