@@ -7,7 +7,7 @@ tenacity~=9.0.0
 
 # Content Processing
 openai~=1.108.0
-anthropic~=0.37.1
+anthropic~=0.68.0
 python-docx~=1.2.0
 # pypdf2~=3.0.1  # REMOVED: Security vulnerability CVE-2023-46250, not used in codebase
 beautifulsoup4~=4.13.5
