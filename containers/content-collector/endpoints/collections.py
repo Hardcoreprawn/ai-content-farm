@@ -168,7 +168,7 @@ async def run_scheduled_collection(
         collector_service = ContentCollectorService()
 
         # Process collection
-        result = await collector_service.create_collection(
+        result = await collector_service.collect_and_store_content(
             sources=request.sources,
             deduplicate=request.deduplicate,
             similarity_threshold=request.similarity_threshold,
