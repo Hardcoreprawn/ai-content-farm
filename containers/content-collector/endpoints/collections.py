@@ -164,12 +164,24 @@ async def run_scheduled_collection(
         # Convert to CollectionRequest model
         request = CollectionRequest(**default_template)
 
+        # Convert sources to the expected format
+        sources_data = []
+        for source in request.sources:
+            sources_data.append(
+                {
+                    "type": source.type,
+                    "subreddits": source.subreddits,
+                    "limit": source.limit,
+                    "criteria": {},
+                }
+            )
+
         # Create collector service instance
         collector_service = ContentCollectorService()
 
         # Process collection
         result = await collector_service.collect_and_store_content(
-            sources=request.sources,
+            sources_data=sources_data,
             deduplicate=request.deduplicate,
             similarity_threshold=request.similarity_threshold,
             save_to_storage=request.save_to_storage,
