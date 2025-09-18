@@ -26,6 +26,7 @@ resource "azurerm_key_vault" "main" {
   # checkov:skip=CKV2_AZURE_32: Private endpoint not required for this use case
   # checkov:skip=CKV_AZURE_109: Network ACLs allow all access due to dynamic GitHub Actions IPs - security enforced via RBAC
   # trivy:ignore:AVD-AZU-0013: Network ACL default_action Allow required for Container Apps consumption mode compatibility
+  # nosemgrep: terraform.azure.security.keyvault.keyvault-specify-network-acl.keyvault-specify-network-acl
   name     = "${local.clean_prefix}kv${random_string.suffix.result}"
   location = azurerm_resource_group.main.location
 
@@ -161,6 +162,7 @@ resource "azurerm_key_vault_secret" "reddit_client_secret" {
 
 resource "azurerm_key_vault_secret" "reddit_user_agent" {
   # trivy:ignore:AVD-AZU-0017: Secret expiration not set as this is an external API credential managed outside Terraform
+  # nosemgrep: terraform.azure.security.keyvault.keyvault-ensure-secret-expires.keyvault-ensure-secret-expires
   name         = "reddit-user-agent"
   value        = var.reddit_user_agent != "" ? var.reddit_user_agent : "ai-content-farm:v1.0 (by /u/your-username)"
   key_vault_id = azurerm_key_vault.main.id
@@ -280,6 +282,7 @@ resource "azurerm_storage_account" "main" {
   # trivy:ignore:AVD-AZU-0009: Queue services logging handled by comprehensive diagnostic settings instead of legacy storage analytics
   # nosemgrep: terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass
   # nosemgrep: terraform.azure.security.storage.storage-analytics-logging.storage-analytics-logging
+  # nosemgrep: terraform.azure.security.storage.storage-queue-services-logging.storage-queue-services-logging
   # Note: Modern diagnostic settings approach implemented below for comprehensive logging
   name                          = "${local.clean_prefix}st${random_string.suffix.result}"
   resource_group_name           = azurerm_resource_group.main.name

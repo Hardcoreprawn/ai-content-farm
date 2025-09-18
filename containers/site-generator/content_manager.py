@@ -36,6 +36,8 @@ class ContentManager:
             templates_dir = Path(__file__).parent / "templates"
 
         self.content_id = str(uuid4())[:8]
+        # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+        # Jinja2 Environment configured with autoescape enabled for HTML/XML - XSS protection in place
         self.jinja_env = Environment(
             loader=FileSystemLoader(str(templates_dir)),
             autoescape=select_autoescape(["html", "xml"]),
@@ -64,6 +66,8 @@ class ContentManager:
             output_path = output_dir / filename
 
             # Render template with article data
+            # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+            # Template from secure Environment with autoescape enabled - XSS protection in place
             content = template.render(
                 article=article, theme=theme, generated_at=datetime.now(timezone.utc)
             )
@@ -104,6 +108,8 @@ class ContentManager:
                 reverse=True,
             )
 
+            # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+            # Template from secure Environment with autoescape enabled - XSS protection in place
             content = template.render(
                 articles=sorted_articles,
                 theme=theme,
@@ -146,6 +152,8 @@ class ContentManager:
                 :50
             ]  # Limit to 50 most recent articles
 
+            # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+            # Template from secure Environment with autoescape enabled - XSS protection in place
             content = template.render(
                 articles=sorted_articles,
                 generated_at=datetime.now(timezone.utc),
@@ -240,6 +248,8 @@ class ContentManager:
             template = self.jinja_env.get_template("sitemap.xml")
             output_path = output_dir / "sitemap.xml"
 
+            # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+            # Template from secure Environment with autoescape enabled - XSS protection in place
             content = template.render(
                 articles=articles,
                 base_url=base_url.rstrip("/"),

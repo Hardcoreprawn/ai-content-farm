@@ -86,10 +86,18 @@
         if (metaContainer) {
             const readingTimeElement = document.createElement('div');
             readingTimeElement.className = 'meta-row';
-            readingTimeElement.innerHTML = `
-                <span class="meta-label">Reading Time:</span>
-                <span class="meta-value">${readingTime} min read</span>
-            `;
+
+            // Create elements safely to prevent XSS
+            const labelSpan = document.createElement('span');
+            labelSpan.className = 'meta-label';
+            labelSpan.textContent = 'Reading Time:';
+
+            const valueSpan = document.createElement('span');
+            valueSpan.className = 'meta-value';
+            valueSpan.textContent = `${readingTime} min read`;
+
+            readingTimeElement.appendChild(labelSpan);
+            readingTimeElement.appendChild(valueSpan);
             metaContainer.appendChild(readingTimeElement);
         }
     }
