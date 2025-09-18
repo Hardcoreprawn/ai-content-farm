@@ -128,10 +128,20 @@ async def run_scheduled_collection(
     start_time = time.time()
 
     try:
-        # Load default collection template
-        template_path = Path("collection-templates/default.json")
-        if not template_path.exists():
-            # Fallback template if file doesn't exist
+        # Load default collection template from blob storage
+        from libs.blob_storage import BlobStorageClient
+
+        storage_client = BlobStorageClient()
+
+        try:
+            # Try to load the default template from blob storage
+            template_content = await storage_client.download_text(
+                container_name="prompts", blob_name="collection-templates/default.json"
+            )
+            default_template = json.loads(template_content)
+        except Exception as e:
+            # Fallback template if blob storage fails
+            print(f"Failed to load template from blob storage: {e}")
             default_template = {
                 "sources": [
                     {
@@ -150,9 +160,6 @@ async def run_scheduled_collection(
                 "similarity_threshold": 0.8,
                 "save_to_storage": True,
             }
-        else:
-            with open(template_path, "r") as f:
-                default_template = json.load(f)
 
         # Convert to CollectionRequest model
         request = CollectionRequest(**default_template)
