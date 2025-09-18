@@ -169,8 +169,9 @@ class ContentCollectorService:
                 "storage_location": storage_location,
             }
 
-            # Send processing request to Service Bus if we have content
-            if collected_items and storage_location:
+            # Send processing request to queue if collection was saved to storage
+            # This enables end-to-end pipeline testing even with empty collections
+            if storage_location:
                 await self._send_processing_request(result)
 
             return result
