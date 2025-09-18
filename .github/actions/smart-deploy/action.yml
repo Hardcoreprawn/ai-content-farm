@@ -39,9 +39,11 @@ runs:
     - name: Skip Deployment
       if: inputs.deployment-method == 'skip'
       shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
       run: |
         echo "Skipping deployment - no relevant changes detected"
-        environment="$(printf '%s' '${{ inputs.environment }}' | sed 's/[^a-zA-Z0-9-]//g')"
+        environment="$(printf '%s' "$ENVIRONMENT" | sed 's/[^a-zA-Z0-9-]//g')"
         base_url="https://ai-content-farm-${environment}"
         url="${base_url}.azurecontainerapps.io"
         echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
@@ -50,11 +52,13 @@ runs:
       id: container-deploy
       if: inputs.deployment-method == 'containers'
       shell: bash
+      env:
+        ENVIRONMENT: ${{ inputs.environment }}
       run: |
         echo "Performing container update deployment..."
 
         # Get resource group
-        environment="$(printf '%s' '${{ inputs.environment }}' | sed 's/[^a-zA-Z0-9-]//g')"
+        environment="$(printf '%s' "$ENVIRONMENT" | sed 's/[^a-zA-Z0-9-]//g')"
         if [[ "$environment" == "production" ]]; then
           rg="ai-content-prod-rg"
         else
@@ -64,7 +68,7 @@ runs:
         echo "Would update container apps in $rg"
 
         # Set deployment URL
-        base_url="https://ai-content-farm-${{ inputs.environment }}"
+        base_url="https://ai-content-farm-${environment}"
         url="${base_url}.azurecontainerapps.io"
         echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
 
@@ -77,6 +81,9 @@ runs:
         ARM_TENANT_ID: ${{ inputs.tenant-id }}
         ARM_SUBSCRIPTION_ID: ${{ inputs.subscription-id }}
         ARM_USE_OIDC: true
+        TERRAFORM_STORAGE_ACCOUNT: ${{ inputs.terraform-storage-account }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        IMAGE_TAG: ${{ inputs.image-tag }}
       run: |
         echo "Checking Terraform state and planning deployment..."
         echo "Using service principal authentication with OIDC"
@@ -85,7 +92,7 @@ runs:
 
         # Initialize Terraform with backend config matching backend.tf
         # Use the storage account from backend.tf unless overridden
-        storage_account="$(printf '%s' '${{ inputs.terraform-storage-account }}' | \
+        storage_account="$(printf '%s' "$TERRAFORM_STORAGE_ACCOUNT" | \
           sed 's/[^a-zA-Z0-9-]//g')"
         if [[ -z "$storage_account" ]]; then
           storage_account="aicontentfarmtfstate"
@@ -94,22 +101,22 @@ runs:
         terraform init \
           -backend-config="storage_account_name=$storage_account" \
           -backend-config="container_name=tfstate" \
-          -backend-config="key=terraform-${{ inputs.environment }}.tfstate"
+          -backend-config="key=terraform-${ENVIRONMENT}.tfstate"
 
         # Use default workspace with environment-specific state file
         # No need to create separate workspaces as state files handle environment separation
 
         # Plan and check if there are changes
-        env="${{ inputs.environment }}"
+        env="$ENVIRONMENT"
         echo "Running terraform plan to check for changes..."
-        echo "Using image tag: ${{ inputs.image-tag }}"
+        echo "Using image tag: $IMAGE_TAG"
         echo "Environment: $env"
 
         # Since we're in a deployment pipeline and want to apply changes,
         # just run terraform apply directly with auto-approve
         echo "Running terraform apply with auto-approve..."
         terraform apply --auto-approve \
-          -var="image_tag=${{ inputs.image-tag }}" \
+          -var="image_tag=$IMAGE_TAG" \
           -var="environment=$env"
 
         echo "Terraform deployment completed successfully"
@@ -133,17 +140,22 @@ runs:
     - name: Set Output
       id: deploy
       shell: bash
+      env:
+        DEPLOYMENT_METHOD: ${{ inputs.deployment-method }}
+        ENVIRONMENT: ${{ inputs.environment }}
+        CONTAINER_URL: ${{ steps.container-deploy.outputs.deployment-url }}
+        TERRAFORM_URL: ${{ steps.terraform-deploy.outputs.deployment-url }}
       run: |
-        method="$(printf '%s' '${{ inputs.deployment-method }}' | \
+        method="$(printf '%s' "$DEPLOYMENT_METHOD" | \
           sed 's/[^a-zA-Z0-9-]//g')"
         if [[ "$method" == "containers" ]]; then
-          url="${{ steps.container-deploy.outputs.deployment-url }}"
+          url="$CONTAINER_URL"
           echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
         elif [[ "$method" == "terraform" ]]; then
-          url="${{ steps.terraform-deploy.outputs.deployment-url }}"
+          url="$TERRAFORM_URL"
           echo "deployment-url=$url" >> "$GITHUB_OUTPUT"
         else
-          environment="$(printf '%s' '${{ inputs.environment }}' | \
+          environment="$(printf '%s' "$ENVIRONMENT" | \
             sed 's/[^a-zA-Z0-9-]//g')"
           base_url="https://ai-content-farm-${environment}"
           url="${base_url}.azurecontainerapps.io"
