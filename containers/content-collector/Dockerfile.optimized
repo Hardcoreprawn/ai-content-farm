@@ -1,0 +1,92 @@
+# Optimized Multi-stage Dockerfile for content-collector
+# Separates build dependencies from runtime for faster builds and smaller images
+
+# Builder stage - contains build tools and UV
+FROM python:3.11-slim AS builder
+
+# Install UV first (lightest operation)
+RUN pip install --no-cache-dir uv==0.4.23
+
+# Install build dependencies only in builder stage
+# Use specific package versions and minimal packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Set up UV cache and virtual environment
+ENV UV_CACHE_DIR=/opt/uv-cache
+ENV VIRTUAL_ENV=/opt/venv
+RUN uv venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+WORKDIR /app
+
+# Install Python dependencies in virtual environment
+COPY containers/content-collector/requirements.txt /tmp/
+RUN --mount=type=cache,target=$UV_CACHE_DIR \
+    uv pip install --no-cache -r /tmp/requirements.txt
+
+# Install shared libraries
+COPY libs/ ./libs/
+RUN --mount=type=cache,target=$UV_CACHE_DIR \
+    uv pip install --no-cache -e "./libs/[dev]"
+
+# Production stage - minimal runtime dependencies only
+FROM python:3.11-slim AS production
+
+# Install only essential runtime dependencies (much faster than build-essential)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl=8.14.1-2 \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean \
+    && apt-get autoremove -y
+
+# Create app user for security
+RUN useradd --create-home --shell /bin/bash appuser
+
+# Copy virtual environment from builder (contains all compiled packages)
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+WORKDIR /app
+
+# Copy application code
+COPY --chown=appuser:appuser containers/content-collector/ .
+
+# Service configuration
+ENV SERVICE_NAME=content-collector
+ENV LOG_LEVEL=info
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD python -c "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"
+
+# Switch to non-root user
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Run application
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+
+# Development stage - includes debug tools
+FROM production AS development
+
+# Switch back to root to install dev tools
+USER root
+
+# Install minimal development tools (avoid heavy build-essential in dev)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    vim \
+    less \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Install Python debug tools using UV from builder stage virtual env
+RUN --mount=from=builder,source=/opt/uv-cache,target=/opt/uv-cache \
+    /opt/venv/bin/uv pip install --no-cache ipdb pdbpp
+
+# Switch back to appuser
+USER appuser

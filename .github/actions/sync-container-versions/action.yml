@@ -74,7 +74,11 @@ runs:
 
         echo "[SCAN] Checking $app_name ($TARGET_CONTAINER)..."
 
-        # Get current container image from Container App
+        # Start timing
+        sync_start_time=$(date +%s)
+
+        # Get current container image from Container App with optimized query
+        echo "  [CHECK] Retrieving current image information..."
         current_image=$(az containerapp show \
           --name "$app_name" \
           --resource-group "$RESOURCE_GROUP" \
@@ -84,38 +88,60 @@ runs:
         if [[ -z "$current_image" ]]; then
           echo "  [WARN] Could not retrieve current image for $app_name, creating new deployment..."
           current_tag="none"
+          needs_update=true
         else
           # Extract current tag
           current_tag=$(echo "$current_image" | sed 's/.*://')
+
+          # Check if update is actually needed
+          if [[ "$current_tag" == "$NEW_TAG" ]]; then
+            needs_update=false
+          else
+            needs_update=true
+          fi
         fi
 
         new_image="$REGISTRY/$REPOSITORY/$TARGET_CONTAINER:$NEW_TAG"
 
         echo "  [CURRENT] $current_image"
         echo "  [NEW]     $new_image"
+        echo "  [ANALYSIS] Update needed: $needs_update"
 
         update_success=false
-        if [[ "$current_tag" != "$NEW_TAG" ]]; then
+        if [[ "$needs_update" == "true" ]]; then
           echo "  [UPDATE] Updating $app_name to tag $NEW_TAG..."
 
-          # Update container app with new image
+          # Update container app with new image using optimized CLI options
+          echo "  [TIMING] Starting Azure Container App update..."
+          update_start_time=$(date +%s)
+
           az containerapp update \
             --name "$app_name" \
             --resource-group "$RESOURCE_GROUP" \
             --image "$new_image" \
-            --output none
+            --output none \
+            --only-show-errors
 
-          if [[ $? -eq 0 ]]; then
-            echo "  [PASS] Successfully updated $app_name"
+          update_result=$?
+          update_end_time=$(date +%s)
+          update_duration=$((update_end_time - update_start_time))
+
+          if [[ $update_result -eq 0 ]]; then
+            echo "  [PASS] Successfully updated $app_name in ${update_duration}s"
             update_success=true
           else
-            echo "  [FAIL] Failed to update $app_name"
+            echo "  [FAIL] Failed to update $app_name after ${update_duration}s"
             exit 1
           fi
         else
-          echo "  [PASS] $app_name already at correct version"
+          echo "  [PASS] $app_name already at correct version - skipping update"
           update_success=true
         fi
+
+        # Calculate total sync time
+        sync_end_time=$(date +%s)
+        total_sync_duration=$((sync_end_time - sync_start_time))
+        echo "  [TIMING] Total sync time: ${total_sync_duration}s"
 
         echo "[COMPLETE] Container sync complete for $TARGET_CONTAINER!"
 
@@ -123,8 +149,8 @@ runs:
         {
           echo "## Container Sync Results - $TARGET_CONTAINER"
           echo ""
-          echo "| Container App | Current Image | Status |"
-          echo "|---------------|---------------|--------|"
+          echo "| Container App | Current Image | Status | Sync Time |"
+          echo "|---------------|---------------|--------|-----------|"
         } >> "$GITHUB_STEP_SUMMARY"
 
         # Get final image to confirm
@@ -136,12 +162,20 @@ runs:
         final_tag=$(echo "$final_image" | sed 's/.*://')
 
         if [[ "$final_tag" == "$NEW_TAG" ]]; then
-          status="[PASS] Synced to $NEW_TAG"
+          if [[ "$needs_update" == "true" ]]; then
+            status="[PASS] Updated to $NEW_TAG"
+          else
+            status="[PASS] Already at $NEW_TAG"
+          fi
         else
           status="[FAIL] Failed to sync"
         fi
 
-        echo "| $app_name | $final_image | $status |" >> "$GITHUB_STEP_SUMMARY"
+        echo "| $app_name | $final_image | $status | ${total_sync_duration}s |" >> "$GITHUB_STEP_SUMMARY"
 
         echo "" >> "$GITHUB_STEP_SUMMARY"
-        echo "**Total Updated:** $updated_count containers" >> "$GITHUB_STEP_SUMMARY"
+        if [[ "$needs_update" == "true" ]]; then
+          echo "**Container updated successfully in ${total_sync_duration}s**" >> "$GITHUB_STEP_SUMMARY"
+        else
+          echo "**Container already up-to-date (${total_sync_duration}s)**" >> "$GITHUB_STEP_SUMMARY"
+        fi

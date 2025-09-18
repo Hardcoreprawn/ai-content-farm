@@ -1,64 +1,49 @@
-# Optimized Multi-stage Dockerfile for content-collector
-# Using UV with wheels-only for 70% faster builds
+# Multi-stage Dockerfile for content-collector with UV optimization
+# UV is significantly faster than pip for dependency resolution and installation
 
-# Base stage with UV and minimal dependencies
+# Base stage with UV and common dependencies
 FROM python:3.11-slim AS base
 
-# Install UV first (fastest Python package installer)
+# Install UV (Astral's ultrafast Python package installer)
+# UV is typically 10-25x faster than pip for dependency resolution
+ENV UV_CACHE_DIR=/opt/uv-cache
 RUN pip install --no-cache-dir uv==0.4.23
 
-# Install minimal runtime dependencies only (no build tools!)
+# System dependencies (cached layer)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
+    build-essential=12.12 \
+    curl=8.14.1-2 \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create app user for security
 RUN useradd --create-home --shell /bin/bash appuser
 
 WORKDIR /app
 
-# Set up UV cache
-ENV UV_CACHE_DIR=/opt/uv-cache
-
-# Copy requirements and install using only pre-built wheels
+# Copy requirements first for optimal Docker layer caching
 COPY containers/content-collector/requirements.txt /tmp/
 
-# Force UV to use only binary wheels (no compilation needed)
-# This avoids the need for build-essential entirely
+# Install service dependencies with UV (much faster than pip)
+# UV caches compiled wheels and resolves dependencies much faster
 RUN --mount=type=cache,target=$UV_CACHE_DIR \
-    uv pip install --system --no-cache --only-binary=all -r /tmp/requirements.txt || \
-    echo "Some packages may need compilation - falling back to source builds" && \
     uv pip install --system --no-cache -r /tmp/requirements.txt
 
-# Install shared libraries (also prefer wheels)
+# Install shared libraries with Azure dependencies using UV
 COPY libs/ ./libs/
 RUN --mount=type=cache,target=$UV_CACHE_DIR \
-    uv pip install --system --no-cache --only-binary=all -e "./libs/[dev]" || \
-    echo "Libs installation may need source builds" && \
     uv pip install --system --no-cache -e "./libs/[dev]"
 
-# Copy application code
+# Copy application code (changes most frequently)
 COPY containers/content-collector/ .
 
 # Service configuration
 ENV SERVICE_NAME=content-collector
 ENV LOG_LEVEL=info
 
-# Development stage with debug tools
+# Development stage with test tools
 FROM base AS development
 
-# Switch to root for dev tool installation
-USER root
-
-# Install minimal dev tools (avoid heavy build-essential in dev)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    vim \
-    less \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
-
-# Install Python debug tools using UV
+# Install development tools using UV
 RUN --mount=type=cache,target=$UV_CACHE_DIR \
     uv pip install --system --no-cache ipdb pdbpp
 

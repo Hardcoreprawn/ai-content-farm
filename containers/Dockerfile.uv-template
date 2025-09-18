@@ -1,0 +1,66 @@
+# Optimized Multi-stage Dockerfile Template with UV
+# UV provides 10-25x faster dependency resolution than pip
+# Following security and performance best practices
+
+# Build stage with UV
+FROM python:3.11-slim AS builder
+
+# Install UV - Astral's ultrafast Python package installer
+RUN pip install --no-cache-dir uv==0.4.23
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create virtual environment using UV (faster venv creation)
+ENV UV_CACHE_DIR=/opt/uv-cache
+ENV VIRTUAL_ENV=/opt/venv
+RUN uv venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install dependencies with UV (much faster than pip)
+# UV handles dependency resolution, downloading, and compilation more efficiently
+RUN --mount=type=cache,target=$UV_CACHE_DIR \
+    uv pip install --no-deps -r requirements.txt
+
+# Production stage
+FROM python:3.11-slim AS production
+
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Create non-root user for security
+RUN groupadd --gid 1000 appuser && \
+    useradd --uid 1000 --gid 1000 --create-home --shell /bin/bash appuser
+
+# Copy virtual environment from builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Set working directory
+WORKDIR /app
+
+# Copy shared libraries
+COPY --chown=appuser:appuser libs/ ./libs/
+
+# Copy application code
+COPY --chown=appuser:appuser containers/${SERVICE_NAME}/ .
+
+# Set non-root user
+USER appuser
+
+# Health check template
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD python -c "import httpx; httpx.get('http://localhost:8000/health').raise_for_status()"
+
+# Default command (override in specific containers)
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
