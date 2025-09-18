@@ -36,15 +36,16 @@ resource "azurerm_key_vault" "main" {
 
   # Network ACLs for security compliance
   network_acls {
-    default_action = "Allow" # Temporarily allow all during initial deployment
-    bypass         = "AzureServices"
-    # TODO: Re-enable IP restrictions after initial deployment
-    # ip_rules = [
-    #   "20.201.28.151/32", # GitHub Actions runner IPs
-    #   "20.205.243.166/32",
-    #   "20.87.245.0/24",
-    #   "20.118.201.0/24"
-    # ]
+    default_action = "Deny"          # Deny by default, allow trusted services and CI/CD
+    bypass         = "AzureServices" # Allow trusted Azure services (Container Apps use managed identity)
+    # GitHub Actions runner IPs for CI/CD access
+    ip_rules = [
+      "20.201.28.151/32", # GitHub Actions runner IPs
+      "20.205.243.166/32",
+      "20.87.245.0/24",
+      "20.118.201.0/24",
+      "81.2.90.47/32" # Current dev environment IP (temporary)
+    ]
   }
 
   tags = {
@@ -501,14 +502,14 @@ resource "azurerm_cognitive_account" "openai" {
 
   # Network access restrictions - secured for Container Apps
   network_acls {
-    default_action = "Allow" # Temporarily allow all during initial deployment
-    # TODO: Re-enable IP restrictions after initial deployment
-    # ip_rules = [
-    #   "20.201.28.151/32", # GitHub Actions runner IPs for deployment
-    #   "20.205.243.166/32",
-    #   "20.87.245.0/24",
-    #   "20.118.201.0/24"
-    # ]
+    default_action = "Deny"          # Deny by default, rely on managed identity
+    bypass         = "AzureServices" # Allow trusted Azure services (Container Apps use managed identity)
+    # GitHub Actions runner IPs for deployment (individual IPs for Cognitive Services compatibility)
+    ip_rules = [
+      "20.201.28.151", # GitHub Actions runner IPs for deployment
+      "20.205.243.166",
+      "81.2.90.47" # Current dev environment IP (temporary)
+    ]
   }
 
   tags = local.common_tags

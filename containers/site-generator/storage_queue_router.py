@@ -99,7 +99,7 @@ class SiteGeneratorStorageQueueRouter:
             return {
                 "status": "error",
                 "operation": message.operation,
-                "error": str(e),
+                "error": "Internal processing error occurred",
                 "message_id": message.message_id,
             }
 
@@ -177,7 +177,7 @@ class SiteGeneratorStorageQueueRouter:
 
         except Exception as e:
             logger.error(f"Failed to generate static site: {e}")
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "error": "Site generation failed"}
 
 
 # Global router instance
@@ -202,7 +202,7 @@ async def storage_queue_health() -> Dict[str, Any]:
         logger.error(f"Storage Queue health check failed: {e}")
         return {
             "status": "unhealthy",
-            "error": str(e),
+            "error": "Storage queue service unavailable",
             "timestamp": datetime.now(timezone.utc),
             "service": "site-generator",
         }
@@ -278,7 +278,7 @@ async def process_storage_queue_messages(
         logger.error(f"Storage Queue processing failed: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Storage Queue processing failed: {str(e)}",
+            detail="Storage Queue processing failed",
         )
 
 

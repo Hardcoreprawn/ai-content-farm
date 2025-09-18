@@ -23,11 +23,17 @@ runs:
   steps:
     - name: Compare and Update Container Versions
       shell: bash
+      env:
+        INPUT_RESOURCE_GROUP: ${{ inputs.resource-group }}
+        INPUT_IMAGE_TAG: ${{ inputs.image-tag }}
+        INPUT_REGISTRY: ${{ inputs.registry }}
+        INPUT_REPOSITORY: ${{ inputs.repository }}
+        INPUT_CONTAINER_NAME: ${{ inputs.container-name }}
       run: |
         echo "[SYNC] Starting container version sync for specific container..."
 
         # Determine environment prefix from resource group
-        if [[ "${{ inputs.resource-group }}" == *"prod"* ]]; then
+        if [[ "$INPUT_RESOURCE_GROUP" == *"prod"* ]]; then
           ENV_PREFIX="prod"
         else
           ENV_PREFIX="dev"
@@ -40,11 +46,11 @@ runs:
           ["ai-content-${ENV_PREFIX}-site-generator"]="site-generator"
         )
 
-        NEW_TAG="${{ inputs.image-tag }}"
-        REGISTRY="${{ inputs.registry }}"
-        REPOSITORY="${{ inputs.repository }}"
-        RESOURCE_GROUP="${{ inputs.resource-group }}"
-        TARGET_CONTAINER="${{ inputs.container-name }}"
+        NEW_TAG="$INPUT_IMAGE_TAG"
+        REGISTRY="$INPUT_REGISTRY"
+        REPOSITORY="$INPUT_REPOSITORY"
+        RESOURCE_GROUP="$INPUT_RESOURCE_GROUP"
+        TARGET_CONTAINER="$INPUT_CONTAINER_NAME"
 
         echo "[INFO] Syncing container version:"
         echo "  Registry: $REGISTRY"

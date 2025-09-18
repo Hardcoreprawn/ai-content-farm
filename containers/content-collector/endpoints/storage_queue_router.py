@@ -106,7 +106,7 @@ class ContentCollectorStorageQueueRouter:
             return {
                 "status": "error",
                 "operation": message.operation,
-                "error": str(e),
+                "error": "Internal processing error occurred",
                 "message_id": message.message_id,
             }
 
@@ -133,7 +133,7 @@ async def storage_queue_health() -> Dict[str, Any]:
         logger.error(f"Storage Queue health check failed: {e}")
         return {
             "status": "unhealthy",
-            "error": str(e),
+            "error": "Health check failed",
             "timestamp": datetime.now(timezone.utc),
             "service": "content-collector",
         }
@@ -188,7 +188,7 @@ async def process_storage_queue_messages(
                 return result
             except Exception as e:
                 logger.error(f"Error processing individual message: {e}")
-                return {"status": "error", "error": str(e)}
+                return {"status": "error", "error": "Message processing failed"}
 
         # Use the process_queue_messages utility from our unified interface
         from libs.queue_client import process_queue_messages
@@ -212,7 +212,7 @@ async def process_storage_queue_messages(
         logger.error(f"Storage Queue processing failed: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Storage Queue processing failed: {str(e)}",
+            detail="Storage Queue processing failed",
         )
 
 
@@ -251,7 +251,7 @@ async def send_wake_up_endpoint(collection_id: Optional[str] = None) -> Dict[str
         logger.error(f"Failed to send wake-up message: {e}")
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to send wake-up message: {str(e)}",
+            detail="Failed to send wake-up message",
         )
 
 

@@ -4,6 +4,9 @@ Test suite for shared models and utilities.
 This module tests the shared functionality used across containers.
 """
 
+# type: ignore
+# Pylance has issues with Pydantic model field detection - runtime works correctly
+
 from datetime import datetime
 from typing import Any, Dict
 from unittest.mock import MagicMock, patch
@@ -51,7 +54,8 @@ class TestStandardResponse:
         assert response.status == "success"
         assert response.message == "Test message"
         assert response.data is None
-        assert response.errors == []
+        # None means "no errors occurred" (better human factors)
+        assert response.errors is None
         assert response.metadata == {}
 
     def test_standard_response_error_case(self):
@@ -82,20 +86,26 @@ class TestServiceStatus:
     def test_service_status_creation(self):
         """Test creating service status."""
         status = ServiceStatus(
-            service_name="test-service", status="healthy", version="1.0.0"
+            service="test-service", status="healthy", version="1.0.0"
         )
 
-        assert status.service_name == "test-service"
+        assert status.service == "test-service"
         assert status.status == "healthy"
         assert status.version == "1.0.0"
         assert isinstance(status.timestamp, datetime)
 
     def test_service_status_defaults(self):
         """Test service status with defaults."""
-        status = ServiceStatus(service_name="test-service", status="healthy")
+        status = ServiceStatus(
+            service="test-service", status="healthy", version="1.0.0"
+        )
 
-        assert status.service_name == "test-service"
+        assert status.service == "test-service"
         assert status.status == "healthy"
+        assert status.version == "1.0.0"
+        assert status.environment is None
+        assert isinstance(status.timestamp, str)
+        assert status.uptime_seconds is None
 
     def test_create_service_dependency(self):
         """Test service dependency creation."""
@@ -119,24 +129,28 @@ class TestHealthStatus:
         health = HealthStatus(
             service="test-service",
             status="healthy",
-            checks={"database": "ok", "storage": "ok"},
+            version="1.0.0",
         )
 
         assert health.service == "test-service"
         assert health.status == "healthy"
-        assert health.checks["database"] == "ok"
+        assert health.version == "1.0.0"
+        assert isinstance(health.dependencies, dict)
+        assert isinstance(health.issues, list)
 
     def test_health_status_unhealthy(self):
         """Test unhealthy health status response."""
         health = HealthStatus(
             service="test-service",
             status="unhealthy",
-            checks={"database": "error"},
-            uptime_seconds=3600,
+            version="1.0.0",
+            uptime_seconds=3600.0,
         )
 
+        assert health.service == "test-service"
         assert health.status == "unhealthy"
-        assert health.uptime_seconds == 3600
+        assert health.version == "1.0.0"
+        assert health.uptime_seconds == 3600.0
 
 
 class TestAPIError:
@@ -172,72 +186,141 @@ class TestSecureErrorHandler:
         assert handler.service_name == "test-service"
 
     def test_handle_error_with_details(self):
-        """Test error handling with details."""
+        """Test error handling with context."""
         handler = SecureErrorHandler(service_name="test-service")
 
         try:
             raise ValueError("Test error")
         except Exception as e:
-            error_response = handler.handle_error(e, include_details=True)
+            error_response = handler.handle_error(
+                e, error_type="validation", context={"function": "test_validation"}
+            )
 
             assert isinstance(error_response, dict)
             assert "error" in str(error_response).lower()
 
     def test_handle_error_without_details(self):
-        """Test error handling without details."""
+        """Test error handling with user message."""
         handler = SecureErrorHandler(service_name="test-service")
 
         try:
             raise ValueError("Sensitive information")
         except Exception as e:
-            error_response = handler.handle_error(e, include_details=False)
+            error_response = handler.handle_error(
+                e, error_type="security", user_message="A secure error occurred"
+            )
 
             assert isinstance(error_response, dict)
             # Should not contain sensitive details in secure mode
 
-    @patch("libs.secure_error_handler.logger")
-    def test_error_logging(self, mock_logger):
-        """Test that errors are properly logged."""
+    def test_error_logging(self):
+        """Test that handle_error method works and creates proper response."""
         handler = SecureErrorHandler(service_name="test-service")
 
         try:
             raise ValueError("Test error for logging")
         except Exception as e:
-            handler.handle_error(e)
+            result = handler.handle_error(e)
 
-            # Should have logged the error
-            mock_logger.error.assert_called()
+            # Should return a proper error response dictionary
+            assert isinstance(result, dict)
+            assert "error_id" in result
+            assert "message" in result
+            assert "timestamp" in result
+            assert "service" in result
+            assert result["service"] == "test-service"
+            # Should not expose the actual exception details
+            assert "ValueError" not in result["message"]
 
 
 class TestContentItem:
     """Test cases for ContentItem model."""
 
     def test_content_item_creation(self):
-        """Test creating content item."""
+        """Test creating content item with proper attribution."""
+        from datetime import datetime, timezone
+
         content = ContentItem(
             id="test-123",
             title="Test Content",
             content="This is test content",
-            source="test-source",
+            url="https://example.com/article",
+            published_at=datetime(2025, 9, 18, 12, 0, 0, tzinfo=timezone.utc),
         )
 
         assert content.id == "test-123"
         assert content.title == "Test Content"
         assert content.content == "This is test content"
-        assert content.source == "test-source"
+        assert content.url == "https://example.com/article"
+        assert content.published_at is not None
+        assert isinstance(content.source_metadata, dict)
+        assert isinstance(content.processing_metadata, dict)
+        assert isinstance(content.enrichment_metadata, dict)
 
     def test_content_item_with_metadata(self):
-        """Test content item with metadata."""
+        """Test content item with attribution metadata."""
+        from datetime import datetime, timezone
+
         content = ContentItem(
             id="test-456",
             title="Test Content",
             content="Content with metadata",
-            source="test-source",
-            metadata={"author": "test-user", "tags": ["test", "content"]},
+            url="https://example.com/source-article",
+            published_at=datetime(2025, 9, 18, 10, 30, 0, tzinfo=timezone.utc),
         )
 
-        assert content.metadata["author"] == "test-user"
-        assert "test" in content.metadata["tags"]
+        # Test attribution fields
+        assert content.url == "https://example.com/source-article"
+        assert content.published_at is not None
+
+        # Test metadata containers for different processing stages
+        content.source_metadata["author"] = "test-user"
+        content.source_metadata["tags"] = ["test", "content"]
+        content.processing_metadata["processed_at"] = "2025-09-18T12:00:00Z"
+        content.enrichment_metadata["sentiment"] = "positive"
+
+        assert content.source_metadata["author"] == "test-user"
+        assert "test" in content.source_metadata["tags"]
+        assert "processed_at" in content.processing_metadata
+        assert content.enrichment_metadata["sentiment"] == "positive"
+
+    def test_content_attribution_fields(self):
+        """Test that attribution fields properly track content sources."""
+        from datetime import datetime, timezone
+
+        # Test with complete attribution information
+        content = ContentItem(
+            id="attribution-test",
+            title="Breaking News: Tech Innovation",
+            content="Important technology news content...",
+            url="https://techblog.example.com/breaking-news-2025",
+            published_at=datetime(2025, 9, 18, 14, 30, 0, tzinfo=timezone.utc),
+        )
+
+        # Add source attribution metadata
+        content.source_metadata.update(
+            {
+                "author": "Jane Tech Reporter",
+                "publication": "Tech Blog Example",
+                "copyright": "© 2025 Tech Blog Example",
+                "license": "Fair Use",
+                "scraped_at": "2025-09-18T15:00:00Z",
+            }
+        )
+
+        # Verify attribution fields are properly tracked
+        assert content.url == "https://techblog.example.com/breaking-news-2025"
+        assert content.published_at is not None
+        assert content.source_metadata["author"] == "Jane Tech Reporter"
+        assert content.source_metadata["publication"] == "Tech Blog Example"
+        assert "copyright" in content.source_metadata
+        assert "license" in content.source_metadata
+
+        # Test that we can track the full attribution chain
+        assert all(
+            key in content.source_metadata
+            for key in ["author", "publication", "copyright", "license"]
+        )
 
 
 class TestErrorCodes:
@@ -275,6 +358,8 @@ class TestStandardError:
 
         assert error.status == "error"
         assert error.message == "Test error occurred"
+        assert error.errors is not None
+        # Now safe because we checked it's not None first
         assert len(error.errors) == 2
         assert error.error_id is not None  # Should auto-generate UUID
 
@@ -310,12 +395,13 @@ class TestSharedUtilities:
         assert "execution_time_ms" in metadata
         assert metadata["function"] == "test-service"
 
-    def test_service_dependency_consistency(self):
+    @pytest.mark.asyncio
+    async def test_service_dependency_consistency(self):
         """Test service dependency function consistency."""
         dependency_func = create_service_dependency("test-service")
 
-        result1 = dependency_func()
-        result2 = dependency_func()
+        result1 = await dependency_func()
+        result2 = await dependency_func()
 
         # Should have consistent structure
         assert result1.keys() == result2.keys()

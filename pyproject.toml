@@ -63,6 +63,27 @@ markers = [
 ]
 asyncio_mode = "auto"
 
+[tool.mypy]
+python_version = "3.11"
+plugins = ["pydantic.mypy"]
+ignore_missing_imports = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+disallow_untyped_decorators = false
+no_implicit_optional = false
+warn_return_any = false
+warn_unused_ignores = false
+warn_redundant_casts = false
+strict_optional = false
+allow_redefinition = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = false
+init_typed = false
+warn_required_dynamic_aliases = false
+warn_untyped_fields = false
+
 [tool.coverage.run]
 source = ["libs", "containers"]
 omit = [

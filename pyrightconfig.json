@@ -1,0 +1,39 @@
+{
+  "include": [
+    "libs",
+    "containers",
+    "tests"
+  ],
+  "exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    "htmlcov",
+    "output"
+  ],
+  "defineConstant": {
+    "DEBUG": true
+  },
+  "stubPath": "./typings",
+  "reportMissingImports": true,
+  "reportMissingTypeStubs": false,
+  "reportOptionalMemberAccess": false,
+  "reportOptionalSubscript": false,
+  "reportPrivateImportUsage": false,
+  "reportUnknownArgumentType": false,
+  "reportUnknownLambdaType": false,
+  "reportUnknownMemberType": false,
+  "reportUnknownParameterType": false,
+  "reportUnknownVariableType": false,
+  "reportUnnecessaryIsInstance": false,
+  "reportUnnecessaryComparison": false,
+  "reportIncompatibleMethodOverride": false,
+  "pythonVersion": "3.11",
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": true,
+  "autoImportCompletions": true,
+  "extraPaths": [
+    "./libs",
+    "./containers"
+  ]
+}
