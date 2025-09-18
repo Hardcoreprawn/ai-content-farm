@@ -128,7 +128,10 @@ class ContentProcessorStorageQueueRouter:
                 }
 
         except Exception as e:
-            logger.error(f"Error processing Storage Queue message: {e}")
+            logger.error(
+                "Error processing Storage Queue message",
+                extra={"error_type": type(e).__name__},
+            )
             return {
                 "status": "error",
                 "operation": message.operation,
@@ -156,7 +159,9 @@ async def storage_queue_health() -> Dict[str, Any]:
             "service": "content-processor",
         }
     except Exception as e:
-        logger.error(f"Storage Queue health check failed: {e}")
+        logger.error(
+            "Storage Queue health check failed", extra={"error_type": type(e).__name__}
+        )
         return {
             "status": "unhealthy",
             "error": "Health check failed",
@@ -211,7 +216,10 @@ async def process_storage_queue_messages(
 
                 return result
             except Exception as e:
-                logger.error(f"Error processing individual message: {e}")
+                logger.error(
+                    "Error processing individual message",
+                    extra={"error_type": type(e).__name__},
+                )
                 return {"status": "error", "error": "Message processing failed"}
 
         # Use the process_queue_messages utility from our unified interface
@@ -231,7 +239,9 @@ async def process_storage_queue_messages(
         )
 
     except Exception as e:
-        logger.error(f"Storage Queue processing failed: {e}")
+        logger.error(
+            "Storage Queue processing failed", extra={"error_type": type(e).__name__}
+        )
         raise HTTPException(
             status_code=500,
             detail="Storage Queue processing failed",
@@ -266,7 +276,9 @@ async def send_wake_up_endpoint() -> Dict[str, Any]:
         }
 
     except Exception as e:
-        logger.error(f"Failed to send wake-up message: {e}")
+        logger.error(
+            "Failed to send wake-up message", extra={"error_type": type(e).__name__}
+        )
         raise HTTPException(
             status_code=500,
             detail="Failed to send wake-up message",

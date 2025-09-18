@@ -167,10 +167,12 @@ class StorageQueueClient:
         try:
             # Check for local development with Azurite
             connection_string = os.getenv("AZURE_STORAGE_CONNECTION_STRING")
-            
-            if (connection_string and 
-                "devstoreaccount1" in connection_string and 
-                "azurite" in connection_string):
+
+            if (
+                connection_string
+                and "devstoreaccount1" in connection_string
+                and "azurite" in connection_string
+            ):
                 # Local development with Azurite
                 # Build Azurite queue connection string
                 azurite_queue_connection = connection_string
@@ -179,13 +181,14 @@ class StorageQueueClient:
                     if "azurite:10000" in azurite_queue_connection:
                         azurite_queue_connection = azurite_queue_connection.replace(
                             "BlobEndpoint=http://azurite:10000/devstoreaccount1;",
-                            "BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;"
+                            "BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;",
                         )
-                
-                logger.info(f"Using Azurite connection for queue: {self.config.queue_name}")
+
+                logger.info(
+                    f"Using Azurite connection for queue: {self.config.queue_name}"
+                )
                 self._queue_client = QueueClient.from_connection_string(
-                    conn_str=azurite_queue_connection,
-                    queue_name=self.config.queue_name
+                    conn_str=azurite_queue_connection, queue_name=self.config.queue_name
                 )
             else:
                 # Production Azure with managed identity
@@ -194,7 +197,9 @@ class StorageQueueClient:
                     queue_name=self.config.queue_name,
                     credential=self.credential,
                 )
-                logger.info(f"Using managed identity for queue: {self.config.queue_name}")
+                logger.info(
+                    f"Using managed identity for queue: {self.config.queue_name}"
+                )
 
             # Ensure queue exists
             try:
@@ -208,9 +213,7 @@ class StorageQueueClient:
                 else:
                     logger.warning(f"Queue creation check failed: {e}")
 
-            logger.info(
-                f"Connected to Storage Queue: {self.config.queue_name}"
-            )
+            logger.info(f"Connected to Storage Queue: {self.config.queue_name}")
 
         except Exception as e:
             logger.error(f"Failed to connect to Storage Queue: {e}")

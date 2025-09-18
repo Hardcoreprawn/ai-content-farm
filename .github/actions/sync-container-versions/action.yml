@@ -88,8 +88,8 @@ runs:
           echo "  [WARN] Could not retrieve current image for $app_name, creating new deployment..."
           current_tag="none"
         else
-          # Extract current tag
-          current_tag=$(echo "$current_image" | sed 's/.*://')
+          # Extract current tag safely with parameter expansion
+          current_tag="${current_image##*:}"
         fi
 
         new_image="$REGISTRY/$REPOSITORY/$TARGET_CONTAINER:$NEW_TAG"

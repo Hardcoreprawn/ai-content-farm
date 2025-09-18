@@ -24,7 +24,7 @@ resource "azurerm_resource_group" "main" {
 # Key Vault
 resource "azurerm_key_vault" "main" {
   # checkov:skip=CKV2_AZURE_32: Private endpoint not required for this use case
-  # checkov:skip=CKV_AZURE_109: Network ACLs allow all access due to dynamic GitHub Actions IPs - security enforced via RBAC
+  # checkov:skip=CKV_AZURE_109: Network ACLs deny by default with specific IP allowlist for CI/CD - security enforced via RBAC and network isolation
   name     = "${local.clean_prefix}kv${random_string.suffix.result}"
   location = azurerm_resource_group.main.location
 
@@ -36,8 +36,9 @@ resource "azurerm_key_vault" "main" {
 
   # Network ACLs for security compliance
   network_acls {
-    default_action = "Deny"          # Deny by default, allow trusted services and CI/CD
-    bypass         = "AzureServices" # Allow trusted Azure services (Container Apps use managed identity)
+    default_action             = "Deny"          # Deny by default, allow trusted services and CI/CD
+    bypass                     = "AzureServices" # Allow trusted Azure services (Container Apps use managed identity)
+    virtual_network_subnet_ids = []              # No specific VNet access required
     # GitHub Actions runner IPs for CI/CD access
     ip_rules = [
       "20.201.28.151/32", # GitHub Actions runner IPs
