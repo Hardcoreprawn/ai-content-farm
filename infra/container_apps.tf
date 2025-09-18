@@ -255,24 +255,28 @@ resource "azurerm_container_app" "content_collector" {
         name  = "STORAGE_QUEUE_NAME"
         value = azurerm_storage_queue.content_collection_requests.name
       }
+
+      # Enable KEDA cron triggering for scheduled collections
+      env {
+        name  = "KEDA_CRON_TRIGGER"
+        value = "true"
+      }
     }
 
     min_replicas = 0
     max_replicas = 2
 
-    # KEDA scaling rules for Storage Queue messages with managed identity
-    # Storage Queues support both managed identity and KEDA scaling
+    # KEDA cron scaler for regular content collection
+    # Triggers collection every hour to ensure fresh content
     custom_scale_rule {
-      name             = "storage-queue-scaler"
-      custom_rule_type = "azure-queue"
+      name             = "cron-scaler"
+      custom_rule_type = "cron"
       metadata = {
-        queueName   = azurerm_storage_queue.content_collection_requests.name
-        accountName = azurerm_storage_account.main.name
-        queueLength = "1" # Process collection requests immediately
-        cloud       = "AzurePublicCloud"
+        timezone        = "UTC"
+        start           = "0 * * * *"  # Every hour at minute 0
+        end             = "10 * * * *" # Stop scaling after 10 minutes
+        desiredReplicas = "1"
       }
-      # Using managed identity - no authentication block needed
-      # The container's managed identity will be used automatically
     }
   }
 

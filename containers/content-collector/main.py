@@ -10,6 +10,7 @@ Matrix Test: Full container matrix validation (Sep 15, 2025)
 """
 
 import logging
+import time
 from contextlib import asynccontextmanager
 from typing import Any, Dict
 
@@ -43,6 +44,24 @@ service_metadata = create_service_dependency("content-womble")
 async def lifespan(app: FastAPI):
     """Application lifespan manager with background Service Bus polling."""
     logger.info("Content Womble starting up...")
+
+    # Check if this startup was triggered by KEDA cron scaling
+    import os
+
+    if os.getenv("KEDA_CRON_TRIGGER", "false").lower() == "true":
+        logger.info("Detected KEDA cron trigger - running scheduled collection")
+        try:
+            from endpoints.collections import run_scheduled_collection
+
+            metadata = {
+                "timestamp": time.time(),
+                "function": "content-womble",
+                "version": "1.0.0",
+            }
+            result = await run_scheduled_collection(metadata)
+            logger.info(f"Scheduled collection completed: {result.message}")
+        except Exception as e:
+            logger.error(f"Failed to run scheduled collection: {str(e)}")
 
     # Start background Service Bus polling for KEDA scaling
     from endpoints.servicebus_router import service_bus_router as sb_router

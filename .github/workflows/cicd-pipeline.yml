@@ -117,6 +117,8 @@ jobs:
           # Set deployment method
           if [[ "$requires_terraform" == "true" ]]; then
             deploy_method="terraform"
+          elif [[ ${#container_list[@]} -gt 0 ]]; then
+            deploy_method="containers"
           fi
 
           {

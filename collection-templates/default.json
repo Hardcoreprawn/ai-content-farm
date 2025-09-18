@@ -5,18 +5,139 @@
             "subreddits": [
                 "technology",
                 "programming",
+                "MachineLearning",
+                "artificial",
+                "singularity",
                 "science",
+                "Physics",
+                "space",
+                "Futurology",
+                "cybersecurity",
+                "datascience",
+                "WebDev",
+                "devops",
+                "startups",
+                "entrepreneur",
+                "business",
+                "Economics",
                 "worldnews",
-                "news"
+                "news",
+                "climate",
+                "energy",
+                "privacy",
+                "opensource",
+                "linux",
+                "Python",
+                "javascript",
+                "rust",
+                "golang",
+                "docker",
+                "kubernetes",
+                "aws",
+                "azure",
+                "cloudcomputing",
+                "networking",
+                "sysadmin",
+                "InternetIsBeautiful",
+                "todayilearned",
+                "explainlikeimfive",
+                "AskScience",
+                "AskEngineers",
+                "cscareerquestions",
+                "engineering",
+                "robotics",
+                "automate",
+                "LifeProTips",
+                "productivity"
+            ],
+            "limit": 25,
+            "criteria": {
+                "min_score": 5,
+                "time_filter": "day",
+                "sort": "hot"
+            }
+        },
+        {
+            "type": "reddit",
+            "subreddits": [
+                "technology",
+                "programming",
+                "MachineLearning",
+                "science",
+                "Futurology",
+                "startups"
             ],
             "limit": 15,
             "criteria": {
-                "min_score": 10,
-                "time_filter": "day"
+                "min_score": 50,
+                "time_filter": "week",
+                "sort": "top"
+            }
+        },
+        {
+            "type": "reddit",
+            "subreddits": [
+                "worldnews",
+                "technology",
+                "science"
+            ],
+            "limit": 10,
+            "criteria": {
+                "min_score": 100,
+                "time_filter": "day",
+                "sort": "top"
+            }
+        },
+        {
+            "type": "rss",
+            "websites": [
+                "https://feeds.feedburner.com/oreilly/radar",
+                "https://techcrunch.com/feed/",
+                "https://www.wired.com/feed/rss",
+                "https://arstechnica.com/feed/",
+                "https://www.theverge.com/rss/index.xml",
+                "https://feeds.feedburner.com/venturebeat/SZYF",
+                "https://www.engadget.com/rss.xml",
+                "https://feeds.feedburner.com/TechCrunch/startups",
+                "https://feeds.feedburner.com/ommalik",
+                "https://feeds.feedburner.com/readwriteweb"
+            ],
+            "limit": 20,
+            "criteria": {
+                "published_within_hours": 24
+            }
+        },
+        {
+            "type": "rss",
+            "websites": [
+                "https://feeds.feedburner.com/MIT-News-CSAIL",
+                "https://www.sciencedaily.com/rss/computers_math/artificial_intelligence.xml",
+                "https://www.nature.com/nature.rss",
+                "https://feeds.feedburner.com/tweakers/mixed",
+                "https://feeds.feedburner.com/TheHackerNews",
+                "https://feeds.feedburner.com/oreilly/radar/ai",
+                "https://feeds.feedburner.com/kdnuggets-data-mining-analytics",
+                "https://www.analyticsvidhya.com/feed/"
+            ],
+            "limit": 15,
+            "criteria": {
+                "published_within_hours": 48
+            }
+        },
+        {
+            "type": "web",
+            "websites": [
+                "https://news.ycombinator.com",
+                "https://lobste.rs",
+                "https://slashdot.org"
+            ],
+            "limit": 10,
+            "criteria": {
+                "min_points": 50
             }
         }
     ],
     "deduplicate": true,
-    "similarity_threshold": 0.8,
+    "similarity_threshold": 0.75,
     "save_to_storage": true
 }
