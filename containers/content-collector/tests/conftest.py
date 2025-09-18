@@ -36,6 +36,13 @@ def setup_test_environment():
             with (
                 patch("libs.blob_storage.BlobStorageClient") as mock_storage_class,
                 patch("content_processing.collect_content_batch") as mock_collect_batch,
+                patch(
+                    "service_logic.collect_content_batch"
+                ) as mock_collect_batch_service,
+                patch(
+                    "source_collectors.SourceCollectorFactory"
+                ) as mock_collector_factory,
+                patch("libs.queue_client.send_wake_up_message") as mock_queue_client,
             ):
                 # Setup mock storage client
                 mock_storage = Mock()
@@ -47,7 +54,22 @@ def setup_test_environment():
                 mock_storage_class.return_value = mock_storage
 
                 # Setup mock content collection
-                mock_collect_batch.return_value = []
+                mock_collect_batch.return_value = {
+                    "collected_items": [],
+                    "metadata": {"total_collected": 0},
+                }
+                mock_collect_batch_service.return_value = {
+                    "collected_items": [],
+                    "metadata": {"total_collected": 0},
+                }
+
+                # Setup mock collector factory
+                mock_collector = Mock()
+                mock_collector.collect_content = AsyncMock(return_value=[])
+                mock_collector_factory.create_collector.return_value = mock_collector
+
+                # Setup mock queue client
+                mock_queue_client.return_value = {"message_id": "test_message_123"}
 
                 yield {
                     "storage": mock_storage,
@@ -55,6 +77,7 @@ def setup_test_environment():
                     "reddit_class": mock_reddit_class,
                     "reddit_instance": mock_reddit_instance,
                     "collect_batch": mock_collect_batch,
+                    "queue_client": mock_queue_client,
                 }
 
 

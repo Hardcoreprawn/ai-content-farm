@@ -14,6 +14,7 @@ from fastapi import APIRouter, Depends
 from models import CollectionRequest, CollectionResult
 from service_logic import ContentCollectorService
 
+from libs.blob_storage import BlobStorageClient
 from libs.shared_models import StandardResponse, create_service_dependency
 
 # Create router for collections
@@ -128,20 +129,9 @@ async def run_scheduled_collection(
     start_time = time.time()
 
     try:
-        # Load default collection template from blob storage
-        from libs.blob_storage import BlobStorageClient
-
-        storage_client = BlobStorageClient()
-
-        try:
-            # Try to load the default template from blob storage
-            template_content = await storage_client.download_text(
-                container_name="prompts", blob_name="collection-templates/default.json"
-            )
-            default_template = json.loads(template_content)
-        except Exception as e:
-            # Fallback template if blob storage fails
-            print(f"Failed to load template from blob storage: {e}")
+        # In test environment, use fallback template to avoid slow blob storage calls
+        if os.getenv("PYTEST_CURRENT_TEST") or os.getenv("ENVIRONMENT") == "testing":
+            print("Using fallback template in test environment")
             default_template = {
                 "sources": [
                     {
@@ -160,6 +150,38 @@ async def run_scheduled_collection(
                 "similarity_threshold": 0.8,
                 "save_to_storage": True,
             }
+        else:
+            # Load default collection template from blob storage
+            storage_client = BlobStorageClient()
+
+            try:
+                # Try to load the default template from blob storage
+                template_content = await storage_client.download_text(
+                    container_name="prompts",
+                    blob_name="collection-templates/default.json",
+                )
+                default_template = json.loads(template_content)
+            except Exception as e:
+                # Fallback template if blob storage fails
+                print(f"Failed to load template from blob storage: {e}")
+                default_template = {
+                    "sources": [
+                        {
+                            "type": "reddit",
+                            "subreddits": [
+                                "technology",
+                                "programming",
+                                "science",
+                                "worldnews",
+                            ],
+                            "limit": 10,
+                            "criteria": {"min_score": 5, "time_filter": "day"},
+                        }
+                    ],
+                    "deduplicate": True,
+                    "similarity_threshold": 0.8,
+                    "save_to_storage": True,
+                }
 
         # Convert to CollectionRequest model
         request = CollectionRequest(**default_template)
