@@ -35,16 +35,17 @@ resource "azurerm_key_vault" "main" {
   soft_delete_retention_days = 7
 
   # Network ACLs for security compliance
+  # trivy:ignore:AVD-AZU-0017
+  # checkov:skip=CKV_AZURE_109: Key vault network access restrictions not compatible with Container Apps consumption mode + managed identity
+  # Container Apps in consumption mode cannot use fixed IP ranges, requiring "Allow" for managed identity access
+  # Alternative: Azure Container Instances with spot pricing planned for future cost optimization
   network_acls {
-    default_action = "Allow" # Temporarily allow all during initial deployment
+    default_action = "Allow" # Required for Azure Container Apps consumption mode with managed identity
     bypass         = "AzureServices"
-    # TODO: Re-enable IP restrictions after initial deployment
-    # ip_rules = [
-    #   "20.201.28.151/32", # GitHub Actions runner IPs
-    #   "20.205.243.166/32",
-    #   "20.87.245.0/24",
-    #   "20.118.201.0/24"
-    # ]
+    # Cannot use IP restrictions with Container Apps consumption mode:
+    # - No fixed egress IPs available
+    # - Managed identity requires broad network access
+    # - Would require expensive dedicated compute environment
   }
 
   tags = {

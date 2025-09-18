@@ -26,8 +26,9 @@ runs:
       run: |
         echo "[SYNC] Starting container version sync for specific container..."
 
-        # Determine environment prefix from resource group
-        if [[ "${{ inputs.resource-group }}" == *"prod"* ]]; then
+        # Determine environment prefix from resource group (safely quoted)
+        RESOURCE_GROUP_INPUT="${{ inputs.resource-group }}"
+        if [[ "$RESOURCE_GROUP_INPUT" == *"prod"* ]]; then
           ENV_PREFIX="prod"
         else
           ENV_PREFIX="dev"

@@ -159,7 +159,7 @@ async def storage_queue_health() -> Dict[str, Any]:
         logger.error(f"Storage Queue health check failed: {e}")
         return {
             "status": "unhealthy",
-            "error": str(e),
+            "error": "Storage queue health check failed",
             "timestamp": datetime.now(timezone.utc),
             "service": "content-processor",
         }
