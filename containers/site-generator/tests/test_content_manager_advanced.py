@@ -258,7 +258,8 @@ class TestUtilityFunctions:
         assert content_manager.create_slug("Hello World") == "hello-world"
         assert content_manager.create_slug("Test Article Title") == "test-article-title"
         assert content_manager.create_slug("Hello, World!") == "hello-world"
-        assert content_manager.create_slug("Test@#$%^&*()Article") == "testarticle"
+        # python-slugify removes special chars and adds hyphens
+        assert content_manager.create_slug("Test@#$%^&*()Article") == "test-article"
         assert content_manager.create_slug("Multiple   Spaces") == "multiple-spaces"
 
     def test_create_slug_edge_cases(self, content_manager):
@@ -266,8 +267,8 @@ class TestUtilityFunctions:
         # Empty string
         assert content_manager.create_slug("") == "untitled"
 
-        # Only special characters
-        assert content_manager.create_slug("@#$%^&*()") == "untitled"
+        # Only special characters - python-slugify removes all, falls back to "article"
+        assert content_manager.create_slug("@#$%^&*()") == "article"
 
         # Very long title
         long_title = "a" * 100
