@@ -197,13 +197,12 @@ async def process_storage_queue_messages(
         )
 
         # Process a single message for now
-        async def process_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
+        async def process_message(
+            queue_message: QueueMessageModel, message: Any
+        ) -> Dict[str, Any]:
             """Process a single message."""
             try:
-                # Create QueueMessageModel from message data
-                queue_message = QueueMessageModel(**message_data)
-
-                # Process the message
+                # Process the message using the queue_message data
                 router_instance = get_storage_queue_router()
                 result = await router_instance.process_storage_queue_message(
                     queue_message
