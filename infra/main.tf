@@ -60,6 +60,7 @@ resource "azurerm_key_vault" "main" {
   soft_delete_retention_days = 7
 
   # Network ACLs: Allow all networks, security enforced via identity-based access control
+  # trivy:ignore:AVD-AZU-0013: Network ACL default_action Allow required for Container Apps consumption mode compatibility
   # trivy:ignore:AVD-AZU-0017: Network access "Allow" justified - security via RBAC and managed identity
   # checkov:skip=CKV_AZURE_109: Network access "Allow" required for dynamic GitHub Actions IPs and Container Apps
   # nosemgrep: terraform.azure.security.keyvault.keyvault-specify-network-acl.keyvault-specify-network-acl
