@@ -2,6 +2,7 @@
 Collections Endpoints - Content Collection and Processing
 
 RESTful endpoints for managing content collections from multiple sources.
+Implements OWASP-compliant error handling and input sanitization.
 """
 
 import json
@@ -15,6 +16,7 @@ from models import CollectionRequest, CollectionResult
 from service_logic import ContentCollectorService
 
 from libs.blob_storage import BlobStorageClient
+from libs.secure_error_handler import SecureErrorHandler
 from libs.shared_models import StandardResponse, create_service_dependency
 
 # Create router for collections
@@ -22,6 +24,9 @@ router = APIRouter(prefix="/collections", tags=["collections"])
 
 # Create service metadata dependency
 service_metadata = create_service_dependency("content-womble")
+
+# Initialize secure error handler
+error_handler = SecureErrorHandler("content-collector")
 
 
 @router.post(
@@ -44,16 +49,56 @@ async def create_collection(
     start_time = time.time()
 
     try:
-        # Convert sources to the expected format
+        # Sanitize input sources to prevent injection attacks
         sources_data = []
         for source in request.sources:
-            sources_data.append(
-                {
-                    "type": source.type,
-                    "subreddits": source.subreddits,
-                    "limit": source.limit,
-                    "criteria": {},
-                }
+            sanitized_source = {
+                "type": str(source.type).strip().lower(),  # Normalize type
+                # Clamp limit to safe range
+                "limit": max(1, min(source.limit, 100)),
+                "criteria": {},
+            }
+
+            # Sanitize subreddit names to prevent injection
+            if source.subreddits:
+                sanitized_subreddits = []
+                for subreddit in source.subreddits:
+                    # Remove dangerous characters and limit length
+                    sanitized = (
+                        str(subreddit).strip().replace("/", "").replace("\\", "")
+                    )
+                    sanitized = sanitized[:50]  # Limit length
+                    if sanitized and sanitized.isalnum() or "_" in sanitized:
+                        sanitized_subreddits.append(sanitized)
+                sanitized_source["subreddits"] = sanitized_subreddits
+
+            # Sanitize website URLs if present
+            if source.websites:
+                sanitized_websites = []
+                for website in source.websites:
+                    sanitized = str(website).strip()
+                    if (
+                        sanitized.startswith(("http://", "https://"))
+                        and len(sanitized) < 200
+                    ):
+                        sanitized_websites.append(sanitized)
+                sanitized_source["websites"] = sanitized_websites
+
+            sources_data.append(sanitized_source)
+
+        # Validate we have at least one valid source after sanitization
+        if not sources_data:
+            error_response = error_handler.create_http_error_response(
+                status_code=400,
+                error_type="validation",
+                user_message="No valid sources provided after input sanitization",
+            )
+            return StandardResponse(
+                status=error_response["status"],
+                message=error_response["message"],
+                data={},
+                errors=error_response["errors"],
+                metadata=error_response["metadata"],
             )
 
         # Create a new service instance for this request
@@ -101,12 +146,24 @@ async def create_collection(
             processing_time_ms = 1
         metadata["execution_time_ms"] = processing_time_ms
 
+        # Use secure error handling to prevent information disclosure
+        error_response = error_handler.create_http_error_response(
+            status_code=500,
+            error=e,
+            error_type="collection",
+            user_message="Failed to create content collection",
+            context={
+                "sources_count": len(request.sources),
+                "processing_time": processing_time_ms,
+            },
+        )
+
         return StandardResponse(
-            status="error",
-            message=f"Failed to create collection: {str(e)}",
+            status=error_response["status"],
+            message=error_response["message"],
             data={},
-            errors=[str(e)],
-            metadata=metadata,
+            errors=error_response["errors"],
+            metadata=error_response["metadata"],
         )
 
 
@@ -227,12 +284,21 @@ async def run_scheduled_collection(
             processing_time_ms = 1
         metadata["execution_time_ms"] = processing_time_ms
 
+        # Use secure error handling to prevent information disclosure
+        error_response = error_handler.create_http_error_response(
+            status_code=500,
+            error=e,
+            error_type="collection",
+            user_message="Failed to run scheduled collection",
+            context={"processing_time": processing_time_ms},
+        )
+
         return StandardResponse(
-            status="error",
-            message=f"Failed to run scheduled collection: {str(e)}",
+            status=error_response["status"],
+            message=error_response["message"],
             data={},
-            errors=[str(e)],
-            metadata=metadata,
+            errors=error_response["errors"],
+            metadata=error_response["metadata"],
         )
 
 
@@ -260,10 +326,19 @@ async def trigger_collection():
         return await run_scheduled_collection(metadata)
 
     except Exception as e:
+        # Use secure error handling to prevent information disclosure
+        error_response = error_handler.create_http_error_response(
+            status_code=500,
+            error=e,
+            error_type="collection",
+            user_message="Failed to trigger collection",
+            context={"trigger_endpoint": True},
+        )
+
         return StandardResponse(
-            status="error",
-            message=f"Failed to trigger collection: {str(e)}",
+            status=error_response["status"],
+            message=error_response["message"],
             data={},
-            errors=[str(e)],
-            metadata={"timestamp": time.time(), "execution_time_ms": 1},
+            errors=error_response["errors"],
+            metadata=error_response["metadata"],
         )

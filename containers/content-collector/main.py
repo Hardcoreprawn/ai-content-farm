@@ -19,6 +19,7 @@ from endpoints import (
     diagnostics_router,
     discoveries_router,
     sources_router,
+    storage_queue_router,
 )
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -206,7 +207,8 @@ app.include_router(
 app.include_router(collections_router)  # /collections endpoints
 app.include_router(discoveries_router)  # /discoveries endpoints
 app.include_router(sources_router)  # /sources endpoints
-# Service Bus endpoints removed - using KEDA cron scheduling instead
+# Storage Queue endpoints for KEDA integration
+app.include_router(storage_queue_router)
 
 
 if __name__ == "__main__":

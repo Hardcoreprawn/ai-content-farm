@@ -9,9 +9,9 @@ Replaces Service Bus to resolve Container Apps authentication conflicts.
 import logging
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 from service_logic import ContentCollectorService
 
@@ -58,12 +58,14 @@ class ContentCollectorStorageQueueRouter:
         """
         try:
             logger.info(
-                f"Processing Storage Queue message: {message.operation} from {message.service_name}"
+                f"Processing Storage Queue message: {message.operation} "
+                f"from {message.service_name}"
             )
 
             if message.operation == "wake_up":
                 # Handle wake-up message - return stats for now
-                # The collector doesn't need to do work on wake-up, it collects when triggered
+                # The collector doesn't need to do work on wake-up, it collects
+                # when triggered
                 stats = self.service.get_service_stats()
                 return {
                     "status": "success",
@@ -111,8 +113,16 @@ class ContentCollectorStorageQueueRouter:
             }
 
 
-# Global router instance
-storage_queue_router = ContentCollectorStorageQueueRouter()
+# Global router instance - lazy loading for tests
+_storage_queue_router = None
+
+
+def get_storage_queue_router() -> ContentCollectorStorageQueueRouter:
+    """Get or create storage queue router instance."""
+    global _storage_queue_router
+    if _storage_queue_router is None:
+        _storage_queue_router = ContentCollectorStorageQueueRouter()
+    return _storage_queue_router
 
 
 @router.get("/health")
@@ -162,8 +172,6 @@ async def process_storage_queue_messages(
             f"Starting Storage Queue processing (correlation_id: {correlation_id})"
         )
 
-        client = get_queue_client("content-collection-requests")
-
         # Receive and process messages using our unified interface
         async def process_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
             """Process a single message."""
@@ -172,7 +180,8 @@ async def process_storage_queue_messages(
                 queue_message = QueueMessageModel(**message_data)
 
                 # Process the message
-                result = await storage_queue_router.process_storage_queue_message(
+                router_instance = get_storage_queue_router()
+                result = await router_instance.process_storage_queue_message(
                     queue_message
                 )
 
@@ -182,7 +191,8 @@ async def process_storage_queue_messages(
                     )
                 else:
                     logger.warning(
-                        f"Message processing failed: {result.get('error', 'Unknown error')}"
+                        f"Message processing failed: "
+                        f"{result.get('error', 'Unknown error')}"
                     )
 
                 return result
