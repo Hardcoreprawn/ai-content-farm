@@ -193,9 +193,6 @@ class StorageQueueClient(QueueClientInterface):
 
             return {
                 "message_id": response.id,
-                "pop_receipt": response.pop_receipt,
-                "insertion_time": response.insertion_time,
-                "expiration_time": response.expiration_time,
             }
 
         except Exception as e:
