@@ -323,6 +323,7 @@ resource "azurerm_storage_account" "main" {
   public_network_access_enabled = true
   shared_access_key_enabled     = true
   # nosemgrep: terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass
+  # trivy:ignore:AVD-AZU-0012: Default_action Allow required for Container Apps consumption mode compatibility
   network_rules {
     default_action = "Allow"
     bypass         = ["AzureServices"] # This is the recommended configuration for Microsoft services
@@ -554,6 +555,7 @@ resource "azurerm_cognitive_account" "openai" {
 
   # Network access restrictions: Allow all networks, security via identity-based access control
   # checkov:skip=CKV_AZURE_134: Public network access required for Container Apps and GitHub Actions
+  # trivy:ignore:AVD-AZU-0013: Network ACL default_action Allow required for Container Apps consumption mode compatibility
   # nosemgrep: terraform.azure.security.openai.public-network-access.public-network-access
   # Security Strategy:
   # 1. GitHub Actions runner IPs are dynamic and unpredictable
