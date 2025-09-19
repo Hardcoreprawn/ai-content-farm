@@ -94,19 +94,31 @@ class MarkdownService:
     async def _get_processed_articles(self, limit: int) -> List[Dict]:
         """Get latest processed articles from blob storage."""
         try:
-            # List blobs in processed-content container
-            blobs = await self.blob_client.list_blobs(
-                container_name=self.config.PROCESSED_CONTENT_CONTAINER, limit=limit
+            logger.info(
+                f"Attempting to list blobs from container: {self.config.PROCESSED_CONTENT_CONTAINER}"
             )
 
+            # List blobs in processed-content container
+            blobs = await self.blob_client.list_blobs(
+                container_name=self.config.PROCESSED_CONTENT_CONTAINER
+            )
+
+            logger.info(f"Found {len(blobs)} blobs in container")
+            if blobs:
+                logger.info(f"First blob info: {blobs[0]}")
+
             articles = []
-            for blob_name in blobs[:limit]:
+            # Take only the requested number of blobs and extract blob names properly
+            for blob_info in blobs[:limit]:
+                # Extract name from blob info dict
+                blob_name = blob_info["name"]
+                logger.info(f"Processing blob: {blob_name}")
                 try:
-                    content = await self.blob_client.download_blob(
+                    article_data = await self.blob_client.download_json(
                         container_name=self.config.PROCESSED_CONTENT_CONTAINER,
                         blob_name=blob_name,
                     )
-                    article_data = json.loads(content)
+                    logger.info(f"Successfully downloaded article data for {blob_name}")
                     articles.append(article_data)
                 except Exception as e:
                     logger.error(f"Failed to load article {blob_name}")
@@ -115,11 +127,12 @@ class MarkdownService:
             # Sort by generated_at timestamp, newest first
             articles.sort(key=lambda x: x.get("generated_at", ""), reverse=True)
 
+            logger.info(f"Returning {len(articles)} processed articles")
             return articles
 
         except Exception as e:
             logger.error("Failed to get processed articles")
-            logger.debug(f"Processed articles retrieval error details: {e}")
+            logger.error(f"Processed articles retrieval error details: {e}")
             return []
 
     async def _generate_single_markdown(self, article_data: Dict) -> str:
