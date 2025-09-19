@@ -302,6 +302,7 @@ resource "azurerm_application_insights" "main" {
 }
 
 resource "azurerm_storage_account" "main" {
+  # checkov:skip=CKV_AZURE_33: Queue logging enabled via separate azurerm_storage_account_queue_properties resource
   # checkov:skip=CKV_AZURE_35: Needed for initial setup
   # checkov:skip=CKV_AZURE_59: Using for testing
   # checkov:skip=CKV_AZURE_206: LRS is sufficient for this use case
