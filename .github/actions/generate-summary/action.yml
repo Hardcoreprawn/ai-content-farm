@@ -1,0 +1,139 @@
+---
+name: 'Generate Pipeline Summary'
+description: 'Generates a comprehensive summary of the pipeline execution'
+inputs:
+  is-dependabot:
+    description: 'Whether this is a dependabot PR'
+    required: true
+  requires-terraform:
+    description: 'Whether terraform was required'
+    required: true
+  test-containers-result:
+    description: 'Result of test-containers job'
+    required: false
+    default: 'skipped'
+  security-containers-result:
+    description: 'Result of security-containers job'
+    required: false
+    default: 'skipped'
+  terraform-checks-result:
+    description: 'Result of terraform-checks job'
+    required: false
+    default: 'skipped'
+  deploy-result:
+    description: 'Result of deploy job'
+    required: false
+    default: 'skipped'
+  container-sync-result:
+    description: 'Result of container-sync job'
+    required: false
+    default: 'skipped'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Generate Summary
+      shell: bash
+      env:
+        IS_DEPENDABOT: ${{ inputs.is-dependabot }}
+        REQUIRES_TERRAFORM: ${{ inputs.requires-terraform }}
+        TEST_CONTAINERS_RESULT: ${{ inputs.test-containers-result }}
+        SECURITY_CONTAINERS_RESULT: ${{ inputs.security-containers-result }}
+        TERRAFORM_CHECKS_RESULT: ${{ inputs.terraform-checks-result }}
+        DEPLOY_RESULT: ${{ inputs.deploy-result }}
+        CONTAINER_SYNC_RESULT: ${{ inputs.container-sync-result }}
+      run: |
+        {
+          echo "# Pipeline Summary"
+          echo ""
+
+          # Pipeline type
+          if [[ "$IS_DEPENDABOT" == "true" ]]; then
+            echo "[DEPENDABOT] **Dependabot Pipeline**"
+            if [[ "$REQUIRES_TERRAFORM" == "false" ]]; then
+              echo "[FAST] Pure dependency update - Terraform checks skipped for speed"
+            fi
+          else
+            echo "[FULL] **Full CI/CD Pipeline**"
+          fi
+
+          echo ""
+          echo "## Jobs Executed:"
+
+          # Always run jobs
+          echo "- [PASS] Quality Checks"
+          echo "- [PASS] Security Code Scan"
+
+          # Conditional jobs
+          if [[ "$TEST_CONTAINERS_RESULT" != "skipped" ]]; then
+            if [[ "$TEST_CONTAINERS_RESULT" == "success" ]]; then
+              echo "- [PASS] Container Tests"
+            else
+              echo "- [FAIL] Container Tests (failed)"
+            fi
+          else
+            echo "- [SKIP] Container Tests (skipped - no container changes)"
+          fi
+
+          if [[ "$SECURITY_CONTAINERS_RESULT" != "skipped" ]]; then
+            if [[ "$SECURITY_CONTAINERS_RESULT" == "success" ]]; then
+              echo "- [PASS] Container Security"
+            else
+              echo "- [FAIL] Container Security (failed)"
+            fi
+          else
+            echo "- [SKIP] Container Security (skipped)"
+          fi
+
+          if [[ "$TERRAFORM_CHECKS_RESULT" != "skipped" ]]; then
+            if [[ "$TERRAFORM_CHECKS_RESULT" == "success" ]]; then
+              echo "- [PASS] Terraform Checks"
+            else
+              echo "- [FAIL] Terraform Checks (failed)"
+            fi
+          else
+            echo "- [SKIP] Terraform Checks (skipped - no infrastructure changes)"
+          fi
+
+          if [[ "$DEPLOY_RESULT" != "skipped" ]]; then
+            if [[ "$DEPLOY_RESULT" == "success" ]]; then
+              echo "- [PASS] Deployment"
+            else
+              echo "- [FAIL] Deployment (failed)"
+            fi
+          else
+            echo "- [SKIP] Deployment (skipped)"
+          fi
+
+          if [[ "$CONTAINER_SYNC_RESULT" != "skipped" ]]; then
+            if [[ "$CONTAINER_SYNC_RESULT" == "success" ]]; then
+              echo "- [PASS] Container Sync"
+            else
+              echo "- [FAIL] Container Sync (failed)"
+            fi
+          else
+            echo "- [SKIP] Container Sync (skipped)"
+          fi
+
+          echo ""
+
+          # Overall status
+          overall_success="true"
+          if [[ "$TEST_CONTAINERS_RESULT" == "failure" ]] || \
+             [[ "$SECURITY_CONTAINERS_RESULT" == "failure" ]] || \
+             [[ "$TERRAFORM_CHECKS_RESULT" == "failure" ]] || \
+             [[ "$DEPLOY_RESULT" == "failure" ]] || \
+             [[ "$CONTAINER_SYNC_RESULT" == "failure" ]]; then
+            overall_success="false"
+          fi
+
+          if [[ "$overall_success" == "true" ]]; then
+            echo "[SUCCESS] **Pipeline completed successfully!**"
+          else
+            echo "[FAILURE] **Pipeline had failures - check job details above**"
+          fi
+
+          echo ""
+          echo "---"
+          echo "*Generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')*"
+        } >> "$GITHUB_STEP_SUMMARY"

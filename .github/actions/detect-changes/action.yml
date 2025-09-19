@@ -1,0 +1,187 @@
+---
+name: 'Detect Changes'
+description: 'Detects changes in the repository and determines pipeline configuration'
+inputs:
+  github-event-name:
+    description: 'GitHub event name'
+    required: true
+  github-event-before:
+    description: 'Before commit from GitHub event'
+    required: false
+    default: ''
+  github-event-after:
+    description: 'After commit from GitHub event'
+    required: false
+    default: ''
+  github-base-ref:
+    description: 'Base reference for PRs'
+    required: false
+    default: ''
+  github-actor:
+    description: 'GitHub actor'
+    required: true
+
+outputs:
+  containers:
+    description: 'JSON array of containers that changed'
+    value: ${{ steps.detect.outputs.containers }}
+  infrastructure:
+    description: 'Whether infrastructure changed'
+    value: ${{ steps.detect.outputs.infrastructure }}
+  deploy-method:
+    description: 'Deployment method to use'
+    value: ${{ steps.detect.outputs.deploy-method }}
+  is-dependabot:
+    description: 'Whether this is a dependabot PR'
+    value: ${{ steps.detect.outputs.is-dependabot }}
+  requires-terraform:
+    description: 'Whether terraform is required'
+    value: ${{ steps.detect.outputs.requires-terraform }}
+  requires-full-pipeline:
+    description: 'Whether full pipeline is required'
+    value: ${{ steps.detect.outputs.requires-full-pipeline }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Detect Changes
+      id: detect
+      shell: bash
+      env:
+        EVENT_NAME: ${{ inputs.github-event-name }}
+        EVENT_BEFORE: ${{ inputs.github-event-before }}
+        EVENT_AFTER: ${{ inputs.github-event-after }}
+        BASE_REF: ${{ inputs.github-base-ref }}
+        ACTOR: ${{ inputs.github-actor }}
+      run: |
+        # Proper change detection using GitHub event data
+        baseline=""
+        changed_files=""
+
+        if [[ "$EVENT_NAME" == "push" ]]; then
+          # For pushes, use the actual before/after from GitHub event
+          before="$EVENT_BEFORE"
+          after="$EVENT_AFTER"
+
+          # Handle edge cases
+          if [[ "$before" == "0000000000000000000000000000000000000000" ]]; then
+            # New branch - compare against main or fall back to HEAD~1
+            baseline="origin/main"
+            if ! git rev-parse --verify "$baseline" >/dev/null 2>&1; then
+              baseline="HEAD~1"
+            fi
+            echo "[PUSH] New branch detected, comparing against: $baseline"
+          else
+            # Normal push - use the actual before commit
+            baseline="$before"
+            echo "[PUSH] Comparing against actual push baseline: $before"
+          fi
+
+          changed_files=$(git diff --name-only "$baseline" "$after" || echo "")
+        else
+          # For PRs, compare against the target branch
+          baseline="origin/$BASE_REF"
+          echo "[PR] Comparing against target branch: $baseline"
+          changed_files=$(git diff --name-only "$baseline" HEAD || echo "")
+        fi
+
+        echo "[DEBUG] Change detection details:"
+        echo "  - Event: $EVENT_NAME"
+        echo "  - Baseline: $baseline"
+        echo "  - Commits in range: $(git rev-list --count "$baseline"..HEAD 2>/dev/null || echo 'unknown')"
+        echo "  - Changed files:"
+        echo "$changed_files" | sed 's/^/    /'
+
+        containers="[]"
+        infrastructure="false"
+        deploy_method="skip"
+        container_list=()
+        is_dependabot="false"
+        requires_terraform="false"
+        requires_full_pipeline="true"
+
+        # Check if this is a dependabot PR
+        if [[ "$ACTOR" == "dependabot[bot]" ]]; then
+          is_dependabot="true"
+          requires_full_pipeline="false"
+          echo "[DEPENDABOT] PR detected - optimizing pipeline"
+        fi
+
+        # Analyze changed files
+        while IFS= read -r file; do
+          case "$file" in
+            containers/*/*)
+              container=$(echo "$file" | cut -d/ -f2)
+              if [[ -f "containers/$container/Dockerfile" ]]; then
+                container_list+=("$container")
+              fi
+              ;;
+            libs/*|requirements*.txt|pyproject.toml)
+              for dir in containers/*/; do
+                container=$(basename "$dir")
+                if [[ -f "$dir/Dockerfile" ]]; then
+                  container_list+=("$container")
+                fi
+              done
+              ;;
+            infra/*|*.tf|*.tfvars)
+              infrastructure="true"
+              requires_terraform="true"
+              requires_full_pipeline="true"
+              ;;
+          esac
+        done <<< "$changed_files"
+
+        # For dependabot PRs with only requirements changes, skip terraform
+        if [[ "$is_dependabot" == "true" ]]; then
+          # Check if only dependency files changed
+          dependency_only="true"
+          while IFS= read -r file; do
+            case "$file" in
+              requirements*.txt|containers/*/requirements.txt|pyproject.toml|poetry.lock|package*.json)
+                # These are dependency files - OK for dependabot
+                ;;
+              *)
+                # Any other file means it's not a pure dependency update
+                dependency_only="false"
+                requires_full_pipeline="true"
+                ;;
+            esac
+          done <<< "$changed_files"
+
+          if [[ "$dependency_only" == "true" ]]; then
+            requires_terraform="false"
+            echo "[SKIP] Pure dependency update detected - fast track enabled"
+            echo "  - Skipping: Terraform, Infrastructure scans"
+            echo "  - Running: Security scans, Tests for affected containers, Auto-merge"
+          fi
+        fi
+
+        if [[ ${#container_list[@]} -gt 0 ]]; then
+          containers=$(printf '%s\n' "${container_list[@]}" | \
+                      sort -u | jq -R . | jq -s . | jq -c .)
+        fi
+
+        # Set deployment method
+        if [[ "$requires_terraform" == "true" ]]; then
+          deploy_method="terraform"
+        elif [[ ${#container_list[@]} -gt 0 ]]; then
+          deploy_method="containers"
+        fi
+
+        {
+          echo "containers=$containers"
+          echo "infrastructure=$infrastructure"
+          echo "deploy-method=$deploy_method"
+          echo "is-dependabot=$is_dependabot"
+          echo "requires-terraform=$requires_terraform"
+          echo "requires-full-pipeline=$requires_full_pipeline"
+        } >> "$GITHUB_OUTPUT"
+
+        # Debug output
+        echo "[CONFIG] Pipeline Configuration:"
+        echo "  - Is Dependabot: $is_dependabot"
+        echo "  - Requires Terraform: $requires_terraform"
+        echo "  - Requires Full Pipeline: $requires_full_pipeline"
+        echo "  - Containers: $containers"
+        echo "  - Infrastructure: $infrastructure"

@@ -38,105 +38,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          fetch-depth: 2
+          fetch-depth: 0  # Need full history for proper change detection
 
       - name: Detect Changes and Actor
         id: changes
-        run: |
-          changed_files=$(git diff --name-only HEAD~1 HEAD || echo "")
-          containers="[]"
-          infrastructure="false"
-          deploy_method="skip"
-          container_list=()
-          is_dependabot="false"
-          requires_terraform="false"
-          requires_full_pipeline="true"
-
-          # Check if this is a dependabot PR
-          if [[ "${{ github.actor }}" == "dependabot[bot]" ]]; then
-            is_dependabot="true"
-            requires_full_pipeline="false"
-            echo "[DEPENDABOT] PR detected - optimizing pipeline"
-          fi
-
-          # Analyze changed files
-          while IFS= read -r file; do
-            case "$file" in
-              containers/*/*)
-                container=$(echo "$file" | cut -d/ -f2)
-                if [[ -f "containers/$container/Dockerfile" ]]; then
-                  container_list+=("$container")
-                fi
-                ;;
-              libs/*|requirements*.txt|pyproject.toml)
-                for dir in containers/*/; do
-                  container=$(basename "$dir")
-                  if [[ -f "$dir/Dockerfile" ]]; then
-                    container_list+=("$container")
-                  fi
-                done
-                ;;
-              infra/*|*.tf|*.tfvars)
-                infrastructure="true"
-                requires_terraform="true"
-                requires_full_pipeline="true"
-                ;;
-            esac
-          done <<< "$changed_files"
-
-          # For dependabot PRs with only requirements changes, skip terraform
-          if [[ "$is_dependabot" == "true" ]]; then
-            # Check if only dependency files changed
-            dependency_only="true"
-            while IFS= read -r file; do
-              case "$file" in
-                requirements*.txt|containers/*/requirements.txt|pyproject.toml|poetry.lock|package*.json)
-                  # These are dependency files - OK for dependabot
-                  ;;
-                *)
-                  # Any other file means it's not a pure dependency update
-                  dependency_only="false"
-                  requires_full_pipeline="true"
-                  ;;
-              esac
-            done <<< "$changed_files"
-
-            if [[ "$dependency_only" == "true" ]]; then
-              requires_terraform="false"
-              echo "[SKIP] Pure dependency update detected - fast track enabled"
-              echo "  - Skipping: Terraform, Infrastructure scans"
-              echo "  - Running: Security scans, Tests for affected containers, Auto-merge"
-            fi
-          fi
-
-          if [[ ${#container_list[@]} -gt 0 ]]; then
-            containers=$(printf '%s\n' "${container_list[@]}" | \
-                        sort -u | jq -R . | jq -s . | jq -c .)
-          fi
-
-          # Set deployment method
-          if [[ "$requires_terraform" == "true" ]]; then
-            deploy_method="terraform"
-          elif [[ ${#container_list[@]} -gt 0 ]]; then
-            deploy_method="containers"
-          fi
-
-          {
-            echo "containers=$containers"
-            echo "infrastructure=$infrastructure"
-            echo "deploy-method=$deploy_method"
-            echo "is-dependabot=$is_dependabot"
-            echo "requires-terraform=$requires_terraform"
-            echo "requires-full-pipeline=$requires_full_pipeline"
-          } >> "$GITHUB_OUTPUT"
-
-          # Debug output
-          echo "[CONFIG] Pipeline Configuration:"
-          echo "  - Is Dependabot: $is_dependabot"
-          echo "  - Requires Terraform: $requires_terraform"
-          echo "  - Requires Full Pipeline: $requires_full_pipeline"
-          echo "  - Containers: $containers"
-          echo "  - Infrastructure: $infrastructure"
+        uses: ./.github/actions/detect-changes
+        with:
+          github-event-name: ${{ github.event_name }}
+          github-event-before: ${{ github.event.before }}
+          github-event-after: ${{ github.event.after }}
+          github-base-ref: ${{ github.base_ref }}
+          github-actor: ${{ github.actor }}
 
   # === ALWAYS RUN (LIGHTWEIGHT) ===
   quality-checks:
@@ -400,47 +312,16 @@ jobs:
       - container-sync
     if: always()
     steps:
-      - name: Generate Summary
-        run: |
-          {
-            echo "# Pipeline Summary"
-            echo ""
+      - name: Checkout
+        uses: actions/checkout@v5
 
-            # Pipeline type
-            if [[ "${{ needs.detect-changes.outputs.is-dependabot }}" == "true" ]]; then
-              echo "[DEPENDABOT] **Dependabot Pipeline**"
-              if [[ "${{ needs.detect-changes.outputs.requires-terraform }}" == "false" ]]; then
-                echo "[SKIP] Pure dependency update - Terraform checks skipped"
-              fi
-            else
-              echo "[FULL] **Full CI/CD Pipeline**"
-            fi
-
-            echo ""
-            echo "## Jobs Executed:"
-
-            # Show which jobs ran
-            echo "- [PASS] Quality Checks"
-            echo "- [PASS] Security Code Scan"
-
-            if [[ "${{ needs.test-containers.result }}" != "skipped" ]]; then
-              echo "- [PASS] Container Tests"
-            fi
-
-            if [[ "${{ needs.security-containers.result }}" != "skipped" ]]; then
-              echo "- [PASS] Container Security"
-            fi
-
-            if [[ "${{ needs.terraform-checks.result }}" != "skipped" ]]; then
-              echo "- [PASS] Terraform Checks"
-            else
-              echo "- [SKIP] Terraform Checks (skipped)"
-            fi
-
-            if [[ "${{ needs.deploy.result }}" != "skipped" ]]; then
-              echo "- [PASS] Deployment"
-            fi
-
-            echo ""
-            echo "Pipeline completed successfully!"
-          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Generate Pipeline Summary
+        uses: ./.github/actions/generate-summary
+        with:
+          is-dependabot: ${{ needs.detect-changes.outputs.is-dependabot }}
+          requires-terraform: ${{ needs.detect-changes.outputs.requires-terraform }}
+          test-containers-result: ${{ needs.test-containers.result }}
+          security-containers-result: ${{ needs.security-containers.result }}
+          terraform-checks-result: ${{ needs.terraform-checks.result }}
+          deploy-result: ${{ needs.deploy.result }}
+          container-sync-result: ${{ needs.container-sync.result }}
