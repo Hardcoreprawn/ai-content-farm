@@ -278,7 +278,8 @@ app.include_router(diagnostics_router)
 # /process, /process/types, /process/status
 app.include_router(processing_router)
 app.include_router(servicebus_router)  # /internal Service Bus endpoints
-app.include_router(storage_queue_router)  # /storage-queue Storage Queue endpoints
+# /storage-queue Storage Queue endpoints
+app.include_router(storage_queue_router)
 
 
 if __name__ == "__main__":
