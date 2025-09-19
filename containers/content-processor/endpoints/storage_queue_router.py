@@ -280,7 +280,3 @@ async def send_wake_up_endpoint() -> Dict[str, Any]:
             status_code=500,
             detail=f"Failed to send wake-up message: {str(e)}",
         )
-
-
-# Create storage queue router for backward compatibility during migration
-service_bus_router = router

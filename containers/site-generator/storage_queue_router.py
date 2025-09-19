@@ -280,7 +280,3 @@ async def process_storage_queue_messages(
             status_code=500,
             detail=f"Storage Queue processing failed: {str(e)}",
         )
-
-
-# Create storage queue router for backward compatibility during migration
-service_bus_router = router

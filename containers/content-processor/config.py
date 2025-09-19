@@ -101,14 +101,6 @@ class ContentProcessorSettings(BaseSettings):
         default=0.7, description="Quality threshold for content"
     )
 
-    # Service Bus Configuration (Phase 4)
-    service_bus_connection_string: Optional[str] = Field(
-        default=None, description="Azure Service Bus connection string"
-    )
-    service_bus_queue_name: str = Field(
-        default="content-processing-topics", description="Service Bus queue name"
-    )
-
     def get_openai_endpoints(self) -> Dict[str, str]:
         """Get available OpenAI endpoints for multi-region support."""
         endpoints = {}

@@ -29,7 +29,6 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from config import Config
 from libs import SecureErrorHandler
-from libs.background_poller import BackgroundPoller
 from libs.shared_models import (
     StandardResponse,
     create_service_dependency,
@@ -78,28 +77,13 @@ error_handler = SecureErrorHandler("site-generator")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager with background Service Bus polling."""
+    """Application lifespan manager for KEDA-triggered site generation."""
     logger.info("Site Generator starting up...")
-
-    # Start background Service Bus polling for KEDA scaling
-    from servicebus_router import service_bus_router as sb_router
-
-    poller = BackgroundPoller(
-        service_bus_router=sb_router,
-        poll_interval=5.0,  # Check every 5 seconds when processing
-        max_poll_attempts=3,  # Try 3 times before longer sleep
-        empty_queue_sleep=30.0,  # Sleep 30s when queue consistently empty
-    )
+    logger.info("Site Generator ready for KEDA Storage Queue scaling")
 
     try:
-        await poller.start()
-        logger.info("Background Service Bus polling started")
-
         yield
-
     finally:
-        logger.info("Stopping background Service Bus polling")
-        await poller.stop()
         logger.info("Site Generator shutting down...")
 
 
@@ -332,15 +316,6 @@ async def preview_site(site_id: str):
         )
         raise HTTPException(status_code=404, detail=error_response)
 
-
-# Add Service Bus endpoints for Phase 1 Security Implementation
-try:
-    from servicebus_router import router as servicebus_router
-
-    app.include_router(servicebus_router)
-    logger.info("Service Bus endpoints loaded successfully")
-except ImportError as e:
-    logger.warning(f"Service Bus endpoints not available: {e}")
 
 # Exception handlers
 app.add_exception_handler(
