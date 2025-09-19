@@ -201,8 +201,8 @@ class SiteGenerator:
             # Count markdown files
             markdown_count = await self.markdown_service.count_markdown_files()
 
-            # Get site files and calculate metrics (using synchronous method from shared library)
-            blobs = self.blob_client.list_blobs(
+            # Get site files and calculate metrics (using async method)
+            blobs = await self.blob_client.list_blobs(
                 container_name=self.config.STATIC_SITES_CONTAINER
             )
 
