@@ -10,7 +10,7 @@ This is a **personal content aggregation and curation platform** that collects i
 ## Development Philosophy
 - **Security-first**: Every change must pass security scanning (Checkov, Trivy, Terrascan)
 - **Cost-conscious**: All deployments include cost impact analysis with Infracost
-- **Use an existing library**: don;t reinvent the wheel. Pick an off the shelf library with good provenance and history
+- **Use an existing library**: don't reinvent the wheel. Pick an off the shelf library with good provenance and history
 - **Production-ready**: Focus on reliability, monitoring, and maintainability over features
 - **Clean architecture**: Event-driven functions with clear separation of concerns
 - **Documentation as code**: Keep docs current, concise, and actionable
