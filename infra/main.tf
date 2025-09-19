@@ -49,6 +49,7 @@ resource "azurerm_key_vault" "main" {
   # checkov:skip=CKV2_AZURE_32: Private endpoint not required for this use case
   # checkov:skip=CKV_AZURE_189: Network ACLs allow all access due to dynamic GitHub Actions IPs - security enforced via RBAC
   # trivy:ignore:AVD-AZU-0013: Network ACL default_action Allow required for Container Apps consumption mode compatibility
+  # tfsec:ignore:azure-keyvault-specify-network-acl: Network ACL default_action Allow required for Container Apps consumption mode compatibility
   # nosemgrep: terraform.azure.security.keyvault.keyvault-specify-network-acl.keyvault-specify-network-acl
   name     = "${local.clean_prefix}kv${random_string.suffix.result}"
   location = azurerm_resource_group.main.location
@@ -61,6 +62,7 @@ resource "azurerm_key_vault" "main" {
 
   # Network ACLs: Allow all networks, security enforced via identity-based access control
   # trivy:ignore:AVD-AZU-0013: Network ACL default_action Allow required for Container Apps consumption mode compatibility
+  # tfsec:ignore:azure-keyvault-specify-network-acl: Network ACL default_action Allow required for Container Apps consumption mode compatibility
   # trivy:ignore:AVD-AZU-0017: Network access "Allow" justified - security via RBAC and managed identity
   # checkov:skip=CKV_AZURE_109: Network access "Allow" required for dynamic GitHub Actions IPs and Container Apps
   # nosemgrep: terraform.azure.security.keyvault.keyvault-specify-network-acl.keyvault-specify-network-acl
@@ -325,6 +327,7 @@ resource "azurerm_storage_account" "main" {
   shared_access_key_enabled     = true
   # nosemgrep: terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass
   # trivy:ignore:AVD-AZU-0012: Default_action Allow required for Container Apps consumption mode compatibility
+  # tfsec:ignore:azure-storage-default-action-deny: Default_action Allow required for Container Apps consumption mode compatibility
   network_rules {
     default_action = "Allow"
     bypass         = ["AzureServices"] # This is the recommended configuration for Microsoft services
