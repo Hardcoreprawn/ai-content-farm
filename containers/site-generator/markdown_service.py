@@ -149,10 +149,10 @@ class MarkdownService:
         markdown_content = self._create_markdown_content(article_data)
 
         # Upload to blob storage
-        await self.blob_client.upload_blob(
+        await self.blob_client.upload_text(
             container_name=self.config.MARKDOWN_CONTENT_CONTAINER,
             blob_name=filename,
-            data=markdown_content.encode("utf-8"),
+            content=markdown_content,
             content_type="text/markdown",
         )
 
