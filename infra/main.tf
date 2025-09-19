@@ -47,7 +47,7 @@ resource "azurerm_resource_group" "main" {
 # Key Vault
 resource "azurerm_key_vault" "main" {
   # checkov:skip=CKV2_AZURE_32: Private endpoint not required for this use case
-  # checkov:skip=CKV_AZURE_109: Network ACLs allow all access due to dynamic GitHub Actions IPs - security enforced via RBAC
+  # checkov:skip=CKV_AZURE_189: Network ACLs allow all access due to dynamic GitHub Actions IPs - security enforced via RBAC
   # trivy:ignore:AVD-AZU-0013: Network ACL default_action Allow required for Container Apps consumption mode compatibility
   # nosemgrep: terraform.azure.security.keyvault.keyvault-specify-network-acl.keyvault-specify-network-acl
   name     = "${local.clean_prefix}kv${random_string.suffix.result}"
@@ -191,6 +191,7 @@ resource "azurerm_key_vault_secret" "reddit_client_secret" {
 }
 
 resource "azurerm_key_vault_secret" "reddit_user_agent" {
+  # checkov:skip=CKV_AZURE_41: Secret expiration not set as this is an external API credential managed outside Terraform
   # trivy:ignore:AVD-AZU-0017: Secret expiration not set as this is an external API credential managed outside Terraform
   # nosemgrep: terraform.azure.security.keyvault.keyvault-ensure-secret-expires.keyvault-ensure-secret-expires
   name         = "reddit-user-agent"
@@ -310,10 +311,8 @@ resource "azurerm_storage_account" "main" {
   # checkov:skip=CKV2_AZURE_40: Shared Key authorization required for Terraform compatibility; access is restricted and secure
   # checkov:skip=CKV2_AZURE_41: No SAS tokens used
   # trivy:ignore:AVD-AZU-0012: Default_action Allow required for Container Apps consumption mode compatibility
-  # trivy:ignore:AVD-AZU-0009: Queue services logging handled by comprehensive diagnostic settings instead of legacy storage analytics
   # nosemgrep: terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass
   # nosemgrep: terraform.azure.security.storage.storage-analytics-logging.storage-analytics-logging
-  # nosemgrep: terraform.azure.security.storage.storage-queue-services-logging.storage-queue-services-logging
   # Note: Modern diagnostic settings approach implemented below for comprehensive logging
   name                          = "${local.clean_prefix}st${random_string.suffix.result}"
   resource_group_name           = azurerm_resource_group.main.name
@@ -343,6 +342,19 @@ resource "azurerm_storage_account" "main" {
       days = 7
     }
     versioning_enabled = true
+  }
+}
+
+# Enable Storage Analytics logging for queue operations to satisfy CKV_AZURE_33
+resource "azurerm_storage_account_queue_properties" "main" {
+  storage_account_id = azurerm_storage_account.main.id
+
+  logging {
+    delete                = true
+    read                  = true
+    write                 = true
+    version               = "1.0"
+    retention_policy_days = 7
   }
 }
 
