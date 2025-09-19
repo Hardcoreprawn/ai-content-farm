@@ -211,11 +211,14 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
         # Test Reddit API directly (skip unreliable internet connectivity check)
         try:
             async with httpx.AsyncClient() as client:
+                # Test basic connectivity to Reddit's homepage instead of OAuth endpoint
                 response = await client.get(
-                    "https://www.reddit.com/api/v1/access_token", timeout=10
+                    "https://www.reddit.com/",
+                    timeout=10,
+                    headers={"User-Agent": "ai-content-farm-connectivity-check/1.0"},
                 )
-                # 401 is expected without auth, 200 also indicates connectivity
-                if response.status_code in [200, 401]:
+                # Any response from Reddit indicates connectivity
+                if response.status_code in [200, 301, 302, 403, 429]:
                     return True, "Reddit API endpoint accessible"
                 elif response.status_code == 429:
                     return (
@@ -255,6 +258,84 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
                 error_msg += f" | Recommendations: {'; '.join(self.credential_status['recommendations'])}"
             return False, error_msg
 
+        # Try manual OAuth2 authentication first (more reliable)
+        try:
+            logger.info("Testing Reddit API authentication via manual OAuth2...")
+            return await self._test_manual_oauth2()
+        except Exception as oauth_error:
+            logger.warning(f"Manual OAuth2 test failed: {oauth_error}")
+
+            # Fall back to asyncpraw test
+            try:
+                logger.info("Falling back to asyncpraw authentication test...")
+                return await self._test_asyncpraw_auth()
+            except Exception as praw_error:
+                logger.error(
+                    f"Both authentication methods failed. OAuth2: {oauth_error}, AsyncPRAW: {praw_error}"
+                )
+                return False, f"Authentication failed: {oauth_error}"
+
+    async def _test_manual_oauth2(self) -> Tuple[bool, str]:
+        """Test Reddit authentication using manual OAuth2 flow."""
+        try:
+            async with httpx.AsyncClient() as client:
+                # Prepare OAuth2 request
+                auth_data = {"grant_type": "client_credentials"}
+
+                # Use basic auth with client credentials
+                auth = (self.client_id, self.client_secret)
+                headers = {
+                    "User-Agent": self.user_agent,
+                    "Content-Type": "application/x-www-form-urlencoded",
+                }
+
+                logger.info(f"Attempting OAuth2 with User-Agent: {self.user_agent}")
+
+                response = await client.post(
+                    "https://www.reddit.com/api/v1/access_token",
+                    data=auth_data,
+                    auth=auth,
+                    headers=headers,
+                    timeout=10,
+                )
+
+                if response.status_code == 200:
+                    token_data = response.json()
+                    if "access_token" in token_data:
+                        logger.info("Manual OAuth2 authentication successful")
+                        return (
+                            True,
+                            "Reddit API credentials valid - OAuth2 authentication successful",
+                        )
+                    else:
+                        return (
+                            False,
+                            f"OAuth2 response missing access_token: {token_data}",
+                        )
+                elif response.status_code == 401:
+                    return (
+                        False,
+                        "Reddit API authentication failed: Invalid credentials (401 Unauthorized)",
+                    )
+                elif response.status_code == 403:
+                    return (
+                        False,
+                        "Reddit API authentication failed: Access forbidden (403)",
+                    )
+                elif response.status_code == 429:
+                    return False, "Reddit API authentication failed: Rate limited (429)"
+                else:
+                    return (
+                        False,
+                        f"Reddit API authentication failed: HTTP {response.status_code}",
+                    )
+
+        except Exception as e:
+            logger.error(f"Manual OAuth2 test error: {e}")
+            raise
+
+    async def _test_asyncpraw_auth(self) -> Tuple[bool, str]:
+        """Test Reddit authentication using asyncpraw (fallback method)."""
         try:
             # Test authentication with Reddit API using asyncpraw
             try:
@@ -323,22 +404,9 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
 
                 return False, error_response["message"]
 
-        except ImportError:
-            return (
-                False,
-                "AsyncPRAW library not installed. Install with: pip install asyncpraw~=7.8.1",
-            )
         except Exception as e:
-            # Use secure error handler for unexpected errors
-            error_handler = SecureErrorHandler("reddit-collector")
-            error_response = error_handler.handle_error(
-                error=e,
-                error_type="general",
-                severity=ErrorSeverity.HIGH,
-                user_message="Reddit API authentication check failed: Verify network connectivity and credentials",
-                context={"operation": "reddit_auth_check"},
-            )
-            return False, error_response["message"]
+            logger.error(f"AsyncPRAW authentication test error: {e}")
+            raise
 
     async def collect_content(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Collect content using AsyncPRAW with comprehensive error handling."""
