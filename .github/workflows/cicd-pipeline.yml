@@ -9,6 +9,7 @@ name: Optimized CI/CD Pipeline
     paths-ignore:
       - '**.md'
       - 'docs/**'
+  workflow_dispatch:
 
 permissions:
   contents: read
