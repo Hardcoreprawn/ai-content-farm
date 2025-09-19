@@ -22,7 +22,12 @@ from dependencies import (
     service_metadata,
     settings,
 )
-from endpoints import diagnostics_router, processing_router, servicebus_router
+from endpoints import (
+    diagnostics_router,
+    processing_router,
+    servicebus_router,
+    storage_queue_router,
+)
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -273,6 +278,7 @@ app.include_router(diagnostics_router)
 # /process, /process/types, /process/status
 app.include_router(processing_router)
 app.include_router(servicebus_router)  # /internal Service Bus endpoints
+app.include_router(storage_queue_router)  # /storage-queue Storage Queue endpoints
 
 
 if __name__ == "__main__":

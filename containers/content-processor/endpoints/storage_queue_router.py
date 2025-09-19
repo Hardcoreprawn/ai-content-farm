@@ -20,8 +20,6 @@ from libs.queue_client import (
     send_wake_up_message,
 )
 
-from ..processor import ContentProcessor
-
 logger = logging.getLogger(__name__)
 
 # Create FastAPI router
@@ -45,9 +43,11 @@ class ContentProcessorStorageQueueRouter:
     def __init__(self):
         self.processor = None
 
-    def get_processor(self) -> ContentProcessor:
+    def get_processor(self):
         """Get or create processor instance."""
         if self.processor is None:
+            from processor import ContentProcessor
+
             self.processor = ContentProcessor()
         return self.processor
 
@@ -137,8 +137,16 @@ class ContentProcessorStorageQueueRouter:
             }
 
 
-# Global router instance
-storage_queue_router = ContentProcessorStorageQueueRouter()
+# Global router instance - lazy loading for tests
+_storage_queue_router = None
+
+
+def get_storage_queue_router() -> ContentProcessorStorageQueueRouter:
+    """Get or create storage queue router instance."""
+    global _storage_queue_router
+    if _storage_queue_router is None:
+        _storage_queue_router = ContentProcessorStorageQueueRouter()
+    return _storage_queue_router
 
 
 @router.get("/health")
@@ -196,7 +204,8 @@ async def process_storage_queue_messages(
                 queue_message = QueueMessageModel(**message_data)
 
                 # Process the message
-                result = await storage_queue_router.process_storage_queue_message(
+                router_instance = get_storage_queue_router()
+                result = await router_instance.process_storage_queue_message(
                     queue_message
                 )
 
