@@ -218,7 +218,7 @@ class ContentProcessor:
             )
 
             # List all collections from blob storage
-            blobs = self.blob_client.list_blobs("collected-content")
+            blobs = await self.blob_client.list_blobs("collected-content")
             logger.info(f"Found {len(blobs)} total collections")
 
             valid_collections = []
@@ -230,7 +230,7 @@ class ContentProcessor:
 
                 try:
                     # Download and parse collection
-                    collection_data = self.blob_client.download_json(
+                    collection_data = await self.blob_client.download_json(
                         "collected-content", blob_name
                     )
 
