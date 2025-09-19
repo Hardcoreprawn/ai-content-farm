@@ -13,6 +13,8 @@ import httpx
 from collectors.base import InternetConnectivityMixin, SourceCollector
 from keyvault_client import get_reddit_credentials_with_fallback
 
+from libs.secure_error_handler import ErrorSeverity, SecureErrorHandler
+
 logger = logging.getLogger(__name__)
 
 
@@ -205,30 +207,41 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
         return "reddit_praw"
 
     async def check_connectivity(self) -> Tuple[bool, str]:
-        """Check Reddit API accessibility."""
-        # First check basic internet connectivity
-        has_internet, internet_msg = self.check_internet_connectivity(
-            ["https://www.reddit.com"]
-        )
-        if not has_internet:
-            return False, f"No internet connectivity: {internet_msg}"
-
-        # Then check Reddit specifically
+        """Check Reddit API accessibility with improved error detection."""
+        # Test Reddit API directly (skip unreliable internet connectivity check)
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    "https://www.reddit.com/api/v1/access_token", timeout=5
+                    "https://www.reddit.com/api/v1/access_token", timeout=10
                 )
-                # 401 is expected without auth
+                # 401 is expected without auth, 200 also indicates connectivity
                 if response.status_code in [200, 401]:
                     return True, "Reddit API endpoint accessible"
+                elif response.status_code == 429:
+                    return (
+                        False,
+                        f"Reddit API rate limited (429) - Azure IP may be throttled. Status: {response.status_code}",
+                    )
+                elif response.status_code == 403:
+                    return (
+                        False,
+                        f"Reddit API access forbidden (403) - Azure IP may be blocked. Status: {response.status_code}",
+                    )
                 else:
                     return (
                         False,
-                        f"Reddit API returned unexpected status {response.status_code}",
+                        f"Reddit API returned status {response.status_code} - may indicate IP restrictions",
                     )
         except Exception as e:
-            return False, f"Reddit API not accessible: {str(e)}"
+            # Use secure error handler to prevent information disclosure
+            error_handler = SecureErrorHandler("reddit-collector")
+            error_response = error_handler.handle_error(
+                error=e,
+                error_type="connectivity",
+                severity=ErrorSeverity.MEDIUM,
+                user_message="Reddit API connection failed - check network connectivity and firewall settings",
+            )
+            return False, error_response["message"]
 
     async def check_authentication(self) -> Tuple[bool, str]:
         """Check if PRAW credentials are configured and valid with detailed diagnostics."""
@@ -280,33 +293,35 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
             except Exception as auth_error:
                 await reddit.close()
 
-                # Analyze the specific authentication error
+                # Use secure error handler for detailed logging while protecting sensitive info
+                error_handler = SecureErrorHandler("reddit-collector")
                 error_str = str(auth_error).lower()
+
+                # Determine appropriate user message based on error type
                 if "401" in error_str or "unauthorized" in error_str:
-                    return (
-                        False,
-                        f"Reddit API authentication failed: Invalid credentials (401 Unauthorized). Check reddit-client-id and reddit-client-secret in Key Vault",
-                    )
+                    user_message = "Reddit API authentication failed: Invalid credentials (401 Unauthorized). Check reddit-client-id and reddit-client-secret in Key Vault"
                 elif "403" in error_str or "forbidden" in error_str:
-                    return (
-                        False,
-                        f"Reddit API authentication failed: Access forbidden (403). App may not be approved or rate limited",
-                    )
-                elif "timeout" in error_str:
-                    return (
-                        False,
-                        f"Reddit API authentication failed: Connection timeout. Check network connectivity",
-                    )
-                elif "429" in error_str or "rate" in error_str:
-                    return (
-                        False,
-                        f"Reddit API authentication failed: Rate limited (429). Try again later",
-                    )
+                    user_message = "Reddit API authentication failed: Access forbidden (403). App may not be approved or Azure IP may be blocked"
+                elif (
+                    "429" in error_str or "rate" in error_str or "too many" in error_str
+                ):
+                    user_message = "Reddit API authentication failed: Rate limited (429). Azure IP may be throttled - try again later"
+                elif "timeout" in error_str or "timed out" in error_str:
+                    user_message = "Reddit API authentication failed: Connection timeout. Check network connectivity"
+                elif "connection" in error_str or "network" in error_str:
+                    user_message = "Reddit API authentication failed: Network/connection error. Check Azure network policies"
                 else:
-                    return (
-                        False,
-                        f"Reddit API authentication failed: {auth_error}. Check credentials in Key Vault",
-                    )
+                    user_message = "Reddit API authentication failed: Unable to authenticate with provided credentials"
+
+                error_response = error_handler.handle_error(
+                    error=auth_error,
+                    error_type="authentication",
+                    severity=ErrorSeverity.HIGH,
+                    user_message=user_message,
+                    context={"operation": "reddit_auth_test"},
+                )
+
+                return False, error_response["message"]
 
         except ImportError:
             return (
@@ -314,10 +329,16 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
                 "AsyncPRAW library not installed. Install with: pip install asyncpraw~=7.8.1",
             )
         except Exception as e:
-            return (
-                False,
-                f"Reddit API authentication check failed: {str(e)}. Verify network connectivity and credentials",
+            # Use secure error handler for unexpected errors
+            error_handler = SecureErrorHandler("reddit-collector")
+            error_response = error_handler.handle_error(
+                error=e,
+                error_type="general",
+                severity=ErrorSeverity.HIGH,
+                user_message="Reddit API authentication check failed: Verify network connectivity and credentials",
+                context={"operation": "reddit_auth_check"},
             )
+            return False, error_response["message"]
 
     async def collect_content(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
         """Collect content using AsyncPRAW with comprehensive error handling."""
