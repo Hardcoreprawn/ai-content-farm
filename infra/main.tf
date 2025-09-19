@@ -1,5 +1,28 @@
 data "azurerm_client_config" "current" {}
 
+# Data sources for core Key Vault to sync Reddit credentials
+# This automatically syncs Reddit API credentials from the core Key Vault to the prod Key Vault
+# eliminating manual credential management and preventing formatting issues
+data "azurerm_key_vault" "core" {
+  name                = "ai-content-farm-core-kv"
+  resource_group_name = "ai-content-farm-core-rg"
+}
+
+data "azurerm_key_vault_secret" "core_reddit_client_id" {
+  name         = "reddit-client-id"
+  key_vault_id = data.azurerm_key_vault.core.id
+}
+
+data "azurerm_key_vault_secret" "core_reddit_client_secret" {
+  name         = "reddit-client-secret"
+  key_vault_id = data.azurerm_key_vault.core.id
+}
+
+data "azurerm_key_vault_secret" "core_reddit_user_agent" {
+  name         = "reddit-user-agent"
+  key_vault_id = data.azurerm_key_vault.core.id
+}
+
 resource "random_string" "suffix" {
   length  = 6
   upper   = false
@@ -121,19 +144,20 @@ resource "azurerm_monitor_diagnostic_setting" "key_vault" {
 # Key Vault secrets for CI/CD integration
 resource "azurerm_key_vault_secret" "reddit_client_id" {
   name            = "reddit-client-id"
-  value           = var.reddit_client_id != "" ? var.reddit_client_id : "placeholder-change-me"
+  value           = data.azurerm_key_vault_secret.core_reddit_client_id.value
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "8760h") # 1 year expiration for security compliance
 
-  # External secret - don't auto-update activation date or manually set values
+  # Automatically sync from core Key Vault - don't ignore value changes
   lifecycle {
-    ignore_changes = [not_before_date, value, expiration_date]
+    ignore_changes = [not_before_date, expiration_date]
   }
 
   tags = {
     Environment = var.environment
     Purpose     = "reddit-api-access"
+    SyncSource  = "ai-content-farm-core-kv"
   }
 
   depends_on = [
@@ -144,14 +168,14 @@ resource "azurerm_key_vault_secret" "reddit_client_id" {
 
 resource "azurerm_key_vault_secret" "reddit_client_secret" {
   name            = "reddit-client-secret"
-  value           = var.reddit_client_secret != "" ? var.reddit_client_secret : "placeholder-change-me"
+  value           = data.azurerm_key_vault_secret.core_reddit_client_secret.value
   key_vault_id    = azurerm_key_vault.main.id
   content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "8760h") # 1 year expiration for security compliance
 
-  # External secret - don't auto-update expiration date or manually set values
+  # Automatically sync from core Key Vault - don't ignore value changes
   lifecycle {
-    ignore_changes = [not_before_date, value, expiration_date]
+    ignore_changes = [not_before_date, expiration_date]
   }
 
   depends_on = [
@@ -162,6 +186,7 @@ resource "azurerm_key_vault_secret" "reddit_client_secret" {
   tags = {
     Environment = var.environment
     Purpose     = "reddit-api-access"
+    SyncSource  = "ai-content-farm-core-kv"
   }
 }
 
@@ -169,24 +194,25 @@ resource "azurerm_key_vault_secret" "reddit_user_agent" {
   # trivy:ignore:AVD-AZU-0017: Secret expiration not set as this is an external API credential managed outside Terraform
   # nosemgrep: terraform.azure.security.keyvault.keyvault-ensure-secret-expires.keyvault-ensure-secret-expires
   name         = "reddit-user-agent"
-  value        = var.reddit_user_agent != "" ? var.reddit_user_agent : "ai-content-farm:v1.0 (by /u/your-username)"
+  value        = data.azurerm_key_vault_secret.core_reddit_user_agent.value
   key_vault_id = azurerm_key_vault.main.id
   content_type = "text/plain"
 
-  # External secret - don't auto-update expiration date or manually set values
+  # Automatically sync from core Key Vault - don't ignore value changes
   lifecycle {
-    ignore_changes = [not_before_date, expiration_date, value]
+    ignore_changes = [not_before_date, expiration_date]
+  }
+
+  tags = {
+    Environment = var.environment
+    Purpose     = "reddit-api-access"
+    SyncSource  = "ai-content-farm-core-kv"
   }
 
   depends_on = [
     azurerm_key_vault_access_policy.developer_user,
     azurerm_key_vault_access_policy.github_actions_user
   ]
-
-  tags = {
-    Environment = var.environment
-    Purpose     = "reddit-api-access"
-  }
 }
 
 # CI/CD secrets for GitHub Actions

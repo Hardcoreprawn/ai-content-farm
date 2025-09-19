@@ -107,27 +107,6 @@ locals {
   }
 }
 
-# Reddit API Configuration
-variable "reddit_client_id" {
-  description = "Reddit API client ID (can be set via Key Vault)"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "reddit_client_secret" {
-  description = "Reddit API client secret (can be set via Key Vault)"
-  type        = string
-  default     = ""
-  sensitive   = true
-}
-
-variable "reddit_user_agent" {
-  description = "Reddit API user agent string"
-  type        = string
-  default     = ""
-}
-
 # CI/CD Configuration
 variable "infracost_api_key" {
   description = "Infracost API key for cost estimation"
