@@ -26,6 +26,7 @@ from fastapi.responses import JSONResponse
 from models import GenerationRequest, GenerationResponse, SiteStatus
 from site_generator import SiteGenerator
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from storage_queue_router import router as storage_queue_router
 
 from config import Config
 from libs import SecureErrorHandler
@@ -108,6 +109,9 @@ app.add_middleware(
     allow_methods=["GET", "POST"],  # Only needed methods for site generator
     allow_headers=["Content-Type", "Authorization"],
 )
+
+# Include storage queue router for KEDA-triggered processing
+app.include_router(storage_queue_router)
 
 
 # Add security headers middleware

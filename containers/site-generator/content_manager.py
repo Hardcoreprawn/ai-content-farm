@@ -205,30 +205,30 @@ class ContentManager:
 
     def create_slug(self, title: str) -> str:
         """
-        Create URL-safe slug from title.
+        Create secure URL-safe slug from title using python-slugify.
 
-        Args:
-            title: Article title
-
-        Returns:
-            URL-safe slug
+        This library handles security, unicode, and edge cases automatically.
         """
-        import re
+        from slugify import slugify
 
-        # Convert to lowercase and replace spaces with hyphens
-        slug = title.lower().strip()
-        # Remove special characters except hyphens and alphanumeric
-        slug = re.sub(r"[^a-z0-9\s-]", "", slug)
-        # Replace multiple spaces or hyphens with single hyphen
-        slug = re.sub(r"[\s-]+", "-", slug)
-        # Remove leading/trailing hyphens
-        slug = slug.strip("-")
+        if not title or not title.strip():
+            return "untitled"
 
-        # Ensure slug is not empty
+        # Use python-slugify with secure defaults
+        slug = slugify(
+            title.strip(),
+            max_length=50,  # Reasonable length limit
+            lowercase=True,
+            separator="-",
+            # Only allow word chars and hyphens (spaces will be converted to hyphens)
+            regex_pattern=r"[^-\w]",
+        )
+
+        # Final safety check - if somehow empty, provide fallback
         if not slug:
-            slug = "untitled"
+            return "article"
 
-        return slug[:50]  # Limit length
+        return slug
 
     async def generate_sitemap(
         self, articles: List[ArticleMetadata], output_dir: Path, base_url: str

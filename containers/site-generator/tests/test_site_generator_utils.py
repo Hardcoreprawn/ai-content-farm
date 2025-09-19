@@ -73,11 +73,13 @@ class TestUtilityMethods:
         mock_generator.markdown_service.count_markdown_files = AsyncMock(
             return_value=20
         )
-        mock_generator.blob_client.list_blobs.return_value = [
-            {"name": "page1.html", "size": 4096},
-            {"name": "page2.html", "size": 3072},
-            {"name": "styles.css", "size": 2048},
-        ]
+        mock_generator.blob_client.list_blobs = AsyncMock(
+            return_value=[
+                {"name": "page1.html", "size": 4096},
+                {"name": "page2.html", "size": 3072},
+                {"name": "styles.css", "size": 2048},
+            ]
+        )
 
         metrics = await mock_generator._get_site_metrics()
 
@@ -89,8 +91,10 @@ class TestUtilityMethods:
     @pytest.mark.asyncio
     async def test_get_site_metrics_with_build_time(self, mock_generator):
         """Test site metrics includes last build time if available."""
-        mock_generator._count_markdown_files = AsyncMock(return_value=15)
-        mock_generator.blob_client.list_blobs.return_value = []
+        mock_generator.markdown_service.count_markdown_files = AsyncMock(
+            return_value=15
+        )
+        mock_generator.blob_client.list_blobs = AsyncMock(return_value=[])
         mock_generator.last_generation = datetime.now(timezone.utc)
 
         metrics = await mock_generator._get_site_metrics()
@@ -281,7 +285,8 @@ class TestAsyncBehavior:
 
         # Both should complete without errors
         assert isinstance(status, SiteStatus)
-        assert isinstance(connectivity, dict)  # check_blob_connectivity returns a dict
+        # check_blob_connectivity returns a dict
+        assert isinstance(connectivity, dict)
         assert connectivity["status"] == "success"
 
 

@@ -18,5 +18,11 @@ aiofiles~=24.1.0
 # RSS Feed Generation
 feedgen~=1.0.0
 
+# URL Slug Generation
+python-slugify~=8.0
+
+# Testing Framework
+pytest~=8.4.2
+
 # Additional Development Tools
 flake8~=7.3.0

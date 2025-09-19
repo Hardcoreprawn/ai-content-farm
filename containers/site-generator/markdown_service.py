@@ -201,10 +201,31 @@ published: true
         return frontmatter + content
 
     def _create_slug(self, title: str) -> str:
-        """Create URL-safe slug from title."""
-        return self.security_validator.sanitize_filename(
-            title.lower().replace(" ", "-")
+        """
+        Create secure URL-safe slug from title using python-slugify.
+
+        This library handles security, unicode, and edge cases automatically.
+        """
+        from slugify import slugify
+
+        if not title or not title.strip():
+            return "untitled"
+
+        # Use python-slugify with secure defaults
+        slug = slugify(
+            title.strip(),
+            max_length=50,  # Reasonable length limit
+            lowercase=True,
+            separator="-",
+            # Only allow word chars and hyphens (spaces will be converted to hyphens)
+            regex_pattern=r"[^-\w]",
         )
+
+        # Final safety check - if somehow empty, provide fallback
+        if not slug:
+            return "article"
+
+        return slug
 
     def _create_empty_response(self) -> GenerationResponse:
         """Create empty response when no articles found."""

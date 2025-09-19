@@ -33,6 +33,7 @@ from models import (
 from processor import ContentProcessor
 from pydantic import BaseModel, Field
 
+from libs.queue_client import send_wake_up_message
 from libs.shared_models import ErrorCodes, StandardResponse
 
 logger = logging.getLogger(__name__)
@@ -176,6 +177,26 @@ async def wake_up_endpoint(
             processing_time_seconds=result.processing_time,
         )
 
+        # If we successfully processed content, notify site-generator to generate site
+        if result.topics_processed > 0:
+            try:
+                await send_wake_up_message(
+                    queue_name="site-generation-requests",
+                    service_name="content-processor",
+                    payload={
+                        "trigger": "content_processed",
+                        "topics_processed": result.topics_processed,
+                        "articles_generated": result.articles_generated,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
+                logger.info(
+                    f"Sent wake-up message to site-generator for {result.topics_processed} processed topics"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send wake-up message to site-generator: {e}")
+                # Don't fail the main processing response if queue message fails
+
         message = f"Processed {result.topics_processed} topics, generated {result.articles_generated} articles"
 
         return StandardResponse(
@@ -210,6 +231,26 @@ async def process_batch_endpoint(
             force_reprocess=request.force_reprocess,
             options=request.processing_options,
         )
+
+        # If we successfully processed content, notify site-generator to generate site
+        if result.topics_processed > 0:
+            try:
+                await send_wake_up_message(
+                    queue_name="site-generation-requests",
+                    service_name="content-processor",
+                    payload={
+                        "trigger": "batch_processed",
+                        "topics_processed": result.topics_processed,
+                        "articles_generated": result.articles_generated,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
+                logger.info(
+                    f"Sent wake-up message to site-generator for batch processing of {result.topics_processed} topics"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to send wake-up message to site-generator: {e}")
+                # Don't fail the main processing response if queue message fails
 
         return StandardResponse(
             status="success",
