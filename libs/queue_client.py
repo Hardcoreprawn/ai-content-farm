@@ -194,7 +194,6 @@ class StorageQueueClient(QueueClientInterface):
             return {
                 "message_id": response.id,
                 "pop_receipt": response.pop_receipt,
-                "time_next_visible": response.time_next_visible,
                 "insertion_time": response.insertion_time,
                 "expiration_time": response.expiration_time,
             }
