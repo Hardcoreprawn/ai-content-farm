@@ -572,7 +572,7 @@ class ContentProcessor:
             blob_name = f"{timestamp}_{topic_id}.json"
 
             # Save to processed-content container
-            success = self.blob_client.upload_json(
+            success = await self.blob_client.upload_json(
                 container_name="processed-content",
                 blob_name=blob_name,
                 data=article_result,
