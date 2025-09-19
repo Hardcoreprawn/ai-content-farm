@@ -134,7 +134,7 @@ jobs:
       - name: Code Security Scan
         uses: ./.github/actions/security-code
         with:
-          fail-on-critical: 'false'
+          fail-on-critical: 'true'
 
   security-containers:
     name: Security Containers
@@ -148,7 +148,7 @@ jobs:
       - name: Container Security Scan
         uses: ./.github/actions/security-containers
         with:
-          fail-on-critical: 'false'
+          fail-on-critical: 'true'
           scan-mode: 'dockerfile'
 
   security-container-images:
@@ -177,7 +177,7 @@ jobs:
       - name: Container Image Security Scan
         uses: ./.github/actions/security-containers
         with:
-          fail-on-critical: 'false'
+          fail-on-critical: 'true'
           scan-mode: 'image'
           registry: ${{ env.REGISTRY }}
           repository: ${{ env.REPOSITORY }}
@@ -197,7 +197,7 @@ jobs:
       - name: Infrastructure Security Scan
         uses: ./.github/actions/security-infrastructure
         with:
-          fail-on-critical: 'false'
+          fail-on-critical: 'true'
 
   terraform-checks:
     name: Terraform Checks
