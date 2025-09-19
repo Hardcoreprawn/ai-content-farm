@@ -48,8 +48,6 @@ resource "azurerm_resource_group" "main" {
 resource "azurerm_key_vault" "main" {
   # checkov:skip=CKV2_AZURE_32: Private endpoint not required for this use case
   # checkov:skip=CKV_AZURE_189: Network ACLs allow all access due to dynamic GitHub Actions IPs - security enforced via RBAC
-  # trivy:ignore:AVD-AZU-0013: Network ACL default_action Allow required for Container Apps consumption mode compatibility
-  # tfsec:ignore:azure-keyvault-specify-network-acl: Network ACL default_action Allow required for Container Apps consumption mode compatibility
   # nosemgrep: terraform.azure.security.keyvault.keyvault-specify-network-acl.keyvault-specify-network-acl
   name     = "${local.clean_prefix}kv${random_string.suffix.result}"
   location = azurerm_resource_group.main.location
@@ -61,9 +59,8 @@ resource "azurerm_key_vault" "main" {
   soft_delete_retention_days = 7
 
   # Network ACLs: Allow all networks, security enforced via identity-based access control
-  # trivy:ignore:AVD-AZU-0013: Network ACL default_action Allow required for Container Apps consumption mode compatibility
-  # tfsec:ignore:azure-keyvault-specify-network-acl: Network ACL default_action Allow required for Container Apps consumption mode compatibility
-  # trivy:ignore:AVD-AZU-0017: Network access "Allow" justified - security via RBAC and managed identity
+  # checkov:skip=CKV_AZURE_109: Network access "Allow" required for dynamic GitHub Actions IPs and Container Apps
+  # nosemgrep: terraform.azure.security.keyvault.keyvault-specify-network-acl.keyvault-specify-network-acl
   # checkov:skip=CKV_AZURE_109: Network access "Allow" required for dynamic GitHub Actions IPs and Container Apps
   # nosemgrep: terraform.azure.security.keyvault.keyvault-specify-network-acl.keyvault-specify-network-acl
   # Security Strategy:
@@ -195,7 +192,6 @@ resource "azurerm_key_vault_secret" "reddit_client_secret" {
 
 resource "azurerm_key_vault_secret" "reddit_user_agent" {
   # checkov:skip=CKV_AZURE_41: Secret expiration not set as this is an external API credential managed outside Terraform
-  # trivy:ignore:AVD-AZU-0017: Secret expiration not set as this is an external API credential managed outside Terraform
   # nosemgrep: terraform.azure.security.keyvault.keyvault-ensure-secret-expires.keyvault-ensure-secret-expires
   name         = "reddit-user-agent"
   value        = data.azurerm_key_vault_secret.core_reddit_user_agent.value
@@ -314,7 +310,6 @@ resource "azurerm_storage_account" "main" {
   # checkov:skip=CKV2_AZURE_38: Not required for non-critical data
   # checkov:skip=CKV2_AZURE_40: Shared Key authorization required for Terraform compatibility; access is restricted and secure
   # checkov:skip=CKV2_AZURE_41: No SAS tokens used
-  # trivy:ignore:AVD-AZU-0012: Default_action Allow required for Container Apps consumption mode compatibility
   # nosemgrep: terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass
   # nosemgrep: terraform.azure.security.storage.storage-analytics-logging.storage-analytics-logging
   # Note: Modern diagnostic settings approach implemented below for comprehensive logging
@@ -326,8 +321,6 @@ resource "azurerm_storage_account" "main" {
   public_network_access_enabled = true
   shared_access_key_enabled     = true
   # nosemgrep: terraform.azure.security.storage.storage-allow-microsoft-service-bypass.storage-allow-microsoft-service-bypass
-  # trivy:ignore:AVD-AZU-0012: Default_action Allow required for Container Apps consumption mode compatibility
-  # tfsec:ignore:azure-storage-default-action-deny: Default_action Allow required for Container Apps consumption mode compatibility
   network_rules {
     default_action = "Allow"
     bypass         = ["AzureServices"] # This is the recommended configuration for Microsoft services
@@ -559,7 +552,6 @@ resource "azurerm_cognitive_account" "openai" {
 
   # Network access restrictions: Allow all networks, security via identity-based access control
   # checkov:skip=CKV_AZURE_134: Public network access required for Container Apps and GitHub Actions
-  # trivy:ignore:AVD-AZU-0013: Network ACL default_action Allow required for Container Apps consumption mode compatibility
   # nosemgrep: terraform.azure.security.openai.public-network-access.public-network-access
   # Security Strategy:
   # 1. GitHub Actions runner IPs are dynamic and unpredictable

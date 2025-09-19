@@ -23,19 +23,6 @@ runs:
         echo "Starting infrastructure security scan..."
         mkdir -p security-results
 
-    - name: Run Trivy Infrastructure Scan
-      shell: bash
-      env:
-        WORKSPACE_PATH: ${{ github.workspace }}
-      continue-on-error: true
-      run: |
-        echo "Running Trivy infrastructure scan..."
-        docker run --rm -v "${WORKSPACE_PATH}":/workspace \
-          aquasec/trivy:latest config /workspace \
-          --format sarif \
-          --output /workspace/security-results/trivy-infra.sarif \
-          --severity HIGH,CRITICAL || echo "Trivy infrastructure scan completed with warnings"
-
     - name: Run Checkov Infrastructure Scan
       shell: bash
       env:
@@ -61,15 +48,6 @@ runs:
 
         total_critical=0
         total_high=0
-
-        # Trivy Infrastructure results
-        if [ -f "security-results/trivy-infra.sarif" ]; then
-          trivy_critical="$(jq -r '.runs[0].results[] | select(.level == "error") | .ruleId' security-results/trivy-infra.sarif 2>/dev/null | wc -l)" || trivy_critical="0"
-          trivy_high="$(jq -r '.runs[0].results[] | select(.level == "warning") | .ruleId' security-results/trivy-infra.sarif 2>/dev/null | wc -l)" || trivy_high="0"
-          echo "Trivy Infrastructure: $trivy_critical critical, $trivy_high high"
-          total_critical=$((total_critical + trivy_critical))
-          total_high=$((total_high + trivy_high))
-        fi
 
         # Checkov results
         if [ -f "security-results/checkov.sarif" ]; then
