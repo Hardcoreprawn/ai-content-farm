@@ -289,7 +289,14 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
                     "Content-Type": "application/x-www-form-urlencoded",
                 }
 
+                # Debug logging for production troubleshooting (safe - no actual credentials logged)
                 logger.info(f"Attempting OAuth2 with User-Agent: {self.user_agent}")
+                logger.info(
+                    f"Client ID length: {len(self.client_id)}, Client Secret length: {len(self.client_secret)}"
+                )
+                logger.info(
+                    f"Client ID starts with: {self.client_id[:4]}..., ends with: ...{self.client_id[-4:]}"
+                )
 
                 response = await client.post(
                     "https://www.reddit.com/api/v1/access_token",
@@ -298,6 +305,13 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
                     headers=headers,
                     timeout=10,
                 )
+
+                logger.info(f"OAuth2 response status: {response.status_code}")
+                if response.status_code != 200:
+                    response_text = (
+                        response.text[:200] if response.text else "No response body"
+                    )
+                    logger.info(f"OAuth2 error response: {response_text}")
 
                 if response.status_code == 200:
                     token_data = response.json()
