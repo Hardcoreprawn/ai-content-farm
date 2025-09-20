@@ -1,0 +1,132 @@
+{
+    "sources": [
+        {
+            "type": "mastodon",
+            "instances": [
+                "mastodon.social",
+                "hachyderm.io",
+                "fosstodon.org",
+                "mastodon.technology",
+                "infosec.exchange",
+                "mas.to",
+                "mstdn.social"
+            ],
+            "hashtags": [
+                "technology",
+                "programming",
+                "MachineLearning",
+                "AI",
+                "OpenSource",
+                "Python",
+                "JavaScript",
+                "Rust",
+                "Go",
+                "DevOps",
+                "Cybersecurity",
+                "DataScience",
+                "WebDev",
+                "Cloud",
+                "Kubernetes",
+                "Docker",
+                "Linux",
+                "Privacy",
+                "Automation"
+            ],
+            "limit": 30,
+            "criteria": {
+                "min_favorites": 1,
+                "min_reblogs": 0,
+                "published_within_hours": 24,
+                "language": "en"
+            }
+        },
+        {
+            "type": "mastodon",
+            "instances": [
+                "fosstodon.org",
+                "mastodon.social",
+                "hachyderm.io",
+                "mastodon.technology"
+            ],
+            "hashtags": [
+                "Science",
+                "Physics",
+                "Climate",
+                "Energy",
+                "Research",
+                "Innovation",
+                "Futurology",
+                "Space",
+                "Robotics",
+                "Sustainability",
+                "GreenTech",
+                "RenewableEnergy"
+            ],
+            "limit": 25,
+            "criteria": {
+                "min_favorites": 2,
+                "min_reblogs": 1,
+                "published_within_hours": 24,
+                "language": "en"
+            }
+        },
+        {
+            "type": "mastodon",
+            "instances": [
+                "mastodon.social",
+                "hachyderm.io",
+                "infosec.exchange"
+            ],
+            "hashtags": [
+                "Business",
+                "Startups",
+                "Entrepreneur",
+                "Economics",
+                "Finance",
+                "Productivity",
+                "Management",
+                "Leadership",
+                "Innovation",
+                "DigitalTransformation"
+            ],
+            "limit": 20,
+            "criteria": {
+                "min_favorites": 3,
+                "min_reblogs": 1,
+                "published_within_hours": 48,
+                "language": "en"
+            }
+        },
+        {
+            "type": "mastodon",
+            "instances": [
+                "mastodon.social",
+                "fosstodon.org",
+                "mas.to"
+            ],
+            "hashtags": [
+                "News",
+                "WorldNews",
+                "TechNews",
+                "Breaking",
+                "Politics",
+                "Society",
+                "Education",
+                "Health",
+                "Environment"
+            ],
+            "limit": 15,
+            "criteria": {
+                "min_favorites": 5,
+                "min_reblogs": 2,
+                "published_within_hours": 12,
+                "language": "en"
+            }
+        }
+    ],
+    "deduplicate": true,
+    "similarity_threshold": 0.8,
+    "save_to_storage": true,
+    "collection_name": "mastodon_focused",
+    "description": "Focused collection from Mastodon instances covering technology, science, business, and news topics"
+}

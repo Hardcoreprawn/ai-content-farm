@@ -29,6 +29,17 @@ Each template is a JSON file that follows the CollectionRequest schema:
         "topics": ["AI", "machine learning"],
         "exclude_keywords": ["review", "deal"]
       }
+    },
+    {
+      "type": "mastodon",
+      "instances": ["mastodon.social", "fosstodon.org"],
+      "hashtags": ["technology", "programming", "AI"],
+      "limit": 15,
+      "criteria": {
+        "min_favorites": 2,
+        "published_within_hours": 24,
+        "language": "en"
+      }
     }
   ],
   "deduplicate": true,
@@ -39,7 +50,8 @@ Each template is a JSON file that follows the CollectionRequest schema:
 
 ## Available Templates
 
-- `default.json` - Basic Reddit collection from popular tech subreddits
+- `default.json` - Comprehensive collection from Reddit, RSS, Web, and Mastodon sources covering technology topics
+- `mastodon.json` - Focused collection specifically from Mastodon instances covering technology, science, business, and news
 - `discovery.json` - Discovery-focused collection from emerging tech subreddits  
 - `tech-rss.json` - RSS feeds from prominent technology websites with topic filtering
 - `web-overlap-test.json` - **Deduplication test template** with overlapping web sources across multiple categories to stress-test the deduplication system
@@ -55,14 +67,20 @@ Each template is a JSON file that follows the CollectionRequest schema:
 
 ### Sources Configuration
 - **sources**: Array of source configurations
-  - **type**: Source type - "reddit", "rss", or "web"
+  - **type**: Source type - "reddit", "rss", "web", or "mastodon"
   - **subreddits**: List of subreddit names (for reddit sources)
   - **feed_urls**: List of RSS feed URLs (for rss sources)
   - **websites**: List of website URLs (for web sources)
+  - **instances**: List of Mastodon instance URLs (for mastodon sources)
+  - **hashtags**: List of hashtags to search for (for mastodon sources)
   - **limit**: Maximum items to collect per source
   - **criteria**: Additional filtering criteria (optional)
     - **min_score**: Minimum score for reddit posts
     - **time_filter**: Time filter for reddit (hour, day, week, month, year, all)
+    - **min_favorites**: Minimum number of favorites for mastodon posts
+    - **min_reblogs**: Minimum number of reblogs for mastodon posts
+    - **published_within_hours**: Only collect posts published within this timeframe
+    - **language**: Language code for content filtering (e.g., "en")
     - **topics**: List of topics to focus on (used for content relevance)
     - **exclude_keywords**: Keywords to exclude from collection
 

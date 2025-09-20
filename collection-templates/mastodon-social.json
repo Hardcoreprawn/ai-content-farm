@@ -1,0 +1,95 @@
+{
+    "name": "mastodon-social",
+    "description": "Collection template for Mastodon social media content using decentralized federated network",
+    "version": "1.0",
+    "sources": [
+        {
+            "name": "mastodon",
+            "type": "social_media",
+            "config": {
+                "type": "public_timeline",
+                "limit": 40,
+                "hashtags": [
+                    "technology",
+                    "programming",
+                    "opensource",
+                    "privacy",
+                    "decentralized"
+                ],
+                "include_media": true,
+                "min_content_length": 20
+            },
+            "scheduling": {
+                "interval_seconds": 900,
+                "max_retries": 3,
+                "timeout_seconds": 30
+            },
+            "filtering": {
+                "quality_threshold": 0.7,
+                "exclude_reblogs": false,
+                "min_engagement": 1,
+                "languages": [
+                    "en"
+                ]
+            }
+        },
+        {
+            "name": "mastodon_tech_hashtags",
+            "type": "social_media",
+            "config": {
+                "type": "hashtags",
+                "hashtags": [
+                    "webdev",
+                    "python",
+                    "javascript",
+                    "rust",
+                    "golang",
+                    "linux"
+                ],
+                "limit": 20,
+                "include_media": true
+            },
+            "scheduling": {
+                "interval_seconds": 1800,
+                "max_retries": 3
+            },
+            "filtering": {
+                "quality_threshold": 0.6,
+                "min_engagement": 2
+            }
+        },
+        {
+            "name": "mastodon_trends",
+            "type": "social_media",
+            "config": {
+                "type": "trends",
+                "limit": 10
+            },
+            "scheduling": {
+                "interval_seconds": 3600,
+                "max_retries": 2
+            },
+            "filtering": {
+                "quality_threshold": 0.8
+            }
+        }
+    ],
+    "output": {
+        "format": "json",
+        "include_metadata": true,
+        "deduplicate": true,
+        "sort_by": "created_at"
+    },
+    "metadata": {
+        "collection_focus": "decentralized_social_media",
+        "target_topics": [
+            "technology",
+            "programming",
+            "open_source",
+            "privacy"
+        ],
+        "ethical_sourcing": true,
+        "federated_network": "mastodon",
+        "data_source_ethics": "prioritizes user privacy and decentralized architecture"
+    }
+}

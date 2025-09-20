@@ -125,6 +125,73 @@
             }
         },
         {
+            "type": "mastodon",
+            "instances": [
+                "mastodon.social",
+                "hachyderm.io",
+                "fosstodon.org",
+                "mastodon.technology",
+                "infosec.exchange"
+            ],
+            "hashtags": [
+                "technology",
+                "programming",
+                "MachineLearning",
+                "AI",
+                "OpenSource",
+                "Python",
+                "JavaScript",
+                "Rust",
+                "Go",
+                "DevOps",
+                "Cybersecurity",
+                "DataScience",
+                "WebDev",
+                "Cloud",
+                "Kubernetes",
+                "Docker",
+                "Linux",
+                "Privacy",
+                "Automation",
+                "Startups",
+                "Tech"
+            ],
+            "limit": 20,
+            "criteria": {
+                "min_favorites": 2,
+                "min_reblogs": 1,
+                "published_within_hours": 24,
+                "language": "en"
+            }
+        },
+        {
+            "type": "mastodon",
+            "instances": [
+                "fosstodon.org",
+                "mastodon.social",
+                "hachyderm.io"
+            ],
+            "hashtags": [
+                "Science",
+                "Physics",
+                "Climate",
+                "Energy",
+                "Research",
+                "Innovation",
+                "Futurology",
+                "Space",
+                "Robotics",
+                "Sustainability"
+            ],
+            "limit": 15,
+            "criteria": {
+                "min_favorites": 5,
+                "min_reblogs": 2,
+                "published_within_hours": 48,
+                "language": "en"
+            }
+        },
+        {
             "type": "web",
             "websites": [
                 "https://news.ycombinator.com",
