@@ -267,14 +267,14 @@ resource "azurerm_container_app" "content_collector" {
     max_replicas = 2
 
     # KEDA cron scaler for regular content collection
-    # Triggers collection every hour to ensure fresh content
+    # Triggers collection 3 times per day to reduce API load while maintaining fresh content
     custom_scale_rule {
       name             = "cron-scaler"
       custom_rule_type = "cron"
       metadata = {
         timezone        = "UTC"
-        start           = "0 * * * *"  # Every hour at minute 0
-        end             = "10 * * * *" # Stop scaling after 10 minutes
+        start           = "0 0,8,16 * * *"  # Every 8 hours: 00:00, 08:00, 16:00 UTC
+        end             = "10 0,8,16 * * *" # Stop scaling after 10 minutes
         desiredReplicas = "1"
       }
     }
