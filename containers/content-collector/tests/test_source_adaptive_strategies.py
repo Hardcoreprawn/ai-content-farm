@@ -452,5 +452,5 @@ class TestAdaptiveCollectionScenarios:
             assert final_delay <= degraded_delay
 
             # Health should improve or stay stable
-            if degraded_health == SourceHealth.UNHEALTHY:
+            if degraded_health == SourceHealth.ERROR:
                 assert final_health in [SourceHealth.DEGRADED, SourceHealth.HEALTHY]

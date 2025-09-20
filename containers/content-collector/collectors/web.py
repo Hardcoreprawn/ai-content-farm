@@ -37,12 +37,14 @@ class WebCollectionStrategy:
         )
 
         class WebAdaptiveStrategy(AdaptiveCollectionStrategy):
-            def get_collection_parameters(self):
+            async def get_collection_parameters(self):
+                """Get web-specific collection parameters with adaptive delay."""
                 return {
                     "max_items": 100,
                     "max_pages": 5,
                     "include_content": True,
                     "follow_redirects": True,
+                    "request_delay": self.current_delay,
                 }
 
         self._strategy = WebAdaptiveStrategy(source_name, web_params, **kwargs)

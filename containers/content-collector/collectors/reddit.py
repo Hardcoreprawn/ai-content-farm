@@ -50,12 +50,14 @@ class RedditCollectionStrategy:
         )
 
         class RedditAdaptiveStrategy(AdaptiveCollectionStrategy):
-            def get_collection_parameters(self):
+            async def get_collection_parameters(self):
+                """Get Reddit-specific collection parameters with adaptive delay."""
                 return {
                     "max_items": 50,
                     "time_filter": "day",
                     "sort": "hot",
                     "respect_rate_limits": True,
+                    "request_delay": self.current_delay,
                 }
 
         self._strategy = RedditAdaptiveStrategy(source_name, reddit_params, **kwargs)

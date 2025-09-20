@@ -145,13 +145,14 @@ class TestSourceStrategies:
             assert strategy.params.base_delay >= 2.0  # Conservative for Reddit
 
     def test_rss_strategy_initialization(self, mock_storage):
-        """Test RSS strategy has moderate parameters."""
+        """Test RSS strategy uses web strategy with appropriate parameters."""
         with patch(
             "collectors.blob_metrics_storage.get_metrics_storage",
             return_value=mock_storage,
         ):
+            # RSS feeds are handled by web collectors
             strategy = RSSCollectionStrategy()
-            assert strategy.source_name == "rss"
+            assert strategy.source_name == "web"  # RSS is handled as web content
             assert strategy.params.base_delay <= 1.0  # More aggressive for RSS
 
     def test_web_strategy_initialization(self, mock_storage):
