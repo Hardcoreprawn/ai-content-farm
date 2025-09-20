@@ -111,12 +111,18 @@ class TestAdaptiveStrategy:
     @pytest.mark.asyncio
     async def test_health_assessment(self, adaptive_strategy):
         """Test health status assessment."""
-        # Simulate degraded performance (60% success rate)
-        for i in range(10):
-            success = i < 6  # 60% success rate
-            await adaptive_strategy.after_request(
-                success=success, response_time=2.0, status_code=200 if success else 500
-            )
+        # Mock the save_metrics method on the underlying strategy to prevent Azure storage calls
+        with patch.object(
+            adaptive_strategy._strategy, "_save_metrics", new_callable=AsyncMock
+        ):
+            # Simulate degraded performance (60% success rate)
+            for i in range(10):
+                success = i < 6  # 60% success rate
+                await adaptive_strategy.after_request(
+                    success=success,
+                    response_time=2.0,
+                    status_code=200 if success else 500,
+                )
 
         adaptive_strategy._assess_health()
         assert adaptive_strategy.session_metrics.health_status == SourceHealth.DEGRADED

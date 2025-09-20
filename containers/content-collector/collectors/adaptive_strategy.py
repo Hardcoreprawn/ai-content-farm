@@ -447,7 +447,7 @@ class AdaptiveCollectionStrategy(ABC):
         """Get current health status."""
         return self.session_metrics.health_status
 
-    def get_metrics_summary(self) -> Dict[str, Any]:
+    async def get_metrics_summary(self) -> Dict[str, Any]:
         """Get summary of current metrics."""
         return {
             "source": self.source_name,
