@@ -1,0 +1,68 @@
+{
+    "metadata": {
+        "name": "Sustainable Reddit Tech Collection",
+        "description": "Reddit collection optimized for sustainable, respectful API usage",
+        "version": "2.0",
+        "created": "2025-09-19",
+        "strategy_enabled": true
+    },
+    "sources": [
+        {
+            "type": "reddit",
+            "subreddits": [
+                "programming",
+                "webdev",
+                "MachineLearning",
+                "artificial",
+                "technology"
+            ],
+            "limit": 15,
+            "criteria": {
+                "min_score": 25,
+                "time_filter": "day"
+            },
+            "strategy": {
+                "adaptive": true,
+                "base_delay": 2.0,
+                "min_delay": 1.0,
+                "max_delay": 600.0,
+                "rate_limit_buffer": 0.2,
+                "max_requests_per_hour": 30,
+                "health_monitoring": true,
+                "backoff_on_errors": true,
+                "respect_rate_limits": true,
+                "auth_caching": true
+            }
+        }
+    ],
+    "collection_schedule": {
+        "frequency": "every_4_hours",
+        "active_window": "3_minutes",
+        "max_duration": "5_minutes",
+        "timezone": "UTC"
+    },
+    "quality_controls": {
+        "deduplicate": true,
+        "similarity_threshold": 0.85,
+        "content_filters": {
+            "min_score": 25,
+            "exclude_keywords": [
+                "deleted",
+                "removed",
+                "[removed]"
+            ],
+            "min_comment_count": 5
+        }
+    },
+    "output": {
+        "save_to_storage": true,
+        "include_metrics": true,
+        "strategy_reporting": true,
+        "blob_storage": {
+            "metrics_container": "collection-metrics",
+            "persist_strategies": true,
+            "retention_days": 30,
+            "enable_cleanup": true
+        }
+    }
+}

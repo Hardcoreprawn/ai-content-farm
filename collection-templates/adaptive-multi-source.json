@@ -1,0 +1,104 @@
+{
+    "metadata": {
+        "name": "Multi-Source Adaptive Collection",
+        "description": "Balanced collection from multiple sources with adaptive strategies",
+        "version": "2.0",
+        "created": "2025-09-19",
+        "strategy_enabled": true
+    },
+    "sources": [
+        {
+            "type": "reddit",
+            "subreddits": [
+                "programming",
+                "artificial"
+            ],
+            "limit": 8,
+            "criteria": {
+                "min_score": 50,
+                "time_filter": "day"
+            },
+            "strategy": {
+                "adaptive": true,
+                "base_delay": 3.0,
+                "max_requests_per_hour": 15,
+                "health_monitoring": true,
+                "subreddit_rotation": true
+            }
+        },
+        {
+            "type": "rss",
+            "feed_urls": [
+                "https://feeds.feedburner.com/TechCrunch",
+                "https://www.wired.com/feed/rss",
+                "https://arstechnica.com/feed/"
+            ],
+            "limit": 5,
+            "criteria": {
+                "topics": [
+                    "artificial intelligence",
+                    "machine learning",
+                    "programming"
+                ]
+            },
+            "strategy": {
+                "adaptive": true,
+                "base_delay": 1.0,
+                "max_requests_per_hour": 40,
+                "use_etag_caching": true,
+                "respect_last_modified": true,
+                "feed_rotation": true
+            }
+        },
+        {
+            "type": "web",
+            "urls": [
+                "https://news.ycombinator.com",
+                "https://lobste.rs"
+            ],
+            "limit": 3,
+            "criteria": {
+                "content_types": [
+                    "article",
+                    "discussion"
+                ],
+                "min_engagement": 10
+            },
+            "strategy": {
+                "adaptive": true,
+                "base_delay": 5.0,
+                "max_requests_per_hour": 10,
+                "respect_robots_txt": true,
+                "domain_cooldowns": true,
+                "user_agent_rotation": false
+            }
+        }
+    ],
+    "collection_schedule": {
+        "frequency": "every_6_hours",
+        "active_window": "4_minutes",
+        "max_duration": "8_minutes",
+        "stagger_sources": true,
+        "timezone": "UTC"
+    },
+    "quality_controls": {
+        "deduplicate": true,
+        "similarity_threshold": 0.80,
+        "cross_source_deduplication": true,
+        "content_scoring": true,
+        "relevance_filtering": true
+    },
+    "monitoring": {
+        "track_performance": true,
+        "alert_on_errors": true,
+        "health_reporting": true,
+        "adaptation_logging": true,
+        "metrics_retention_days": 7
+    },
+    "output": {
+        "save_to_storage": true,
+        "include_metrics": true,
+        "strategy_reporting": true,
+        "performance_summary": true
+    }
+}

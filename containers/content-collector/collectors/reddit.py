@@ -29,11 +29,71 @@ class RedditError(Exception):
         self.details = details or {}
 
 
+class RedditCollectionStrategy:
+    """Reddit-specific adaptive collection strategy."""
+
+    def __init__(self, source_name: str = "reddit", **kwargs):
+        from .adaptive_strategy import AdaptiveCollectionStrategy, StrategyParameters
+
+        # Reddit-specific parameters
+        reddit_params = StrategyParameters(
+            base_delay=2.0,  # Reddit prefers slower requests
+            min_delay=1.0,  # Never go below 1 second
+            max_delay=600.0,  # Up to 10 minutes for severe rate limiting
+            backoff_multiplier=2.5,  # Aggressive backoff for Reddit
+            success_reduction_factor=0.9,  # Conservative reduction
+            rate_limit_buffer=0.2,  # 20% buffer for Reddit
+            max_requests_per_window=30,  # Conservative limit
+            window_duration=60,
+            health_check_interval=300,
+            adaptation_sensitivity=0.1,
+        )
+
+        class RedditAdaptiveStrategy(AdaptiveCollectionStrategy):
+            def get_collection_parameters(self):
+                return {
+                    "max_items": 50,
+                    "time_filter": "day",
+                    "sort": "hot",
+                    "respect_rate_limits": True,
+                }
+
+        self._strategy = RedditAdaptiveStrategy(source_name, reddit_params, **kwargs)
+
+    def __getattr__(self, name):
+        """Delegate all other attributes to the underlying strategy."""
+        return getattr(self._strategy, name)
+
+
 class RedditPublicCollector(SourceCollector, InternetConnectivityMixin):
     """Collector for Reddit using public JSON API (no authentication required)."""
 
     def get_source_name(self) -> str:
         return "reddit_public"
+
+    def _create_adaptive_strategy(self):
+        """Create Reddit-specific adaptive strategy."""
+        return RedditCollectionStrategy(self.get_source_name())
+
+    def _get_strategy_parameters(self):
+        """Get Reddit-specific adaptive strategy parameters."""
+        from .adaptive_strategy import StrategyParameters
+
+        """Get Reddit-specific adaptive strategy parameters."""
+        from .adaptive_strategy import StrategyParameters
+
+        return StrategyParameters(
+            base_delay=3.0,  # Conservative for Reddit
+            min_delay=2.0,
+            max_delay=600.0,
+            backoff_multiplier=2.5,
+            success_reduction_factor=0.9,
+            rate_limit_buffer=0.3,  # Higher buffer for Reddit's strict limits
+            max_requests_per_window=25,  # Conservative Reddit limit
+            window_duration=60,
+            health_check_interval=300,
+            adaptation_sensitivity=0.1,
+        )
 
     async def check_connectivity(self) -> Tuple[bool, str]:
         """Check Reddit public API accessibility."""
@@ -131,6 +191,30 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
 
         # Enhanced credential validation
         self.credential_status = self._validate_credentials()
+
+    def get_source_name(self) -> str:
+        return "reddit_praw"
+
+    def _create_adaptive_strategy(self):
+        """Create Reddit-specific adaptive strategy."""
+        return RedditCollectionStrategy(self.get_source_name())
+
+    def _get_strategy_parameters(self):
+        """Get Reddit PRAW-specific adaptive strategy parameters."""
+        from .adaptive_strategy import StrategyParameters
+
+        return StrategyParameters(
+            base_delay=2.0,  # Slightly more aggressive for authenticated API
+            min_delay=1.0,
+            max_delay=600.0,
+            backoff_multiplier=2.5,
+            success_reduction_factor=0.9,
+            rate_limit_buffer=0.2,
+            max_requests_per_window=30,  # Higher limit for authenticated
+            window_duration=60,
+            health_check_interval=300,
+            adaptation_sensitivity=0.1,
+        )
 
         logger.info(
             f"RedditPRAWCollector initialized - Status: {self.credential_status['status']}, "

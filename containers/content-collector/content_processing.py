@@ -13,7 +13,7 @@ from source_collectors import SourceCollectorFactory
 
 async def collect_content_batch(sources_data: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    Collect content from multiple sources in batch.
+    Collect content from multiple sources in batch using adaptive collection.
 
     Args:
         sources_data: List of source configurations with type, subreddits, limit, and criteria
@@ -32,8 +32,8 @@ async def collect_content_batch(sources_data: List[Dict[str, Any]]) -> Dict[str,
             # Create collector for this source type
             collector = SourceCollectorFactory.create_collector(source_type)
 
-            # Collect content from this source
-            items = await collector.collect_content(source_config)
+            # Use adaptive collection method for better rate limiting and error handling
+            items = await collector.collect_content_adaptive(source_config)
 
             # Add source information to each item
             for item in items:
@@ -43,8 +43,16 @@ async def collect_content_batch(sources_data: List[Dict[str, Any]]) -> Dict[str,
             all_items.extend(items)
             total_processed += 1
 
-            # Track metadata for this source
+            # Track metadata for this source including adaptive metrics
             source_metadata[f"{source_type}_count"] = len(items)
+            source_metadata[f"{source_type}_health"] = (
+                collector.get_health_status().value
+            )
+            source_metadata[f"{source_type}_delay"] = collector.get_current_delay()
+
+            # Get comprehensive metrics summary
+            metrics_summary = await collector.get_metrics_summary()
+            source_metadata[f"{source_type}_metrics"] = metrics_summary
 
         except Exception as e:
             source_metadata[f"{source_type}_error"] = str(e)

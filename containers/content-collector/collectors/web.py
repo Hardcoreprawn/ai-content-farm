@@ -16,6 +16,42 @@ from collectors.base import InternetConnectivityMixin, SourceCollector
 logger = logging.getLogger(__name__)
 
 
+class WebCollectionStrategy:
+    """Web-specific adaptive collection strategy."""
+
+    def __init__(self, source_name: str = "web", **kwargs):
+        from .adaptive_strategy import AdaptiveCollectionStrategy, StrategyParameters
+
+        # Web-specific parameters
+        web_params = StrategyParameters(
+            base_delay=1.0,  # More aggressive for web content
+            min_delay=0.5,
+            max_delay=300.0,
+            backoff_multiplier=1.8,
+            success_reduction_factor=0.8,
+            rate_limit_buffer=0.1,  # Lower buffer for RSS feeds
+            max_requests_per_window=60,  # Higher limit for web content
+            window_duration=60,
+            health_check_interval=600,  # Less frequent checks
+            adaptation_sensitivity=0.1,
+        )
+
+        class WebAdaptiveStrategy(AdaptiveCollectionStrategy):
+            def get_collection_parameters(self):
+                return {
+                    "max_items": 100,
+                    "max_pages": 5,
+                    "include_content": True,
+                    "follow_redirects": True,
+                }
+
+        self._strategy = WebAdaptiveStrategy(source_name, web_params, **kwargs)
+
+    def __getattr__(self, name):
+        """Delegate all other attributes to the underlying strategy."""
+        return getattr(self._strategy, name)
+
+
 class WebContentCollector(SourceCollector, InternetConnectivityMixin):
     """Base collector for web content using RSS feeds and web scraping."""
 
@@ -50,6 +86,27 @@ class WebContentCollector(SourceCollector, InternetConnectivityMixin):
 
     def get_source_name(self) -> str:
         return "web_content"
+
+    def _create_adaptive_strategy(self):
+        """Create Web-specific adaptive strategy."""
+        return WebCollectionStrategy(self.get_source_name())
+
+    def _get_strategy_parameters(self):
+        """Get web-specific adaptive strategy parameters."""
+        from .adaptive_strategy import StrategyParameters
+
+        return StrategyParameters(
+            base_delay=1.0,  # More aggressive for web content
+            min_delay=0.5,
+            max_delay=300.0,
+            backoff_multiplier=1.8,
+            success_reduction_factor=0.8,
+            rate_limit_buffer=0.1,  # Lower buffer for RSS feeds
+            max_requests_per_window=60,  # Higher limit for web content
+            window_duration=60,
+            health_check_interval=600,  # Less frequent checks
+            adaptation_sensitivity=0.1,
+        )
 
     async def check_connectivity(self) -> Tuple[bool, str]:
         """Check connectivity to web sources."""
@@ -183,3 +240,67 @@ class WebContentCollector(SourceCollector, InternetConnectivityMixin):
             logger.error(f"Error fetching RSS from {site_key}: {e}")
 
         return items
+
+
+class ArsTechnicaCollector(WebContentCollector):
+    """Ars Technica RSS collector."""
+
+    def get_source_name(self) -> str:
+        return "arstechnica"
+
+    def _create_adaptive_strategy(self):
+        """Create Ars Technica-specific adaptive strategy."""
+        return WebCollectionStrategy(self.get_source_name())
+
+    async def collect_content(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Collect from Ars Technica."""
+        params["sites"] = ["arstechnica"]
+        return await super().collect_content(params)
+
+
+class SlashdotCollector(WebContentCollector):
+    """Slashdot RSS collector."""
+
+    def get_source_name(self) -> str:
+        return "slashdot"
+
+    def _create_adaptive_strategy(self):
+        """Create Slashdot-specific adaptive strategy."""
+        return WebCollectionStrategy(self.get_source_name())
+
+    async def collect_content(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Collect from Slashdot."""
+        params["sites"] = ["slashdot"]
+        return await super().collect_content(params)
+
+
+class TheRegisterCollector(WebContentCollector):
+    """The Register RSS collector."""
+
+    def get_source_name(self) -> str:
+        return "theregister"
+
+    def _create_adaptive_strategy(self):
+        """Create The Register-specific adaptive strategy."""
+        return WebCollectionStrategy(self.get_source_name())
+
+    async def collect_content(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Collect from The Register."""
+        params["sites"] = ["theregister"]
+        return await super().collect_content(params)
+
+
+class TheNewStackCollector(WebContentCollector):
+    """The New Stack RSS collector."""
+
+    def get_source_name(self) -> str:
+        return "thenewstack"
+
+    def _create_adaptive_strategy(self):
+        """Create The New Stack-specific adaptive strategy."""
+        return WebCollectionStrategy(self.get_source_name())
+
+    async def collect_content(self, params: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Collect from The New Stack."""
+        params["sites"] = ["thenewstack"]
+        return await super().collect_content(params)

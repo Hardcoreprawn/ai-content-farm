@@ -5,9 +5,21 @@ Provides mocks and fixtures for isolated unit testing with modular multi-source 
 """
 
 import os
+import sys
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+
+# Add paths for testing
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "..", "libs"))
+
+
+@pytest.fixture(autouse=True)
+def mock_asyncio_sleep():
+    """Mock asyncio.sleep globally to speed up tests."""
+    with patch("asyncio.sleep", new_callable=AsyncMock):
+        yield
 
 
 @pytest.fixture(autouse=True)
