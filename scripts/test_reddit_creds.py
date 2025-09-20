@@ -56,8 +56,8 @@ def test_reddit_credentials():
         return False
 
     print(f"✅ Retrieved credentials:")
-    print(f"   Client ID: {client_id[:10]}... (length: {len(client_id)})")
-    print(f"   Client Secret: {client_secret[:5]}... (length: {len(client_secret)})")
+    print(f"   Client ID: {'*' * 10}... (length: {len(client_id)})")
+    print(f"   Client Secret: {'*' * 5}... (length: {len(client_secret)})")
     print(f"   User Agent: {user_agent}")
 
     # Test Reddit API connection
@@ -80,7 +80,7 @@ def test_reddit_credentials():
             print(f"✅ Successfully retrieved post: {submission.title[:50]}...")
             print(f"   Score: {submission.score}")
             print(f"   Comments: {submission.num_comments}")
-            print(f"   URL: {submission.url}")
+            print(f"   URL: [REDACTED]")  # Don't log URLs for security
             break
 
         print("\n🎉 Reddit API authentication SUCCESS!")

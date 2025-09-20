@@ -10,6 +10,7 @@ import os
 import sys
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
+from urllib.parse import urlparse
 
 import pytest
 from collectors.adaptive_strategy import CollectionMetrics, SourceHealth
@@ -22,6 +23,15 @@ sys.path.append(
 
 class TestBlobMetricsStorage:
     """Test the blob storage persistence layer."""
+
+    def _validate_test_url(self, url: str) -> str:
+        """Validate test URLs for security."""
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            raise ValueError(f"Invalid URL scheme: {parsed.scheme}")
+        if not parsed.netloc:
+            raise ValueError("URL must have a valid domain")
+        return url
 
     @pytest.fixture
     def mock_blob_client(self):
@@ -176,8 +186,9 @@ class TestBlobMetricsStorage:
     @pytest.mark.asyncio
     async def test_save_etag_cache(self, blob_storage, mock_blob_storage):
         """Test saving RSS ETag cache."""
+        test_url = self._validate_test_url("https://example.com/feed.xml")
         etag_cache = {
-            "https://example.com/feed.xml": {
+            test_url: {
                 "etag": '"12345"',
                 "last_modified": "Wed, 21 Oct 2023 07:28:00 GMT",
                 "timestamp": datetime(2023, 10, 22, 12, 0, 0),
@@ -197,8 +208,9 @@ class TestBlobMetricsStorage:
     @pytest.mark.asyncio
     async def test_load_etag_cache(self, blob_storage, mock_blob_storage):
         """Test loading RSS ETag cache."""
+        test_url = self._validate_test_url("https://example.com/feed.xml")
         sample_data = {
-            "https://example.com/feed.xml": {
+            test_url: {
                 "etag": '"12345"',
                 "last_modified": "Wed, 21 Oct 2023 07:28:00 GMT",
                 "timestamp": "2023-10-22T12:00:00",
@@ -209,16 +221,17 @@ class TestBlobMetricsStorage:
         result = await blob_storage.load_etag_cache()
 
         assert len(result) == 1
-        assert "https://example.com/feed.xml" in result
-        cache_entry = result["https://example.com/feed.xml"]
+        assert test_url in result
+        cache_entry = result[test_url]
         assert cache_entry["etag"] == '"12345"'
         assert isinstance(cache_entry["timestamp"], datetime)
 
     @pytest.mark.asyncio
     async def test_save_robots_cache(self, blob_storage, mock_blob_storage):
         """Test saving web robots.txt cache."""
+        test_url = self._validate_test_url("https://example.com")
         robots_cache = {
-            "https://example.com": {
+            test_url: {
                 "crawl_delay": 2.0,
                 "allowed_paths": ["/api/", "/public/"],
                 "disallowed_paths": ["/private/"],
@@ -234,8 +247,9 @@ class TestBlobMetricsStorage:
     @pytest.mark.asyncio
     async def test_load_robots_cache(self, blob_storage, mock_blob_storage):
         """Test loading web robots.txt cache."""
+        test_url = self._validate_test_url("https://example.com")
         sample_data = {
-            "https://example.com": {
+            test_url: {
                 "crawl_delay": 2.0,
                 "allowed_paths": ["/api/", "/public/"],
                 "disallowed_paths": ["/private/"],
@@ -247,7 +261,7 @@ class TestBlobMetricsStorage:
         result = await blob_storage.load_robots_cache()
 
         assert len(result) == 1
-        assert "https://example.com" in result
+        assert test_url in result
         cache_entry = result["https://example.com"]
         assert cache_entry["crawl_delay"] == 2.0
         assert isinstance(cache_entry["timestamp"], datetime)

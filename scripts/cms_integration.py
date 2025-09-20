@@ -324,7 +324,10 @@ if __name__ == "__main__":
         import yaml
     except ImportError:
         print("Installing PyYAML for Netlify CMS config...")
-        os.system("pip install PyYAML")
+        import subprocess
+        import sys
+
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "PyYAML"])
         import yaml
 
     demonstrate_cms_integration()
