@@ -195,7 +195,7 @@ class HTTPCollector(SimpleCollector):
 
         # HTTP client configuration
         self.user_agent = self.config.get(
-            "user_agent", "PersonalContentCurator/1.0 (Educational/Personal Use)"
+            "user_agent", "azure:content-womble:v2.0.2 (by /u/hardcorepr4wn)"
         )
 
         # Create HTTP client

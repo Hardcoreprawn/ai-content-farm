@@ -83,8 +83,12 @@ class MastodonCollector(SourceCollector, InternetConnectivityMixin):
         if self.instance_url.endswith("/"):
             self.instance_url = self.instance_url[:-1]
 
+        # Import config for consistent user agent
+        from config import config as app_config
+
+        # Configure HTTP client
         self.headers = {
-            "User-Agent": "ai-content-farm-collector/1.0",
+            "User-Agent": app_config.reddit_user_agent,
             "Accept": "application/json",
         }
 

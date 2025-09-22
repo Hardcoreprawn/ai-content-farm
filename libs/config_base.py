@@ -90,7 +90,8 @@ class ContentCollectorConfig(BaseContainerConfig):
         default=None, description="Reddit API client secret"
     )
     reddit_user_agent: str = Field(
-        default="AI Content Farm Collector v1.0", description="Reddit API user agent"
+        default="azure:content-womble:v2.0.2 (by /u/hardcorepr4wn)",
+        description="Reddit API user agent",
     )
 
     # Collection Configuration

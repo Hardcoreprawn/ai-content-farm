@@ -106,11 +106,14 @@ class RedditPublicCollector(SourceCollector, InternetConnectivityMixin):
     async def check_connectivity(self) -> Tuple[bool, str]:
         """Check Reddit public API accessibility."""
         try:
+            # Import here to avoid circular imports
+            from config import config as app_config
+
             # Test Reddit's public API using httpx for async
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     "https://www.reddit.com/r/technology/hot.json?limit=1",
-                    headers={"User-Agent": "ai-content-farm-collector/1.0"},
+                    headers={"User-Agent": app_config.reddit_user_agent},
                     timeout=5,
                 )
                 if response.status_code == 200:
@@ -147,8 +150,11 @@ class RedditPublicCollector(SourceCollector, InternetConnectivityMixin):
         if not subreddit or subreddit is None:
             return []
 
+        # Import here to avoid circular imports
+        from config import config as app_config
+
         url = f"https://www.reddit.com/r/{subreddit}/hot.json"
-        headers = {"User-Agent": "ai-content-farm-collector/1.0"}
+        headers = {"User-Agent": app_config.reddit_user_agent}
 
         try:
             async with httpx.AsyncClient() as client:
@@ -194,7 +200,7 @@ class RedditPRAWCollector(SourceCollector, InternetConnectivityMixin):
         self.user_agent = (
             self.config.get("user_agent")
             or credentials.get("user_agent")
-            or "ai-content-farm-collector/1.0"
+            or "azure:content-womble:v2.0.2 (by /u/hardcorepr4wn)"
         )
 
         # Enhanced credential validation

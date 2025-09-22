@@ -26,7 +26,7 @@ certificate_domains = [
 # Reddit API Configuration (can be overridden by Key Vault)
 # reddit_client_id = ""        # Set via Key Vault or terraform apply -var
 # reddit_client_secret = ""    # Set via Key Vault or terraform apply -var
-reddit_user_agent = "ai-content-farm:v1.0-dev (by /u/your-username)"
+reddit_user_agent = "azure:content-womble:v2.0.2 (by /u/hardcorepr4wn)"
 
 # CI/CD Configuration
 # infracost_api_key = ""       # Set via Key Vault or terraform apply -var

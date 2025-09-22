@@ -1,91 +1,28 @@
 {
     "sources": [
         {
-            "type": "reddit",
-            "subreddits": [
-                "technology",
-                "programming",
-                "MachineLearning",
-                "artificial",
-                "singularity",
-                "science",
-                "Physics",
-                "space",
-                "Futurology",
-                "cybersecurity",
-                "datascience",
-                "WebDev",
-                "devops",
-                "startups",
-                "entrepreneur",
-                "business",
-                "Economics",
-                "worldnews",
-                "news",
-                "climate",
-                "energy",
-                "privacy",
-                "opensource",
-                "linux",
-                "Python",
-                "javascript",
-                "rust",
-                "golang",
-                "docker",
-                "kubernetes",
-                "aws",
-                "azure",
-                "cloudcomputing",
-                "networking",
-                "sysadmin",
-                "InternetIsBeautiful",
-                "todayilearned",
-                "explainlikeimfive",
-                "AskScience",
-                "AskEngineers",
-                "cscareerquestions",
-                "engineering",
-                "robotics",
-                "automate",
-                "LifeProTips",
-                "productivity"
-            ],
-            "limit": 25,
-            "criteria": {
-                "min_score": 5,
-                "time_filter": "day",
-                "sort": "hot"
+            "_comment": "Reddit sources temporarily disabled due to rate limiting - will re-enable after 24-48 hour cooldown period",
+            "_disabled_reddit_1": {
+                "type": "reddit",
+                "subreddits": ["technology", "programming", "MachineLearning", "artificial", "singularity", "science", "Physics", "space", "Futurology", "cybersecurity", "datascience", "WebDev", "devops", "startups", "entrepreneur", "business", "Economics", "worldnews", "news", "climate", "energy", "privacy", "opensource", "linux", "Python", "javascript", "rust", "golang", "docker", "kubernetes", "aws", "azure", "cloudcomputing", "networking", "sysadmin", "InternetIsBeautiful", "todayilearned", "explainlikeimfive", "AskScience", "AskEngineers", "cscareerquestions", "engineering", "robotics", "automate", "LifeProTips", "productivity"],
+                "limit": 25,
+                "criteria": {"min_score": 5, "time_filter": "day", "sort": "hot"}
             }
         },
         {
-            "type": "reddit",
-            "subreddits": [
-                "technology",
-                "programming",
-                "MachineLearning",
-                "science",
-                "Futurology",
-                "startups"
-            ],
-            "limit": 15,
-            "criteria": {
-                "min_score": 50,
-                "time_filter": "week",
-                "sort": "top"
+            "_disabled_reddit_2": {
+                "type": "reddit",
+                "subreddits": ["technology", "programming", "MachineLearning", "science", "Futurology", "startups"],
+                "limit": 15,
+                "criteria": {"min_score": 50, "time_filter": "week", "sort": "top"}
             }
         },
         {
-            "type": "reddit",
-            "subreddits": [
-                "worldnews",
-                "technology",
-                "science"
-            ],
-            "limit": 10,
-            "criteria": {
-                "min_score": 100,
-                "time_filter": "day",
-                "sort": "top"
+            "_disabled_reddit_3": {
+                "type": "reddit",
+                "subreddits": ["worldnews", "technology", "science"],
+                "limit": 10,
+                "criteria": {"min_score": 100, "time_filter": "day", "sort": "top"}
             }
         },
         {
