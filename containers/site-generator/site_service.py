@@ -155,18 +155,24 @@ class SiteService:
             articles = []
             for blob_info in markdown_files:
                 if blob_info["name"].endswith(".md"):
-                    # Download and parse markdown file
-                    content = await self.blob_client.download_text(
-                        container_name=self.config.MARKDOWN_CONTENT_CONTAINER,
-                        blob_name=blob_info["name"],
-                    )
+                    try:
+                        # Download and parse markdown file
+                        content = await self.blob_client.download_text(
+                            container_name=self.config.MARKDOWN_CONTENT_CONTAINER,
+                            blob_name=blob_info["name"],
+                        )
 
-                    # Parse frontmatter and create ArticleMetadata
-                    article = self._parse_markdown_frontmatter(
-                        blob_info["name"], content
-                    )
-                    if article:
-                        articles.append(article)
+                        # Parse frontmatter and create ArticleMetadata
+                        article = self._parse_markdown_frontmatter(
+                            blob_info["name"], content
+                        )
+                        if article:
+                            articles.append(article)
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to process article {blob_info['name']}: {e}"
+                        )
+                        continue
 
             logger.info(f"Found {len(articles)} markdown articles")
             return articles
