@@ -1,5 +1,9 @@
 """
-Base Collector Classes
+Base Collector Classes - LEGACY
+
+DEPRECATED: These base classes are replaced by simple_base.py
+Contains complex adaptive collection strategies that were causing CI/CD failures.
+Status: PENDING REMOVAL - Use simple_base.py instead
 
 Abstract base classes and mixins for content source collectors.
 """

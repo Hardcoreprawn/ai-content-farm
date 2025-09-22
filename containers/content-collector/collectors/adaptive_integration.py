@@ -1,5 +1,11 @@
 """
-Adaptive Collection System Integration
+Adaptive Collection System Integration - LEGACY
+
+DEPRECATED: Complex integration example for adaptive strategies
+Status: PENDING REMOVAL - No longer needed with simplified architecture
+
+Used to demonstrate complex adaptive collection patterns.
+Replaced by simple factory pattern in factory.py
 
 Example integration showing how to use the adaptive collection strategies
 with existing collectors to create a respectful, self-adjusting system.

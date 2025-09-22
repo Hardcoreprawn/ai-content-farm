@@ -1,5 +1,11 @@
 """
-Mastodon Content Collector
+Mastodon Content Collector - LEGACY
+
+DEPRECATED: Complex Mastodon collector with adaptive strategies
+Status: PENDING REMOVAL - Replaced by simple_mastodon.py which is more reliable
+
+Uses complex adaptive collection patterns that were causing CI/CD failures.
+Use simple_mastodon.py instead for public Mastodon API collection.
 
 Collector for Mastodon content using the public API.
 Supports collecting from public timelines, hashtags, and trends.

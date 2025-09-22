@@ -1,5 +1,8 @@
 """
-Adaptive Collection Strategy Framework
+Adaptive Collection Strategy Framework - LEGACY
+
+DEPRECATED: Complex adaptive strategies causing CI/CD test failures
+Status: PENDING REMOVAL - Replaced by simple retry logic in simple_base.py
 
 Provides intelligent, feedback-driven collection strategies that learn and adapt
 to each source's rate limits, response patterns, and requirements in real-time.

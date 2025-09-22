@@ -1,5 +1,11 @@
 """
-Reddit Content Collectors
+Reddit Content Collectors - LEGACY
+
+DEPRECATED: Complex Reddit collector with adaptive strategies
+Status: PENDING REMOVAL - Replaced by simple_reddit.py which is more reliable
+
+Contains PRAW-based collectors that were causing authentication and testing issues.
+Use simple_reddit.py instead for public Reddit API collection.
 
 Collectors for Reddit content using public API and PRAW with enhanced error handling.
 """
