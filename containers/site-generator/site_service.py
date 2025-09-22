@@ -66,7 +66,10 @@ class SiteService:
                     markdown_articles, site_dir, theme
                 )
 
-                # Create and upload archive using ArchiveManager
+                # Publish directly to $web container for live static website
+                await self._publish_site_directly(site_dir)
+
+                # Also create archive for backup/future use
                 archive_path = await self.archive_manager.create_site_archive(
                     site_dir, theme
                 )
@@ -235,3 +238,52 @@ class SiteService:
         except Exception as e:
             logger.error(f"Failed to parse frontmatter for {filename}: {e}")
             return None
+
+    async def _publish_site_directly(self, site_dir: Path) -> None:
+        """Publish site files directly to $web container for immediate live hosting."""
+        try:
+            logger.info("Publishing site files directly to $web container")
+
+            # Walk through all files in the site directory
+            for file_path in site_dir.rglob("*"):
+                if file_path.is_file():
+                    # Calculate relative path from site_dir for blob name
+                    relative_path = file_path.relative_to(site_dir)
+                    blob_name = str(relative_path).replace(
+                        "\\", "/"
+                    )  # Ensure forward slashes
+
+                    # Determine content type based on file extension
+                    content_type = self._get_content_type(file_path.suffix)
+
+                    # Upload file to $web container
+                    await self.blob_client.upload_file(
+                        container_name="$web",
+                        blob_name=blob_name,
+                        file_path=str(file_path),
+                        content_type=content_type,
+                    )
+
+            logger.info("Site published successfully to $web container")
+
+        except Exception as e:
+            logger.error(f"Failed to publish site directly: {e}")
+            raise
+
+    def _get_content_type(self, file_extension: str) -> str:
+        """Get appropriate content type for file extension."""
+        content_types = {
+            ".html": "text/html",
+            ".css": "text/css",
+            ".js": "application/javascript",
+            ".json": "application/json",
+            ".xml": "application/xml",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".gif": "image/gif",
+            ".svg": "image/svg+xml",
+            ".ico": "image/x-icon",
+            ".txt": "text/plain",
+        }
+        return content_types.get(file_extension.lower(), "application/octet-stream")

@@ -29,6 +29,17 @@ class Config:
         "STATIC_SITES_CONTAINER", "static-sites"
     )
 
+    # Publishing Configuration
+    PUBLISH_METHOD: str = os.environ.get(
+        "PUBLISH_METHOD", "direct"
+    )  # direct, archive, both
+    WEB_CONTAINER: str = os.environ.get("WEB_CONTAINER", "$web")
+
+    # Deployment target configuration for future static web apps migration
+    DEPLOYMENT_TARGET: str = os.environ.get(
+        "DEPLOYMENT_TARGET", "blob_storage"
+    )  # blob_storage, static_web_apps
+
     # Site Configuration
     SITE_TITLE: str = os.environ.get("SITE_TITLE", "JabLab Tech News")
     SITE_DESCRIPTION: str = os.environ.get(
