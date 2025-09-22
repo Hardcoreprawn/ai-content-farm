@@ -7,7 +7,7 @@ for immediate live static website hosting.
 
 import tempfile
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from site_service import SiteService
@@ -74,26 +74,27 @@ class TestSiteServiceDirectPublishing:
             # Test the publishing method
             await site_service._publish_site_directly(site_dir)
 
-            # Verify uploads were called correctly
-            assert mock_blob_client.upload_file.call_count == 4
+        # Verify uploads were called correctly (all text files in this test)
+        assert mock_blob_client.upload_text.call_count == 4
+        assert mock_blob_client.upload_binary.call_count == 0
 
-            # Check specific uploads
-            upload_calls = mock_blob_client.upload_file.call_args_list
+        # Check specific uploads
+        upload_calls = mock_blob_client.upload_text.call_args_list
 
-            # Extract blob names from calls
-            uploaded_files = {call[1]["blob_name"] for call in upload_calls}
-            expected_files = {
-                "index.html",
-                "404.html",
-                "style.css",
-                "articles/article1.html",
-            }
+        # Extract blob names from calls
+        uploaded_files = {call[1]["blob_name"] for call in upload_calls}
+        expected_files = {
+            "index.html",
+            "404.html",
+            "style.css",
+            "articles/article1.html",
+        }
 
-            assert uploaded_files == expected_files
+        assert uploaded_files == expected_files
 
-            # Verify container name is $web for all uploads
-            for call in upload_calls:
-                assert call[1]["container_name"] == "$web"
+        # Verify container name is $web for all uploads
+        for call in upload_calls:
+            assert call[1]["container_name"] == "$web"
 
     @pytest.mark.asyncio
     async def test_publish_site_directly_content_types(
@@ -112,24 +113,24 @@ class TestSiteServiceDirectPublishing:
 
             await site_service._publish_site_directly(site_dir)
 
-            # Check content types were set correctly
-            upload_calls = mock_blob_client.upload_file.call_args_list
-            content_types = {}
+        # Check content types were set correctly
+        upload_calls = mock_blob_client.upload_text.call_args_list
+        content_types = {}
 
-            for call in upload_calls:
-                blob_name = call[1]["blob_name"]
-                content_type = call[1]["content_type"]
-                content_types[blob_name] = content_type
+        for call in upload_calls:
+            blob_name = call[1]["blob_name"]
+            content_type = call[1]["content_type"]
+            content_types[blob_name] = content_type
 
-            expected_content_types = {
-                "index.html": "text/html",
-                "style.css": "text/css",
-                "script.js": "application/javascript",
-                "data.json": "application/json",
-                "feed.xml": "application/xml",
-            }
+        expected_content_types = {
+            "index.html": "text/html",
+            "style.css": "text/css",
+            "script.js": "application/javascript",
+            "data.json": "application/json",
+            "feed.xml": "application/xml",
+        }
 
-            assert content_types == expected_content_types
+        assert content_types == expected_content_types
 
     @pytest.mark.asyncio
     async def test_publish_site_directly_nested_structure(
@@ -158,17 +159,17 @@ class TestSiteServiceDirectPublishing:
 
             await site_service._publish_site_directly(site_dir)
 
-            # Verify nested paths are handled correctly
-            upload_calls = mock_blob_client.upload_file.call_args_list
-            uploaded_files = {call[1]["blob_name"] for call in upload_calls}
+        # Verify nested paths are handled correctly
+        upload_calls = mock_blob_client.upload_text.call_args_list
+        uploaded_files = {call[1]["blob_name"] for call in upload_calls}
 
-            expected_files = {
-                "index.html",
-                "articles/tech/ai.html",
-                "assets/css/main.css",
-            }
+        expected_files = {
+            "index.html",
+            "articles/tech/ai.html",
+            "assets/css/main.css",
+        }
 
-            assert uploaded_files == expected_files
+        assert uploaded_files == expected_files
 
     @pytest.mark.asyncio
     async def test_publish_site_directly_upload_error(
@@ -180,7 +181,7 @@ class TestSiteServiceDirectPublishing:
             (site_dir / "index.html").write_text("<html></html>")
 
             # Mock upload to raise an exception
-            mock_blob_client.upload_file.side_effect = Exception("Upload failed")
+            mock_blob_client.upload_text.side_effect = Exception("Upload failed")
 
             # Should raise the exception
             with pytest.raises(Exception, match="Upload failed"):
@@ -213,8 +214,9 @@ class TestSiteServiceDirectPublishing:
             # Directory exists but is empty
             await site_service._publish_site_directly(site_dir)
 
-            # Should not call upload since no files exist
-            assert mock_blob_client.upload_file.call_count == 0
+        # Should not call upload since no files exist
+        assert mock_blob_client.upload_text.call_count == 0
+        assert mock_blob_client.upload_binary.call_count == 0
 
     @pytest.mark.asyncio
     async def test_publish_site_directly_with_subdirectories_only(
@@ -230,5 +232,6 @@ class TestSiteServiceDirectPublishing:
 
             await site_service._publish_site_directly(site_dir)
 
-            # Should not upload anything since no files exist
-            assert mock_blob_client.upload_file.call_count == 0
+        # Should not upload anything since no files exist
+        assert mock_blob_client.upload_text.call_count == 0
+        assert mock_blob_client.upload_binary.call_count == 0
