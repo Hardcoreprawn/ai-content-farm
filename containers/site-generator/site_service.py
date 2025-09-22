@@ -110,30 +110,64 @@ class SiteService:
         articles_dir.mkdir()
 
         for article in markdown_articles:
-            page_path = await self.content_manager.generate_article_page(
-                article, articles_dir, theme
-            )
-            if page_path:
-                generated_files.append(f"articles/{page_path.name}")
+            try:
+                page_path = await self.content_manager.generate_article_page(
+                    article, articles_dir, theme
+                )
+                if page_path:
+                    generated_files.append(f"articles/{page_path.name}")
+                    logger.debug(f"Generated article page: {page_path.name}")
+                else:
+                    logger.warning(
+                        f"Failed to generate page for article: {article.slug}"
+                    )
+            except Exception as e:
+                logger.error(f"Error generating article page for {article.slug}: {e}")
+                logger.debug(
+                    f"Article page generation error details: {e}", exc_info=True
+                )
 
         # Generate index page
-        index_path = await self.content_manager.generate_index_page(
-            markdown_articles, site_dir, theme
-        )
-        if index_path:
-            generated_files.append("index.html")
+        try:
+            index_path = await self.content_manager.generate_index_page(
+                markdown_articles, site_dir, theme
+            )
+            if index_path:
+                generated_files.append("index.html")
+                logger.debug("Generated index page")
+            else:
+                logger.warning("Failed to generate index page")
+        except Exception as e:
+            logger.error(f"Error generating index page: {e}")
+            logger.debug(f"Index page generation error details: {e}", exc_info=True)
 
         # Generate RSS feed
-        rss_path = await self.content_manager.generate_rss_feed(
-            markdown_articles, site_dir
-        )
-        if rss_path:
-            generated_files.append("feed.xml")
+        try:
+            rss_path = await self.content_manager.generate_rss_feed(
+                markdown_articles, site_dir
+            )
+            if rss_path:
+                generated_files.append("feed.xml")
+                logger.debug("Generated RSS feed")
+            else:
+                logger.warning("Failed to generate RSS feed")
+        except Exception as e:
+            logger.error(f"Error generating RSS feed: {e}")
+            logger.debug(f"RSS feed generation error details: {e}", exc_info=True)
 
         # Generate 404 page
-        error_404_path = await self.content_manager.generate_404_page(site_dir, theme)
-        if error_404_path:
-            generated_files.append("404.html")
+        try:
+            error_404_path = await self.content_manager.generate_404_page(
+                site_dir, theme
+            )
+            if error_404_path:
+                generated_files.append("404.html")
+                logger.debug("Generated 404 page")
+            else:
+                logger.warning("Failed to generate 404 page")
+        except Exception as e:
+            logger.error(f"Error generating 404 page: {e}")
+            logger.debug(f"404 page generation error details: {e}", exc_info=True)
 
         # Copy static assets
         static_files = await StaticAssetManager.copy_static_assets(site_dir, theme)
