@@ -9,7 +9,7 @@ Replaces complex source collector patterns with a clean factory interface.
 
 Features:
 - Registry-based collector creation
-- Support for Reddit and Mastodon collectors
+- Support for Reddit, Mastodon, RSS, and Web collectors
 - Configuration-driven collector setup
 - Multi-source collection utilities
 - Easy extensibility for new collector types
@@ -23,6 +23,8 @@ from typing import Any, Dict, List, Optional, Type
 from collectors.simple_base import SimpleCollector
 from collectors.simple_mastodon import SimpleMastodonCollector
 from collectors.simple_reddit import SimpleRedditCollector
+from collectors.simple_rss import SimpleRSSCollector
+from collectors.simple_web import SimpleWebCollector
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +36,8 @@ class CollectorFactory:
     COLLECTORS: Dict[str, Type[SimpleCollector]] = {
         "reddit": SimpleRedditCollector,
         "mastodon": SimpleMastodonCollector,
+        "rss": SimpleRSSCollector,
+        "web": SimpleWebCollector,
     }
 
     @classmethod

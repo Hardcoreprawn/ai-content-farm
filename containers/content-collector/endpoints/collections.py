@@ -240,8 +240,28 @@ async def run_scheduled_collection(
                     "save_to_storage": True,
                 }
 
+        # Filter out disabled sources before creating CollectionRequest
+        # Support both enabled=false flag and _disabled_* naming convention
+        enabled_sources = []
+
+        for source_def in default_template["sources"]:
+            # Skip sources that are explicitly disabled by enabled flag
+            if source_def.get("enabled", True) is False:
+                continue
+
+            # Skip sources using _disabled_* naming convention
+            if any(key.startswith("_disabled_") for key in source_def.keys()):
+                continue
+
+            # This is an enabled source
+            enabled_sources.append(source_def)
+
+        # Update template with only enabled sources
+        filtered_template = default_template.copy()
+        filtered_template["sources"] = enabled_sources
+
         # Convert to CollectionRequest model
-        request = CollectionRequest(**default_template)
+        request = CollectionRequest(**filtered_template)
 
         # Convert sources to the expected format
         sources_data = []

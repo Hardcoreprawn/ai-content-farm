@@ -13,6 +13,7 @@ class SourceConfig(BaseModel):
     """Configuration for a content source."""
 
     type: str = Field(..., description="Type of source (reddit, web, etc.)")
+    enabled: bool = Field(True, description="Whether this source is enabled")
     subreddits: Optional[List[str]] = Field(
         None, description="List of subreddits for reddit sources"
     )

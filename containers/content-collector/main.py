@@ -20,6 +20,7 @@ from endpoints import (
     discoveries_router,
     sources_router,
     storage_queue_router,
+    templates_router,
 )
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -207,6 +208,7 @@ app.include_router(
 app.include_router(collections_router)  # /collections endpoints
 app.include_router(discoveries_router)  # /discoveries endpoints
 app.include_router(sources_router)  # /sources endpoints
+app.include_router(templates_router)  # /templates endpoints
 # Storage Queue endpoints for KEDA integration
 app.include_router(storage_queue_router)
 

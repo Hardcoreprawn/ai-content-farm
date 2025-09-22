@@ -253,3 +253,46 @@ class HTTPCollector(SimpleCollector):
                 source=self.get_source_name(),
                 retryable=True,
             )
+
+    async def get_response(self, url: str, **kwargs) -> httpx.Response:
+        """
+        Make HTTP GET request and return response object.
+
+        Handles common HTTP errors and rate limiting.
+        """
+        try:
+            response = await self.client.get(url, **kwargs)
+
+            # Handle rate limiting
+            if response.status_code == 429:
+                retry_after = int(response.headers.get("retry-after", 60))
+                raise RateLimitError(
+                    f"Rate limited by {url}",
+                    retry_after=retry_after,
+                    source=self.get_source_name(),
+                )
+
+            # Handle authentication errors
+            if response.status_code == 401:
+                raise CollectorError(
+                    f"Authentication failed for {url}",
+                    source=self.get_source_name(),
+                    retryable=False,
+                )
+
+            # Handle other HTTP errors
+            if response.status_code >= 400:
+                raise CollectorError(
+                    f"HTTP {response.status_code} error from {url}: {response.text}",
+                    source=self.get_source_name(),
+                    retryable=response.status_code >= 500,  # 5xx errors are retryable
+                )
+
+            return response
+
+        except httpx.RequestError as e:
+            raise CollectorError(
+                f"Request error for {url}: {e}",
+                source=self.get_source_name(),
+                retryable=True,
+            )
