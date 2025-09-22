@@ -196,19 +196,26 @@ class SiteService:
                     frontmatter_text = parts[1].strip()
                     frontmatter = yaml.safe_load(frontmatter_text)
 
-                    # Create ArticleMetadata from frontmatter
+                    # Extract metadata from nested structure
+                    metadata = frontmatter.get("metadata", {})
+                    source_info = frontmatter.get("source", {})
+
+                    # Create ArticleMetadata from frontmatter with required fields
                     return ArticleMetadata(
+                        topic_id=metadata.get("topic_id", filename.replace(".md", "")),
                         title=frontmatter.get("title", "Untitled"),
                         slug=frontmatter.get("slug", filename.replace(".md", "")),
-                        content=parts[2].strip(),
-                        author=frontmatter.get("author", "AI Content Farm"),
-                        date=frontmatter.get(
-                            "date", datetime.now().strftime("%Y-%m-%d")
+                        word_count=metadata.get("word_count", 0),
+                        quality_score=metadata.get("quality_score", 0.0),
+                        cost=metadata.get("cost", 0.0),
+                        source=source_info.get("name", "unknown"),
+                        original_url=source_info.get("url", ""),
+                        generated_at=datetime.fromisoformat(
+                            metadata.get(
+                                "generated_at", datetime.now().isoformat()
+                            ).replace("Z", "+00:00")
                         ),
-                        tags=frontmatter.get("tags", []),
-                        summary=frontmatter.get("summary", ""),
-                        url=frontmatter.get("source", {}).get("url", ""),
-                        published=frontmatter.get("published", True),
+                        content=parts[2].strip(),
                     )
 
             logger.warning(f"No frontmatter found in {filename}")
