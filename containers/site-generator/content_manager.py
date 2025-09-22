@@ -170,6 +170,37 @@ class ContentManager:
             logger.debug(f"RSS feed generation error details: {e}")
             return None
 
+    async def generate_404_page(self, output_dir: Path, theme: str) -> Optional[Path]:
+        """
+        Generate the 404 error page.
+
+        Args:
+            output_dir: Directory to write the page
+            theme: Theme name for styling
+
+        Returns:
+            Path to generated 404 file, or None if failed
+        """
+        try:
+            template = self.jinja_env.get_template("404.html")
+            output_path = output_dir / "404.html"
+
+            # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+            # Template from secure Environment with autoescape enabled - XSS protection in place
+            content = template.render(
+                theme=theme,
+                generated_at=datetime.now(timezone.utc),
+                site_title="AI Content Farm",
+            )
+
+            output_path.write_text(content, encoding="utf-8")
+            return output_path
+
+        except Exception as e:
+            logger.error("Failed to generate 404 page")
+            logger.debug(f"404 page generation error details: {e}")
+            return None
+
     def create_markdown_content(self, article_data: Dict) -> str:
         """
         Create markdown content from article data.

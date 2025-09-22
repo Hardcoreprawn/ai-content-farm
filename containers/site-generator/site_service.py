@@ -127,6 +127,11 @@ class SiteService:
         if rss_path:
             generated_files.append("feed.xml")
 
+        # Generate 404 page
+        error_404_path = await self.content_manager.generate_404_page(site_dir, theme)
+        if error_404_path:
+            generated_files.append("404.html")
+
         # Copy static assets
         static_files = await StaticAssetManager.copy_static_assets(site_dir, theme)
         generated_files.extend(static_files)
