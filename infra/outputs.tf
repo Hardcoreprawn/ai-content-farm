@@ -45,6 +45,11 @@ output "storage_static_sites_container_name" {
   value = azurerm_storage_container.static_sites.name
 }
 
+output "static_website_url" {
+  description = "Static website URL"
+  value       = azurerm_storage_account.main.primary_web_endpoint
+}
+
 output "storage_pipeline_logs_container_name" {
   value = azurerm_storage_container.pipeline_logs.name
 }
