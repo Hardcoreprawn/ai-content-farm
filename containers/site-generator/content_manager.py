@@ -127,6 +127,7 @@ class ContentManager:
                 articles=sorted_articles,
                 theme=theme,
                 site=site_info,
+                site_title=site_info["title"],  # Backward compatibility
                 generated_at=datetime.now(timezone.utc),
             )
 
@@ -215,7 +216,7 @@ class ContentManager:
                 theme=theme,
                 generated_at=datetime.now(timezone.utc),
                 site=site_info,
-                site_title="AI Content Farm",
+                site_title=site_info["title"],  # Backward compatibility
             )
 
             output_path.write_text(content, encoding="utf-8")
