@@ -256,13 +256,25 @@ class SiteService:
                     # Determine content type based on file extension
                     content_type = self._get_content_type(file_path.suffix)
 
-                    # Upload file to $web container
-                    await self.blob_client.upload_file(
-                        container_name="$web",
-                        blob_name=blob_name,
-                        file_path=str(file_path),
-                        content_type=content_type,
-                    )
+                    # Upload based on file type - text files use upload_text, binary files use upload_binary
+                    if self._is_text_file(file_path.suffix):
+                        # Read as text for HTML, CSS, JS, XML, etc.
+                        file_content = file_path.read_text(encoding="utf-8")
+                        await self.blob_client.upload_text(
+                            container_name="$web",
+                            blob_name=blob_name,
+                            content=file_content,
+                            content_type=content_type,
+                        )
+                    else:
+                        # Read as binary for images, etc.
+                        file_content = file_path.read_bytes()
+                        await self.blob_client.upload_binary(
+                            container_name="$web",
+                            blob_name=blob_name,
+                            data=file_content,
+                            content_type=content_type,
+                        )
 
             logger.info("Site published successfully to $web container")
 
@@ -287,3 +299,8 @@ class SiteService:
             ".txt": "text/plain",
         }
         return content_types.get(file_extension.lower(), "application/octet-stream")
+
+    def _is_text_file(self, file_extension: str) -> bool:
+        """Determine if a file extension represents a text file."""
+        text_extensions = {".html", ".css", ".js", ".json", ".xml", ".txt", ".svg"}
+        return file_extension.lower() in text_extensions
