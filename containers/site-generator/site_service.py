@@ -9,7 +9,7 @@ import logging
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 from uuid import uuid4
 
 from models import ArticleMetadata, GenerationResponse
@@ -141,9 +141,32 @@ class SiteService:
 
     async def _get_markdown_articles(self) -> List[ArticleMetadata]:
         """Get all markdown articles for site generation."""
-        # This would download and parse markdown files
-        # For now, return empty list - implement based on needs
-        return []
+        try:
+            # List all markdown files in the container
+            markdown_files = await self.blob_client.list_blobs(
+                container_name=self.config.MARKDOWN_CONTENT_CONTAINER
+            )
+
+            articles = []
+            for blob_info in markdown_files:
+                if blob_info.name.endswith(".md"):
+                    # Download and parse markdown file
+                    content = await self.blob_client.download_text(
+                        container_name=self.config.MARKDOWN_CONTENT_CONTAINER,
+                        blob_name=blob_info.name,
+                    )
+
+                    # Parse frontmatter and create ArticleMetadata
+                    article = self._parse_markdown_frontmatter(blob_info.name, content)
+                    if article:
+                        articles.append(article)
+
+            logger.info(f"Found {len(articles)} markdown articles")
+            return articles
+
+        except Exception as e:
+            logger.error(f"Failed to get markdown articles: {e}")
+            return []
 
     def _create_empty_response(self) -> GenerationResponse:
         """Create response for when no articles are found."""
@@ -156,3 +179,39 @@ class SiteService:
             output_location=f"blob://{self.config.STATIC_SITES_CONTAINER}",
             generated_files=[],
         )
+
+    def _parse_markdown_frontmatter(
+        self, filename: str, content: str
+    ) -> Optional[ArticleMetadata]:
+        """Parse markdown frontmatter to create ArticleMetadata."""
+        try:
+            import yaml
+
+            # Split content into frontmatter and body
+            if content.startswith("---"):
+                parts = content.split("---", 2)
+                if len(parts) >= 3:
+                    frontmatter_text = parts[1].strip()
+                    frontmatter = yaml.safe_load(frontmatter_text)
+
+                    # Create ArticleMetadata from frontmatter
+                    return ArticleMetadata(
+                        title=frontmatter.get("title", "Untitled"),
+                        slug=frontmatter.get("slug", filename.replace(".md", "")),
+                        content=parts[2].strip(),
+                        author=frontmatter.get("author", "AI Content Farm"),
+                        date=frontmatter.get(
+                            "date", datetime.now().strftime("%Y-%m-%d")
+                        ),
+                        tags=frontmatter.get("tags", []),
+                        summary=frontmatter.get("summary", ""),
+                        url=frontmatter.get("source", {}).get("url", ""),
+                        published=frontmatter.get("published", True),
+                    )
+
+            logger.warning(f"No frontmatter found in {filename}")
+            return None
+
+        except Exception as e:
+            logger.error(f"Failed to parse frontmatter for {filename}: {e}")
+            return None
