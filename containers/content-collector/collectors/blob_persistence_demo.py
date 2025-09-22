@@ -1,5 +1,11 @@
 """
-Blob Storage Persistence Example
+Blob Storage Persistence Example - LEGACY
+
+DEPRECATED: Demo script for adaptive strategy persistence
+Status: PENDING REMOVAL - Not needed with simplified architecture
+
+Demonstrated how complex adaptive strategies persisted metrics to blob storage.
+Simplified collectors don't need this complexity.
 
 Demonstrates how the adaptive collection system uses Azure Blob Storage
 for persistent metrics and strategy data across container restarts.

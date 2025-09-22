@@ -1,5 +1,18 @@
 """
-Data Models Tests for Content Collector
+Data Models Tests for Content Collector - ACTIVE
+
+CURRENT ARCHITECTURE: Tests for API request/response models
+Status: ACTIVE - Still needed for API validation
+
+Tests data models and validation logic.
+These models are still used by the FastAPI endpoints regardless of collector architecture.
+
+Test Coverage:
+- SourceConfig validation
+- DiscoveryRequest validation
+- TrendingTopic model validation
+- Pydantic model behavior
+- API request/response structure
 
 Tests data models and validation logic.
 """

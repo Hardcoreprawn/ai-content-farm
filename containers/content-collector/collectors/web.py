@@ -1,5 +1,10 @@
 """
-Web Content Collector
+Web Content Collector - LEGACY
+
+DEPRECATED: Complex web collector with adaptive strategies
+Status: PENDING REMOVAL - No simplified replacement yet (consider adding simple_rss.py)
+
+Uses complex adaptive collection patterns. Could be simplified if RSS collection is needed.
 
 Collector for web content using RSS feeds and web scraping.
 """

@@ -1,5 +1,11 @@
 """
-Test Fixtures for Content Collector
+Test Fixtures for Content Collector - LEGACY
+
+DEPRECATED: Complex test fixtures for legacy adaptive collectors
+Status: PENDING REMOVAL - Replaced by simple fixtures in conftest.py
+
+Contains complex mock objects and fixtures for the legacy collector system.
+New simplified tests use simpler fixtures from conftest.py.
 
 Shared test fixtures and mock objects for content collector tests.
 Extracted to reduce test file size and improve maintainability.

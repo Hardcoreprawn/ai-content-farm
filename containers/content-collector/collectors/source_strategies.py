@@ -1,5 +1,11 @@
 """
-Source-Specific Collection Strategies
+Source-Specific Collection Strategies - LEGACY
+
+DEPRECATED: Complex source-specific adaptive strategies
+Status: PENDING REMOVAL - Replaced by simple retry logic in simple_* collectors
+
+Implemented complex adaptive strategies for different sources with learning algorithms.
+Simplified collectors use basic configuration instead.
 
 Implements adaptive strategies tailored to different content sources
 with their unique rate limiting and behavioral patterns.

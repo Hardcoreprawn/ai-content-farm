@@ -1,5 +1,11 @@
 """
-Source Collectors for Content Womble
+Source Collectors for Content Womble - LEGACY
+
+DEPRECATED: Legacy source collectors with complex patterns
+Status: PENDING REMOVAL - Replaced by simple factory pattern
+
+Contains complex collector instantiation and management logic.
+Replaced by collectors/factory.py which provides simpler patterns.
 
 Collects content from various sources (RSS, Reddit, etc.) for processing.
 """

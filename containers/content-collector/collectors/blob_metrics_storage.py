@@ -1,5 +1,11 @@
 """
-Persistent Metrics Storage for Adaptive Collection Strategies
+Persistent Metrics Storage for Adaptive Collection Strategies - LEGACY
+
+DEPRECATED: Complex blob storage for adaptive strategy metrics
+Status: PENDING REMOVAL - Not needed with simplified collectors
+
+Was used to persist complex adaptive strategy state across restarts.
+Simplified collectors don't need persistent state.
 
 Provides Azure Blob Storage integration for persisting collection metrics,
 strategy parameters, and learned behaviors across container restarts.

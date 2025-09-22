@@ -1,4 +1,13 @@
 """
+Integration Test for Monitoring Modules - LEGACY
+
+DEPRECATED: Integration test for complex monitoring systems
+Status: PENDING REMOVAL - Monitoring simplified with basic logging
+
+Integration test for monitoring modules
+Added to test container testing pipeline
+Complex monitoring replaced by simple logging in simplified collectors.
+
 Integration test for monitoring modules
 Added to test container testing pipeline
 """

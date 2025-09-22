@@ -1,5 +1,11 @@
 """
-Collection Response Monitor
+Collection Response Monitor - LEGACY
+
+DEPRECATED: Complex monitoring system for adaptive strategies
+Status: PENDING REMOVAL - Not needed with simplified collectors
+
+Provided comprehensive monitoring for complex adaptive collection strategies.
+Simplified collectors use basic logging instead.
 
 Provides comprehensive monitoring and feedback collection for all source types,
 integrating with the adaptive strategy system to provide real-time adjustments.
