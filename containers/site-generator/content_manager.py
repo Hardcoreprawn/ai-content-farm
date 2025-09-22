@@ -68,8 +68,16 @@ class ContentManager:
             # Render template with article data
             # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
             # Template from secure Environment with autoescape enabled - XSS protection in place
+            site_info = {
+                "title": "AI Content Farm",
+                "description": "Automated content aggregation and curation",
+                "url": "https://aicontentprodstkwakpx.z33.web.core.windows.net",
+            }
             content = template.render(
-                article=article, theme=theme, generated_at=datetime.now(timezone.utc)
+                article=article,
+                theme=theme,
+                site=site_info,
+                generated_at=datetime.now(timezone.utc),
             )
 
             output_path.write_text(content, encoding="utf-8")
@@ -110,11 +118,16 @@ class ContentManager:
 
             # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
             # Template from secure Environment with autoescape enabled - XSS protection in place
+            site_info = {
+                "title": "AI Content Farm",
+                "description": "Automated content aggregation and curation",
+                "url": "https://aicontentprodstkwakpx.z33.web.core.windows.net",
+            }
             content = template.render(
                 articles=sorted_articles,
                 theme=theme,
+                site=site_info,
                 generated_at=datetime.now(timezone.utc),
-                site_title="AI Content Farm",
             )
 
             output_path.write_text(content, encoding="utf-8")
@@ -154,12 +167,18 @@ class ContentManager:
 
             # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
             # Template from secure Environment with autoescape enabled - XSS protection in place
+            site_info = {
+                "title": "AI Content Farm",
+                "description": "Automated content aggregation and curation",
+                "url": "https://aicontentprodstkwakpx.z33.web.core.windows.net",
+            }
             content = template.render(
                 articles=sorted_articles,
                 generated_at=datetime.now(timezone.utc),
+                site=site_info,
                 site_title="AI Content Farm",
-                site_url="https://example.com",  # This should come from config
-                site_description="AI-generated content feed",
+                site_url="https://aicontentprodstkwakpx.z33.web.core.windows.net",
+                site_description="Automated content aggregation and curation",
             )
 
             output_path.write_text(content, encoding="utf-8")
@@ -187,9 +206,15 @@ class ContentManager:
 
             # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
             # Template from secure Environment with autoescape enabled - XSS protection in place
+            site_info = {
+                "title": "AI Content Farm",
+                "description": "Automated content aggregation and curation",
+                "url": "https://aicontentprodstkwakpx.z33.web.core.windows.net",
+            }
             content = template.render(
                 theme=theme,
                 generated_at=datetime.now(timezone.utc),
+                site=site_info,
                 site_title="AI Content Farm",
             )
 
