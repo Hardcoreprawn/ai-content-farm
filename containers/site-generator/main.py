@@ -21,13 +21,15 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from models import GenerationRequest, GenerationResponse, SiteStatus
 from site_generator import SiteGenerator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from storage_queue_router import router as storage_queue_router
+from theme_api import router as theme_router
+from theme_security import create_security_headers
 
 from config import Config
 from libs import SecureErrorHandler
@@ -180,21 +182,25 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-# Include storage queue router for KEDA-triggered processing
+# Include routers
 app.include_router(storage_queue_router)
+app.include_router(theme_router)
 
 
-# Add security headers middleware
+# Add comprehensive security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
+
+    # Add all security headers
+    security_headers = create_security_headers()
+    for header_name, header_value in security_headers.items():
+        response.headers[header_name] = header_value
+
+    # Additional headers
     response.headers["Strict-Transport-Security"] = (
         "max-age=31536000; includeSubDomains"
     )
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
 
 
@@ -399,5 +405,13 @@ app.add_exception_handler(
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # Use environment-specific host binding for security
+    host = os.environ.get("HOST", "127.0.0.1")  # Default to localhost
+    port = int(os.environ.get("PORT", 8080))
+
+    # Allow 0.0.0.0 binding only in container environment
+    if os.environ.get("CONTAINER_ENV") == "true":
+        host = "0.0.0.0"
+
+    logger.info(f"Starting server on {host}:{port}")
+    uvicorn.run(app, host=host, port=port)

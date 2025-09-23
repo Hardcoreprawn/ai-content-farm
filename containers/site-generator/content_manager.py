@@ -16,6 +16,7 @@ from uuid import uuid4
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from models import ArticleMetadata
+from theme_security import content_sanitizer
 
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -51,6 +52,10 @@ class ContentManager:
             loader=FileSystemLoader(str(templates_dir)),
             autoescape=select_autoescape(["html", "xml"]),
         )
+
+        # Add custom filters for secure content rendering
+        self.jinja_env.filters["sanitize"] = content_sanitizer.sanitize_html
+        self.jinja_env.filters["sanitize_text"] = content_sanitizer.sanitize_text
         logger.debug(f"ContentManager initialized: {self.content_id}")
 
     async def generate_article_page(
