@@ -1,0 +1,83 @@
+{% set base_url = site.url %}
+{% set last_updated = last_updated or current_time %}
+{% set current_date = last_updated.strftime('%Y-%m-%d') if last_updated else current_time.strftime('%Y-%m-%d') %}
+
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"
+     xmlns:atom="http://www.w3.org/2005/Atom"
+     xmlns:content="http://purl.org/rss/1.0/modules/content/"
+     xmlns:dc="http://purl.org/dc/elements/1.1/">
+
+<channel>
+    <title>{{ site.title }}</title>
+    <link>{{ base_url }}</link>
+    <description>{{ site.description }}</description>
+    <language>en-us</language>
+    <copyright>© {{ current_year or 2025 }} {{ site.title }}</copyright>
+    <managingEditor>noreply@{{ site.domain or 'aicontentfarm.com' }} (AI Content Farm)</managingEditor>
+    <webMaster>noreply@{{ site.domain or 'aicontentfarm.com' }} (AI Content Farm)</webMaster>
+    <lastBuildDate>{{ last_updated.strftime('%a, %d %b %Y %H:%M:%S +0000') if last_updated else current_time.strftime('%a, %d %b %Y %H:%M:%S +0000') }}</lastBuildDate>
+    <category>Technology</category>
+    <category>Artificial Intelligence</category>
+    <category>Tech News</category>
+    <generator>AI Content Farm Static Site Generator</generator>
+    <docs>https://www.rssboard.org/rss-specification</docs>
+    <cloud domain="rpc.sys.com" port="80" path="/RPC2" registerProcedure="" protocol="soap"/>
+    <ttl>360</ttl>
+    <image>
+        <url>{{ base_url }}/favicon.ico</url>
+        <title>{{ site.title }}</title>
+        <link>{{ base_url }}</link>
+        <width>32</width>
+        <height>32</height>
+        <description>{{ site.title }} - AI-Curated Tech News</description>
+    </image>
+    <atom:link href="{{ base_url }}/feed.xml" rel="self" type="application/rss+xml" />
+
+    {% for article in articles[:20] %}
+    <item>
+        <title>{{ article.title|e }}</title>
+        <link>{{ base_url }}/articles/{{ article.slug }}.html</link>
+        <description><![CDATA[{{ article.content[:500] if article.content else 'AI-curated technology article from ' + (article.source or 'various sources') }}{% if article.content and article.content|length > 500 %}...{% endif %}]]></description>
+
+        {% if article.content %}
+        <content:encoded><![CDATA[{{ article.content }}]]></content:encoded>
+        {% endif %}
+
+        <pubDate>{{ article.generated_at.strftime('%a, %d %b %Y %H:%M:%S +0000') if article.generated_at else current_time.strftime('%a, %d %b %Y %H:%M:%S +0000') }}</pubDate>
+        <guid isPermaLink="true">{{ base_url }}/articles/{{ article.slug }}.html</guid>
+
+        {% if article.source %}
+        <dc:creator>{{ article.source }}</dc:creator>
+        <source url="{{ article.original_url if article.original_url else base_url }}">{{ article.source }}</source>
+        {% endif %}
+
+        <category>Technology</category>
+        {% if article.quality_score and article.quality_score >= 0.9 %}
+        <category>Premium Content</category>
+        {% elif article.quality_score and article.quality_score >= 0.8 %}
+        <category>High Quality</category>
+        {% endif %}
+
+        {% if article.word_count and article.word_count > 1000 %}
+        <category>Long Read</category>
+        {% endif %}
+
+        <!-- Custom elements for enhanced RSS functionality -->
+        {% if article.quality_score %}
+        <qualityScore>{{ (article.quality_score * 100)|round }}</qualityScore>
+        {% endif %}
+
+        {% if article.word_count %}
+        <wordCount>{{ article.word_count }}</wordCount>
+        <readingTime>{{ ((article.word_count / 200)|round)|int }}</readingTime>
+        {% endif %}
+
+        {% if article.original_url %}
+        <originalSource>{{ article.original_url }}</originalSource>
+        {% endif %}
+    </item>
+    {% endfor %}
+
+</channel>
+</rss>

@@ -1,0 +1,44 @@
+{
+    "name": "modern-grid",
+    "display_name": "Modern Grid",
+    "description": "A clean, modern, responsive grid-based theme optimized for tech content with advanced CSS Grid layouts",
+    "version": "1.0.0",
+    "author": "AI Content Farm Team",
+    "preview_image": "preview.png",
+    "supports_dark_mode": true,
+    "responsive": true,
+    "grid_layout": true,
+    "tech_optimized": true,
+    "features": [
+        "CSS Grid Layout",
+        "Responsive Breakpoints",
+        "Dark Mode Support",
+        "Mobile-First Design",
+        "Tech Content Optimization",
+        "Fast Loading",
+        "Accessibility Features",
+        "Modern Typography"
+    ],
+    "breakpoints": {
+        "mobile": "320px",
+        "tablet": "768px",
+        "desktop": "1024px",
+        "large": "1440px",
+        "ultrawide": "1920px"
+    },
+    "color_scheme": {
+        "primary": "#6366f1",
+        "secondary": "#8b5cf6",
+        "accent": "#06b6d4",
+        "background": "#ffffff",
+        "surface": "#f8fafc",
+        "text": "#1e293b",
+        "text_secondary": "#64748b"
+    },
+    "assets": [
+        "modern-grid.css",
+        "modern-grid.js"
+    ],
+    "created_at": "2025-09-23T00:00:00Z",
+    "updated_at": "2025-09-23T00:00:00Z"
+}

@@ -1,0 +1,338 @@
+/* Modern Grid Theme - Layout Components */
+/* Grid layouts, containers, and structural elements */
+
+/* Container and Layout */
+.container {
+    max-width: var(--container-max-width);
+    margin: 0 auto;
+    padding: 0 var(--container-padding);
+}
+
+.main-content {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.content-wrapper {
+    flex: 1;
+    padding: var(--space-8) 0;
+}
+
+/* Grid System */
+.articles-grid {
+    display: grid;
+    grid-template-columns: repeat(var(--grid-columns-sm), 1fr);
+    gap: var(--grid-gap);
+    margin: var(--space-8) 0;
+}
+
+@media (min-width: 640px) {
+    .articles-grid {
+        grid-template-columns: repeat(var(--grid-columns-md), 1fr);
+    }
+}
+
+@media (min-width: 1024px) {
+    .articles-grid {
+        grid-template-columns: repeat(var(--grid-columns-lg), 1fr);
+    }
+}
+
+@media (min-width: 1280px) {
+    .articles-grid {
+        grid-template-columns: repeat(var(--grid-columns-xl), 1fr);
+    }
+}
+
+/* Article Cards */
+.article-card {
+    background-color: var(--surface-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: all var(--transition-normal);
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.article-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--border-hover);
+}
+
+.article-card:focus-within {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+}
+
+.article-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    transition: transform var(--transition-normal);
+}
+
+.article-card:hover .article-image {
+    transform: scale(1.02);
+}
+
+.article-content {
+    padding: var(--space-6);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.article-title {
+    font-size: var(--text-xl);
+    font-weight: 600;
+    margin-bottom: var(--space-3);
+    line-height: 1.3;
+}
+
+.article-title a {
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+.article-title a:hover {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.article-description {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-4);
+    flex: 1;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Article Metadata */
+.article-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--space-4);
+    font-size: var(--text-sm);
+    color: var(--text-muted);
+}
+
+.article-date {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+.reading-time {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+}
+
+/* Tags */
+.article-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-top: auto;
+}
+
+.tag {
+    background-color: var(--surface);
+    color: var(--text-secondary);
+    padding: var(--space-1) var(--space-3);
+    border-radius: var(--radius-md);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    border: 1px solid var(--border-color);
+    transition: all var(--transition-fast);
+}
+
+.tag:hover {
+    background-color: var(--primary-light);
+    color: var(--text-primary);
+    border-color: var(--primary-color);
+}
+
+/* Featured Articles Layout */
+.featured-articles {
+    margin-bottom: var(--space-12);
+}
+
+.featured-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--space-8);
+}
+
+@media (min-width: 768px) {
+    .featured-grid {
+        grid-template-columns: 2fr 1fr;
+    }
+}
+
+.featured-main {
+    position: relative;
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: var(--text-inverse);
+    min-height: 400px;
+    display: flex;
+    align-items: end;
+}
+
+.featured-content {
+    padding: var(--space-8);
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+    width: 100%;
+}
+
+.featured-title {
+    font-size: var(--text-3xl);
+    font-weight: 700;
+    margin-bottom: var(--space-4);
+    color: var(--text-inverse);
+}
+
+.featured-description {
+    font-size: var(--text-lg);
+    margin-bottom: var(--space-6);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.featured-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.featured-item {
+    background-color: var(--surface-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-md);
+    padding: var(--space-4);
+    transition: all var(--transition-fast);
+}
+
+.featured-item:hover {
+    border-color: var(--primary-color);
+    box-shadow: var(--shadow-md);
+}
+
+/* Pagination */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-2);
+    margin: var(--space-12) 0;
+}
+
+.pagination-btn {
+    background-color: var(--surface-elevated);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: all var(--transition-fast);
+    font-weight: 500;
+}
+
+.pagination-btn:hover {
+    background-color: var(--primary-color);
+    color: var(--text-inverse);
+    border-color: var(--primary-color);
+}
+
+.pagination-btn.active {
+    background-color: var(--primary-color);
+    color: var(--text-inverse);
+    border-color: var(--primary-color);
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Loading States */
+.loading-skeleton {
+    background: linear-gradient(90deg,
+            var(--surface) 0%,
+            var(--border-color) 50%,
+            var(--surface) 100%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: var(--radius-md);
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+.loading-card {
+    background-color: var(--surface-elevated);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    padding: var(--space-6);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.loading-title {
+    height: 24px;
+    width: 80%;
+}
+
+.loading-text {
+    height: 16px;
+    width: 100%;
+}
+
+.loading-meta {
+    height: 14px;
+    width: 60%;
+}
+
+/* Empty States */
+.empty-state {
+    text-align: center;
+    padding: var(--space-16) var(--space-4);
+}
+
+.empty-state-icon {
+    font-size: var(--text-5xl);
+    color: var(--text-muted);
+    margin-bottom: var(--space-4);
+}
+
+.empty-state-title {
+    font-size: var(--text-2xl);
+    font-weight: 600;
+    margin-bottom: var(--space-2);
+    color: var(--text-primary);
+}
+
+.empty-state-description {
+    color: var(--text-secondary);
+    margin-bottom: var(--space-6);
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
