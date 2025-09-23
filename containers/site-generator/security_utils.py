@@ -6,6 +6,8 @@ Uses project standard libraries for consistency.
 """
 
 import logging
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 from uuid import uuid4
 
@@ -32,7 +34,7 @@ class SecurityValidator:
     MAX_FILENAME_LENGTH = 50
     MAX_ARCHIVE_SIZE = 100 * 1024 * 1024  # 100MB
     ALLOWED_ARCHIVE_EXTENSIONS = [".tar.gz"]
-    TEMP_BASE_DIR = Path("/tmp")
+    # Use secure temporary directory creation instead of hardcoded path
 
     def __init__(self):
         """Initialize security validator with unique instance ID."""
@@ -130,7 +132,8 @@ class SecurityValidator:
             True if path is within base_dir, False otherwise
         """
         if base_dir is None:
-            base_dir = SecurityValidator.TEMP_BASE_DIR
+            # Use secure temporary directory instead of hardcoded /tmp
+            base_dir = Path(tempfile.gettempdir())
 
         try:
             resolved_path = path.resolve()
