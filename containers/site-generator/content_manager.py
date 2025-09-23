@@ -129,6 +129,7 @@ class ContentManager:
                 site=site_info,
                 site_title=site_info["title"],  # Backward compatibility
                 generated_at=datetime.now(timezone.utc),
+                last_updated=datetime.now(timezone.utc),  # For template compatibility
             )
 
             output_path.write_text(content, encoding="utf-8")
