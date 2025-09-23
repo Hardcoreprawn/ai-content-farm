@@ -18,6 +18,8 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from models import ArticleMetadata
 
 sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "libs"))
+from secure_error_handler import SecureErrorHandler
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,7 @@ class ContentManager:
             templates_dir = Path(__file__).parent / "templates"
 
         self.content_id = str(uuid4())[:8]
+        self.error_handler = SecureErrorHandler("content-manager")
         # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
         # Jinja2 Environment configured with autoescape enabled for HTML/XML - XSS protection in place
         self.jinja_env = Environment(
@@ -94,11 +97,13 @@ class ContentManager:
             return output_path
 
         except Exception as e:
-            logger.error(f"Failed to generate article page for {article.slug}")
-            logger.error(
-                f"Article page generation error details for {article.slug}: {type(e).__name__}: {e}"
+            # Use secure error handler for OWASP compliance
+            self.error_handler.handle_error(
+                error=e,
+                error_type="generation",
+                context={"article_slug": article.slug, "component": "article_page"},
             )
-            logger.exception("Full traceback for article page generation failure")
+            logger.error(f"Failed to generate article page for {article.slug}")
             return None
 
     async def generate_index_page(
@@ -148,11 +153,11 @@ class ContentManager:
             return output_path
 
         except Exception as e:
-            logger.error("Failed to generate index page")
-            logger.error(
-                f"Index page generation error details: {type(e).__name__}: {e}"
+            # Use secure error handler for OWASP compliance
+            self.error_handler.handle_error(
+                error=e, error_type="generation", context={"component": "index_page"}
             )
-            logger.exception("Full traceback for index page generation failure")
+            logger.error("Failed to generate index page")
             return None
 
     async def generate_rss_feed(
@@ -204,9 +209,11 @@ class ContentManager:
             return output_path
 
         except Exception as e:
+            # Use secure error handler for OWASP compliance
+            self.error_handler.handle_error(
+                error=e, error_type="generation", context={"component": "rss_feed"}
+            )
             logger.error("Failed to generate RSS feed")
-            logger.error(f"RSS feed generation error details: {type(e).__name__}: {e}")
-            logger.exception("Full traceback for RSS feed generation failure")
             return None
 
     async def generate_404_page(self, output_dir: Path, theme: str) -> Optional[Path]:
@@ -246,9 +253,11 @@ class ContentManager:
             return output_path
 
         except Exception as e:
+            # Use secure error handler for OWASP compliance
+            self.error_handler.handle_error(
+                error=e, error_type="generation", context={"component": "404_page"}
+            )
             logger.error("Failed to generate 404 page")
-            logger.error(f"404 page generation error details: {type(e).__name__}: {e}")
-            logger.exception("Full traceback for 404 page generation failure")
             return None
 
     def create_markdown_content(self, article_data: Dict) -> str:
@@ -312,7 +321,11 @@ class ContentManager:
         return slug
 
     async def generate_sitemap(
-        self, articles: List[ArticleMetadata], output_dir: Path, base_url: str
+        self,
+        articles: List[ArticleMetadata],
+        output_dir: Path,
+        base_url: str,
+        theme: str = "minimal",
     ) -> Optional[Path]:
         """
         Generate XML sitemap for the site.
@@ -326,7 +339,7 @@ class ContentManager:
             Path to generated sitemap file, or None if failed
         """
         try:
-            template = self.jinja_env.get_template("sitemap.xml")
+            template = self.jinja_env.get_template(f"{theme}/sitemap.xml")
             output_path = output_dir / "sitemap.xml"
 
             # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
@@ -341,7 +354,9 @@ class ContentManager:
             return output_path
 
         except Exception as e:
+            # Use secure error handler for OWASP compliance
+            self.error_handler.handle_error(
+                error=e, error_type="generation", context={"component": "sitemap"}
+            )
             logger.error("Failed to generate sitemap")
-            logger.error(f"Sitemap generation error details: {type(e).__name__}: {e}")
-            logger.exception("Full traceback for sitemap generation failure")
             return None
