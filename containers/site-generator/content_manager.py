@@ -94,9 +94,10 @@ class ContentManager:
 
         except Exception as e:
             logger.error(f"Failed to generate article page for {article.slug}")
-            logger.debug(
-                f"Article page generation error details for {article.slug}: {e}"
+            logger.error(
+                f"Article page generation error details for {article.slug}: {type(e).__name__}: {e}"
             )
+            logger.exception("Full traceback for article page generation failure")
             return None
 
     async def generate_index_page(
@@ -146,7 +147,10 @@ class ContentManager:
 
         except Exception as e:
             logger.error("Failed to generate index page")
-            logger.debug(f"Index page generation error details: {e}")
+            logger.error(
+                f"Index page generation error details: {type(e).__name__}: {e}"
+            )
+            logger.exception("Full traceback for index page generation failure")
             return None
 
     async def generate_rss_feed(
@@ -199,7 +203,8 @@ class ContentManager:
 
         except Exception as e:
             logger.error("Failed to generate RSS feed")
-            logger.debug(f"RSS feed generation error details: {e}")
+            logger.error(f"RSS feed generation error details: {type(e).__name__}: {e}")
+            logger.exception("Full traceback for RSS feed generation failure")
             return None
 
     async def generate_404_page(self, output_dir: Path, theme: str) -> Optional[Path]:
@@ -240,7 +245,8 @@ class ContentManager:
 
         except Exception as e:
             logger.error("Failed to generate 404 page")
-            logger.debug(f"404 page generation error details: {e}")
+            logger.error(f"404 page generation error details: {type(e).__name__}: {e}")
+            logger.exception("Full traceback for 404 page generation failure")
             return None
 
     def create_markdown_content(self, article_data: Dict) -> str:
@@ -334,5 +340,6 @@ class ContentManager:
 
         except Exception as e:
             logger.error("Failed to generate sitemap")
-            logger.debug(f"Sitemap generation error details: {e}")
+            logger.error(f"Sitemap generation error details: {type(e).__name__}: {e}")
+            logger.exception("Full traceback for sitemap generation failure")
             return None
