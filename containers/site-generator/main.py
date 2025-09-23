@@ -126,11 +126,28 @@ async def lifespan(app: FastAPI):
 
             if processed_count > 0:
                 logger.info(f"Startup: Processed {processed_count} pending messages")
+                logger.info(
+                    "Startup: All messages processed - scheduling graceful shutdown"
+                )
+                # Schedule graceful shutdown after processing
+                asyncio.create_task(graceful_shutdown())
             else:
-                logger.info("Startup: No pending messages found")
+                logger.info(
+                    "Startup: No pending messages found - scheduling graceful shutdown"
+                )
+                # Schedule shutdown if no work to do
+                asyncio.create_task(graceful_shutdown())
 
         except Exception as e:
             logger.error(f"Startup queue processing failed: {e}")
+            # Schedule shutdown with error
+            asyncio.create_task(graceful_shutdown(exit_code=1))
+
+    async def graceful_shutdown(exit_code: int = 0):
+        """Gracefully shutdown the container after a brief delay."""
+        await asyncio.sleep(2)  # Brief delay to ensure logs are flushed
+        logger.info(f"Gracefully shutting down container with exit code {exit_code}")
+        os._exit(exit_code)
 
     # Start the background task
     asyncio.create_task(startup_queue_processor())
