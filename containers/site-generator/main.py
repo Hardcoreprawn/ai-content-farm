@@ -96,12 +96,9 @@ async def lifespan(app: FastAPI):
             logger.info("Starting up - checking for pending queue messages...")
 
             # Process message handler
-            async def process_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
+            async def process_message(queue_message, message) -> Dict[str, Any]:
                 """Process a single message on startup."""
                 try:
-                    from libs.queue_client import QueueMessageModel
-
-                    queue_message = QueueMessageModel(**message_data)
                     result = await storage_queue_router.process_storage_queue_message(
                         queue_message
                     )
