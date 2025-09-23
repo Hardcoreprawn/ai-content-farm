@@ -1,0 +1,29 @@
+{
+    "env": {
+        "browser": true,
+        "es6": true
+    },
+    "extends": "eslint:recommended",
+    "rules": {
+        "no-unused-vars": "warn",
+        "no-undef": "warn",
+        "no-console": "warn",
+        "semi": [
+            "error",
+            "always"
+        ],
+        "quotes": [
+            "error",
+            "single"
+        ],
+        "indent": [
+            "error",
+            4
+        ]
+    },
+    "globals": {
+        "window": "readonly",
+        "document": "readonly",
+        "console": "readonly"
+    }
+}
