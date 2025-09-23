@@ -23,6 +23,9 @@ feedgen~=1.0.0
 # URL Slug Generation
 python-slugify~=8.0
 
+# Security Libraries
+bleach~=7.0.0
+
 # Testing Framework
 pytest~=8.4.2
 
