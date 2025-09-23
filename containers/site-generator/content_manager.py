@@ -59,7 +59,7 @@ class ContentManager:
             Path to generated page file, or None if failed
         """
         try:
-            template = self.jinja_env.get_template("article.html")
+            template = self.jinja_env.get_template(f"{theme}/article.html")
 
             # Create safe filename from article slug
             filename = f"{article.slug}.html"
@@ -80,7 +80,8 @@ class ContentManager:
                 theme=theme,
                 site=site_info,
                 site_title=site_info["title"],  # Backward compatibility
-                site_description=site_info["description"],  # Additional compatibility
+                # Additional compatibility
+                site_description=site_info["description"],
                 site_url=site_info["url"],  # Additional compatibility
                 generated_at=current_time,
                 last_updated=current_time,  # For template compatibility
@@ -115,7 +116,7 @@ class ContentManager:
             Path to generated index file, or None if failed
         """
         try:
-            template = self.jinja_env.get_template("index.html")
+            template = self.jinja_env.get_template(f"{theme}/index.html")
             output_path = output_dir / "index.html"
 
             # Sort articles by date (newest first)
@@ -139,7 +140,8 @@ class ContentManager:
                 site=site_info,
                 site_title=site_info["title"],  # Backward compatibility
                 generated_at=datetime.now(timezone.utc),
-                last_updated=datetime.now(timezone.utc),  # For template compatibility
+                # For template compatibility
+                last_updated=datetime.now(timezone.utc),
             )
 
             output_path.write_text(content, encoding="utf-8")
@@ -154,7 +156,7 @@ class ContentManager:
             return None
 
     async def generate_rss_feed(
-        self, articles: List[ArticleMetadata], output_dir: Path
+        self, articles: List[ArticleMetadata], output_dir: Path, theme: str = "minimal"
     ) -> Optional[Path]:
         """
         Generate RSS feed for the articles.
@@ -167,7 +169,7 @@ class ContentManager:
             Path to generated RSS file, or None if failed
         """
         try:
-            template = self.jinja_env.get_template("feed.xml")
+            template = self.jinja_env.get_template(f"{theme}/feed.xml")
             output_path = output_dir / "feed.xml"
 
             # Sort articles by date (newest first) and limit to recent ones
@@ -219,7 +221,7 @@ class ContentManager:
             Path to generated 404 file, or None if failed
         """
         try:
-            template = self.jinja_env.get_template("404.html")
+            template = self.jinja_env.get_template(f"{theme}/404.html")
             output_path = output_dir / "404.html"
 
             # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2

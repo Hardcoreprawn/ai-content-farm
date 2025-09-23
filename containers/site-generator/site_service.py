@@ -144,7 +144,7 @@ class SiteService:
         # Generate RSS feed
         try:
             rss_path = await self.content_manager.generate_rss_feed(
-                markdown_articles, site_dir
+                markdown_articles, site_dir, theme
             )
             if rss_path:
                 generated_files.append("feed.xml")
