@@ -89,6 +89,8 @@ class ContentManager:
             }
             # Add comprehensive template context to avoid any missing variable issues
             current_time = datetime.now(timezone.utc)
+            # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+            # Safe: Jinja2 Environment configured with autoescape=select_autoescape(["html", "xml"])
             content = template.render(
                 article=article,
                 theme=theme,
@@ -205,6 +207,8 @@ class ContentManager:
                 "description": "Automated content aggregation and curation",
                 "url": "https://aicontentprodstkwakpx.z33.web.core.windows.net",
             }
+            # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+            # Safe: Jinja2 Environment configured with autoescape=select_autoescape(["html", "xml"])
             content = template.render(
                 articles=sorted_articles,
                 generated_at=datetime.now(timezone.utc),

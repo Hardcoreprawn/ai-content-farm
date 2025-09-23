@@ -223,7 +223,13 @@ window.AccessibilityManager = (function () {
             // Add visual indicator if not present
             const label = document.querySelector(`label[for="${field.id}"]`);
             if (label && !label.textContent.includes('*')) {
-                label.innerHTML += ' <span class="required" aria-label="required">*</span>';
+                // Secure DOM manipulation instead of innerHTML to prevent XSS
+                const requiredSpan = document.createElement('span');
+                requiredSpan.className = 'required';
+                requiredSpan.setAttribute('aria-label', 'required');
+                requiredSpan.textContent = '*';
+                label.appendChild(document.createTextNode(' '));
+                label.appendChild(requiredSpan);
             }
         });
 
