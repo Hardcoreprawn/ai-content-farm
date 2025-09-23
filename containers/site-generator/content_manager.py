@@ -18,8 +18,14 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from models import ArticleMetadata
 
 sys.path.insert(0, str(Path(__file__).parent))
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "libs"))
-from secure_error_handler import SecureErrorHandler
+
+# Import from libs package (installed in container) or fallback to relative path (dev)
+try:
+    from libs.secure_error_handler import SecureErrorHandler
+except ImportError:
+    # Fallback for local development
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "libs"))
+    from secure_error_handler import SecureErrorHandler
 
 logger = logging.getLogger(__name__)
 

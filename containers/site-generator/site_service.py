@@ -14,10 +14,15 @@ from typing import List, Optional
 from uuid import uuid4
 
 from models import ArticleMetadata, GenerationResponse
-from secure_error_handler import SecureErrorHandler
 from security_utils import SecurityValidator
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "libs"))
+# Import from libs package (installed in container) or fallback to relative path (dev)
+try:
+    from libs.secure_error_handler import SecureErrorHandler
+except ImportError:
+    # Fallback for local development
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "libs"))
+    from secure_error_handler import SecureErrorHandler
 
 logger = logging.getLogger(__name__)
 
