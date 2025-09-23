@@ -18,7 +18,7 @@ import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Request
@@ -82,6 +82,61 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager for KEDA-triggered site generation."""
     logger.info("Site Generator starting up...")
     logger.info("Site Generator ready for KEDA Storage Queue scaling")
+
+    # Start background queue processing on startup
+    import asyncio
+
+    from storage_queue_router import storage_queue_router
+
+    from libs.queue_client import process_queue_messages
+
+    async def startup_queue_processor():
+        """Process any existing queue messages on startup."""
+        try:
+            logger.info("Starting up - checking for pending queue messages...")
+
+            # Process message handler
+            async def process_message(message_data: Dict[str, Any]) -> Dict[str, Any]:
+                """Process a single message on startup."""
+                try:
+                    from libs.queue_client import QueueMessageModel
+
+                    queue_message = QueueMessageModel(**message_data)
+                    result = await storage_queue_router.process_storage_queue_message(
+                        queue_message
+                    )
+
+                    if result["status"] == "success":
+                        logger.info(
+                            f"Startup: Successfully processed message {queue_message.message_id}"
+                        )
+                    else:
+                        logger.warning(
+                            f"Startup: Message processing failed: {result.get('error', 'Unknown error')}"
+                        )
+
+                    return result
+                except Exception as e:
+                    logger.error(f"Startup: Error processing message: {e}")
+                    return {"status": "error", "error": str(e)}
+
+            # Process up to 5 messages on startup
+            processed_count = await process_queue_messages(
+                queue_name="site-generation-requests",
+                message_handler=process_message,
+                max_messages=5,
+            )
+
+            if processed_count > 0:
+                logger.info(f"Startup: Processed {processed_count} pending messages")
+            else:
+                logger.info("Startup: No pending messages found")
+
+        except Exception as e:
+            logger.error(f"Startup queue processing failed: {e}")
+
+    # Start the background task
+    asyncio.create_task(startup_queue_processor())
 
     try:
         yield
