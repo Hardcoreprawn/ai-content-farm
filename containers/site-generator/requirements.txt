@@ -24,7 +24,7 @@ feedgen~=1.0.0
 python-slugify~=8.0
 
 # Security Libraries
-bleach~=7.0.0
+bleach~=6.2.0
 
 # Testing Framework
 pytest~=8.4.2
