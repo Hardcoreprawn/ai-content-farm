@@ -73,11 +73,20 @@ class ContentManager:
                 "description": "Automated content aggregation and curation",
                 "url": "https://aicontentprodstkwakpx.z33.web.core.windows.net",
             }
+            # Add comprehensive template context to avoid any missing variable issues
+            current_time = datetime.now(timezone.utc)
             content = template.render(
                 article=article,
                 theme=theme,
                 site=site_info,
-                generated_at=datetime.now(timezone.utc),
+                site_title=site_info["title"],  # Backward compatibility
+                site_description=site_info["description"],  # Additional compatibility
+                site_url=site_info["url"],  # Additional compatibility
+                generated_at=current_time,
+                last_updated=current_time,  # For template compatibility
+                timestamp=current_time,  # Additional time variable
+                current_date=current_time.strftime("%Y-%m-%d"),
+                current_time=current_time.strftime("%H:%M UTC"),
             )
 
             output_path.write_text(content, encoding="utf-8")
@@ -178,9 +187,11 @@ class ContentManager:
                 articles=sorted_articles,
                 generated_at=datetime.now(timezone.utc),
                 site=site_info,
-                site_title="AI Content Farm",
-                site_url="https://aicontentprodstkwakpx.z33.web.core.windows.net",
-                site_description="Automated content aggregation and curation",
+                site_title=site_info["title"],
+                site_url=site_info["url"],
+                site_description=site_info["description"],
+                last_updated=datetime.now(timezone.utc),
+                timestamp=datetime.now(timezone.utc),
             )
 
             output_path.write_text(content, encoding="utf-8")
@@ -218,6 +229,10 @@ class ContentManager:
                 generated_at=datetime.now(timezone.utc),
                 site=site_info,
                 site_title=site_info["title"],  # Backward compatibility
+                site_description=site_info["description"],
+                site_url=site_info["url"],
+                last_updated=datetime.now(timezone.utc),
+                timestamp=datetime.now(timezone.utc),
             )
 
             output_path.write_text(content, encoding="utf-8")
