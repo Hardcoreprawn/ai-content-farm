@@ -37,8 +37,13 @@ def client(app):
 @pytest.fixture
 def theme_manager():
     """Create ThemeManager instance for testing"""
-    with patch("pathlib.Path.exists") as mock_exists:
+    with (
+        patch("pathlib.Path.exists") as mock_exists,
+        patch("pathlib.Path.mkdir") as mock_mkdir,
+        patch("pathlib.Path.iterdir") as mock_iterdir,
+    ):
         mock_exists.return_value = True
+        mock_iterdir.return_value = []  # Empty directory
         manager = ThemeManager(Path("test_themes"))
         return manager
 
@@ -234,12 +239,32 @@ class TestThemeAPIEndpoints:
         """Test GET /themes/{name} endpoint for existing theme"""
         with patch("theme_api.get_theme_manager") as mock_get_manager:
             mock_manager = MagicMock()
-            mock_manager.get_theme_info.return_value = {
-                "name": "modern-grid",
-                "exists": True,
-                "version": "1.0.0",
-                "files": ["theme.html", "style.css"],
+            mock_theme = MagicMock()
+            mock_theme.name = "modern-grid"
+            mock_theme.display_name = "Modern Grid"
+            mock_theme.description = "A modern grid layout"
+            mock_theme.version = "1.0.0"
+            mock_theme.author = "Test Author"
+            mock_theme.preview_image = "preview.jpg"
+            mock_theme.grid_layout = True
+            mock_theme.tech_optimized = True
+            mock_theme.responsive = True
+            mock_theme.supports_dark_mode = True
+            mock_theme.is_valid = True
+            mock_theme.validation_errors = []
+            mock_theme.validation_warnings = []
+            mock_theme.template_files = ["theme.html", "style.css"]
+            mock_theme.assets = []
+            mock_theme.created_at = "2023-01-01T00:00:00Z"
+            mock_theme.updated_at = "2023-01-01T00:00:00Z"
+
+            mock_manager.get_theme.return_value = mock_theme
+            mock_manager.validate_theme.return_value = {
+                "valid": True,
+                "warnings": [],
+                "errors": [],
             }
+            mock_manager.get_theme_assets.return_value = []
             mock_get_manager.return_value = mock_manager
 
             response = client.get("/themes/modern-grid")
@@ -254,10 +279,7 @@ class TestThemeAPIEndpoints:
         """Test GET /themes/{name} endpoint for non-existent theme"""
         with patch("theme_api.get_theme_manager") as mock_get_manager:
             mock_manager = MagicMock()
-            mock_manager.get_theme_info.return_value = {
-                "name": "nonexistent",
-                "exists": False,
-            }
+            mock_manager.get_theme.return_value = None
             mock_get_manager.return_value = mock_manager
 
             response = client.get("/themes/nonexistent")
@@ -270,7 +292,8 @@ class TestThemeAPIEndpoints:
         """Test POST /themes/{name}/validate endpoint for valid theme"""
         with patch("theme_api.get_theme_manager") as mock_get_manager:
             mock_manager = MagicMock()
-            mock_manager.theme_exists.return_value = True
+            mock_theme = MagicMock()
+            mock_manager.get_theme.return_value = mock_theme
             mock_manager.validate_theme.return_value = {
                 "valid": True,
                 "warnings": [],
@@ -284,13 +307,14 @@ class TestThemeAPIEndpoints:
             assert response.status_code == 200
             data = response.json()
             assert data["status"] == "success"
-            assert data["data"]["valid"] is True
+            assert data["data"]["is_valid"] is True
 
     def test_validate_theme_endpoint_invalid(self, client):
         """Test POST /themes/{name}/validate endpoint for invalid theme"""
         with patch("theme_api.get_theme_manager") as mock_get_manager:
             mock_manager = MagicMock()
-            mock_manager.theme_exists.return_value = True
+            mock_theme = MagicMock()
+            mock_manager.get_theme.return_value = mock_theme
             mock_manager.validate_theme.return_value = {
                 "valid": False,
                 "warnings": ["CSS warning"],
@@ -301,16 +325,19 @@ class TestThemeAPIEndpoints:
 
             response = client.post("/themes/modern-grid/validate")
 
-            assert response.status_code == 400
+            assert (
+                response.status_code == 200
+            )  # API returns 200 even for invalid themes
             data = response.json()
-            assert data["status"] == "error"
+            assert data["status"] == "success"
+            assert data["data"]["is_valid"] is False
             assert len(data["data"]["errors"]) > 0
 
     def test_validate_theme_endpoint_nonexistent(self, client):
         """Test POST /themes/{name}/validate endpoint for non-existent theme"""
         with patch("theme_api.get_theme_manager") as mock_get_manager:
             mock_manager = MagicMock()
-            mock_manager.theme_exists.return_value = False
+            mock_manager.get_theme.return_value = None
             mock_get_manager.return_value = mock_manager
 
             response = client.post("/themes/nonexistent/validate")

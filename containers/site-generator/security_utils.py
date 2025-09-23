@@ -34,7 +34,7 @@ class SecurityValidator:
     MAX_FILENAME_LENGTH = 50
     MAX_ARCHIVE_SIZE = 100 * 1024 * 1024  # 100MB
     ALLOWED_ARCHIVE_EXTENSIONS = [".tar.gz"]
-    # Use secure temporary directory creation instead of hardcoded path
+    TEMP_BASE_DIR = Path("/tmp")
 
     def __init__(self):
         """Initialize security validator with unique instance ID."""

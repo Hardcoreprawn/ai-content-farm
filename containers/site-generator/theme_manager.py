@@ -61,18 +61,21 @@ class ThemeManager:
         self.themes_cache.clear()
 
         if not self.themes_dir.exists():
-            logger.warning(f"Themes directory does not exist: {self.themes_dir}")
-            return
+            logger.info(f"Creating themes directory: {self.themes_dir}")
+            self.themes_dir.mkdir(parents=True, exist_ok=True)
 
-        for theme_dir in self.themes_dir.iterdir():
-            if theme_dir.is_dir() and not theme_dir.name.startswith("."):
-                try:
-                    metadata = self._load_theme_metadata(theme_dir)
-                    if metadata:
-                        self.themes_cache[metadata.name] = metadata
-                        logger.debug(f"Loaded theme: {metadata.name}")
-                except Exception as e:
-                    logger.warning(f"Failed to load theme {theme_dir.name}: {e}")
+        try:
+            for theme_dir in self.themes_dir.iterdir():
+                if theme_dir.is_dir() and not theme_dir.name.startswith("."):
+                    try:
+                        metadata = self._load_theme_metadata(theme_dir)
+                        if metadata:
+                            self.themes_cache[metadata.name] = metadata
+                            logger.debug(f"Loaded theme: {metadata.name}")
+                    except Exception as e:
+                        logger.warning(f"Failed to load theme {theme_dir.name}: {e}")
+        except OSError as e:
+            logger.warning(f"Failed to scan themes directory {self.themes_dir}: {e}")
 
     def _load_theme_metadata(self, theme_dir: Path) -> Optional[ThemeMetadata]:
         """
