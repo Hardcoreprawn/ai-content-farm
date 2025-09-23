@@ -13,10 +13,11 @@ from pathlib import Path
 from typing import List, Optional
 from uuid import uuid4
 
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "libs"))
 from models import ArticleMetadata, GenerationResponse
 from secure_error_handler import SecureErrorHandler
 from security_utils import SecurityValidator
+
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "libs"))
 
 logger = logging.getLogger(__name__)
 

@@ -1,0 +1,107 @@
+{% extends "minimal/base.html" %}
+
+{% block title %}404 - Page Not Found - AI Content Farm{% endblock %}
+{% block description %}The page you're looking for doesn't exist. Browse our latest AI-curated tech articles instead.{%
+endblock %}
+
+{% block body_class %}error-404{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <h2 class="hero-title">404 - Page Not Found</h2>
+    <p class="hero-subtitle">Sorry, the page you're looking for doesn't exist.</p>
+</div>
+
+<div class="error-content">
+    <div class="error-message">
+        <h3>What happened?</h3>
+        <p>The page you requested might have been moved, deleted, or you may have entered an incorrect URL.</p>
+
+        <div class="error-actions">
+            <a href="/" class="btn btn-primary">← Back to Home</a>
+            <a href="/articles/" class="btn btn-secondary">Browse Articles</a>
+        </div>
+    </div>
+
+    <div class="error-suggestions">
+        <h4>You might want to:</h4>
+        <ul>
+            <li>Check the URL for typos</li>
+            <li>Browse our <a href="/">latest articles</a></li>
+            <li>Use the search function</li>
+            <li>Visit our <a href="/articles/">article archive</a></li>
+        </ul>
+    </div>
+</div>
+
+<style>
+    .error-content {
+        max-width: 600px;
+        margin: 2rem auto;
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .error-message {
+        margin-bottom: 2rem;
+    }
+
+    .error-actions {
+        margin: 2rem 0;
+    }
+
+    .btn {
+        display: inline-block;
+        padding: 0.75rem 1.5rem;
+        margin: 0 0.5rem;
+        text-decoration: none;
+        border-radius: 0.375rem;
+        font-weight: 500;
+        transition: all 0.2s ease;
+    }
+
+    .btn-primary {
+        background-color: #2563eb;
+        color: white;
+    }
+
+    .btn-primary:hover {
+        background-color: #1d4ed8;
+    }
+
+    .btn-secondary {
+        background-color: #6b7280;
+        color: white;
+    }
+
+    .btn-secondary:hover {
+        background-color: #4b5563;
+    }
+
+    .error-suggestions {
+        text-align: left;
+        background-color: #f9fafb;
+        padding: 1.5rem;
+        border-radius: 0.5rem;
+        border-left: 4px solid #2563eb;
+    }
+
+    .error-suggestions ul {
+        margin: 1rem 0 0 0;
+        padding-left: 1.5rem;
+    }
+
+    .error-suggestions li {
+        margin-bottom: 0.5rem;
+    }
+
+    .error-suggestions a {
+        color: #2563eb;
+        text-decoration: none;
+    }
+
+    .error-suggestions a:hover {
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}

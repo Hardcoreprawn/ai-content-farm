@@ -1,0 +1,73 @@
+{% extends "minimal/base.html" %}
+
+{% block title %}{{ site.title }} - AI-Curated Tech News{% endblock %}
+{% block description %}{{ site.description }}{% endblock %}
+
+{% block body_class %}home{% endblock %}
+
+{% block content %}
+<div class="hero-section">
+    <h2 class="hero-title">Latest Tech News</h2>
+    <p class="hero-subtitle">AI-curated articles from leading technology sources</p>
+    <div class="hero-stats">
+        <span class="stat">{{ articles|length }} Articles</span>
+        <span class="stat">Updated {{ last_updated.strftime('%Y-%m-%d %H:%M UTC') }}</span>
+    </div>
+</div>
+
+<div class="articles-grid">
+    {% for article in articles %}
+    <article class="article-card">
+        <div class="article-header">
+            <h3 class="article-title">
+                <a href="/articles/{{ article.slug }}.html">{{ article.title }}</a>
+            </h3>
+            <div class="article-meta">
+                <span class="article-source">{{ article.source }}</span>
+                <span class="article-date">{{ article.generated_at.strftime('%Y-%m-%d') }}</span>
+                <span class="article-quality">Quality: {{ (article.quality_score * 100)|round }}%</span>
+            </div>
+        </div>
+
+        <div class="article-preview">
+            {% if article.content %}
+            <p>{{ article.content[:200] }}{% if article.content|length > 200 %}...{% endif %}</p>
+            {% else %}
+            <p>No preview available</p>
+            {% endif %}
+        </div>
+
+        <div class="article-footer">
+            <div class="article-stats">
+                <span class="word-count">{{ article.word_count }} words</span>
+                {% if article.original_url %}
+                <a href="{{ article.original_url }}" class="source-link" target="_blank" rel="noopener">
+                    Original Source
+                </a>
+                {% endif %}
+            </div>
+            <a href="/articles/{{ article.slug }}.html" class="read-more">Read Article →</a>
+        </div>
+    </article>
+    {% endfor %}
+</div>
+
+{% if articles|length == 0 %}
+<div class="empty-state">
+    <h3>No articles available</h3>
+    <p>Check back soon for AI-curated technology news and insights.</p>
+</div>
+{% endif %}
+
+<!-- Pagination would go here if needed -->
+<div class="pagination">
+    <!-- Future: Add pagination controls -->
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Add any index-specific JavaScript here
+    console.log('JabLab Tech News loaded');
+</script>
+{% endblock %}

@@ -24,59 +24,81 @@ class TestContentManagerBasics:
     def content_manager(self):
         """Create a ContentManager instance for testing."""
         # Create temporary templates directory
-        with tempfile.TemporaryDirectory() as temp_dir:
-            templates_dir = Path(temp_dir)
+        self.temp_dir = tempfile.TemporaryDirectory()
+        templates_dir = Path(self.temp_dir.name)
 
-            # Create mock templates
-            (templates_dir / "article.html").write_text(
-                """
-            <html>
-                <head><title>{{ article.title }}</title></head>
-                <body>
-                    <h1>{{ article.title }}</h1>
-                    <div>{{ article.content }}</div>
-                    <p>Generated at: {{ generated_at }}</p>
-                </body>
-            </html>
+        # Create theme subdirectories for test themes
+        test_theme_dir = templates_dir / "test-theme"
+        test_theme_dir.mkdir(parents=True, exist_ok=True)
+
+        custom_theme_dir = templates_dir / "custom-theme"
+        custom_theme_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create mock templates in test-theme
+        (test_theme_dir / "article.html").write_text(
             """
-            )
+        <html>
+            <head><title>{{ article.title }}</title></head>
+            <body>
+                <h1>{{ article.title }}</h1>
+                <div>{{ article.content }}</div>
+                <p>Generated at: {{ generated_at }}</p>
+            </body>
+        </html>
+        """
+        )
 
-            (templates_dir / "index.html").write_text(
-                """
-            <html>
-                <head><title>{{ site_title }}</title></head>
-                <body>
-                    <h1>{{ site_title }}</h1>
-                    <ul>
-                    {% for article in articles %}
-                        <li><a href="{{ article.slug }}.html">{{ article.title }}</a></li>
-                    {% endfor %}
-                    </ul>
-                </body>
-            </html>
+        (test_theme_dir / "index.html").write_text(
             """
-            )
+        <html>
+            <head><title>{{ site_title }}</title></head>
+            <body>
+                <h1>{{ site_title }}</h1>
+                <ul>
+                {% for article in articles %}
+                    <li><a href="{{ article.slug }}.html">{{ article.title }}</a></li>
+                {% endfor %}
+                </ul>
+            </body>
+        </html>
+        """
+        )
 
-            (templates_dir / "rss.xml").write_text(
-                """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <rss version="2.0">
-                <channel>
-                    <title>{{ site_title }}</title>
-                    <description>{{ site_description }}</description>
-                    {% for article in articles %}
-                    <item>
-                        <title>{{ article.title }}</title>
-                        <description>{{ article.content[:200] }}</description>
-                        <pubDate>{{ article.generated_at }}</pubDate>
-                    </item>
-                    {% endfor %}
-                </channel>
-            </rss>
+        (test_theme_dir / "feed.xml").write_text(
             """
-            )
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0">
+            <channel>
+                <title>{{ site_title }}</title>
+                <description>{{ site_description }}</description>
+                {% for article in articles %}
+                <item>
+                    <title>{{ article.title }}</title>
+                    <description>{{ article.content[:200] }}</description>
+                    <pubDate>{{ article.generated_at }}</pubDate>
+                </item>
+                {% endfor %}
+            </channel>
+        </rss>
+        """
+        )
 
-            yield ContentManager(templates_dir)
+        # Copy templates to custom-theme as well
+        (custom_theme_dir / "article.html").write_text(
+            (test_theme_dir / "article.html").read_text()
+        )
+        (custom_theme_dir / "index.html").write_text(
+            (test_theme_dir / "index.html").read_text()
+        )
+        (custom_theme_dir / "feed.xml").write_text(
+            (test_theme_dir / "feed.xml").read_text()
+        )
+
+        manager = ContentManager(templates_dir)
+        yield manager
+
+        # Cleanup
+        self.temp_dir.cleanup()
 
     @pytest.fixture
     def sample_articles(self):
