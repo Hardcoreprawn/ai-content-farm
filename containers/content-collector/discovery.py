@@ -11,7 +11,7 @@ from typing import Any, Dict, List
 
 from models import DiscoveryResult, ResearchRecommendation, TrendingTopic
 
-from libs.blob_storage import BlobContainers
+from libs import BlobContainers
 
 logger = logging.getLogger(__name__)
 

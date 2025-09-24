@@ -205,3 +205,7 @@ def get_timestamped_blob_name(prefix: str, extension: str = "json") -> str:
 
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     return f"{prefix}_{timestamp}.{extension}"
+
+
+# Export the main classes and utilities
+__all__ = ["BlobStorageClient", "get_timestamped_blob_name"]
