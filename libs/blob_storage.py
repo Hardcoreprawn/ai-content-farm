@@ -152,12 +152,17 @@ class BlobStorageClient:
 
     async def download_json(
         self, container_name: str, blob_name: str, **kwargs
-    ) -> Optional[Dict[str, Any]]:
-        """Download and parse JSON data from blob."""
+    ) -> Dict[str, Any]:
+        """Download and parse JSON data from blob.
+
+        Returns:
+            Dict[str, Any]: Parsed JSON data, or an empty dict if the blob does not exist or is invalid.
+        """
         if self._mock:
-            return self.mock_storage.download_json(container_name, blob_name)
+            result = self.mock_storage.download_json(container_name, blob_name)
         else:
-            return self.operations.download_json(container_name, blob_name)
+            result = self.operations.download_json(container_name, blob_name)
+        return result if result is not None else {}
 
     async def download_text(self, container_name: str, blob_name: str) -> str:
         """Download text content from blob."""
