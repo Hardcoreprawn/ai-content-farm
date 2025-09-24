@@ -55,7 +55,7 @@ class BlobStorageClient:
                 "message": "Mock storage client is working",
             }
 
-        return self.auth_manager.test_authentication(timeout_seconds)
+        return self.auth_manager.test_connection(timeout_seconds)
 
     def ensure_container(self, container_name: str):
         """Ensure container exists (containers are created by Terraform in production)."""
