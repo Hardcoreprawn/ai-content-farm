@@ -226,30 +226,6 @@ class ContentProcessor:
 
     # Private helper methods (functional)
 
-    def _is_valid_collection(self, collection_data: Dict[str, Any]) -> bool:
-        """Check if collection contains actual content worth processing."""
-        if not collection_data:
-            return False
-
-        metadata = collection_data.get("metadata", {})
-        items = collection_data.get("items", [])
-
-        # Skip empty collections
-        if metadata.get("total_collected", 0) == 0:
-            return False
-
-        if len(items) == 0:
-            return False
-
-        # Skip collections with only errors (all keys end with "_error")
-        source_breakdown = metadata.get("source_breakdown", {})
-        if source_breakdown and all(
-            key.endswith("_error") for key in source_breakdown.keys()
-        ):
-            return False
-
-        return True
-
     def _collection_item_to_topic_metadata(
         self, item: Dict[str, Any], blob_name: str, collection_data: Dict[str, Any]
     ) -> Optional[TopicMetadata]:

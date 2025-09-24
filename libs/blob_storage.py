@@ -186,7 +186,7 @@ class BlobStorageClient:
     def get_blob_url(self, container_name: str, blob_name: str) -> str:
         """Get blob URL."""
         if self._mock:
-            return f"https://mock.blob.core.windows.net/{container_name}/{blob_name}"
+            return f"mock://{container_name}/{blob_name}"
         else:
             return self.utils.get_blob_url(container_name, blob_name)
 

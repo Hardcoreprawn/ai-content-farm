@@ -7,14 +7,9 @@ Extracted from ContentProcessor to improve maintainability.
 
 import logging
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Dict
+from typing import Any, Dict
 
-if TYPE_CHECKING:
-    # Use relative import for type checking
-    from blob_storage import BlobStorageClient
-else:
-    # Use the actual instance from the processor
-    BlobStorageClient = None
+from libs import BlobStorageClient
 
 logger = logging.getLogger(__name__)
 
