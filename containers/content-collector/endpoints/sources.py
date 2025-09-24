@@ -6,6 +6,7 @@ RESTful endpoints for managing content source configurations.
 
 from typing import Any, Dict
 
+from collectors.factory import CollectorFactory
 from fastapi import APIRouter, Depends
 from source_collectors import SourceCollectorFactory
 
@@ -34,45 +35,64 @@ async def list_sources(
     and their configuration requirements.
     """
     try:
-        # Get Reddit collector information
-        reddit_info = SourceCollectorFactory.get_reddit_collector_info()
+        # Dynamically discover available collectors from factory
+        sources_info = {}
 
-        sources_info = {
-            "reddit": {
-                "type": "reddit",
-                "description": "Reddit content collection via public API or PRAW",
-                "parameters": {
-                    "subreddits": "List of subreddit names (required)",
-                    "limit": "Number of posts to collect (max 100)",
-                    "sort": "Sort type: hot, new, top, rising (default: hot)",
-                },
-                "authentication": reddit_info.get("authentication_status", "unknown"),
-                "recommended_collector": reddit_info.get(
-                    "recommended_collector", "RedditPublicCollector"
-                ),
-                "status": reddit_info.get("status", "unknown"),
-            },
-            "rss": {
-                "type": "rss",
-                "description": "RSS feed content collection",
-                "parameters": {
-                    "feed_urls": "List of RSS feed URLs (required)",
-                    "limit": "Number of items to collect per feed",
-                },
-                "authentication": "none_required",
-                "status": "available",
-            },
-            "web": {
-                "type": "web",
-                "description": "Web content scraping",
-                "parameters": {
-                    "urls": "List of web page URLs (required)",
-                    "extract_text": "Whether to extract text content",
-                },
-                "authentication": "none_required",
-                "status": "available",
-            },
-        }
+        # Get all registered collectors
+        for source_type in CollectorFactory.COLLECTORS.keys():
+            if source_type == "reddit":
+                # Get Reddit collector information with authentication details
+                reddit_info = SourceCollectorFactory.get_reddit_collector_info()
+                sources_info["reddit"] = {
+                    "type": "reddit",
+                    "description": "Reddit content collection via public API or PRAW",
+                    "parameters": {
+                        "subreddits": "List of subreddit names (required)",
+                        "limit": "Number of posts to collect (max 100)",
+                        "sort": "Sort type: hot, new, top, rising (default: hot)",
+                    },
+                    "authentication": reddit_info.get(
+                        "authentication_status", "unauthenticated"
+                    ),
+                    "recommended_collector": reddit_info.get(
+                        "recommended_collector", "RedditPublicCollector"
+                    ),
+                    "status": reddit_info.get("status", "available"),
+                }
+            elif source_type == "mastodon":
+                sources_info["mastodon"] = {
+                    "type": "mastodon",
+                    "description": "Mastodon social network content collection",
+                    "parameters": {
+                        "server_url": "Mastodon server URL (e.g., mastodon.social)",
+                        "hashtags": "List of hashtags to monitor",
+                        "limit": "Number of posts to collect per request",
+                    },
+                    "authentication": "none_required",
+                    "status": "available",
+                }
+            elif source_type == "rss":
+                sources_info["rss"] = {
+                    "type": "rss",
+                    "description": "RSS feed content collection",
+                    "parameters": {
+                        "feed_urls": "List of RSS feed URLs (required)",
+                        "limit": "Number of items to collect per feed",
+                    },
+                    "authentication": "none_required",
+                    "status": "available",
+                }
+            elif source_type == "web":
+                sources_info["web"] = {
+                    "type": "web",
+                    "description": "Web content scraping",
+                    "parameters": {
+                        "urls": "List of web page URLs (required)",
+                        "extract_text": "Whether to extract text content",
+                    },
+                    "authentication": "none_required",
+                    "status": "available",
+                }
 
         return StandardResponse(
             status="success",
