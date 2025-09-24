@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends
 from models import CollectionRequest, CollectionResult
 from service_logic import ContentCollectorService
 
-from libs.blob_storage import BlobStorageClient
+from libs import BlobStorageClient
 from libs.secure_error_handler import SecureErrorHandler
 from libs.shared_models import StandardResponse, create_service_dependency
 

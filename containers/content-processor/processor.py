@@ -24,7 +24,7 @@ from models import (
 )
 from openai_client import OpenAIClient
 
-from libs.blob_storage import BlobStorageClient
+from libs import BlobStorageClient
 
 logger = logging.getLogger(__name__)
 

@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends
 from models import DiscoveryRequest, DiscoveryResult
 from reddit_client import RedditClient
 
-from libs.blob_storage import BlobStorageClient
+from libs import BlobStorageClient
 from libs.shared_models import StandardResponse, create_service_dependency
 
 # Create router for discoveries
