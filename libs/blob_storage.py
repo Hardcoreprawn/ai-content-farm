@@ -222,4 +222,4 @@ def get_timestamped_blob_name(prefix: str, extension: str = "json") -> str:
 
 
 # Export the main classes and utilities
-__all__ = ["BlobStorageClient", "get_timestamped_blob_name"]
+__all__ = ["BlobStorageClient", "get_blob_client", "get_timestamped_blob_name"]
