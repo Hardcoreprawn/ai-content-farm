@@ -23,8 +23,6 @@ from typing import Any, Dict, List, Optional
 
 from libs import BlobStorageClient
 
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", "libs"))
-
 logger = logging.getLogger(__name__)
 
 
