@@ -27,13 +27,6 @@ resource "random_string" "suffix" {
   length  = 6
   upper   = false
   special = false
-  # Test: Debug deployment conditions - needs-infrastructure trigger (Aug 28, 2025)
-  # Test: Simplified routing fix - direct dependency path (Aug 28, 2025)
-  # Fix: Update network rules with correct Container Apps IP and deploy latest containers (Aug 29, 2025)
-  # Trigger: Pipeline test after network simplification (Aug 31, 2025)
-  # Test: New dynamic matrix pattern for all 4 container jobs (Sep 15, 2025)
-  # Test: Pipeline optimization validation - container rebuild and infrastructure update (Sep 11, 2025)
-  # Test: Comprehensive pipeline execution with enhanced monitoring (Sep 11, 2025)
 }
 
 resource "azurerm_resource_group" "main" {
@@ -47,7 +40,7 @@ resource "azurerm_resource_group" "main" {
 # Key Vault
 resource "azurerm_key_vault" "main" {
   # checkov:skip=CKV2_AZURE_32: Private endpoint not required for this use case
-  # checkov:skip=CKV_AZURE_189: Network ACLs allow all access due to dynamic GitHub Actions IPs - security enforced via RBAC
+  # checkov:skip=CKV_AZURE_109,CKV_AZURE_189: Network access "Allow" required for dynamic GitHub Actions IPs and Container Apps - security enforced via RBAC
   # nosemgrep: terraform.azure.security.keyvault.keyvault-specify-network-acl.keyvault-specify-network-acl
   name     = "${local.clean_prefix}kv${random_string.suffix.result}"
   location = azurerm_resource_group.main.location
@@ -59,10 +52,6 @@ resource "azurerm_key_vault" "main" {
   soft_delete_retention_days = 7
 
   # Network ACLs: Allow all networks, security enforced via identity-based access control
-  # checkov:skip=CKV_AZURE_109: Network access "Allow" required for dynamic GitHub Actions IPs and Container Apps
-  # nosemgrep: terraform.azure.security.keyvault.keyvault-specify-network-acl.keyvault-specify-network-acl
-  # checkov:skip=CKV_AZURE_109: Network access "Allow" required for dynamic GitHub Actions IPs and Container Apps
-  # nosemgrep: terraform.azure.security.keyvault.keyvault-specify-network-acl.keyvault-specify-network-acl
   # Security Strategy:
   # 1. GitHub Actions IPs change frequently and are unpredictable
   # 2. Container Apps consumption mode has no fixed egress IPs
@@ -78,11 +67,7 @@ resource "azurerm_key_vault" "main" {
     # - disabled local auth (no key-based access)
   }
 
-  tags = {
-    Environment = var.environment
-    Project     = "ai-content-farm"
-    ManagedBy   = "terraform"
-  }
+  tags = local.common_tags
 
   # Enable diagnostic settings for security compliance
   depends_on = [azurerm_log_analytics_workspace.main]
@@ -154,11 +139,10 @@ resource "azurerm_key_vault_secret" "reddit_client_id" {
     ignore_changes = [not_before_date, expiration_date]
   }
 
-  tags = {
-    Environment = var.environment
-    Purpose     = "reddit-api-access"
-    SyncSource  = "ai-content-farm-core-kv"
-  }
+  tags = merge(local.common_tags, {
+    Purpose    = "reddit-api-access"
+    SyncSource = "ai-content-farm-core-kv"
+  })
 
   depends_on = [
     azurerm_key_vault_access_policy.developer_user,
@@ -183,11 +167,10 @@ resource "azurerm_key_vault_secret" "reddit_client_secret" {
     azurerm_key_vault_access_policy.github_actions_user
   ]
 
-  tags = {
-    Environment = var.environment
-    Purpose     = "reddit-api-access"
-    SyncSource  = "ai-content-farm-core-kv"
-  }
+  tags = merge(local.common_tags, {
+    Purpose    = "reddit-api-access"
+    SyncSource = "ai-content-farm-core-kv"
+  })
 }
 
 resource "azurerm_key_vault_secret" "reddit_user_agent" {
@@ -203,11 +186,10 @@ resource "azurerm_key_vault_secret" "reddit_user_agent" {
     ignore_changes = [not_before_date, expiration_date]
   }
 
-  tags = {
-    Environment = var.environment
-    Purpose     = "reddit-api-access"
-    SyncSource  = "ai-content-farm-core-kv"
-  }
+  tags = merge(local.common_tags, {
+    Purpose    = "reddit-api-access"
+    SyncSource = "ai-content-farm-core-kv"
+  })
 
   depends_on = [
     azurerm_key_vault_access_policy.developer_user,
@@ -233,10 +215,9 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
     azurerm_key_vault_access_policy.github_actions_user
   ]
 
-  tags = {
-    Environment = var.environment
-    Purpose     = "cost-estimation"
-  }
+  tags = merge(local.common_tags, {
+    Purpose = "cost-estimation"
+  })
 }
 
 # Service Bus encryption key - DISABLED for Standard SKU cost optimization

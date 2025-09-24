@@ -3,9 +3,6 @@ variable "location" {
   default     = "uksouth"
 }
 
-# Updated: Enhanced CI/CD pipeline with unified build reporting - Aug 22, 2025
-# Phase 1 validation: Trigger terraform run after requirements fixes - Sep 9, 2025
-# Pipeline Fix Test: Issue #421 dynamic container discovery - Sep 10, 2025
 variable "subscription_id" {
   description = "The Azure Subscription ID to use. Leave blank to use the default from Azure CLI context."
   type        = string
@@ -38,12 +35,6 @@ variable "resource_prefix" {
   description = "Prefix for all resource names (will be dynamic for ephemeral environments)"
   type        = string
   default     = ""
-}
-
-variable "test_feature_flag" {
-  description = "Test feature flag for smart deployment validation and container image fallback testing - updated Sept 3rd"
-  type        = bool
-  default     = false
 }
 
 # Image tag for all containers (commit hash or version)
