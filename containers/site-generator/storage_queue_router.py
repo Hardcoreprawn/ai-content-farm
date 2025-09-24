@@ -133,7 +133,7 @@ class SiteGeneratorStorageQueueRouter:
                 }
 
             # Load processed content from storage
-            from libs.blob_storage import BlobStorageClient
+            from libs import BlobStorageClient
 
             storage = BlobStorageClient()
 

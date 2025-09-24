@@ -91,7 +91,9 @@ class TestAzureIntegration:
 
         # Mock finding available topics
         with patch.object(
-            processor, "_find_available_topics", return_value=[sample_topic]
+            processor.topic_discovery,
+            "find_available_topics",
+            return_value=[sample_topic],
         ):
             result = await processor.process_available_work(
                 batch_size=5, priority_threshold=0.7
@@ -107,12 +109,16 @@ class TestAzureIntegration:
         """Test lease-based coordination for parallel processing."""
         processor = ContentProcessor()
 
-        # Test lease acquisition
-        lease_acquired = await processor._acquire_topic_lease("test-topic")
+        # Test lease acquisition via service
+        lease_acquired = await processor.lease_coordinator.acquire_topic_lease(
+            "test-topic"
+        )
         assert lease_acquired is True
 
-        # Test lease release
-        lease_released = await processor._release_topic_lease("test-topic")
+        # Test lease release via service
+        lease_released = await processor.lease_coordinator.release_topic_lease(
+            "test-topic"
+        )
         assert lease_released is True
 
     @pytest.mark.integration
@@ -164,7 +170,9 @@ class TestAzureIntegration:
         )
 
         with patch.object(
-            processor, "_find_available_topics", return_value=[sample_topic]
+            processor.topic_discovery,
+            "find_available_topics",
+            return_value=[sample_topic],
         ):
             result = await processor.process_available_work(batch_size=1)
 
@@ -258,8 +266,8 @@ class TestBlobStorageIntegration:
 
         processor = ContentProcessor()
 
-        # Test basic connectivity
-        connection_ok = await processor._test_blob_storage()
+        # Test basic connectivity via storage service
+        connection_ok = await processor.storage.test_storage_connectivity()
         assert connection_ok is True
 
     @pytest.mark.integration
@@ -272,8 +280,8 @@ class TestBlobStorageIntegration:
 
         processor = ContentProcessor()
 
-        # Should handle errors gracefully
-        connection_ok = await processor._test_blob_storage()
+        # Should handle errors gracefully via storage service
+        connection_ok = await processor.storage.test_storage_connectivity()
         assert connection_ok is False
 
 
@@ -312,7 +320,9 @@ class TestEndToEndWorkflow:
         processor = ContentProcessor()
 
         # Test complete workflow
-        with patch.object(processor, "_find_available_topics", return_value=[topic]):
+        with patch.object(
+            processor.topic_discovery, "find_available_topics", return_value=[topic]
+        ):
             result = await processor.process_available_work(batch_size=1)
 
         # Verify workflow completion

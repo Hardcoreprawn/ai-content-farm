@@ -9,7 +9,7 @@ import logging
 from external_api_client import ExternalAPIClient
 
 from config import ContentProcessorSettings
-from libs.blob_storage import BlobStorageClient
+from libs import BlobStorageClient
 from libs.shared_models import create_service_dependency
 
 logger = logging.getLogger(__name__)

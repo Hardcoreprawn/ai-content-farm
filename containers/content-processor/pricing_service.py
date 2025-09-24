@@ -12,7 +12,7 @@ from typing import Dict, Optional
 
 import httpx
 
-from libs.blob_storage import BlobStorageClient
+from libs import BlobStorageClient
 
 logger = logging.getLogger(__name__)
 

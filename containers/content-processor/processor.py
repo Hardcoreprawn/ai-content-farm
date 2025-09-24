@@ -23,8 +23,14 @@ from models import (
     TopicState,
 )
 from openai_client import OpenAIClient
+from services import (
+    ArticleGenerationService,
+    LeaseCoordinator,
+    ProcessorStorageService,
+    TopicDiscoveryService,
+)
 
-from libs.blob_storage import BlobStorageClient
+from libs import BlobStorageClient
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +48,12 @@ class ContentProcessor:
         self.blob_client = BlobStorageClient()
         self.openai_client = OpenAIClient()
 
+        # Initialize service dependencies
+        self.topic_discovery = TopicDiscoveryService(self.blob_client)
+        self.article_generation = ArticleGenerationService(self.openai_client)
+        self.lease_coordinator = LeaseCoordinator(self.processor_id)
+        self.storage = ProcessorStorageService(self.blob_client)
+
         # Session tracking (immutable append-only)
         self.session_start = datetime.now(timezone.utc)
         self.session_topics_processed = 0
@@ -54,7 +66,7 @@ class ContentProcessor:
         """Health check with dependency validation."""
         try:
             # Test blob storage
-            blob_available = await self._test_blob_storage()
+            blob_available = await self.storage.test_storage_connectivity()
 
             # Test OpenAI
             openai_available = await self._test_openai()
@@ -118,7 +130,7 @@ class ContentProcessor:
 
         try:
             # Phase 1: Find available topics
-            available_topics = await self._find_available_topics(
+            available_topics = await self.topic_discovery.find_available_topics(
                 batch_size, priority_threshold
             )
 
@@ -138,7 +150,9 @@ class ContentProcessor:
             for topic_metadata in available_topics:
                 try:
                     # Attempt to lease topic
-                    if await self._acquire_topic_lease(topic_metadata.topic_id):
+                    if await self.lease_coordinator.acquire_topic_lease(
+                        topic_metadata.topic_id
+                    ):
                         result = await self._process_single_topic(topic_metadata)
 
                         if result:
@@ -148,14 +162,18 @@ class ContentProcessor:
                             failed_topics.append(topic_metadata.topic_id)
 
                         # Release lease
-                        await self._release_topic_lease(topic_metadata.topic_id)
+                        await self.lease_coordinator.release_topic_lease(
+                            topic_metadata.topic_id
+                        )
 
                 except Exception as e:
                     logger.error(
                         f"Error processing topic {topic_metadata.topic_id}: {e}"
                     )
                     failed_topics.append(topic_metadata.topic_id)
-                    await self._release_topic_lease(topic_metadata.topic_id)
+                    await self.lease_coordinator.release_topic_lease(
+                        topic_metadata.topic_id
+                    )
 
             # Update session metrics (immutable append pattern)
             processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
@@ -207,95 +225,6 @@ class ContentProcessor:
         )
 
     # Private helper methods (functional)
-
-    async def _find_available_topics(
-        self, batch_size: int, priority_threshold: float
-    ) -> List[TopicMetadata]:
-        """Find topics available for processing (pure function)."""
-        try:
-            logger.info(
-                f"Searching for topics (batch_size={batch_size}, threshold={priority_threshold})"
-            )
-
-            # List all collections from blob storage
-            blobs = await self.blob_client.list_blobs("collected-content")
-            logger.info(f"Found {len(blobs)} total collections")
-
-            valid_collections = []
-            empty_collections = 0
-
-            # Process each collection
-            for blob_info in blobs:
-                blob_name = blob_info["name"]
-
-                try:
-                    # Download and parse collection
-                    collection_data = await self.blob_client.download_json(
-                        "collected-content", blob_name
-                    )
-
-                    # Filter out empty collections
-                    if self._is_valid_collection(collection_data):
-                        valid_collections.append((blob_name, collection_data))
-                        logger.debug(
-                            f"Valid collection: {blob_name} ({len(collection_data.get('items', []))} items)"
-                        )
-                    else:
-                        empty_collections += 1
-                        logger.debug(f"Skipping empty collection: {blob_name}")
-
-                except Exception as e:
-                    logger.warning(f"Error processing collection {blob_name}: {e}")
-                    continue
-
-            logger.info(
-                f"Found {len(valid_collections)} valid collections, skipped {empty_collections} empty collections"
-            )
-
-            # Convert collections to TopicMetadata objects
-            topics = []
-            for blob_name, collection_data in valid_collections:
-                for item in collection_data.get("items", []):
-                    topic = self._collection_item_to_topic_metadata(
-                        item, blob_name, collection_data
-                    )
-                    if topic:
-                        topics.append(topic)
-
-            # Sort by priority and limit batch size
-            topics.sort(key=lambda t: t.priority_score, reverse=True)
-            result = topics[:batch_size]
-
-            logger.info(f"Returning {len(result)} topics for processing")
-            return result
-
-        except Exception as e:
-            logger.error(f"Error finding available topics: {e}")
-            return []
-
-    def _is_valid_collection(self, collection_data: Dict[str, Any]) -> bool:
-        """Check if collection contains actual content worth processing."""
-        if not collection_data:
-            return False
-
-        metadata = collection_data.get("metadata", {})
-        items = collection_data.get("items", [])
-
-        # Skip empty collections
-        if metadata.get("total_collected", 0) == 0:
-            return False
-
-        if len(items) == 0:
-            return False
-
-        # Skip collections with only errors (all keys end with "_error")
-        source_breakdown = metadata.get("source_breakdown", {})
-        if source_breakdown and all(
-            key.endswith("_error") for key in source_breakdown.keys()
-        ):
-            return False
-
-        return True
 
     def _collection_item_to_topic_metadata(
         self, item: Dict[str, Any], blob_name: str, collection_data: Dict[str, Any]
@@ -380,224 +309,38 @@ class ContentProcessor:
             logger.warning(f"Error calculating priority score: {e}")
             return 0.5  # Default score
 
-    async def _acquire_topic_lease(self, topic_id: str) -> bool:
-        """Atomically acquire lease on topic (pure function)."""
-        try:
-            # Mock implementation - always succeeds for now
-            logger.debug(f"Acquired lease for topic: {topic_id}")
-            return True
-
-        except Exception as e:
-            logger.error(f"Failed to acquire lease for {topic_id}: {e}")
-            return False
-
-    async def _release_topic_lease(self, topic_id: str) -> bool:
-        """Release topic lease (pure function)."""
-        try:
-            # Mock implementation
-            logger.debug(f"Released lease for topic: {topic_id}")
-            return True
-
-        except Exception as e:
-            logger.error(f"Failed to release lease for {topic_id}: {e}")
-            return False
-
     async def _process_single_topic(
         self, topic_metadata: TopicMetadata
     ) -> Optional[Dict[str, Any]]:
-        """Process a single topic into an article using Azure OpenAI."""
+        """Process a single topic into an article using ArticleGenerationService."""
         try:
-            logger.info(f"Processing topic: {topic_metadata.title}")
-            start_time = datetime.now(timezone.utc)
-
-            # Prepare research content from the topic
-            research_content = self._prepare_research_content(topic_metadata)
-
-            # Generate article using OpenAI
-            article_content, cost_usd, tokens_used = (
-                await self.openai_client.generate_article(
-                    topic_title=topic_metadata.title,
-                    research_content=research_content,
-                    target_word_count=3000,
-                    quality_requirements={
-                        "source": topic_metadata.source,
-                        "priority_score": topic_metadata.priority_score,
-                        "engagement": f"{topic_metadata.upvotes or 0} upvotes, {topic_metadata.comments or 0} comments",
-                    },
-                )
+            # Generate article using service
+            result = await self.article_generation.generate_article_from_topic(
+                topic_metadata, self.processor_id, self.session_id
             )
 
-            if not article_content:
+            if not result:
                 logger.error(
                     f"Failed to generate article for topic: {topic_metadata.title}"
                 )
                 return None
 
-            # Calculate article metadata
-            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
-            word_count = len(article_content.split())
-            quality_score = self._calculate_quality_score(article_content, word_count)
-
-            # Prepare article result
-            article_result = {
-                "topic_id": topic_metadata.topic_id,
-                "title": topic_metadata.title,
-                "article_content": article_content,
-                "word_count": word_count,
-                "quality_score": quality_score,
-                "cost": cost_usd,
-                "tokens_used": tokens_used,
-                "processing_time": processing_time,
-                "source_priority": topic_metadata.priority_score,
-                "source": topic_metadata.source,
-                "original_url": topic_metadata.url,
-                "generated_at": start_time.isoformat(),
-                "metadata": {
-                    "processor_id": self.processor_id,
-                    "session_id": self.session_id,
-                    "openai_model": getattr(
-                        self.openai_client, "model_name", "unknown"
-                    ),
-                    "original_upvotes": topic_metadata.upvotes or 0,
-                    "original_comments": topic_metadata.comments or 0,
-                    "content_type": "generated_article",
-                },
-            }
-
             # Save to processed-content container
-            await self._save_processed_article(article_result)
+            article_result = result.get("article_result")
+            if article_result:
+                await self.storage.save_processed_article(article_result)
 
-            logger.info(
-                f"Article generated successfully: {word_count} words, "
-                f"${cost_usd:.4f} cost, {processing_time:.2f}s processing time"
-            )
-
+            # Return minimal result for session tracking
             return {
-                "article_content": article_content,
-                "word_count": word_count,
-                "quality_score": quality_score,
-                "cost": cost_usd,
+                "article_content": result.get("article_content"),
+                "word_count": result.get("word_count"),
+                "quality_score": result.get("quality_score"),
+                "cost": result.get("cost"),
             }
 
         except Exception as e:
             logger.error(f"Error processing topic {topic_metadata.topic_id}: {e}")
             return None
-
-    def _prepare_research_content(self, topic_metadata: TopicMetadata) -> str:
-        """Prepare research content from topic metadata for article generation."""
-        try:
-            research_parts = []
-
-            # Add basic topic information
-            research_parts.append(f"Title: {topic_metadata.title}")
-            research_parts.append(f"Source: {topic_metadata.source}")
-
-            if topic_metadata.url:
-                research_parts.append(f"Original URL: {topic_metadata.url}")
-
-            if topic_metadata.subreddit:
-                research_parts.append(f"Subreddit: r/{topic_metadata.subreddit}")
-
-            # Add engagement metrics
-            engagement_info = []
-            if topic_metadata.upvotes is not None:
-                engagement_info.append(f"{topic_metadata.upvotes} upvotes")
-            if topic_metadata.comments is not None:
-                engagement_info.append(f"{topic_metadata.comments} comments")
-
-            if engagement_info:
-                research_parts.append(f"Engagement: {', '.join(engagement_info)}")
-
-            research_parts.append(
-                f"Priority Score: {topic_metadata.priority_score:.2f}"
-            )
-            research_parts.append(
-                f"Collected At: {topic_metadata.collected_at.isoformat()}"
-            )
-
-            return "\n".join(research_parts)
-
-        except Exception as e:
-            logger.error(f"Error preparing research content: {e}")
-            return f"Title: {topic_metadata.title}\nSource: {topic_metadata.source}"
-
-    def _calculate_quality_score(self, article_content: str, word_count: int) -> float:
-        """Calculate quality score for generated article."""
-        try:
-            score = 0.0
-
-            # Base score for having content
-            if article_content and word_count > 0:
-                score += 0.3
-
-            # Word count score (target ~3000 words)
-            if word_count >= 2000:
-                score += 0.3
-            elif word_count >= 1000:
-                score += 0.2
-            elif word_count >= 500:
-                score += 0.1
-
-            # Structure score (check for headings and sections)
-            if article_content:
-                # Count headers
-                header_count = article_content.count("#")
-                if header_count >= 3:
-                    score += 0.2
-                elif header_count >= 1:
-                    score += 0.1
-
-                # Check for paragraphs
-                paragraph_count = len(
-                    [p for p in article_content.split("\n\n") if p.strip()]
-                )
-                if paragraph_count >= 5:
-                    score += 0.2
-                elif paragraph_count >= 3:
-                    score += 0.1
-
-            # Ensure score is between 0 and 1
-            return max(0.0, min(score, 1.0))
-
-        except Exception as e:
-            logger.error(f"Error calculating quality score: {e}")
-            return 0.5  # Default score
-
-    async def _save_processed_article(self, article_result: Dict[str, Any]) -> bool:
-        """Save processed article to the processed-content container."""
-        try:
-            # Generate blob name with timestamp and topic ID
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-            topic_id = article_result.get("topic_id", "unknown")
-            blob_name = f"{timestamp}_{topic_id}.json"
-
-            # Save to processed-content container
-            success = await self.blob_client.upload_json(
-                container_name="processed-content",
-                blob_name=blob_name,
-                data=article_result,
-            )
-
-            if success:
-                logger.info(f"Saved processed article to blob: {blob_name}")
-                return True
-            else:
-                logger.error(f"Failed to save processed article: {blob_name}")
-                return False
-
-        except Exception as e:
-            logger.error(f"Error saving processed article: {e}")
-            return False
-
-    async def _test_blob_storage(self) -> bool:
-        """Test blob storage connectivity."""
-        try:
-            # test_connection returns Dict[str, Any], not awaitable
-            result = self.blob_client.test_connection()
-            return result.get("status") == "healthy"
-        except Exception as e:
-            logger.error(f"Blob storage test failed: {e}")
-            return False
 
     async def _test_openai(self) -> bool:
         """Test OpenAI connectivity."""

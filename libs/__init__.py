@@ -10,10 +10,8 @@ Version: 2.0.0 - FastAPI-native API standardization (Aug 27, 2025)
 __version__ = "2.0.0"
 
 # Import FastAPI-native shared models
-from .shared_models import (
-    APIError,  # Core FastAPI-native models; FastAPI dependencies; Helper functions; Data models; Legacy support (temporary)
-)
-from .shared_models import (
+from .shared_models import (  # Core FastAPI-native models; FastAPI dependencies; Helper functions; Data models; Legacy support (temporary)
+    APIError,
     ContentItem,
     ErrorCodes,
     HealthStatus,
@@ -29,7 +27,8 @@ from .shared_models import (
 )
 
 try:
-    from .blob_storage import BlobContainers, BlobStorageClient
+    from .app_config import BlobContainers
+    from .blob_storage import BlobStorageClient, get_blob_client
 
     blob_storage_available = True
 except ImportError:
@@ -59,6 +58,6 @@ __all__ = [
 ]
 
 if blob_storage_available:
-    __all__.extend(["BlobStorageClient", "BlobContainers"])
+    __all__.extend(["BlobStorageClient", "BlobContainers", "get_blob_client"])
 # Test complete optimized pipeline: JSON formatting fixes applied
 # 2025-08-26 Trival update for pipeline run

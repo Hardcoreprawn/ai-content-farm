@@ -12,7 +12,7 @@ from typing import Any, Dict, List, Optional, Union
 
 from content_processing_simple import collect_content_batch, deduplicate_content
 
-from libs.blob_storage import BlobContainers, BlobStorageClient
+from libs import BlobContainers, BlobStorageClient
 
 
 class ContentCollectorService:

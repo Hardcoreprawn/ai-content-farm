@@ -21,9 +21,7 @@ import sys
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from blob_storage import BlobStorageClient
-
-sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", "libs"))
+from libs import BlobStorageClient
 
 logger = logging.getLogger(__name__)
 
