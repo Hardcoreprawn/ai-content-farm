@@ -66,71 +66,80 @@ class BlobStorageClient:
 
     # Upload operations - delegate to operations module
     async def upload_json(
-        self, container_name: str, blob_name: str, data: Any, **kwargs
-    ) -> Dict[str, Any]:
+        self, container_name: str, blob_name: str, data: Dict[str, Any], **kwargs
+    ) -> str:
         """Upload JSON data to blob storage."""
         if self._mock:
-            return {
-                "success": self.mock_storage.upload_data(
-                    container_name, blob_name, data, "application/json"
-                )
-            }
+            self.mock_storage.upload_data(
+                container_name, blob_name, data, "application/json"
+            )
+            return f"mock://{container_name}/{blob_name}"
         else:
-            success = self.operations.upload_data(
+            return self.operations.upload_data(
                 container_name, blob_name, data, "application/json", **kwargs
             )
-            return {"success": success}
 
     async def upload_text(
         self, container_name: str, blob_name: str, content: str, **kwargs
-    ) -> Dict[str, Any]:
+    ) -> str:
         """Upload text content to blob storage."""
         if self._mock:
-            return {
-                "success": self.mock_storage.upload_data(
-                    container_name, blob_name, content, "text/plain"
-                )
-            }
+            self.mock_storage.upload_data(
+                container_name, blob_name, content, "text/plain"
+            )
+            return f"mock://{container_name}/{blob_name}"
         else:
-            success = self.operations.upload_data(
+            return self.operations.upload_data(
                 container_name, blob_name, content, "text/plain", **kwargs
             )
-            return {"success": success}
 
     async def upload_text_with_success(
         self, container_name: str, blob_name: str, content: str, **kwargs
     ) -> bool:
         """Upload text and return boolean success."""
-        result = await self.upload_text(container_name, blob_name, content, **kwargs)
-        return result.get("success", False)
+        try:
+            await self.upload_text(container_name, blob_name, content, **kwargs)
+            return True
+        except Exception:
+            return False
 
     async def upload_binary(
-        self, container_name: str, blob_name: str, data: Union[bytes, Any], **kwargs
-    ) -> Dict[str, Any]:
+        self, container_name: str, blob_name: str, data: bytes, **kwargs
+    ) -> str:
         """Upload binary data to blob storage."""
         if self._mock:
-            return {
-                "success": self.mock_storage.upload_data(
-                    container_name, blob_name, data, "application/octet-stream"
-                )
-            }
+            self.mock_storage.upload_data(
+                container_name, blob_name, data, "application/octet-stream"
+            )
+            return f"mock://{container_name}/{blob_name}"
         else:
-            success = self.operations.upload_data(
+            return self.operations.upload_data(
                 container_name, blob_name, data, "application/octet-stream", **kwargs
             )
-            return {"success": success}
 
     def upload_html_site(
-        self, container_name: str, site_directory: str, **kwargs
-    ) -> Dict[str, Any]:
-        """Upload HTML site directory to blob storage."""
+        self, container_name: str, site_files: Dict[str, str], **kwargs
+    ) -> Dict[str, str]:
+        """Upload an entire HTML site to blob storage.
+
+        Args:
+            container_name (str): The name of the blob container.
+            site_files (Dict[str, str]): Dictionary mapping file paths to file contents.
+            **kwargs: Additional arguments passed to the upload operation.
+
+        Returns:
+            Dict[str, str]: Dictionary mapping file paths to their blob URLs.
+        """
         if self._mock:
-            # Mock implementation - just return success
-            return {"success": True, "files_uploaded": 0}
+            # Mock implementation - return mock URLs for all files
+            uploaded = {}
+            for file_path in site_files.keys():
+                uploaded[file_path] = f"mock://{container_name}/{file_path}"
+            return uploaded
         else:
             # Use operations module for real upload
-            return self.operations.upload_directory(
-                container_name, site_directory, **kwargs
+            return self.operations.upload_site_files(
+                container_name, site_files, **kwargs
             )
 
     # Download operations - delegate to operations module
@@ -143,7 +152,7 @@ class BlobStorageClient:
 
     async def download_json(
         self, container_name: str, blob_name: str, **kwargs
-    ) -> Optional[Any]:
+    ) -> Optional[Dict[str, Any]]:
         """Download and parse JSON data from blob."""
         if self._mock:
             return self.mock_storage.download_json(container_name, blob_name)
