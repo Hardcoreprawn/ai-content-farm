@@ -28,7 +28,7 @@ from .shared_models import (  # Core FastAPI-native models; FastAPI dependencies
 
 try:
     from .app_config import BlobContainers
-    from .blob_storage import BlobStorageClient
+    from .blob_storage import BlobStorageClient, get_blob_client
 
     blob_storage_available = True
 except ImportError:
@@ -58,6 +58,6 @@ __all__ = [
 ]
 
 if blob_storage_available:
-    __all__.extend(["BlobStorageClient", "BlobContainers"])
+    __all__.extend(["BlobStorageClient", "BlobContainers", "get_blob_client"])
 # Test complete optimized pipeline: JSON formatting fixes applied
 # 2025-08-26 Trival update for pipeline run
