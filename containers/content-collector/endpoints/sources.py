@@ -6,6 +6,7 @@ RESTful endpoints for managing content source configurations.
 
 from typing import Any, Dict
 
+from collectors.factory import CollectorFactory
 from fastapi import APIRouter, Depends
 from source_collectors import SourceCollectorFactory
 
@@ -35,8 +36,6 @@ async def list_sources(
     """
     try:
         # Dynamically discover available collectors from factory
-        from collectors.factory import CollectorFactory
-
         sources_info = {}
 
         # Get all registered collectors

@@ -21,7 +21,7 @@ content_collector_dir = os.path.join(current_dir, "../../")
 sys.path.insert(0, content_collector_dir)
 sys.path.insert(0, os.path.join(content_collector_dir, "../../../"))
 
-from containers.content_collector.main import app
+from main import app
 
 client = TestClient(app)
 
@@ -76,9 +76,7 @@ class TestAPIStandardization:
         assert "server_url" in mastodon["parameters"]
         assert "hashtags" in mastodon["parameters"]
 
-    @patch(
-        "containers.content-collector.source_collectors.SourceCollectorFactory.get_reddit_collector_info"
-    )
+    @patch("source_collectors.SourceCollectorFactory.get_reddit_collector_info")
     def test_reddit_authentication_status_consistency(self, mock_reddit_info):
         """Test that Reddit shows consistent authentication status."""
         # Mock Reddit collector info with valid credentials
@@ -170,9 +168,7 @@ class TestAPIStandardization:
                 # Our custom error response should use empty list
                 assert isinstance(data["errors"], list)
 
-    @patch(
-        "containers.content-collector.collectors.factory.CollectorFactory.COLLECTORS"
-    )
+    @patch("collectors.factory.CollectorFactory.COLLECTORS")
     def test_source_discovery_extensibility(self, mock_collectors):
         """Test that new collectors are automatically discovered."""
         # Mock an extended set of collectors
