@@ -12,7 +12,7 @@ help:
 	@echo "  deploy-containers - Deploy Container Apps after verification"
 	@echo ""
 	@echo "Security & Cost Analysis (Containerized & Cached):"
-	@echo "  trivy           - Scan infrastructure configuration with Trivy"
+	@echo "  trivy           - Scan container images for vulnerabilities"
 	@echo "  checkov         - Validate Terraform with Checkov best practices"
 	@echo "  terrascan       - Static analysis with Terrascan policies (full scan)"
 	@echo "  terrascan-fast  - Fast Terrascan scan (HIGH severity only)"
@@ -228,14 +228,15 @@ checkov:
 
 # Enhanced security scanning with multiple tools - optimized with caching
 trivy:
-	@echo "🔐 Running Trivy security scanner..."
+	@echo "🔐 Running Trivy container security scanner..."
 	@if command -v docker >/dev/null 2>&1; then \
 		if ! docker images aquasec/trivy:latest -q | grep -q .; then \
 			echo "Pulling Trivy image (first time or outdated)..."; \
 			docker pull aquasec/trivy:latest; \
 		fi; \
-		docker run --rm -v $(PWD):/workspace -v trivy-cache:/root/.cache/trivy aquasec/trivy:latest config /workspace/infra --format json --output /workspace/infra/trivy-results.json --exit-code 0; \
-		echo "Trivy scan completed"; \
+		echo "Scanning container Dockerfiles and configurations..."; \
+		docker run --rm -v $(PWD):/workspace -v trivy-cache:/root/.cache/trivy aquasec/trivy:latest fs /workspace/containers --format json --output /workspace/containers/trivy-results.json --exit-code 0; \
+		echo "Trivy container scan completed"; \
 	else \
 		echo "Docker not available. Please install Docker to run Trivy"; \
 		exit 1; \

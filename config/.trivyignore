@@ -1,15 +1,12 @@
 # Trivy ignore file for AI Content Farm
-
-# Key Vault network access control exceptions
-# GitHub Actions requires dynamic IP access, so network ACLs allow all
-# Security is enforced through RBAC and access policies instead
-AVD-AZU-0014  # Key Vault should have network ACL configured
-AVD-AZU-0013  # Key Vault should restrict network access
-
-# Development environment exceptions
-# These are acceptable for non-production environments
-AVD-AZU-0016  # Storage account should enforce HTTPS
-AVD-AZU-0017  # Storage account should use customer-managed keys
+# Note: Trivy is used for CONTAINER scanning only
+# Infrastructure (Terraform) security is handled by Checkov
 
 # Container registry exceptions for development
 AVD-AZU-0033  # Container registry should not allow anonymous pulls
+
+# Container-specific security exceptions
+# Add container vulnerability IDs here as needed
+
+# Development environment container exceptions
+# These are acceptable for non-production container environments

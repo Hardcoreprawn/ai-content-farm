@@ -23,25 +23,32 @@ class TestIndexPageGeneration:
     @pytest.fixture
     def content_manager(self):
         """Create a ContentManager instance for testing."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            templates_dir = Path(temp_dir)
-            (templates_dir / "index.html").write_text(
-                """
-            <html>
-                <head><title>{{ site_title }}</title></head>
-                <body>
-                    <h1>{{ site_title }}</h1>
-                    <ul>
-                    {% for article in articles %}
-                        <li><a href="{{ article.slug }}.html">{{ article.title }}</a></li>
-                    {% endfor %}
-                    </ul>
-                    <p>Total articles: {{ articles|length }}</p>
-                </body>
-            </html>
+        self.temp_dir = tempfile.TemporaryDirectory()
+        templates_dir = Path(self.temp_dir.name)
+
+        # Create theme subdirectories
+        test_theme_dir = templates_dir / "test-theme"
+        test_theme_dir.mkdir(parents=True, exist_ok=True)
+
+        (test_theme_dir / "index.html").write_text(
             """
-            )
-            yield ContentManager(templates_dir)
+        <html>
+            <head><title>{{ site_title }}</title></head>
+            <body>
+                <h1>{{ site_title }}</h1>
+                <ul>
+                {% for article in articles %}
+                    <li><a href="{{ article.slug }}.html">{{ article.title }}</a></li>
+                {% endfor %}
+                </ul>
+                <p>Total articles: {{ articles|length }}</p>
+            </body>
+        </html>
+        """
+        )
+        manager = ContentManager(templates_dir)
+        yield manager
+        self.temp_dir.cleanup()
 
     @pytest.fixture
     def sample_articles(self):
@@ -135,28 +142,35 @@ class TestRSSFeedGeneration:
     @pytest.fixture
     def content_manager(self):
         """Create a ContentManager instance for testing."""
-        with tempfile.TemporaryDirectory() as temp_dir:
-            templates_dir = Path(temp_dir)
-            (templates_dir / "feed.xml").write_text(
-                """
-            <?xml version="1.0" encoding="UTF-8"?>
-            <rss version="2.0">
-                <channel>
-                    <title>{{ site_title }}</title>
-                    <description>{{ site_description }}</description>
-                    {% for article in articles %}
-                    <item>
-                        <title>{{ article.title }}</title>
-                        <description>{{ article.content[:200] }}</description>
-                        <pubDate>{{ article.generated_at }}</pubDate>
-                        <link>{{ article.slug }}.html</link>
-                    </item>
-                    {% endfor %}
-                </channel>
-            </rss>
+        self.temp_dir = tempfile.TemporaryDirectory()
+        templates_dir = Path(self.temp_dir.name)
+
+        # Create theme subdirectories (RSS tests don't specify theme so use default/minimal)
+        minimal_theme_dir = templates_dir / "minimal"
+        minimal_theme_dir.mkdir(parents=True, exist_ok=True)
+
+        (minimal_theme_dir / "feed.xml").write_text(
             """
-            )
-            yield ContentManager(templates_dir)
+        <?xml version="1.0" encoding="UTF-8"?>
+        <rss version="2.0">
+            <channel>
+                <title>{{ site_title }}</title>
+                <description>{{ site_description }}</description>
+                {% for article in articles %}
+                <item>
+                    <title>{{ article.title }}</title>
+                    <description>{{ article.content[:200] }}</description>
+                    <pubDate>{{ article.generated_at }}</pubDate>
+                    <link>{{ article.slug }}.html</link>
+                </item>
+                {% endfor %}
+            </channel>
+        </rss>
+        """
+        )
+        manager = ContentManager(templates_dir)
+        yield manager
+        self.temp_dir.cleanup()
 
     @pytest.fixture
     def sample_articles(self):

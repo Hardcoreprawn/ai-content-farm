@@ -25,12 +25,22 @@ runs:
       shell: bash
       env:
         RESOURCE_GROUP_INPUT: ${{ inputs.resource-group }}
+        NEW_TAG_INPUT: ${{ inputs.image-tag }}
+        REGISTRY_INPUT: ${{ inputs.registry }}
+        REPOSITORY_INPUT: ${{ inputs.repository }}
+        TARGET_CONTAINER_INPUT: ${{ inputs.container-name }}
       run: |
         echo "[SYNC] Starting container version sync for specific container..."
 
+        # Safely assign environment variables
+        RESOURCE_GROUP="$RESOURCE_GROUP_INPUT"
+        NEW_TAG="$NEW_TAG_INPUT"
+        REGISTRY="$REGISTRY_INPUT"
+        REPOSITORY="$REPOSITORY_INPUT"
+        TARGET_CONTAINER="$TARGET_CONTAINER_INPUT"
+
         # Determine environment prefix from resource group (safely quoted)
-        RESOURCE_GROUP_INPUT="$RESOURCE_GROUP_INPUT"
-        if [[ "$RESOURCE_GROUP_INPUT" == *"prod"* ]]; then
+        if [[ "$RESOURCE_GROUP" == *"prod"* ]]; then
           ENV_PREFIX="prod"
         else
           ENV_PREFIX="dev"
@@ -42,12 +52,6 @@ runs:
           ["ai-content-${ENV_PREFIX}-processor"]="content-processor"
           ["ai-content-${ENV_PREFIX}-site-generator"]="site-generator"
         )
-
-        NEW_TAG="${{ inputs.image-tag }}"
-        REGISTRY="${{ inputs.registry }}"
-        REPOSITORY="${{ inputs.repository }}"
-        RESOURCE_GROUP="${{ inputs.resource-group }}"
-        TARGET_CONTAINER="${{ inputs.container-name }}"
 
         echo "[INFO] Syncing container version:"
         echo "  Registry: $REGISTRY"

@@ -16,8 +16,17 @@ from uuid import uuid4
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from models import ArticleMetadata
+from theme_security import content_sanitizer
 
 sys.path.insert(0, str(Path(__file__).parent))
+
+# Import from libs package (installed in container) or fallback to relative path (dev)
+try:
+    from libs.secure_error_handler import SecureErrorHandler
+except ImportError:
+    # Fallback for local development
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "libs"))
+    from secure_error_handler import SecureErrorHandler
 
 logger = logging.getLogger(__name__)
 
@@ -36,12 +45,17 @@ class ContentManager:
             templates_dir = Path(__file__).parent / "templates"
 
         self.content_id = str(uuid4())[:8]
+        self.error_handler = SecureErrorHandler("content-manager")
         # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
         # Jinja2 Environment configured with autoescape enabled for HTML/XML - XSS protection in place
         self.jinja_env = Environment(
             loader=FileSystemLoader(str(templates_dir)),
             autoescape=select_autoescape(["html", "xml"]),
         )
+
+        # Add custom filters for secure content rendering
+        self.jinja_env.filters["sanitize"] = content_sanitizer.sanitize_html
+        self.jinja_env.filters["sanitize_text"] = content_sanitizer.sanitize_text
         logger.debug(f"ContentManager initialized: {self.content_id}")
 
     async def generate_article_page(
@@ -59,7 +73,7 @@ class ContentManager:
             Path to generated page file, or None if failed
         """
         try:
-            template = self.jinja_env.get_template("article.html")
+            template = self.jinja_env.get_template(f"{theme}/article.html")
 
             # Create safe filename from article slug
             filename = f"{article.slug}.html"
@@ -73,21 +87,36 @@ class ContentManager:
                 "description": "Automated content aggregation and curation",
                 "url": "https://aicontentprodstkwakpx.z33.web.core.windows.net",
             }
+            # Add comprehensive template context to avoid any missing variable issues
+            current_time = datetime.now(timezone.utc)
+            # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+            # Safe: Jinja2 Environment configured with autoescape=select_autoescape(["html", "xml"])
             content = template.render(
                 article=article,
                 theme=theme,
                 site=site_info,
-                generated_at=datetime.now(timezone.utc),
+                site_title=site_info["title"],  # Backward compatibility
+                # Additional compatibility
+                site_description=site_info["description"],
+                site_url=site_info["url"],  # Additional compatibility
+                generated_at=current_time,
+                last_updated=current_time,  # For template compatibility
+                timestamp=current_time,  # Additional time variable
+                current_date=current_time.strftime("%Y-%m-%d"),
+                current_time=current_time.strftime("%H:%M UTC"),
             )
 
             output_path.write_text(content, encoding="utf-8")
             return output_path
 
         except Exception as e:
-            logger.error(f"Failed to generate article page for {article.slug}")
-            logger.debug(
-                f"Article page generation error details for {article.slug}: {e}"
+            # Use secure error handler for OWASP compliance
+            self.error_handler.handle_error(
+                error=e,
+                error_type="generation",
+                context={"article_slug": article.slug, "component": "article_page"},
             )
+            logger.error(f"Failed to generate article page for {article.slug}")
             return None
 
     async def generate_index_page(
@@ -105,7 +134,7 @@ class ContentManager:
             Path to generated index file, or None if failed
         """
         try:
-            template = self.jinja_env.get_template("index.html")
+            template = self.jinja_env.get_template(f"{theme}/index.html")
             output_path = output_dir / "index.html"
 
             # Sort articles by date (newest first)
@@ -129,18 +158,23 @@ class ContentManager:
                 site=site_info,
                 site_title=site_info["title"],  # Backward compatibility
                 generated_at=datetime.now(timezone.utc),
+                # For template compatibility
+                last_updated=datetime.now(timezone.utc),
             )
 
             output_path.write_text(content, encoding="utf-8")
             return output_path
 
         except Exception as e:
+            # Use secure error handler for OWASP compliance
+            self.error_handler.handle_error(
+                error=e, error_type="generation", context={"component": "index_page"}
+            )
             logger.error("Failed to generate index page")
-            logger.debug(f"Index page generation error details: {e}")
             return None
 
     async def generate_rss_feed(
-        self, articles: List[ArticleMetadata], output_dir: Path
+        self, articles: List[ArticleMetadata], output_dir: Path, theme: str = "minimal"
     ) -> Optional[Path]:
         """
         Generate RSS feed for the articles.
@@ -153,7 +187,7 @@ class ContentManager:
             Path to generated RSS file, or None if failed
         """
         try:
-            template = self.jinja_env.get_template("feed.xml")
+            template = self.jinja_env.get_template(f"{theme}/feed.xml")
             output_path = output_dir / "feed.xml"
 
             # Sort articles by date (newest first) and limit to recent ones
@@ -173,21 +207,28 @@ class ContentManager:
                 "description": "Automated content aggregation and curation",
                 "url": "https://aicontentprodstkwakpx.z33.web.core.windows.net",
             }
+            # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
+            # Safe: Jinja2 Environment configured with autoescape=select_autoescape(["html", "xml"])
             content = template.render(
                 articles=sorted_articles,
                 generated_at=datetime.now(timezone.utc),
                 site=site_info,
-                site_title="AI Content Farm",
-                site_url="https://aicontentprodstkwakpx.z33.web.core.windows.net",
-                site_description="Automated content aggregation and curation",
+                site_title=site_info["title"],
+                site_url=site_info["url"],
+                site_description=site_info["description"],
+                last_updated=datetime.now(timezone.utc),
+                timestamp=datetime.now(timezone.utc),
             )
 
             output_path.write_text(content, encoding="utf-8")
             return output_path
 
         except Exception as e:
+            # Use secure error handler for OWASP compliance
+            self.error_handler.handle_error(
+                error=e, error_type="generation", context={"component": "rss_feed"}
+            )
             logger.error("Failed to generate RSS feed")
-            logger.debug(f"RSS feed generation error details: {e}")
             return None
 
     async def generate_404_page(self, output_dir: Path, theme: str) -> Optional[Path]:
@@ -202,7 +243,7 @@ class ContentManager:
             Path to generated 404 file, or None if failed
         """
         try:
-            template = self.jinja_env.get_template("404.html")
+            template = self.jinja_env.get_template(f"{theme}/404.html")
             output_path = output_dir / "404.html"
 
             # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
@@ -217,14 +258,21 @@ class ContentManager:
                 generated_at=datetime.now(timezone.utc),
                 site=site_info,
                 site_title=site_info["title"],  # Backward compatibility
+                site_description=site_info["description"],
+                site_url=site_info["url"],
+                last_updated=datetime.now(timezone.utc),
+                timestamp=datetime.now(timezone.utc),
             )
 
             output_path.write_text(content, encoding="utf-8")
             return output_path
 
         except Exception as e:
+            # Use secure error handler for OWASP compliance
+            self.error_handler.handle_error(
+                error=e, error_type="generation", context={"component": "404_page"}
+            )
             logger.error("Failed to generate 404 page")
-            logger.debug(f"404 page generation error details: {e}")
             return None
 
     def create_markdown_content(self, article_data: Dict) -> str:
@@ -288,7 +336,11 @@ class ContentManager:
         return slug
 
     async def generate_sitemap(
-        self, articles: List[ArticleMetadata], output_dir: Path, base_url: str
+        self,
+        articles: List[ArticleMetadata],
+        output_dir: Path,
+        base_url: str,
+        theme: str = "minimal",
     ) -> Optional[Path]:
         """
         Generate XML sitemap for the site.
@@ -302,7 +354,7 @@ class ContentManager:
             Path to generated sitemap file, or None if failed
         """
         try:
-            template = self.jinja_env.get_template("sitemap.xml")
+            template = self.jinja_env.get_template(f"{theme}/sitemap.xml")
             output_path = output_dir / "sitemap.xml"
 
             # nosemgrep: python.flask.security.xss.audit.direct-use-of-jinja2.direct-use-of-jinja2
@@ -317,6 +369,9 @@ class ContentManager:
             return output_path
 
         except Exception as e:
+            # Use secure error handler for OWASP compliance
+            self.error_handler.handle_error(
+                error=e, error_type="generation", context={"component": "sitemap"}
+            )
             logger.error("Failed to generate sitemap")
-            logger.debug(f"Sitemap generation error details: {e}")
             return None

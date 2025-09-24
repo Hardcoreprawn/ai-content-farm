@@ -10,7 +10,7 @@ import os
 import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List
+from typing import Dict, List
 from uuid import uuid4
 
 import aiofiles
@@ -165,12 +165,12 @@ class ArchiveManager:
 
 
 class StaticAssetManager:
-    """Manages static asset operations for site generation."""
+    """Manages static asset operations for site generation with theme support."""
 
     @staticmethod
     async def copy_static_assets(output_dir: Path, theme: str) -> List[str]:
         """
-        Copy static assets (CSS, JS) to output directory.
+        Copy static assets (CSS, JS) to output directory with theme-specific assets.
 
         Args:
             output_dir: Target directory for assets
@@ -179,19 +179,247 @@ class StaticAssetManager:
         Returns:
             List of copied asset filenames
         """
-        # This is a placeholder for the static asset copying logic
-        # In the actual implementation, this would copy CSS, JS files etc.
         copied_files = []
 
-        # Create placeholder files for now (replace with actual asset copying)
-        style_css = output_dir / "style.css"
-        script_js = output_dir / "script.js"
-
         try:
-            style_css.write_text("/* CSS styles */")
-            script_js.write_text("// JavaScript code")
-            copied_files.extend(["style.css", "script.js"])
+            # Get the site-generator directory
+            site_generator_dir = Path(__file__).parent
+
+            # Theme-specific assets directory
+            theme_dir = site_generator_dir / "templates" / theme
+
+            # Global static assets directory
+            static_dir = site_generator_dir / "static"
+
+            # Copy theme-specific assets first (they take priority)
+            if theme_dir.exists():
+                copied_files.extend(
+                    await StaticAssetManager._copy_theme_assets(
+                        theme_dir, output_dir, theme
+                    )
+                )
+
+            # Copy global static assets if they don't conflict with theme assets
+            if static_dir.exists():
+                copied_files.extend(
+                    await StaticAssetManager._copy_global_assets(
+                        static_dir, output_dir, copied_files
+                    )
+                )
+
+            logger.info(f"Copied {len(copied_files)} static assets for theme '{theme}'")
+
         except Exception as e:
-            logger.warning(f"Failed to copy static assets: {e}")
+            logger.error(f"Failed to copy static assets for theme '{theme}': {e}")
+            # Create minimal fallback assets
+            copied_files.extend(
+                await StaticAssetManager._create_fallback_assets(output_dir)
+            )
 
         return copied_files
+
+    @staticmethod
+    async def _copy_theme_assets(
+        theme_dir: Path, output_dir: Path, theme: str
+    ) -> List[str]:
+        """Copy theme-specific assets."""
+        copied_files = []
+
+        # Asset extensions to copy
+        asset_extensions = [
+            ".css",
+            ".js",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".gif",
+            ".svg",
+            ".ico",
+            ".webp",
+            ".woff",
+            ".woff2",
+            ".ttf",
+        ]
+
+        for asset_path in theme_dir.iterdir():
+            if asset_path.is_file() and asset_path.suffix.lower() in asset_extensions:
+                try:
+                    target_path = output_dir / asset_path.name
+
+                    # Copy binary files
+                    if asset_path.suffix.lower() in [
+                        ".png",
+                        ".jpg",
+                        ".jpeg",
+                        ".gif",
+                        ".ico",
+                        ".webp",
+                        ".woff",
+                        ".woff2",
+                        ".ttf",
+                    ]:
+                        target_path.write_bytes(asset_path.read_bytes())
+                    else:
+                        # Copy text files (CSS, JS, SVG)
+                        content = asset_path.read_text(encoding="utf-8")
+                        target_path.write_text(content, encoding="utf-8")
+
+                    copied_files.append(asset_path.name)
+                    logger.debug(f"Copied theme asset: {asset_path.name}")
+
+                except Exception as e:
+                    logger.warning(f"Failed to copy theme asset {asset_path.name}: {e}")
+
+        return copied_files
+
+    @staticmethod
+    async def _copy_global_assets(
+        static_dir: Path, output_dir: Path, existing_files: List[str]
+    ) -> List[str]:
+        """Copy global static assets that don't conflict with theme assets."""
+        copied_files = []
+
+        # Asset extensions to copy
+        asset_extensions = [
+            ".css",
+            ".js",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".gif",
+            ".svg",
+            ".ico",
+            ".webp",
+            ".woff",
+            ".woff2",
+            ".ttf",
+        ]
+
+        for asset_path in static_dir.rglob("*"):
+            if asset_path.is_file() and asset_path.suffix.lower() in asset_extensions:
+                # Calculate relative path for nested assets
+                relative_path = asset_path.relative_to(static_dir)
+                target_path = output_dir / relative_path
+
+                # Skip if theme already provided this asset
+                if (
+                    str(relative_path) in existing_files
+                    or relative_path.name in existing_files
+                ):
+                    continue
+
+                try:
+                    # Create parent directories if needed
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    # Copy binary files
+                    if asset_path.suffix.lower() in [
+                        ".png",
+                        ".jpg",
+                        ".jpeg",
+                        ".gif",
+                        ".ico",
+                        ".webp",
+                        ".woff",
+                        ".woff2",
+                        ".ttf",
+                    ]:
+                        target_path.write_bytes(asset_path.read_bytes())
+                    else:
+                        # Copy text files (CSS, JS, SVG)
+                        content = asset_path.read_text(encoding="utf-8")
+                        target_path.write_text(content, encoding="utf-8")
+
+                    copied_files.append(str(relative_path))
+                    logger.debug(f"Copied global asset: {relative_path}")
+
+                except Exception as e:
+                    logger.warning(f"Failed to copy global asset {relative_path}: {e}")
+
+        return copied_files
+
+    @staticmethod
+    async def _create_fallback_assets(output_dir: Path) -> List[str]:
+        """Create minimal fallback assets when copying fails."""
+        copied_files = []
+
+        try:
+            # Create minimal CSS
+            fallback_css = output_dir / "style.css"
+            fallback_css.write_text(
+                """
+/* Fallback CSS */
+body { font-family: sans-serif; margin: 2rem; line-height: 1.6; }
+h1, h2, h3 { color: #333; }
+a { color: #0066cc; }
+.container { max-width: 1200px; margin: 0 auto; }
+            """.strip()
+            )
+            copied_files.append("style.css")
+
+            # Create minimal JS
+            fallback_js = output_dir / "script.js"
+            fallback_js.write_text(
+                """
+// Fallback JavaScript
+console.log('Site loaded with fallback assets');
+            """.strip()
+            )
+            copied_files.append("script.js")
+
+            logger.info("Created fallback assets")
+
+        except Exception as e:
+            logger.error(f"Failed to create fallback assets: {e}")
+
+        return copied_files
+
+    @staticmethod
+    async def get_theme_assets(theme: str) -> Dict[str, List[str]]:
+        """
+        Get list of available assets for a theme.
+
+        Args:
+            theme: Theme name
+
+        Returns:
+            Dictionary with asset categories and file lists
+        """
+        try:
+            site_generator_dir = Path(__file__).parent
+            theme_dir = site_generator_dir / "templates" / theme
+
+            assets = {"css": [], "js": [], "images": [], "fonts": [], "other": []}
+
+            if not theme_dir.exists():
+                return assets
+
+            for asset_path in theme_dir.iterdir():
+                if asset_path.is_file():
+                    ext = asset_path.suffix.lower()
+                    name = asset_path.name
+
+                    if ext == ".css":
+                        assets["css"].append(name)
+                    elif ext == ".js":
+                        assets["js"].append(name)
+                    elif ext in [
+                        ".png",
+                        ".jpg",
+                        ".jpeg",
+                        ".gif",
+                        ".svg",
+                        ".ico",
+                        ".webp",
+                    ]:
+                        assets["images"].append(name)
+                    elif ext in [".woff", ".woff2", ".ttf", ".otf"]:
+                        assets["fonts"].append(name)
+                    else:
+                        assets["other"].append(name)
+
+            return assets
+
+        except Exception as e:
+            logger.error(f"Failed to get theme assets for '{theme}': {e}")
+            return {"css": [], "js": [], "images": [], "fonts": [], "other": []}

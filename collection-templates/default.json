@@ -2,8 +2,8 @@
     "sources": [
         {
             "type": "reddit",
-            "enabled": false,
-            "_comment": "Reddit sources temporarily disabled due to rate limiting - will re-enable after 24-48 hour cooldown period",
+            "enabled": true,
+            "_comment": "Reddit sources re-enabled after successful access restoration",
             "subreddits": [
                 "technology",
                 "programming",

@@ -20,12 +20,12 @@ repos:
       - id: debug-statements
       - id: check-executables-have-shebangs
 
-  # Python code quality using our shared script
+  # Python code quality using our shared script (auto-fix mode)
   - repo: local
     hooks:
       - id: python-code-quality
         name: Python Code Quality (Black + isort + flake8)
-        entry: ./scripts/code-quality.sh
+        entry: ./scripts/code-quality.sh --fix
         language: system
         types: [python]
         pass_filenames: false

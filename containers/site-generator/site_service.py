@@ -6,6 +6,7 @@ Uses project standard libraries for consistency.
 """
 
 import logging
+import sys
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -14,6 +15,14 @@ from uuid import uuid4
 
 from models import ArticleMetadata, GenerationResponse
 from security_utils import SecurityValidator
+
+# Import from libs package (installed in container) or fallback to relative path (dev)
+try:
+    from libs.secure_error_handler import SecureErrorHandler
+except ImportError:
+    # Fallback for local development
+    sys.path.insert(0, str(Path(__file__).parent.parent.parent / "libs"))
+    from secure_error_handler import SecureErrorHandler
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +46,7 @@ class SiteService:
         self.archive_manager = archive_manager
         self.service_id = str(uuid4())[:8]
         self.security_validator = SecurityValidator()
+        self.error_handler = SecureErrorHandler("site-service")
         logger.debug(f"SiteService initialized: {self.service_id}")
 
     async def generate_site(
@@ -93,8 +103,13 @@ class SiteService:
             )
 
         except Exception as e:
+            # Use secure error handler for OWASP compliance
+            self.error_handler.handle_error(
+                error=e,
+                error_type="generation",
+                context={"operation": "static_site_generation"},
+            )
             logger.error("Static site generation failed")
-            logger.debug(f"Static site generation error details: {e}")
             raise
 
     async def _generate_site_content(
@@ -122,10 +137,13 @@ class SiteService:
                         f"Failed to generate page for article: {article.slug}"
                     )
             except Exception as e:
-                logger.error(f"Error generating article page for {article.slug}: {e}")
-                logger.debug(
-                    f"Article page generation error details: {e}", exc_info=True
+                # Use secure error handler for OWASP compliance
+                self.error_handler.handle_error(
+                    error=e,
+                    error_type="generation",
+                    context={"article_slug": article.slug},
                 )
+                logger.warning(f"Failed to generate page for article: {article.slug}")
 
         # Generate index page
         try:
@@ -138,13 +156,16 @@ class SiteService:
             else:
                 logger.warning("Failed to generate index page")
         except Exception as e:
-            logger.error(f"Error generating index page: {e}")
-            logger.debug(f"Index page generation error details: {e}", exc_info=True)
+            # Use secure error handler for OWASP compliance
+            self.error_handler.handle_error(
+                error=e, error_type="generation", context={"component": "index_page"}
+            )
+            logger.warning("Failed to generate index page")
 
         # Generate RSS feed
         try:
             rss_path = await self.content_manager.generate_rss_feed(
-                markdown_articles, site_dir
+                markdown_articles, site_dir, theme
             )
             if rss_path:
                 generated_files.append("feed.xml")
@@ -152,8 +173,11 @@ class SiteService:
             else:
                 logger.warning("Failed to generate RSS feed")
         except Exception as e:
-            logger.error(f"Error generating RSS feed: {e}")
-            logger.debug(f"RSS feed generation error details: {e}", exc_info=True)
+            # Use secure error handler for OWASP compliance
+            self.error_handler.handle_error(
+                error=e, error_type="generation", context={"component": "rss_feed"}
+            )
+            logger.warning("Failed to generate RSS feed")
 
         # Generate 404 page
         try:
@@ -166,8 +190,11 @@ class SiteService:
             else:
                 logger.warning("Failed to generate 404 page")
         except Exception as e:
-            logger.error(f"Error generating 404 page: {e}")
-            logger.debug(f"404 page generation error details: {e}", exc_info=True)
+            # Use secure error handler for OWASP compliance
+            self.error_handler.handle_error(
+                error=e, error_type="generation", context={"component": "404_page"}
+            )
+            logger.warning("Failed to generate 404 page")
 
         # Copy static assets
         static_files = await StaticAssetManager.copy_static_assets(site_dir, theme)

@@ -18,16 +18,18 @@ import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from models import GenerationRequest, GenerationResponse, SiteStatus
 from site_generator import SiteGenerator
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from storage_queue_router import router as storage_queue_router
+from theme_api import router as theme_router
+from theme_security import create_security_headers
 
 from config import Config
 from libs import SecureErrorHandler
@@ -83,6 +85,75 @@ async def lifespan(app: FastAPI):
     logger.info("Site Generator starting up...")
     logger.info("Site Generator ready for KEDA Storage Queue scaling")
 
+    # Start background queue processing on startup
+    import asyncio
+
+    from storage_queue_router import storage_queue_router
+
+    from libs.queue_client import process_queue_messages
+
+    async def startup_queue_processor():
+        """Process any existing queue messages on startup."""
+        try:
+            logger.info("Starting up - checking for pending queue messages...")
+
+            # Process message handler
+            async def process_message(queue_message, message) -> Dict[str, Any]:
+                """Process a single message on startup."""
+                try:
+                    result = await storage_queue_router.process_storage_queue_message(
+                        queue_message
+                    )
+
+                    if result["status"] == "success":
+                        logger.info(
+                            f"Startup: Successfully processed message {queue_message.message_id}"
+                        )
+                    else:
+                        logger.warning(
+                            f"Startup: Message processing failed: {result.get('error', 'Unknown error')}"
+                        )
+
+                    return result
+                except Exception as e:
+                    logger.error(f"Startup: Error processing message: {e}")
+                    return {"status": "error", "error": str(e)}
+
+            # Process up to 5 messages on startup
+            processed_count = await process_queue_messages(
+                queue_name="site-generation-requests",
+                message_handler=process_message,
+                max_messages=5,
+            )
+
+            if processed_count > 0:
+                logger.info(f"Startup: Processed {processed_count} pending messages")
+                logger.info(
+                    "Startup: All messages processed - scheduling graceful shutdown"
+                )
+                # Schedule graceful shutdown after processing
+                asyncio.create_task(graceful_shutdown())
+            else:
+                logger.info(
+                    "Startup: No pending messages found - scheduling graceful shutdown"
+                )
+                # Schedule shutdown if no work to do
+                asyncio.create_task(graceful_shutdown())
+
+        except Exception as e:
+            logger.error(f"Startup queue processing failed: {e}")
+            # Schedule shutdown with error
+            asyncio.create_task(graceful_shutdown(exit_code=1))
+
+    async def graceful_shutdown(exit_code: int = 0):
+        """Gracefully shutdown the container after a brief delay."""
+        await asyncio.sleep(2)  # Brief delay to ensure logs are flushed
+        logger.info(f"Gracefully shutting down container with exit code {exit_code}")
+        os._exit(exit_code)
+
+    # Start the background task
+    asyncio.create_task(startup_queue_processor())
+
     try:
         yield
     finally:
@@ -111,21 +182,25 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-# Include storage queue router for KEDA-triggered processing
+# Include routers
 app.include_router(storage_queue_router)
+app.include_router(theme_router)
 
 
-# Add security headers middleware
+# Add comprehensive security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
-    response.headers["X-Content-Type-Options"] = "nosniff"
-    response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
+
+    # Add all security headers
+    security_headers = create_security_headers()
+    for header_name, header_value in security_headers.items():
+        response.headers[header_name] = header_value
+
+    # Additional headers
     response.headers["Strict-Transport-Security"] = (
         "max-age=31536000; includeSubDomains"
     )
-    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
     return response
 
 
@@ -330,5 +405,13 @@ app.add_exception_handler(
 if __name__ == "__main__":
     import uvicorn
 
-    port = int(os.environ.get("PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=port)
+    # Use environment-specific host binding for security
+    host = os.environ.get("HOST", "127.0.0.1")  # Default to localhost
+    port = int(os.environ.get("PORT", 8080))
+
+    # Allow 0.0.0.0 binding only in container environment
+    if os.environ.get("CONTAINER_ENV") == "true":
+        host = "0.0.0.0"
+
+    logger.info(f"Starting server on {host}:{port}")
+    uvicorn.run(app, host=host, port=port)
