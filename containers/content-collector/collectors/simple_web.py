@@ -49,7 +49,7 @@ class SimpleWebCollector(HTTPCollector):
 
         # Web configuration
         self.max_items = config.get("max_items", 20)
-        self.min_points = config.get("min_points", 10)
+        self.min_points = config.get("min_points", 50)
         self.websites = config.get("websites", ["news.ycombinator.com"])
 
         # Initialize collection strategies
@@ -97,7 +97,7 @@ class SimpleWebCollector(HTTPCollector):
                 logger.info(f"Collecting from website: {website_url}")
 
                 # Determine collection method and collect items
-                if "news.ycombinator.com" in website_url:
+                if self._is_hackernews_url(website_url):
                     items = await self.api_strategy.collect_hackernews(
                         max_items=items_per_site
                     )
@@ -149,6 +149,40 @@ class SimpleWebCollector(HTTPCollector):
         }
 
         return default_rss.get(domain, [])
+
+    async def _make_request(
+        self, url: str, expect_json: bool = True
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Make HTTP request and return standardized response format.
+
+        Returns:
+            Dict with 'data' key for JSON responses or 'content' key for text responses
+        """
+        try:
+            if expect_json:
+                response_data = await self.get_json(url)
+                return {"data": response_data}
+            else:
+                response = await self.get_response(url)
+                return {"content": response.text}
+        except Exception as e:
+            logger.error(f"Request failed for {url}: {str(e)}")
+            return None
+
+    def _is_hackernews_url(self, url: str) -> bool:
+        """Securely validate if URL is a legitimate HackerNews domain."""
+        try:
+            from urllib.parse import urlparse
+
+            parsed = urlparse(url.lower())
+            # Only match exact domain or subdomains of ycombinator.com
+            return parsed.netloc in [
+                "news.ycombinator.com",
+                "ycombinator.com",
+            ] or parsed.netloc.endswith(".ycombinator.com")
+        except Exception:
+            return False
 
     async def health_check(self) -> tuple[bool, str]:
         """Check if the web collector can access configured websites."""

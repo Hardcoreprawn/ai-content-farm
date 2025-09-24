@@ -185,15 +185,14 @@ class SlashdotStandardizer:
             return 0
 
         # Look for comment count patterns
-        patterns = [
-            r"(\d+)\s*comments?",
-            r"Read more of this story at Slashdot",  # Default if no count
-        ]
+        comment_pattern = r"(\d+)\s*comments?"
+        match = re.search(comment_pattern, content, re.IGNORECASE)
+        if match and match.group(1).isdigit():
+            return int(match.group(1))
 
-        for pattern in patterns:
-            match = re.search(pattern, content, re.IGNORECASE)
-            if match and match.group(1).isdigit():
-                return int(match.group(1))
+        # Check if this is a Slashdot article (fallback case)
+        if re.search(r"Read more of this story at Slashdot", content, re.IGNORECASE):
+            return 0  # No comment count found, but it's a valid Slashdot article
 
         return 0
 

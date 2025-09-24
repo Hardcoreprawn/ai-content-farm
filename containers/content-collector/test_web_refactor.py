@@ -6,10 +6,13 @@ Test the refactored SimpleWebCollector to ensure it still works.
 import asyncio
 import os
 import sys
+from pathlib import Path
 
-# Add paths for proper imports
-sys.path.insert(0, ".")
-sys.path.insert(0, "../..")
+# Add paths for proper imports using pathlib for robustness
+current_dir = Path(__file__).resolve().parent
+project_root = current_dir.parent.parent
+sys.path.insert(0, str(current_dir))
+sys.path.insert(0, str(project_root))
 
 
 async def test_simple_web_collector():

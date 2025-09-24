@@ -186,13 +186,26 @@ class RSSCollectionStrategy:
 
     def _determine_source_name(self, url: str, feed) -> str:
         """Determine the source name from URL or feed metadata."""
-        # Check for known sites
-        if "ycombinator.com" in url or "hackernews" in url.lower():
-            return "hackernews"
-        elif "lobste.rs" in url:
-            return "lobsters"
-        elif "slashdot.org" in url:
-            return "slashdot"
+        # Check for known sites using secure URL parsing
+        try:
+            from urllib.parse import urlparse
+
+            parsed = urlparse(url.lower())
+
+            # Check for legitimate domains only
+            if parsed.netloc in [
+                "news.ycombinator.com",
+                "ycombinator.com",
+            ] or parsed.netloc.endswith(".ycombinator.com"):
+                return "hackernews"
+            elif parsed.netloc == "lobste.rs":
+                return "lobsters"
+            elif parsed.netloc in ["slashdot.org"] or parsed.netloc.endswith(
+                ".slashdot.org"
+            ):
+                return "slashdot"
+        except Exception:
+            pass
 
         # Try to extract from feed title or URL
         if hasattr(feed, "feed") and hasattr(feed.feed, "title"):
