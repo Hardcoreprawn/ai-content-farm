@@ -221,7 +221,7 @@ def create_success_response(
         status="success",
         message=message,
         data=data,
-        errors=None,
+        errors=[],  # Always use empty list instead of None for consistency
         metadata=metadata or {},
     )
 

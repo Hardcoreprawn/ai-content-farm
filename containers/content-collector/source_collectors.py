@@ -171,4 +171,16 @@ class SourceCollectorFactory:
                 info["reason"] = "No Reddit credentials found"
                 info["credentials_source"] = "none"
 
+        # Add standardized fields expected by sources endpoint
+        info["authentication_status"] = (
+            "authenticated"
+            if info["credential_status"].get("appears_valid", False)
+            else "unauthenticated"
+        )
+        info["status"] = (
+            "available"
+            if info["credential_status"].get("appears_valid", False)
+            else "limited"
+        )
+
         return info
