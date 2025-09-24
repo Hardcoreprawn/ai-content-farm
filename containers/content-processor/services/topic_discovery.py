@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from models import TopicMetadata, TopicState
 
-from libs import BlobStorageClient
+from libs.blob_storage import BlobStorageClient
 
 logger = logging.getLogger(__name__)
 
