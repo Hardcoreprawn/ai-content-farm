@@ -296,10 +296,12 @@ class TestAsyncBehavior:
         mock_generator._get_site_metrics = AsyncMock(return_value=None)
 
         # Mock blob client test_connection to return proper dict
-        mock_generator.blob_client.test_connection.return_value = {
-            "status": "success",
-            "message": "Connection successful",
-        }
+        mock_generator.blob_client.test_connection = Mock(
+            return_value={
+                "status": "success",
+                "message": "Connection successful",
+            }
+        )
 
         # Run different async methods concurrently
         import asyncio
