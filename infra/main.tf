@@ -657,47 +657,55 @@ resource "azurerm_storage_container" "prompts" {
   container_access_type = "private"
 }
 
-# Collection Templates - Upload collection templates to blob storage for dynamic loading
+# Container for collection templates used by content-collector service
+resource "azurerm_storage_container" "collection_templates" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "collection-templates"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+}
+
+# Collection Templates - Upload collection templates to dedicated blob storage container for dynamic loading
 resource "azurerm_storage_blob" "collection_template_default" {
-  name                   = "collection-templates/default.json"
+  name                   = "default.json"
   storage_account_name   = azurerm_storage_account.main.name
-  storage_container_name = azurerm_storage_container.prompts.name
+  storage_container_name = azurerm_storage_container.collection_templates.name
   type                   = "Block"
   source                 = "${path.module}/../collection-templates/default.json"
   content_type           = "application/json"
 }
 
 resource "azurerm_storage_blob" "collection_template_tech_news" {
-  name                   = "collection-templates/tech-news.json"
+  name                   = "tech-news.json"
   storage_account_name   = azurerm_storage_account.main.name
-  storage_container_name = azurerm_storage_container.prompts.name
+  storage_container_name = azurerm_storage_container.collection_templates.name
   type                   = "Block"
   source                 = "${path.module}/../collection-templates/tech-news.json"
   content_type           = "application/json"
 }
 
 resource "azurerm_storage_blob" "collection_template_tech_rss" {
-  name                   = "collection-templates/tech-rss.json"
+  name                   = "tech-rss.json"
   storage_account_name   = azurerm_storage_account.main.name
-  storage_container_name = azurerm_storage_container.prompts.name
+  storage_container_name = azurerm_storage_container.collection_templates.name
   type                   = "Block"
   source                 = "${path.module}/../collection-templates/tech-rss.json"
   content_type           = "application/json"
 }
 
 resource "azurerm_storage_blob" "collection_template_discovery" {
-  name                   = "collection-templates/discovery.json"
+  name                   = "discovery.json"
   storage_account_name   = azurerm_storage_account.main.name
-  storage_container_name = azurerm_storage_container.prompts.name
+  storage_container_name = azurerm_storage_container.collection_templates.name
   type                   = "Block"
   source                 = "${path.module}/../collection-templates/discovery.json"
   content_type           = "application/json"
 }
 
 resource "azurerm_storage_blob" "collection_template_web_overlap_test" {
-  name                   = "collection-templates/web-overlap-test.json"
+  name                   = "web-overlap-test.json"
   storage_account_name   = azurerm_storage_account.main.name
-  storage_container_name = azurerm_storage_container.prompts.name
+  storage_container_name = azurerm_storage_container.collection_templates.name
   type                   = "Block"
   source                 = "${path.module}/../collection-templates/web-overlap-test.json"
   content_type           = "application/json"

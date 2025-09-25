@@ -20,6 +20,7 @@ class BlobContainers:
     STATIC_SITES = "static-sites"
     PIPELINE_LOGS = "pipeline-logs"
     CMS_EXPORTS = "cms-exports"
+    COLLECTION_TEMPLATES = "collection-templates"
 
 
 class ProcessingConfig:
