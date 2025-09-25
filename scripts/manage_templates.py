@@ -33,7 +33,7 @@ from typing import Dict, List
 sys.path.append(str(Path(__file__).parent.parent / "libs"))
 
 try:
-    from blob_storage import BlobStorageClient
+    from simplified_blob_client import SimplifiedBlobClient
 
     BLOB_AVAILABLE = True
 except ImportError:
@@ -47,7 +47,7 @@ class TemplateManager:
     def __init__(self, template_path: str = None, use_blob: bool = False):
         self.template_path = template_path or "collection-templates/default.json"
         self.use_blob = use_blob and BLOB_AVAILABLE
-        self.blob_client = BlobStorageClient() if self.use_blob else None
+        self.blob_client = SimplifiedBlobClient() if self.use_blob else None
 
     async def load_template(self) -> Dict:
         """Load template from local file or blob storage."""
