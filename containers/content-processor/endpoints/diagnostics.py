@@ -138,9 +138,9 @@ def _check_anthropic_config() -> bool:
 def _check_blob_storage() -> bool:
     """Check if blob storage is available."""
     try:
-        from libs import BlobStorageClient
+        from libs.simplified_blob_client import SimplifiedBlobClient
 
-        storage = BlobStorageClient()
+        storage = SimplifiedBlobClient()
         # Simple check - if we can create client, it's configured
         return True
     except Exception:

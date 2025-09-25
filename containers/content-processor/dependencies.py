@@ -9,8 +9,8 @@ import logging
 from external_api_client import ExternalAPIClient
 
 from config import ContentProcessorSettings
-from libs import BlobStorageClient
 from libs.shared_models import create_service_dependency
+from libs.simplified_blob_client import SimplifiedBlobClient
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ service_metadata = create_service_dependency("content-processor")
 def get_blob_client():
     """Get blob storage client singleton."""
     if not hasattr(get_blob_client, "_client"):
-        get_blob_client._client = BlobStorageClient()
+        get_blob_client._client = SimplifiedBlobClient()
     return get_blob_client._client
 
 

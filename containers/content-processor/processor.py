@@ -30,7 +30,7 @@ from services import (
     TopicDiscoveryService,
 )
 
-from libs import BlobStorageClient
+from libs.simplified_blob_client import SimplifiedBlobClient
 
 logger = logging.getLogger(__name__)
 
@@ -45,7 +45,7 @@ class ContentProcessor:
     def __init__(self):
         self.processor_id = str(uuid4())[:8]
         self.session_id = str(uuid4())
-        self.blob_client = BlobStorageClient()
+        self.blob_client = SimplifiedBlobClient()
         self.openai_client = OpenAIClient()
 
         # Initialize service dependencies

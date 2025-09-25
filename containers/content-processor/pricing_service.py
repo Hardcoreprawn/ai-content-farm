@@ -12,7 +12,7 @@ from typing import Dict, Optional
 
 import httpx
 
-from libs import BlobStorageClient
+from libs.simplified_blob_client import SimplifiedBlobClient
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class PricingService:
     """
 
     def __init__(self):
-        self.blob_client = BlobStorageClient()
+        self.blob_client = SimplifiedBlobClient()
         self.pricing_container = "pricing-cache"
         self.pricing_blob = "azure-openai-pricing.json"
         self.cache_duration_days = 7  # Weekly updates

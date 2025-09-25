@@ -79,10 +79,17 @@ def sample_collection_data(sample_reddit_post):
 
 @pytest.fixture
 def mock_blob_storage():
-    """Mock blob storage client for fast unit tests."""
-    from tests.contracts.blob_storage_contract import MockBlobStorageClient
+    """Mock simplified blob storage client for fast unit tests."""
+    from unittest.mock import Mock
 
-    return MockBlobStorageClient()
+    mock_client = Mock()
+    mock_client.upload_json = Mock(return_value=True)
+    mock_client.download_json = Mock(return_value={"test": "data"})
+    mock_client.upload_text = Mock(return_value=True)
+    mock_client.download_text = Mock(return_value="test content")
+    mock_client.list_blobs = Mock(return_value=[])
+    mock_client.delete_blob = Mock(return_value=True)
+    return mock_client
 
 
 @pytest.fixture

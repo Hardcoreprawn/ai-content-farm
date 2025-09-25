@@ -9,7 +9,7 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict
 
-from libs.blob_storage import BlobStorageClient
+from libs.simplified_blob_client import SimplifiedBlobClient
 
 logger = logging.getLogger(__name__)
 
@@ -86,7 +86,7 @@ class ProcessorStorageService:
             int: Number of articles in container, -1 if error
         """
         try:
-            # Note: This would need to be implemented in BlobStorageClient
+            # Note: This would need to be implemented in SimplifiedBlobClient
             # For now, return a placeholder
             logger.debug(f"Getting article count for container: {container_name}")
             return 0
@@ -109,7 +109,7 @@ class ProcessorStorageService:
             list: List of recent article metadata
         """
         try:
-            # Note: This would need to be implemented in BlobStorageClient
+            # Note: This would need to be implemented in SimplifiedBlobClient
             # For now, return empty list
             logger.debug(f"Listing {limit} recent articles from {container_name}")
             return []

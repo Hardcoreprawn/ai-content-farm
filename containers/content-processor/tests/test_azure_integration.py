@@ -34,7 +34,7 @@ class TestAzureIntegration:
     @pytest.fixture
     def mock_blob_client(self):
         """Mock blob storage client."""
-        with patch("processor.BlobStorageClient") as mock:
+        with patch("processor.SimplifiedBlobClient") as mock:
             mock_instance = MagicMock()
             mock_instance.test_connection = MagicMock(
                 return_value={"status": "healthy"}
@@ -59,7 +59,7 @@ class TestAzureIntegration:
             yield mock_instance
 
     @pytest.mark.integration
-    @patch("processor.BlobStorageClient")
+    @patch("processor.SimplifiedBlobClient")
     @patch("processor.OpenAIClient")
     async def test_health_check_with_azure_services(
         self, mock_openai_class, mock_blob_class
@@ -257,7 +257,7 @@ class TestBlobStorageIntegration:
     """Tests for blob storage patterns."""
 
     @pytest.mark.integration
-    @patch("libs.blob_storage.BlobStorageClient")
+    @patch("libs.simplified_blob_client.SimplifiedBlobClient")
     async def test_topic_storage_patterns(self, mock_blob_class):
         """Test blob storage patterns for topic data."""
         mock_blob = MagicMock()
@@ -271,7 +271,7 @@ class TestBlobStorageIntegration:
         assert connection_ok is True
 
     @pytest.mark.integration
-    @patch("processor.BlobStorageClient")
+    @patch("processor.SimplifiedBlobClient")
     async def test_blob_storage_error_handling(self, mock_blob_class):
         """Test blob storage error handling."""
         mock_blob = MagicMock()
@@ -290,7 +290,7 @@ class TestEndToEndWorkflow:
     """Test complete processing workflow."""
 
     @pytest.mark.integration
-    @patch("processor.BlobStorageClient")
+    @patch("processor.SimplifiedBlobClient")
     @patch("processor.OpenAIClient")
     async def test_complete_processing_workflow(
         self, mock_openai_class, mock_blob_class

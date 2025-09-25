@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from models import TopicMetadata, TopicState
 
-from libs.blob_storage import BlobStorageClient
+from libs.simplified_blob_client import SimplifiedBlobClient
 
 logger = logging.getLogger(__name__)
 
@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 class TopicDiscoveryService:
     """Service for discovering and filtering available topics from blob storage."""
 
-    def __init__(self, blob_client: Optional[BlobStorageClient] = None):
-        self.blob_client = blob_client or BlobStorageClient()
+    def __init__(self, blob_client: Optional[SimplifiedBlobClient] = None):
+        self.blob_client = blob_client or SimplifiedBlobClient()
 
     async def find_available_topics(
         self, batch_size: int, priority_threshold: float
