@@ -3,10 +3,10 @@
 # HTTP & Data Processing (not in shared libs)
 python-multipart~=0.0.20
 python-dateutil~=2.9.0.post0
-tenacity~=9.0.0
+tenacity~=9.1.2
 
 # Content Processing
-openai~=1.108.0
+openai~=1.109.1
 anthropic~=0.68.0
 python-docx~=1.2.0
 # pypdf2~=3.0.1  # REMOVED: Security vulnerability CVE-2023-46250, not used in codebase
