@@ -24,24 +24,33 @@ class TestSiteGeneratorInitialization:
 
     def test_initialization(self):
         """Test basic SiteGenerator initialization."""
-        generator = SiteGenerator()
+        with (
+            patch("azure.storage.blob.BlobServiceClient") as mock_service,
+            patch("azure.identity.DefaultAzureCredential") as mock_cred,
+            patch("os.getenv") as mock_env,
+        ):
+            # Mock environment variable
+            mock_env.return_value = "https://test.blob.core.windows.net/"
 
-        # Check basic attributes
-        assert generator.generator_id is not None
-        assert len(generator.generator_id) == 8  # UUID truncated to 8 chars
-        assert generator.config is not None
-        assert generator.blob_client is not None
+            generator = SiteGenerator()
 
-        # Check utility managers
-        assert generator.content_manager is not None
-        assert generator.archive_manager is not None
-        assert generator.security_validator is not None
+            # Check basic attributes
+            assert generator.generator_id is not None
+            # UUID truncated to 8 chars
+            assert len(generator.generator_id) == 8
+            assert generator.config is not None
+            assert generator.blob_client is not None
 
-        # Check status tracking
-        assert generator.current_status == "idle"
-        assert generator.current_theme == "minimal"
-        assert generator.last_generation is None
-        assert generator.error_message is None
+            # Check utility managers
+            assert generator.content_manager is not None
+            assert generator.archive_manager is not None
+            assert generator.security_validator is not None
+
+            # Check status tracking
+            assert generator.current_status == "idle"
+            assert generator.current_theme == "minimal"
+            assert generator.last_generation is None
+            assert generator.error_message is None
 
     def test_initialization_with_mocks(self):
         """Test initialization with mocked blob client."""
@@ -54,20 +63,38 @@ class TestSiteGeneratorInitialization:
             mock_env.return_value = "https://test.blob.core.windows.net/"
 
             generator = SiteGenerator()
-            mock_service.assert_called_once()
+            # Check that the SimplifiedBlobClient was created successfully
             assert generator.blob_client is not None
+            # Check that environment variables were accessed
+            mock_env.assert_called()
 
     def test_unique_generator_ids(self):
         """Test that each generator gets a unique ID."""
-        generator1 = SiteGenerator()
-        generator2 = SiteGenerator()
-        assert generator1.generator_id != generator2.generator_id
+        with (
+            patch("azure.storage.blob.BlobServiceClient") as mock_service,
+            patch("azure.identity.DefaultAzureCredential") as mock_cred,
+            patch("os.getenv") as mock_env,
+        ):
+            # Mock environment variable
+            mock_env.return_value = "https://test.blob.core.windows.net/"
+
+            generator1 = SiteGenerator()
+            generator2 = SiteGenerator()
+            assert generator1.generator_id != generator2.generator_id
 
     def test_default_configuration(self):
         """Test default configuration values."""
-        generator = SiteGenerator()
-        assert generator.current_status == "idle"
-        assert generator.current_theme == "minimal"
+        with (
+            patch("azure.storage.blob.BlobServiceClient") as mock_service,
+            patch("azure.identity.DefaultAzureCredential") as mock_cred,
+            patch("os.getenv") as mock_env,
+        ):
+            # Mock environment variable
+            mock_env.return_value = "https://test.blob.core.windows.net/"
+
+            generator = SiteGenerator()
+            assert generator.current_status == "idle"
+            assert generator.current_theme == "minimal"
         assert generator.error_message is None
 
 

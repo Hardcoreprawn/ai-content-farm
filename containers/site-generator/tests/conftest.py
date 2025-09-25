@@ -206,7 +206,9 @@ def mock_generator(
     from site_generator import SiteGenerator
 
     with (
-        patch("site_generator.BlobStorageClient", return_value=mock_blob_client),
+        patch("azure.storage.blob.BlobServiceClient") as mock_service,
+        patch("azure.identity.DefaultAzureCredential") as mock_cred,
+        patch("os.getenv", return_value="https://test.blob.core.windows.net/"),
         patch("site_generator.Config", return_value=mock_config),
         patch("site_generator.ContentManager", return_value=mock_content_manager),
         patch("site_generator.ArchiveManager", return_value=mock_archive_manager),

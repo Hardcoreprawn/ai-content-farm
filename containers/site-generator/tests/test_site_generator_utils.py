@@ -27,7 +27,14 @@ class TestUtilityMethods:
     @pytest.fixture
     def mock_generator(self):
         """Create generator with mocked dependencies."""
-        with patch("site_generator.BlobStorageClient"):
+        with (
+            patch("azure.storage.blob.BlobServiceClient") as mock_service,
+            patch("azure.identity.DefaultAzureCredential") as mock_cred,
+            patch("os.getenv") as mock_env,
+        ):
+            # Mock environment variable
+            mock_env.return_value = "https://test.blob.core.windows.net/"
+
             generator = SiteGenerator()
             generator.blob_client = Mock()
             return generator
@@ -151,7 +158,14 @@ class TestErrorHandling:
     @pytest.fixture
     def mock_generator(self):
         """Create generator with mocked dependencies."""
-        with patch("site_generator.BlobStorageClient"):
+        with (
+            patch("azure.storage.blob.BlobServiceClient") as mock_service,
+            patch("azure.identity.DefaultAzureCredential") as mock_cred,
+            patch("os.getenv") as mock_env,
+        ):
+            # Mock environment variable
+            mock_env.return_value = "https://test.blob.core.windows.net/"
+
             generator = SiteGenerator()
             return generator
 
@@ -190,7 +204,14 @@ class TestIntegrationWithUtilityModules:
     @pytest.fixture
     def mock_generator(self):
         """Create generator with mocked utility modules."""
-        with patch("site_generator.BlobStorageClient"):
+        with (
+            patch("azure.storage.blob.BlobServiceClient") as mock_service,
+            patch("azure.identity.DefaultAzureCredential") as mock_cred,
+            patch("os.getenv") as mock_env,
+        ):
+            # Mock environment variable
+            mock_env.return_value = "https://test.blob.core.windows.net/"
+
             generator = SiteGenerator()
             generator.content_manager = Mock()
             generator.archive_manager = Mock()
@@ -239,7 +260,14 @@ class TestAsyncBehavior:
     @pytest.fixture
     def mock_generator(self):
         """Create generator with mocked dependencies."""
-        with patch("site_generator.BlobStorageClient"):
+        with (
+            patch("azure.storage.blob.BlobServiceClient") as mock_service,
+            patch("azure.identity.DefaultAzureCredential") as mock_cred,
+            patch("os.getenv") as mock_env,
+        ):
+            # Mock environment variable
+            mock_env.return_value = "https://test.blob.core.windows.net/"
+
             generator = SiteGenerator()
             return generator
 
@@ -296,7 +324,14 @@ class TestStatusTracking:
     @pytest.fixture
     def mock_generator(self):
         """Create generator with mocked dependencies."""
-        with patch("site_generator.BlobStorageClient"):
+        with (
+            patch("azure.storage.blob.BlobServiceClient") as mock_service,
+            patch("azure.identity.DefaultAzureCredential") as mock_cred,
+            patch("os.getenv") as mock_env,
+        ):
+            # Mock environment variable
+            mock_env.return_value = "https://test.blob.core.windows.net/"
+
             generator = SiteGenerator()
             generator.markdown_service = Mock()
             generator.site_service = Mock()

@@ -26,7 +26,14 @@ class TestSiteGeneratorSecurity:
     @pytest.fixture
     def site_generator(self):
         """Create a SiteGenerator instance for testing."""
-        with patch("site_generator.BlobStorageClient"):
+        with (
+            patch("azure.storage.blob.BlobServiceClient") as mock_service,
+            patch("azure.identity.DefaultAzureCredential") as mock_cred,
+            patch("os.getenv") as mock_env,
+        ):
+            # Mock environment variable
+            mock_env.return_value = "https://test.blob.core.windows.net/"
+
             generator = SiteGenerator()
             # Setup proper async mock for blob client
             generator.blob_client = AsyncMock()

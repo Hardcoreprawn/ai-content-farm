@@ -31,6 +31,41 @@ with (
 class TestErrorHandling:
     """Test comprehensive error handling across endpoints."""
 
+    @pytest.fixture(autouse=True)
+    def setup_mocks(self):
+        """Set up mocks for all tests in this class."""
+        from models import GenerationResponse
+
+        # Create a patch that will last for the entire test
+        self.patcher = patch("main.get_site_generator")
+        mock_get_gen = self.patcher.start()
+
+        # Create a mocked SiteGenerator
+        mock_generator = AsyncMock()
+        mock_generator.generator_id = "test123"
+        mock_generator.current_status = "idle"
+        mock_generator.check_blob_connectivity = AsyncMock(
+            return_value={"status": "healthy", "message": "Test connection"}
+        )
+
+        # Mock the generate_markdown_batch method
+        mock_response = GenerationResponse(
+            generator_id="test123",
+            operation_type="markdown_generation",
+            files_generated=0,
+            processing_time=0.1,
+            output_location="test/path",
+            generated_files=[],
+        )
+        mock_generator.generate_markdown_batch = AsyncMock(return_value=mock_response)
+
+        mock_get_gen.return_value = mock_generator
+
+        yield
+
+        # Clean up
+        self.patcher.stop()
+
     @pytest.fixture
     def client(self):
         """Create test client."""
@@ -82,8 +117,11 @@ class TestRequestValidation:
 
     @pytest.fixture
     def client(self):
-        """Create test client."""
-        return TestClient(app)
+        """Create test client with mocked SiteGenerator."""
+        with patch("main.get_site_generator") as mock_get_gen:
+            mock_generator = AsyncMock()
+            mock_get_gen.return_value = mock_generator
+            return TestClient(app)
 
     def test_batch_size_validation(self, client):
         """Test batch size parameter validation."""
@@ -133,8 +171,11 @@ class TestResponseStructure:
 
     @pytest.fixture
     def client(self):
-        """Create test client."""
-        return TestClient(app)
+        """Create test client with mocked SiteGenerator."""
+        with patch("main.get_site_generator") as mock_get_gen:
+            mock_generator = AsyncMock()
+            mock_get_gen.return_value = mock_generator
+            return TestClient(app)
 
     def test_success_response_structure(self, client):
         """Test that all success responses follow the standard structure."""
@@ -186,8 +227,11 @@ class TestConcurrency:
 
     @pytest.fixture
     def client(self):
-        """Create test client."""
-        return TestClient(app)
+        """Create test client with mocked SiteGenerator."""
+        with patch("main.get_site_generator") as mock_get_gen:
+            mock_generator = AsyncMock()
+            mock_get_gen.return_value = mock_generator
+            return TestClient(app)
 
     def test_concurrent_requests(self, client):
         """Test concurrent requests to ensure thread safety."""
