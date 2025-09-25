@@ -12,8 +12,8 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from libs import BlobStorageClient
 from libs.shared_models import StandardResponse, create_service_dependency
+from libs.simplified_blob_client import SimplifiedBlobClient
 
 # Create router for template management
 router = APIRouter(prefix="/templates", tags=["templates"])

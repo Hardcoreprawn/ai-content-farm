@@ -47,7 +47,11 @@ except ImportError:
 
 
 class MockBlobStorageClient:
-    """Mock blob storage client for testing without Azure dependencies."""
+    """Legacy mock blob storage client for testing without Azure dependencies.
+
+    Note: This is deprecated in favor of using unittest.mock.Mock directly
+    with SimplifiedBlobClient. New tests should use the simplified approach.
+    """
 
     def __init__(self):
         self.uploaded_files = {}

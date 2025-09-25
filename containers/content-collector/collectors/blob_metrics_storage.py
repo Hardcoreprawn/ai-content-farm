@@ -21,7 +21,7 @@ import sys
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from libs import BlobStorageClient
+from libs.simplified_blob_client import SimplifiedBlobClient
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +37,7 @@ class BlobMetricsStorage:
             container_name: Azure Blob Storage container for metrics
         """
         self.container_name = container_name
-        self.blob_client = BlobStorageClient()
+        self.blob_client = SimplifiedBlobClient()
         self._ensure_container()
 
     def _ensure_container(self) -> None:

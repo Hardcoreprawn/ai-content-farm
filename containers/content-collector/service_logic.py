@@ -12,13 +12,16 @@ from typing import Any, Dict, List, Optional, Union
 
 from content_processing_simple import collect_content_batch, deduplicate_content
 
-from libs import BlobContainers, BlobStorageClient
+from libs import BlobContainers
+from libs.simplified_blob_client import SimplifiedBlobClient
 
 
 class ContentCollectorService:
     """Service for collecting and storing content."""
 
-    def __init__(self, storage_client: Optional[Union[BlobStorageClient, Any]] = None):
+    def __init__(
+        self, storage_client: Optional[Union[SimplifiedBlobClient, Any]] = None
+    ):
         """Initialize the content collector service.
 
         Args:
@@ -29,11 +32,14 @@ class ContentCollectorService:
             self.storage = storage_client
         elif os.getenv("PYTEST_CURRENT_TEST"):  # Running in pytest
             # Import here to avoid circular imports
-            from tests.test_fixtures import MockBlobStorageClient
+            from unittest.mock import Mock
 
-            self.storage = MockBlobStorageClient()
+            mock_client = Mock()
+            mock_client.upload_json = Mock(return_value=True)
+            mock_client.download_json = Mock(return_value={"test": "data"})
+            self.storage = mock_client
         else:
-            self.storage = BlobStorageClient()
+            self.storage = SimplifiedBlobClient()
 
         # Initialize Storage Queue client for sending processing requests
         self.queue_client = None

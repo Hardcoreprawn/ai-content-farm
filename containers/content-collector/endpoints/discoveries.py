@@ -16,8 +16,8 @@ from fastapi import APIRouter, Depends
 from models import DiscoveryRequest, DiscoveryResult
 from reddit_client import RedditClient
 
-from libs import BlobStorageClient
 from libs.shared_models import StandardResponse, create_service_dependency
+from libs.simplified_blob_client import SimplifiedBlobClient
 
 # Create router for discoveries
 router = APIRouter(prefix="/discoveries", tags=["discoveries"])
@@ -29,7 +29,7 @@ service_metadata = create_service_dependency("content-womble")
 def get_blob_client():
     """Get blob storage client."""
     if not hasattr(get_blob_client, "_client"):
-        get_blob_client._client = BlobStorageClient()
+        get_blob_client._client = SimplifiedBlobClient()
     return get_blob_client._client
 
 

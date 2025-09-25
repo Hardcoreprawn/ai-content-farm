@@ -15,9 +15,9 @@ from fastapi import APIRouter, Depends
 from models import CollectionRequest, CollectionResult
 from service_logic import ContentCollectorService
 
-from libs import BlobStorageClient
 from libs.secure_error_handler import SecureErrorHandler
 from libs.shared_models import StandardResponse, create_service_dependency
+from libs.simplified_blob_client import SimplifiedBlobClient
 
 # Create router for collections
 router = APIRouter(prefix="/collections", tags=["collections"])
@@ -209,7 +209,7 @@ async def run_scheduled_collection(
             }
         else:
             # Load default collection template from blob storage
-            storage_client = BlobStorageClient()
+            storage_client = SimplifiedBlobClient()
 
             try:
                 # Try to load the default template from blob storage
