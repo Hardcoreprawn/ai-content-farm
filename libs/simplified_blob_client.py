@@ -20,6 +20,23 @@ class SimplifiedBlobClient:
     def __init__(self, blob_service_client: BlobServiceClient):
         self.blob_service_client = blob_service_client
 
+    def test_connection(self, timeout_seconds: float = None) -> Dict[str, Any]:
+        """Test blob storage connection."""
+        try:
+            # Simple test - try to list containers (lightweight operation)
+            containers = list(self.blob_service_client.list_containers())
+            return {
+                "status": "healthy",
+                "connection_type": "azure",
+                "message": f"Azure blob storage connection successful. Found {len(containers)} containers.",
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "connection_type": "azure",
+                "message": f"Azure blob storage connection failed: {str(e)}",
+            }
+
     async def upload_json(
         self,
         container: str,

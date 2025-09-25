@@ -7,12 +7,15 @@ This refactored version delegates most functionality to specialized services.
 """
 
 import logging
+import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+from azure.identity import DefaultAzureCredential
+from azure.storage.blob import BlobServiceClient
 from content_manager import ContentManager
 from file_operations import ArchiveManager
 from legacy_security import LegacySecurity
@@ -22,7 +25,7 @@ from security_utils import SecurityValidator
 from site_service import SiteService
 
 from config import Config
-from libs import BlobStorageClient
+from libs.simplified_blob_client import SimplifiedBlobClient
 
 # Add the project root to Python path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
@@ -40,7 +43,19 @@ class SiteGenerator:
         """Initialize the site generator with required services."""
         self.generator_id = str(uuid4())[:8]
         self.config = Config()
-        self.blob_client = BlobStorageClient()
+
+        # Initialize SimplifiedBlobClient with Azure authentication
+        storage_account_url = os.getenv("AZURE_STORAGE_ACCOUNT_URL")
+        if not storage_account_url:
+            raise ValueError(
+                "AZURE_STORAGE_ACCOUNT_URL environment variable is required"
+            )
+
+        credential = DefaultAzureCredential()
+        blob_service_client = BlobServiceClient(
+            account_url=storage_account_url, credential=credential
+        )
+        self.blob_client = SimplifiedBlobClient(blob_service_client)
 
         # Initialize utility managers
         self.content_manager = ContentManager()

@@ -133,9 +133,24 @@ class SiteGeneratorStorageQueueRouter:
                 }
 
             # Load processed content from storage
-            from libs import BlobStorageClient
+            import os
 
-            storage = BlobStorageClient()
+            from azure.identity import DefaultAzureCredential
+            from azure.storage.blob import BlobServiceClient
+
+            from libs.simplified_blob_client import SimplifiedBlobClient
+
+            storage_account_url = os.getenv("AZURE_STORAGE_ACCOUNT_URL")
+            if not storage_account_url:
+                raise ValueError(
+                    "AZURE_STORAGE_ACCOUNT_URL environment variable is required"
+                )
+
+            credential = DefaultAzureCredential()
+            blob_service_client = BlobServiceClient(
+                account_url=storage_account_url, credential=credential
+            )
+            storage = SimplifiedBlobClient(blob_service_client)
 
             # Parse storage location
             parts = processed_content_location.split("/", 1)

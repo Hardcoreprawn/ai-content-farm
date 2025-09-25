@@ -18,7 +18,7 @@ from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
 from simplified_blob_client import SimplifiedBlobClient
 
-# Add libs to path
+# Add libs to path first
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "libs"))
 
 
@@ -47,7 +47,7 @@ async def test_simplified_client():
         return False
 
     # Test container for migration validation
-    test_container = "migration-test"
+    test_container = "pipeline-logs"  # Use existing container
     timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
 
     try:
@@ -177,7 +177,7 @@ async def test_compatibility_layer():
         adapter = BlobClientAdapter(simplified_client)
 
         # Test legacy methods still work
-        test_container = "migration-test"
+        test_container = "pipeline-logs"  # Use existing container
         timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
 
         # Legacy upload_data method

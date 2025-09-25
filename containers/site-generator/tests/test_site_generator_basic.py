@@ -45,9 +45,16 @@ class TestSiteGeneratorInitialization:
 
     def test_initialization_with_mocks(self):
         """Test initialization with mocked blob client."""
-        with patch("site_generator.BlobStorageClient") as mock_client:
+        with (
+            patch("azure.storage.blob.BlobServiceClient") as mock_service,
+            patch("azure.identity.DefaultAzureCredential") as mock_cred,
+            patch("os.getenv") as mock_env,
+        ):
+            # Mock environment variable
+            mock_env.return_value = "https://test.blob.core.windows.net/"
+
             generator = SiteGenerator()
-            mock_client.assert_called_once()
+            mock_service.assert_called_once()
             assert generator.blob_client is not None
 
     def test_unique_generator_ids(self):
@@ -70,7 +77,12 @@ class TestBlobConnectivity:
     @pytest.fixture
     def mock_generator(self):
         """Create generator with mocked blob client."""
-        with patch("site_generator.BlobStorageClient") as mock_client:
+        with (
+            patch("azure.storage.blob.BlobServiceClient") as mock_service,
+            patch("azure.identity.DefaultAzureCredential") as mock_cred,
+            patch("os.getenv") as mock_env,
+        ):
+            mock_env.return_value = "https://test.blob.core.windows.net/"
             generator = SiteGenerator()
             generator.blob_client = Mock()
             return generator
@@ -133,7 +145,12 @@ class TestStatusRetrieval:
     @pytest.fixture
     def mock_generator(self):
         """Create generator with mocked dependencies."""
-        with patch("site_generator.BlobStorageClient"):
+        with (
+            patch("azure.storage.blob.BlobServiceClient"),
+            patch("azure.identity.DefaultAzureCredential"),
+            patch("os.getenv") as mock_env,
+        ):
+            mock_env.return_value = "https://test.blob.core.windows.net/"
             generator = SiteGenerator()
             return generator
 

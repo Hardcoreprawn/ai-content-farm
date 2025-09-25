@@ -19,7 +19,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 
 # Mock dependencies before importing main
 with (
-    patch("site_generator.BlobStorageClient"),
+    patch("azure.storage.blob.BlobServiceClient"),
+    patch("azure.identity.DefaultAzureCredential"),
     patch("main.SiteGenerator") as mock_site_gen_class,
 ):
     mock_site_gen_instance = AsyncMock()

@@ -18,7 +18,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 
 # Mock dependencies before importing main
 with (
-    patch("site_generator.BlobStorageClient"),
+    patch("azure.storage.blob.BlobServiceClient"),
+    patch("azure.identity.DefaultAzureCredential"),
     patch("main.SiteGenerator") as mock_site_gen_class,
 ):
     mock_site_gen_instance = AsyncMock()
@@ -60,7 +61,8 @@ class TestErrorHandling:
             assert response.status_code == 200
             data = response.json()
             # Check that the health data shows the dependency is unhealthy
-            assert data["status"] == "success"  # Top-level status is always success
+            # Top-level status is always success
+            assert data["status"] == "success"
             assert "dependencies" in data["data"]
 
     def test_preview_not_found(self, client):

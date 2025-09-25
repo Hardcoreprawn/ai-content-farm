@@ -18,7 +18,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.resolve()))
 
 # Mock dependencies before importing main
 with (
-    patch("site_generator.BlobStorageClient"),
+    patch("azure.storage.blob.BlobServiceClient"),
+    patch("azure.identity.DefaultAzureCredential"),
     patch("main.SiteGenerator") as mock_site_gen_class,
 ):
     mock_site_gen_instance = AsyncMock()
@@ -87,7 +88,8 @@ class TestFastAPIApp:
             # Standard health endpoint always returns 200 with health info
             assert response.status_code == 200
             data = response.json()
-            assert data["status"] == "success"  # Top-level status is always success
+            # Top-level status is always success
+            assert data["status"] == "success"
             # Check that the health data shows the dependency is unhealthy
             assert "dependencies" in data["data"]
             assert "blob_storage" in data["data"]["dependencies"]
