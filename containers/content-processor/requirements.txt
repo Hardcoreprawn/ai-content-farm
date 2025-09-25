@@ -3,7 +3,7 @@
 # HTTP & Data Processing (not in shared libs)
 python-multipart~=0.0.20
 python-dateutil~=2.9.0.post0
-tenacity~=9.0.0
+tenacity~=9.1.2
 
 # Content Processing
 openai~=1.108.0
