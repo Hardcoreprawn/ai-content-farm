@@ -11,14 +11,23 @@ from typing import Any, Dict, List, Optional
 
 from azure.storage.blob import BlobServiceClient
 
+from libs.blob_auth import BlobAuthManager
+
 logger = logging.getLogger(__name__)
 
 
 class SimplifiedBlobClient:
     """Focused blob storage client with only essential operations."""
 
-    def __init__(self, blob_service_client: BlobServiceClient):
-        self.blob_service_client = blob_service_client
+    def __init__(self, blob_service_client: Optional[BlobServiceClient] = None):
+        if blob_service_client:
+            # Use provided client (for dependency injection)
+            self.blob_service_client = blob_service_client
+        else:
+            # Create our own Azure client using auth manager
+            self.auth_manager = BlobAuthManager()
+            self.blob_service_client = self.auth_manager.get_blob_service_client()
+            logger.info("SimplifiedBlobClient initialized with Azure authentication")
 
     def test_connection(self, timeout_seconds: float = None) -> Dict[str, Any]:
         """Test blob storage connection."""
