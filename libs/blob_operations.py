@@ -133,10 +133,15 @@ class BlobOperations:
             )
             return None
 
+    def download_text(self, container_name: str, blob_name: str) -> str:
+        """Download text content from blob. Alias for download_data with non-optional return."""
+        result = self.download_data(container_name, blob_name)
+        return result if result is not None else ""
+
     def download_json(self, container_name: str, blob_name: str) -> Optional[Dict]:
         """Download and parse JSON blob."""
         try:
-            content = self.download_data(container_name, blob_name)
+            content = self.download_text(container_name, blob_name)
             if content:
                 return json.loads(content)
             return None
