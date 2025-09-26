@@ -99,17 +99,17 @@ class MockBlobStorageClient:
             container_name, blob_name, content, "application/json", metadata
         )
 
-    async def download_text(self, container_name: str, blob_name: str) -> str:
+    async def download_text(self, container: str, blob_name: str) -> str:
         """Mock download_text method."""
         self.call_history.append(
             {
                 "method": "download_text",
-                "container_name": container_name,
+                "container": container,
                 "blob_name": blob_name,
             }
         )
 
-        key = f"{container_name}/{blob_name}"
+        key = f"{container}/{blob_name}"
         if key in self.uploaded_files:
             return self.uploaded_files[key]["content"]
         return '{"mock": "data"}'

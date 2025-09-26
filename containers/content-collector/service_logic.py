@@ -312,7 +312,7 @@ class ContentCollectorService:
 
             # Load the collection data
             content = await self.storage.download_text(
-                container_name=container_name, blob_name=target_blob
+                container=container_name, blob_name=target_blob
             )
 
             return json.loads(content)

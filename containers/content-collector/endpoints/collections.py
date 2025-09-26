@@ -217,7 +217,7 @@ async def run_scheduled_collection(
             try:
                 # Try to load the default template from blob storage
                 template_content = await storage_client.download_text(
-                    container_name=BlobContainers.COLLECTION_TEMPLATES,
+                    container=BlobContainers.COLLECTION_TEMPLATES,
                     blob_name="default.json",
                 )
                 default_template = json.loads(template_content)
