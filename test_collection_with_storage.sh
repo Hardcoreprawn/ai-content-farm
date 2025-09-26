@@ -1,0 +1,1 @@
+curl -X POST "https://ai-content-prod-collector.whitecliff-6844954b.uksouth.azurecontainerapps.io/collections" -H "Content-Type: application/json" -d '{"sources":[{"type":"rss","feed_urls":["https://techcrunch.com/feed/"],"limit":1}],"save_to_storage":true}'

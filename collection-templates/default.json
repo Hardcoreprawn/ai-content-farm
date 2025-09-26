@@ -2,8 +2,8 @@
     "sources": [
         {
             "type": "reddit",
-            "enabled": true,
-            "_comment": "Reddit sources re-enabled after successful access restoration",
+            "enabled": false,
+            "_comment": "Reddit sources disabled due to blocking - let block timeout before re-enabling",
             "subreddits": [
                 "technology",
                 "programming",

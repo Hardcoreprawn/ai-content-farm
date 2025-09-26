@@ -52,8 +52,25 @@ async def create_collection(
         # Sanitize input sources to prevent injection attacks
         sources_data = []
         for source in request.sources:
+            source_type = str(source.type).strip().lower()
+
+            # SECURITY: Block Reddit sources - they're blocked by security systems
+            if source_type == "reddit":
+                error_response = error_handler.create_http_error_response(
+                    status_code=400,
+                    error_type="validation",
+                    user_message="Reddit sources are temporarily disabled due to security restrictions",
+                )
+                return StandardResponse(
+                    status=error_response["status"],
+                    message=error_response["message"],
+                    data={},
+                    errors=error_response["errors"],
+                    metadata=error_response["metadata"],
+                )
+
             sanitized_source = {
-                "type": str(source.type).strip().lower(),  # Normalize type
+                "type": source_type,  # Normalize type
                 # Clamp limit to safe range
                 "limit": max(1, min(source.limit, 100)),
                 "criteria": {},
@@ -123,7 +140,7 @@ async def create_collection(
             sources_processed=len(request.sources),
             total_items_collected=result.get("metadata", {}).get("total_items", 0),
             items_saved=len(result.get("collected_items", [])),
-            storage_location=result.get("storage_location", ""),
+            storage_location=result.get("storage_location") or "memory-only",
             processing_time_ms=processing_time_ms,
             summary=(
                 f"Collected {len(result.get('collected_items', []))} items "

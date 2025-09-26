@@ -33,8 +33,9 @@ class CollectorFactory:
     """Factory for creating and managing content collectors."""
 
     # Registry of available collector classes
+    # NOTE: Reddit disabled due to security blocking - enable when cleared
     COLLECTORS: Dict[str, Type[SimpleCollector]] = {
-        "reddit": SimpleRedditCollector,
+        # "reddit": SimpleRedditCollector,  # DISABLED: Security blocking
         "mastodon": SimpleMastodonCollector,
         "rss": SimpleRSSCollector,
         "web": SimpleWebCollector,
