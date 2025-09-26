@@ -62,6 +62,15 @@ class ContentProcessor:
 
         logger.info(f"Content processor initialized: {self.processor_id}")
 
+    async def cleanup(self):
+        """Clean up resources to prevent asyncio errors."""
+        try:
+            # Close async OpenAI client
+            await self.openai_client.close()
+            logger.info("OpenAI client closed")
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}")
+
     async def check_health(self) -> ProcessorStatus:
         """Health check with dependency validation."""
         try:

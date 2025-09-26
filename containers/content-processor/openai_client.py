@@ -12,7 +12,7 @@ from typing import Any, Dict, Optional, Tuple
 
 import openai
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
-from openai import AzureOpenAI
+from openai import AsyncAzureOpenAI
 from pricing_service import PricingService
 
 logger = logging.getLogger(__name__)
@@ -45,7 +45,7 @@ class OpenAIClient:
                     "https://cognitiveservices.azure.com/.default",
                 )
 
-                self.client = AzureOpenAI(
+                self.client = AsyncAzureOpenAI(
                     api_version=self.api_version,
                     azure_endpoint=self.endpoint,
                     azure_ad_token_provider=token_provider,
@@ -65,7 +65,7 @@ class OpenAIClient:
 
         try:
             # Simple test completion
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[{"role": "user", "content": "Test"}],
                 max_tokens=10,
@@ -108,7 +108,7 @@ class OpenAIClient:
 
             # Generate article
             logger.info("🚀 OPENAI: Sending request to Azure OpenAI...")
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[
                     {
@@ -243,3 +243,9 @@ This mock article demonstrates the structure and approach that would be used for
 
 *This is a test article generated when Azure OpenAI services are not available.*
         """.strip()
+
+    async def close(self):
+        """Close the async OpenAI client properly."""
+        if self.client:
+            await self.client.close()
+            logger.info("🔌 OPENAI: Client connection closed")
