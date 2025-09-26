@@ -16,6 +16,7 @@ This directory contains comprehensive documentation for the AI Content Farm proj
 #### `/development`
 Development standards, guidelines, and best practices:
 - Container development standards and migration guides
+- **Container lifecycle management** - Environment-based shutdown control for debugging vs production
 - Commit message guidelines and emoji policies
 - Testing strategies and content processor optimization
 - Code quality and review guidelines

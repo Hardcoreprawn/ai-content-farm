@@ -155,7 +155,28 @@ GET  /                    # Service info
 3. **Enhanced Content Types** - Add more generation formats and styles
 4. **Cost Optimization** - Monitor Azure costs with simplified architecture
 
-## 📁 Documentation
+## � Container Lifecycle Management
+
+**Environment-Based Shutdown Control**: All containers support flexible lifecycle management for debugging vs production efficiency.
+
+**Current Setting** (Development/Debugging):
+```bash
+DISABLE_AUTO_SHUTDOWN=true  # Containers stay alive for investigation
+```
+
+**Production Setting** (Cost Efficiency):
+```bash
+DISABLE_AUTO_SHUTDOWN=false  # Containers shutdown after work completion
+```
+
+**Benefits**:
+- **Development**: Containers stay alive for API testing and debugging
+- **Production**: Automatic shutdown minimizes Azure compute costs
+- **Consistent**: All three containers follow the same lifecycle pattern
+
+**Documentation**: See [`docs/development/CONTAINER_LIFECYCLE_MANAGEMENT.md`](docs/development/CONTAINER_LIFECYCLE_MANAGEMENT.md) for detailed configuration and usage.
+
+## �📁 Documentation
 
 **Primary Documents**:
 - `README.md` - This file (current architecture and usage)
