@@ -228,10 +228,11 @@ class TestEdgeCases:
 
         collectors = CollectorFactory.create_collectors_from_config(config)
 
-        # Should create 2 collectors (reddit and mastodon), skip invalid ones
-        assert len(collectors) == 2
-        assert any(c.get_source_name() == "reddit" for c in collectors)
+        # Should create 1 collector (mastodon), skip reddit (disabled) and invalid ones
+        assert len(collectors) == 1
         assert any(c.get_source_name() == "mastodon" for c in collectors)
+        # Reddit should not be created since it's disabled
+        assert not any(c.get_source_name() == "reddit" for c in collectors)
 
 
 class TestBaseCollectorFunctionality:

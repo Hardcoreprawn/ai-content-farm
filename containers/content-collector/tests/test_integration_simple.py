@@ -30,34 +30,17 @@ class TestContentProcessingIntegration:
 
     @pytest.mark.asyncio
     async def test_reddit_collection_integration(self, sample_reddit_data):
-        """Test complete Reddit collection pipeline."""
+        """Test that Reddit collection fails since Reddit is disabled."""
 
         sources = [{"type": "reddit", "subreddits": ["programming"], "limit": 5}]
 
-        # Mock the collector's get_json method
-        with patch(
-            "collectors.simple_reddit.SimpleRedditCollector.get_json",
-            new_callable=AsyncMock,
-        ) as mock_get:
-            mock_get.return_value = sample_reddit_data
+        result = await collect_content_batch(sources)
 
-            result = await collect_content_batch(sources)
-
-            assert result["metadata"]["total_sources"] == 1
-            assert result["metadata"]["sources_processed"] == 1
-            # Based on sample data
-            assert result["metadata"]["reddit_count"] == 2
-            assert result["metadata"]["reddit_status"] == "success"
-
-            # Check item structure
-            items = result["collected_items"]
-            assert len(items) == 2
-
-            item = items[0]
-            assert item["source_type"] == "reddit"
-            assert "source_config" in item
-            assert item["id"] == "reddit_test123"
-            assert item["source"] == "reddit"
+        assert result["metadata"]["total_sources"] == 1
+        assert result["metadata"]["sources_processed"] == 0  # Reddit fails
+        # Reddit should fail since it's disabled
+        assert result["metadata"]["reddit_count"] == 0
+        assert result["metadata"]["reddit_status"] == "failed"
 
     @pytest.mark.asyncio
     async def test_mastodon_collection_integration(self, sample_mastodon_data):
@@ -131,15 +114,15 @@ class TestContentProcessingIntegration:
             result = await collect_content_batch(sources)
 
             assert result["metadata"]["total_sources"] == 2
-            assert result["metadata"]["sources_processed"] == 2
-            assert result["metadata"]["reddit_count"] == 2
+            assert result["metadata"]["sources_processed"] == 1  # Only Mastodon works
+            assert result["metadata"]["reddit_count"] == 0  # Reddit disabled
             assert result["metadata"]["mastodon_count"] == 1
-            assert result["metadata"]["total_items"] == 3
+            assert result["metadata"]["total_items"] == 1  # Only Mastodon items
 
-            # Check we have items from both sources
+            # Check we have items only from mastodon (reddit disabled)
             items = result["collected_items"]
             source_types = {item["source_type"] for item in items}
-            assert "reddit" in source_types
+            assert "reddit" not in source_types  # Reddit is disabled
             assert "mastodon" in source_types
 
 

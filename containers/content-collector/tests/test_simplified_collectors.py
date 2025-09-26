@@ -211,10 +211,9 @@ class TestCollectorFactory:
     """Test the collector factory."""
 
     def test_create_reddit_collector(self):
-        """Test creating Reddit collector."""
-        collector = CollectorFactory.create_collector("reddit")
-        assert isinstance(collector, SimpleRedditCollector)
-        assert collector.get_source_name() == "reddit"
+        """Test that creating Reddit collector fails since it's disabled."""
+        with pytest.raises(ValueError, match="Unknown collector type 'reddit'"):
+            CollectorFactory.create_collector("reddit")
 
     def test_create_mastodon_collector(self):
         """Test creating Mastodon collector."""
@@ -228,9 +227,9 @@ class TestCollectorFactory:
             CollectorFactory.create_collector("invalid_type")
 
     def test_get_available_sources(self):
-        """Test getting available source types."""
+        """Test getting available source types (reddit disabled)."""
         sources = CollectorFactory.get_available_sources()
-        assert "reddit" in sources
+        assert "reddit" not in sources  # Reddit is disabled
         assert "mastodon" in sources
 
     @pytest.mark.asyncio

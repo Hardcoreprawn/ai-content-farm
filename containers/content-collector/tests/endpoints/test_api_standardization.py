@@ -63,10 +63,13 @@ class TestAPIStandardization:
         data = response.json()
         sources = data["data"]["sources"]
 
-        # Verify all expected sources are present
-        expected_sources = ["reddit", "mastodon", "rss", "web"]
+        # Verify all expected sources are present (reddit currently disabled)
+        expected_sources = ["mastodon", "rss", "web"]
         for source_type in expected_sources:
             assert source_type in sources, f"Missing source type: {source_type}"
+
+        # Verify reddit is disabled/not present
+        assert "reddit" not in sources, "Reddit should be disabled"
 
         # Verify Mastodon configuration
         mastodon = sources["mastodon"]
@@ -78,45 +81,17 @@ class TestAPIStandardization:
 
     @patch("source_collectors.SourceCollectorFactory.get_reddit_collector_info")
     def test_reddit_authentication_status_consistency(self, mock_reddit_info):
-        """Test that Reddit shows consistent authentication status."""
-        # Mock Reddit collector info with valid credentials
-        mock_reddit_info.return_value = {
-            "recommended_collector": "RedditPRAWCollector",
-            "reason": "Valid credentials found",
-            "credentials_source": "keyvault",
-            "credential_status": {"appears_valid": True},
-            "authentication_status": "authenticated",
-            "status": "available",
-        }
-
+        """Test that Reddit is properly disabled due to security blocking."""
         response = client.get("/sources")
         assert response.status_code == 200
 
         data = response.json()
-        reddit = data["data"]["sources"]["reddit"]
+        sources = data["data"]["sources"]
 
-        # Verify authentication status is properly reflected
-        assert reddit["authentication"] == "authenticated"
-        assert reddit["status"] == "available"
-
-        # Test with invalid credentials
-        mock_reddit_info.return_value = {
-            "recommended_collector": "RedditPublicCollector",
-            "reason": "No credentials found",
-            "credentials_source": "none",
-            "credential_status": {"appears_valid": False},
-            "authentication_status": "unauthenticated",
-            "status": "limited",
-        }
-
-        response = client.get("/sources")
-        assert response.status_code == 200
-
-        data = response.json()
-        reddit = data["data"]["sources"]["reddit"]
-
-        assert reddit["authentication"] == "unauthenticated"
-        assert reddit["status"] == "limited"
+        # Verify reddit is not available (disabled due to security blocking)
+        assert (
+            "reddit" not in sources
+        ), "Reddit should be disabled due to security blocking"
 
     def test_sources_endpoint_response_consistency(self):
         """Test that sources endpoint follows consistent response format."""
