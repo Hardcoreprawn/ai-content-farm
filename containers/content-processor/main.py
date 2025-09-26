@@ -101,11 +101,11 @@ async def lifespan(app: FastAPI):
                     logger.error(f"Startup: Error processing message: {e}")
                     return {"status": "error", "error": str(e)}
 
-            # Process up to 50 messages on startup (content processor handles more than site generator)
+            # Process up to 32 messages on startup (Azure Storage Queue API limit)
             processed_count = await process_queue_messages(
                 queue_name="content-processing-requests",
                 message_handler=process_message,
-                max_messages=50,
+                max_messages=32,
             )
 
             if processed_count > 0:
