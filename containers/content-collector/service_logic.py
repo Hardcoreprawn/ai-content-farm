@@ -131,9 +131,7 @@ class ContentCollectorService:
             # Apply deduplication if requested
             if deduplicate and collected_items:
                 original_count = len(collected_items)
-                collected_items = deduplicate_content(
-                    collected_items, similarity_threshold
-                )
+                collected_items = await deduplicate_content(collected_items)
                 metadata["deduplication"] = {
                     "enabled": True,
                     "original_count": original_count,
@@ -220,10 +218,9 @@ class ContentCollectorService:
         # Save to blob storage
         content_json = json.dumps(content_data, indent=2, ensure_ascii=False)
         await self.storage.upload_text(
-            container_name=container_name,
+            container=container_name,
             blob_name=blob_name,
-            content=content_json,
-            content_type="application/json",
+            text=content_json,
         )
 
         return f"{container_name}/{blob_name}"
