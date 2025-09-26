@@ -455,9 +455,4 @@ When users use these phrases, automatically interact with GitHub Issues:
 - **"Update the issues"** → Review all open issues, close completed ones, create new ones for next phase
 - **"I completed [specific work]"** → Find related issues, close them, update progress
 
-### Status Queries
-- **"What issues are open?"** → List current issues by priority/label
-- **"What's next?"** → Check open issues, suggest highest priority items
-- **"Show me function standardization progress"** → List issues with that label
-
 _Last updated: August 21, 2025 - Added comprehensive security vulnerability remediation and pipeline optimization_

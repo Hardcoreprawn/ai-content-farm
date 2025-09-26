@@ -164,12 +164,23 @@ class SimplifiedBlobClient:
             logger.error(f"Failed to download binary from {container}/{blob_name}: {e}")
             return None
 
-    async def list_blobs(self, container: str, prefix: str = "") -> List[str]:
-        """List blob names. Essential for discovery and cleanup."""
+    async def list_blobs(
+        self, container: str, prefix: str = ""
+    ) -> List[Dict[str, Any]]:
+        """List blobs with metadata. Essential for discovery and cleanup."""
         try:
             container_client = self.blob_service_client.get_container_client(container)
             return [
-                blob.name
+                {
+                    "name": blob.name,
+                    "size": blob.size,
+                    "last_modified": blob.last_modified,
+                    "content_type": (
+                        blob.content_settings.content_type
+                        if blob.content_settings
+                        else None
+                    ),
+                }
                 for blob in container_client.list_blobs(name_starts_with=prefix)
             ]
         except Exception as e:

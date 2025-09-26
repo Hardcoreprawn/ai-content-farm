@@ -37,10 +37,12 @@ class ProcessorStorageService:
             bool: True if saved successfully, False otherwise
         """
         try:
-            # Generate blob name with timestamp and topic ID
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+            # Generate blob name with consistent prefix structure like collector
+            timestamp = datetime.now(timezone.utc)
             topic_id = article_result.get("topic_id", "unknown")
-            blob_name = f"{timestamp}_{topic_id}.json"
+
+            # Use prefix structure: processed/YYYY/MM/DD/timestamp_topicid.json
+            blob_name = f"processed/{timestamp.strftime('%Y/%m/%d')}/{timestamp.strftime('%Y%m%d_%H%M%S')}_{topic_id}.json"
 
             # Save to processed-content container
             success = await self.blob_client.upload_json(
