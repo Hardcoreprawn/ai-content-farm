@@ -16,6 +16,7 @@ import logging
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Any, Dict
 
 from dependencies import (
     DEPENDENCY_CHECKS,
@@ -64,6 +65,81 @@ async def lifespan(app: FastAPI):
     logger.info(f"Environment: {settings.environment}")
     logger.info(f"Log level: {settings.log_level}")
     logger.info("Content Processor ready for KEDA Storage Queue scaling")
+
+    # Start background queue processing on startup
+    import asyncio
+
+    from endpoints.storage_queue_router import get_storage_queue_router
+
+    from libs.queue_client import process_queue_messages
+
+    async def startup_queue_processor():
+        """Process any existing queue messages on startup."""
+        try:
+            logger.info("Starting up - checking for pending queue messages...")
+
+            # Process message handler
+            async def process_message(queue_message, message) -> Dict[str, Any]:
+                """Process a single message on startup."""
+                try:
+                    router_instance = get_storage_queue_router()
+                    result = await router_instance.process_storage_queue_message(
+                        queue_message
+                    )
+
+                    if result["status"] == "success":
+                        logger.info(
+                            f"Startup: Successfully processed message {queue_message.message_id}"
+                        )
+                    else:
+                        logger.warning(
+                            f"Startup: Message processing failed: {result.get('error', 'Unknown error')}"
+                        )
+
+                    return result
+                except Exception as e:
+                    logger.error(f"Startup: Error processing message: {e}")
+                    return {"status": "error", "error": str(e)}
+
+            # Process up to 50 messages on startup (content processor handles more than site generator)
+            processed_count = await process_queue_messages(
+                queue_name="content-processing-requests",
+                message_handler=process_message,
+                max_messages=50,
+            )
+
+            if processed_count > 0:
+                logger.info(f"Startup: Processed {processed_count} pending messages")
+                logger.info(
+                    "Startup: All messages processed - scheduling graceful shutdown"
+                )
+                # Schedule graceful shutdown after processing
+                asyncio.create_task(graceful_shutdown())
+            else:
+                logger.info(
+                    "Startup: No pending messages found - scheduling graceful shutdown"
+                )
+                # Schedule shutdown if no work to do
+                asyncio.create_task(graceful_shutdown())
+
+        except Exception as e:
+            logger.error(f"Startup queue processing failed: {e}")
+            # Schedule shutdown with error
+            asyncio.create_task(graceful_shutdown(exit_code=1))
+
+    async def graceful_shutdown(exit_code: int = 0):
+        """Gracefully shutdown the container after a brief delay."""
+        logger.info(
+            f"Scheduling graceful shutdown in 5 seconds (exit_code: {exit_code})"
+        )
+        await asyncio.sleep(5)
+        logger.info("Graceful shutdown complete")
+        import os
+
+        os._exit(exit_code)
+
+    # Start the background task
+    asyncio.create_task(startup_queue_processor())
 
     try:
         yield
