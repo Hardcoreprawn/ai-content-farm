@@ -37,9 +37,18 @@ class BlobAuthManager:
             elif self.storage_account_name:
                 # Use managed identity for secure Azure authentication
                 if self.environment == "production":
-                    # Production: Use system-assigned managed identity
-                    credential = ManagedIdentityCredential()
-                    logger.info("Using managed identity for production authentication")
+                    # Production: Use user-assigned managed identity with client ID
+                    client_id = os.getenv("AZURE_CLIENT_ID")
+                    if client_id:
+                        credential = ManagedIdentityCredential(client_id=client_id)
+                        logger.info(
+                            f"Using user-assigned managed identity for production authentication (client_id: {client_id})"
+                        )
+                    else:
+                        credential = ManagedIdentityCredential()
+                        logger.info(
+                            "Using system-assigned managed identity for production authentication"
+                        )
                 else:
                     # Development/testing: Use default credential chain
                     credential = DefaultAzureCredential()
