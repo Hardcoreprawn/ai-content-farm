@@ -255,41 +255,35 @@ class TopicDiscoveryService:
     def _calculate_priority_score(self, item: Dict[str, Any]) -> float:
         """
         Calculate priority score for a topic based on engagement metrics.
-
-        Pure function that considers:
-        - Upvotes/likes (weighted heavily)
-        - Comments (engagement indicator)
-        - Recency (if available)
-        - Content quality indicators
+        TEMPORARY: Accept everything mode for pipeline testing.
 
         Args:
             item: The topic item to score
 
         Returns:
-            float: Priority score between 0.0 and 1.0
+            float: Priority score between 0.5 and 1.0 (high acceptance)
         """
         try:
-            # Base score components
+            # TEMPORARY: Accept everything mode - give high base score
+            base_score = 0.6
+
+            # Base score components (bonuses on top of base)
             upvotes = float(item.get("upvotes", 0))
             comments = float(item.get("comments", 0))
 
-            # Normalize upvotes (log scale for viral content)
-            upvote_score = min(1.0, (upvotes / 100.0)) if upvotes > 0 else 0.0
-            if upvotes > 10:
-                upvote_score = min(1.0, 0.5 + (upvotes - 10) / 200.0)
+            # Reddit engagement bonuses
+            upvote_bonus = min(0.2, upvotes / 100.0) if upvotes > 0 else 0.0
+            comment_bonus = min(0.1, comments / 50.0) if comments > 0 else 0.0
 
-            # Comment engagement score
-            comment_score = min(0.3, comments / 50.0) if comments > 0 else 0.0
-
-            # Title quality indicators (length, keywords)
+            # Title quality indicators (generous)
             title = item.get("title", "")
-            title_score = 0.0
+            title_bonus = 0.0
             if title:
-                # Optimal title length bonus
-                if 20 <= len(title) <= 100:
-                    title_score += 0.1
+                # Any reasonable title length gets bonus
+                if 10 <= len(title) <= 200:
+                    title_bonus += 0.1
 
-                # Keyword relevance (simple check)
+                # Expanded engaging keywords
                 engaging_words = [
                     "how",
                     "why",
@@ -300,24 +294,32 @@ class TopicDiscoveryService:
                     "2025",
                     "guide",
                     "tips",
+                    "breakthrough",
+                    "revolutionary",
+                    "discovered",
+                    "reveals",
+                    "major",
+                    "ai",
+                    "tech",
+                    "technology",
+                    "science",
+                    "future",
+                    "innovation",
                 ]
                 if any(word in title.lower() for word in engaging_words):
-                    title_score += 0.05
+                    title_bonus += 0.1
 
-            # URL quality check
+            # URL quality check (generous)
             url = item.get("url", "")
-            url_score = 0.05 if url and len(url) > 10 else 0.0
+            url_bonus = 0.05 if url and len(url) > 10 else 0.0
 
-            # Combine scores with weights
+            # Combine with generous scoring
             final_score = (
-                upvote_score * 0.6  # Upvotes are primary indicator
-                + comment_score * 0.25  # Comments show engagement
-                + title_score * 0.1  # Title quality
-                + url_score * 0.05  # Basic URL validation
+                base_score + upvote_bonus + comment_bonus + title_bonus + url_bonus
             )
 
-            # Ensure score is between 0.0 and 1.0
-            return max(0.0, min(1.0, final_score))
+            # Ensure score is between 0.5 and 1.0 (minimum 0.5 for all content)
+            return max(0.5, min(1.0, final_score))
 
         except (ValueError, TypeError) as e:
             logger.warning(f"Error calculating priority score: {e}")
@@ -326,26 +328,26 @@ class TopicDiscoveryService:
     def _calculate_priority_score_from_validated_item(self, item) -> float:
         """Calculate priority score from validated CollectionItem."""
         try:
+            # TEMPORARY: Accept everything mode for pipeline testing
+            # Start with a high base score for all content
+            base_score = 0.6  # Give everything a decent base score
+
             # Extract metrics with proper defaults
             upvotes = float(item.upvotes or 0)
             comments = float(item.comments or 0)
 
-            # Normalize upvotes (log scale for viral content)
-            upvote_score = min(1.0, (upvotes / 100.0)) if upvotes > 0 else 0.0
-            if upvotes > 10:
-                upvote_score = min(1.0, 0.5 + (upvotes - 10) / 200.0)
+            # Reddit content bonuses (on top of base score)
+            upvote_bonus = min(0.2, upvotes / 100.0) if upvotes > 0 else 0.0
+            comment_bonus = min(0.1, comments / 50.0) if comments > 0 else 0.0
 
-            # Comment engagement score
-            comment_score = min(0.3, comments / 50.0) if comments > 0 else 0.0
-
-            # Title quality indicators
-            title_score = 0.0
+            # Title quality indicators (generous scoring)
+            title_bonus = 0.0
             if item.title:
-                # Optimal title length bonus
-                if 20 <= len(item.title) <= 100:
-                    title_score += 0.1
+                # Any reasonable title length gets a bonus
+                if 10 <= len(item.title) <= 200:
+                    title_bonus += 0.1
 
-                # Engaging keywords bonus
+                # Many engaging keywords (expanded list)
                 engaging_words = [
                     "breakthrough",
                     "new",
@@ -357,34 +359,60 @@ class TopicDiscoveryService:
                     "unprecedented",
                     "study",
                     "research",
+                    "how",
+                    "why",
+                    "what",
+                    "best",
+                    "guide",
+                    "tips",
+                    "amazing",
+                    "incredible",
+                    "shocking",
+                    "must",
+                    "should",
+                    "could",
+                    "will",
+                    "ai",
+                    "tech",
+                    "technology",
+                    "science",
+                    "future",
+                    "innovation",
                 ]
                 if any(word in item.title.lower() for word in engaging_words):
-                    title_score += 0.05
+                    title_bonus += 0.1
 
-            # URL quality check
-            url_score = 0.05 if item.url and len(item.url) > 10 else 0.0
+            # URL quality check (generous)
+            url_bonus = 0.05 if item.url and len(item.url) > 10 else 0.0
 
-            # Freshness bonus - newer content gets higher priority
-            freshness_score = 0.0
+            # Freshness bonus - all recent content is good
+            freshness_bonus = 0.0
             if item.collected_at:
                 hours_ago = (
                     datetime.now(timezone.utc) - item.collected_at
                 ).total_seconds() / 3600
-                if hours_ago < 24:
-                    freshness_score = (24 - hours_ago) / 24 * 0.2  # Up to 0.2 bonus
+                if hours_ago < 48:  # Extended to 48 hours
+                    freshness_bonus = 0.15  # Fixed bonus for recent content
 
-            # Combine scores with weights
+            # Combine with generous scoring
             final_score = (
-                upvote_score * 0.5  # Upvotes are primary indicator
-                + comment_score * 0.2  # Comments show engagement
-                + title_score * 0.1  # Title quality
-                + url_score * 0.05  # Basic URL validation
-                + freshness_score * 0.15  # Freshness bonus
+                base_score  # High base score for all content
+                + upvote_bonus  # Reddit engagement bonus
+                + comment_bonus  # Comment engagement bonus
+                + title_bonus  # Title quality bonus
+                + url_bonus  # URL validation bonus
+                + freshness_bonus  # Freshness bonus
             )
 
             # Ensure score is between 0.0 and 1.0
-            return max(0.0, min(1.0, final_score))
+            # Minimum 0.5 for all content
+            final_score = max(0.5, min(1.0, final_score))
+
+            logger.debug(
+                f"Priority score for '{item.title[:30]}...': {final_score:.2f}"
+            )
+            return final_score
 
         except Exception as e:
             logger.warning(f"Error calculating priority score from validated item: {e}")
-            return 0.0
+            return 0.5  # Default to 0.5 instead of 0.0
