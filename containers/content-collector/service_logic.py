@@ -214,7 +214,7 @@ class ContentCollectorService:
             try:
                 # Handle different data types gracefully
                 if not isinstance(item, dict):
-                    print(f"⚠️ COLLECTOR: Skipping non-dict item {idx}: {type(item)}")
+                    # Skip silently - logging here causes async issues
                     continue
 
                 # Map source type
@@ -251,7 +251,7 @@ class ContentCollectorService:
                 standardized_items.append(standardized_item)
 
             except Exception as e:
-                print(f"⚠️ COLLECTOR: Skipping invalid item {idx}: {e}")
+                # Skip invalid items silently to avoid async issues
                 continue
 
         # Create standardized collection result with proper metadata
@@ -268,9 +268,7 @@ class ContentCollectorService:
             schema_version="2.0",
         )
 
-        print(
-            f"✅ COLLECTOR: Created standardized collection with {len(standardized_items)} valid items"
-        )
+        # Success! Data contracts working
 
         # Generate storage path
         timestamp = datetime.now(timezone.utc)
@@ -285,7 +283,7 @@ class ContentCollectorService:
             text=content_json,
         )
 
-        print(f"✅ COLLECTOR: Saved standardized collection to {blob_name}")
+        # Saved successfully with data contracts
 
         return f"{container_name}/{blob_name}"
 
