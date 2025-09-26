@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional
 
 from models import TopicMetadata, TopicState
 
+from libs.data_contracts import ContractValidator, DataContractError
 from libs.simplified_blob_client import SimplifiedBlobClient
 
 logger = logging.getLogger(__name__)
@@ -78,24 +79,41 @@ class TopicDiscoveryService:
                 f"Found {len(valid_collections)} valid collections, skipped {empty_collections} empty collections"
             )
 
-            # Convert collections to TopicMetadata objects
+            # Convert collections to TopicMetadata objects using data contracts
             topics = []
             for blob_name, collection_data in valid_collections:
                 logger.info(
-                    f"📄 PROCESSING: Collection {blob_name} - data type: {type(collection_data)}"
+                    f"📄 PROCESSING: Collection {blob_name} - validating with data contracts"
                 )
-                items = collection_data.get("items", [])
-                logger.info(f"📄 PROCESSING: Found {len(items)} items in collection")
 
-                for idx, item in enumerate(items):
+                try:
+                    # Use contract validator to ensure consistent data structure
+                    validated_collection = ContractValidator.validate_collection_data(
+                        collection_data
+                    )
                     logger.info(
-                        f"📄 ITEM-{idx}: Type: {type(item)}, Content: {item if isinstance(item, (str, int, float)) else str(item)[:100]}..."
+                        f"✅ CONTRACT: Successfully validated collection with {len(validated_collection.items)} items"
                     )
-                    topic = self._collection_item_to_topic_metadata(
-                        item, blob_name, collection_data
+
+                    # Process validated items
+                    for idx, item in enumerate(validated_collection.items):
+                        logger.info(
+                            f"📄 ITEM-{idx}: Processing validated item: {item.title[:50]}..."
+                        )
+                        topic = self._validated_item_to_topic_metadata(item, blob_name)
+                        if topic:
+                            topics.append(topic)
+
+                except DataContractError as e:
+                    logger.error(
+                        f"❌ CONTRACT: Collection {blob_name} failed validation: {e}"
                     )
-                    if topic:
-                        topics.append(topic)
+                    continue
+                except Exception as e:
+                    logger.error(
+                        f"❌ PROCESSING: Unexpected error processing {blob_name}: {e}"
+                    )
+                    continue
 
             # Sort by priority and limit batch size
             topics.sort(key=lambda t: t.priority_score, reverse=True)
@@ -140,6 +158,30 @@ class TopicDiscoveryService:
             return True
 
         return False
+
+    def _validated_item_to_topic_metadata(
+        self, item, blob_name: str
+    ) -> Optional[TopicMetadata]:
+        """Convert validated CollectionItem to TopicMetadata."""
+        try:
+            # Calculate priority score
+            priority_score = self._calculate_priority_score_from_validated_item(item)
+
+            return TopicMetadata(
+                topic_id=item.id,
+                title=item.title,
+                source=item.source,
+                collected_at=item.collected_at,
+                priority_score=priority_score,
+                subreddit=item.subreddit,
+                url=item.url,
+                upvotes=item.upvotes,
+                comments=item.comments,
+            )
+
+        except Exception as e:
+            logger.error(f"Error converting validated item to topic metadata: {e}")
+            return None
 
     def _collection_item_to_topic_metadata(
         self, item: Dict[str, Any], blob_name: str, collection_data: Dict[str, Any]
@@ -279,4 +321,70 @@ class TopicDiscoveryService:
 
         except (ValueError, TypeError) as e:
             logger.warning(f"Error calculating priority score: {e}")
+            return 0.0
+
+    def _calculate_priority_score_from_validated_item(self, item) -> float:
+        """Calculate priority score from validated CollectionItem."""
+        try:
+            # Extract metrics with proper defaults
+            upvotes = float(item.upvotes or 0)
+            comments = float(item.comments or 0)
+
+            # Normalize upvotes (log scale for viral content)
+            upvote_score = min(1.0, (upvotes / 100.0)) if upvotes > 0 else 0.0
+            if upvotes > 10:
+                upvote_score = min(1.0, 0.5 + (upvotes - 10) / 200.0)
+
+            # Comment engagement score
+            comment_score = min(0.3, comments / 50.0) if comments > 0 else 0.0
+
+            # Title quality indicators
+            title_score = 0.0
+            if item.title:
+                # Optimal title length bonus
+                if 20 <= len(item.title) <= 100:
+                    title_score += 0.1
+
+                # Engaging keywords bonus
+                engaging_words = [
+                    "breakthrough",
+                    "new",
+                    "revolutionary",
+                    "discovered",
+                    "reveals",
+                    "major",
+                    "first",
+                    "unprecedented",
+                    "study",
+                    "research",
+                ]
+                if any(word in item.title.lower() for word in engaging_words):
+                    title_score += 0.05
+
+            # URL quality check
+            url_score = 0.05 if item.url and len(item.url) > 10 else 0.0
+
+            # Freshness bonus - newer content gets higher priority
+            freshness_score = 0.0
+            if item.collected_at:
+                hours_ago = (
+                    datetime.now(timezone.utc) - item.collected_at
+                ).total_seconds() / 3600
+                if hours_ago < 24:
+                    freshness_score = (24 - hours_ago) / 24 * 0.2  # Up to 0.2 bonus
+
+            # Combine scores with weights
+            final_score = (
+                upvote_score * 0.5  # Upvotes are primary indicator
+                + comment_score * 0.2  # Comments show engagement
+                + title_score * 0.1  # Title quality
+                + url_score * 0.05  # Basic URL validation
+                + freshness_score * 0.15  # Freshness bonus
+            )
+
+            # Ensure score is between 0.0 and 1.0
+            return max(0.0, min(1.0, final_score))
+
+        except Exception as e:
+            logger.warning(f"Error calculating priority score from validated item: {e}")
             return 0.0

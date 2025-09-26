@@ -13,6 +13,12 @@ from typing import Any, Dict, List, Optional, Union
 from content_processing_simple import collect_content_batch, deduplicate_content
 
 from libs import BlobContainers
+from libs.data_contracts import (
+    CollectionItem,
+    CollectionMetadata,
+    CollectionResult,
+    ContentSource,
+)
 from libs.simplified_blob_client import SimplifiedBlobClient
 
 
@@ -202,26 +208,84 @@ class ContentCollectorService:
         Returns:
             Storage location path
         """
-        # Prepare the complete data structure
-        content_data = {
-            "collection_id": collection_id,
-            "metadata": metadata,
-            "items": collected_items,
-            "format_version": "1.0",
-        }
+        # Convert raw items to standardized CollectionItem objects
+        standardized_items = []
+        for idx, item in enumerate(collected_items):
+            try:
+                # Handle different data types gracefully
+                if not isinstance(item, dict):
+                    print(f"⚠️ COLLECTOR: Skipping non-dict item {idx}: {type(item)}")
+                    continue
+
+                # Map source type
+                source_type = item.get("source", "web").lower()
+                try:
+                    source = ContentSource(source_type)
+                except ValueError:
+                    source = ContentSource.WEB  # Default fallback
+
+                # Parse timestamp
+                collected_at_str = (
+                    item.get("collected_at") or datetime.now(timezone.utc).isoformat()
+                )
+                if isinstance(collected_at_str, str):
+                    collected_at = datetime.fromisoformat(
+                        collected_at_str.replace("Z", "+00:00")
+                    )
+                else:
+                    collected_at = datetime.now(timezone.utc)
+
+                standardized_item = CollectionItem(
+                    id=item.get("id", f"{collection_id}_item_{idx}"),
+                    title=item.get("title", "Untitled"),
+                    source=source,
+                    collected_at=collected_at,
+                    url=item.get("url"),
+                    content=item.get("content"),
+                    upvotes=item.get("ups") or item.get("upvotes"),
+                    comments=item.get("num_comments") or item.get("comments"),
+                    subreddit=item.get("subreddit"),
+                    author=item.get("author"),
+                    score=item.get("score"),
+                )
+                standardized_items.append(standardized_item)
+
+            except Exception as e:
+                print(f"⚠️ COLLECTOR: Skipping invalid item {idx}: {e}")
+                continue
+
+        # Create standardized collection result with proper metadata
+        collection_result = CollectionResult(
+            metadata=CollectionMetadata(
+                timestamp=datetime.now(timezone.utc),
+                collection_id=collection_id,
+                total_items=len(standardized_items),
+                sources_processed=metadata.get("sources_processed", 1),
+                processing_time_ms=metadata.get("processing_time_ms", 0),
+                collector_version=metadata.get("collector_version", "2.0.0"),
+            ),
+            items=standardized_items,
+            schema_version="2.0",
+        )
+
+        print(
+            f"✅ COLLECTOR: Created standardized collection with {len(standardized_items)} valid items"
+        )
 
         # Generate storage path
         timestamp = datetime.now(timezone.utc)
         container_name = BlobContainers.COLLECTED_CONTENT
         blob_name = f"collections/{timestamp.strftime('%Y/%m/%d')}/{collection_id}.json"
 
-        # Save to blob storage
-        content_json = json.dumps(content_data, indent=2, ensure_ascii=False)
+        # Save standardized format using Pydantic serialization
+        content_json = collection_result.json(indent=2)
         await self.storage.upload_text(
             container=container_name,
             blob_name=blob_name,
             text=content_json,
         )
+
+        print(f"✅ COLLECTOR: Saved standardized collection to {blob_name}")
 
         return f"{container_name}/{blob_name}"
 

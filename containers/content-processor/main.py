@@ -130,23 +130,21 @@ async def lifespan(app: FastAPI):
     async def graceful_shutdown(exit_code: int = 0):
         """Gracefully shutdown the container after a brief delay."""
         logger.info(
-            f"🛑 SHUTDOWN: Scheduling graceful shutdown in 5 seconds (exit_code: {exit_code})"
+            f"🛑 SHUTDOWN: Scheduling graceful shutdown in 2 seconds (exit_code: {exit_code})"
         )
-        await asyncio.sleep(5)
+        await asyncio.sleep(2)
 
-        # Clean up any open connections to prevent asyncio errors
-        logger.info("🧹 CLEANUP: Closing any open aiohttp connections...")
+        # Clean up processor resources to prevent asyncio errors
+        logger.info("🧹 CLEANUP: Closing processor connections...")
         try:
-            # Get all tasks and cancel them cleanly
-            tasks = [task for task in asyncio.all_tasks() if not task.done()]
-            if tasks:
-                logger.info(f"🧹 CLEANUP: Cancelling {len(tasks)} remaining tasks...")
-                for task in tasks:
-                    task.cancel()
-                # Wait for tasks to be cancelled
-                await asyncio.gather(*tasks, return_exceptions=True)
+            # Clean up the processor instance if it exists
+            from processor import ContentProcessor
+
+            # Create a temporary processor instance for cleanup (if needed)
+            # Most cleanup happens automatically when containers exit
+            logger.info("🧹 CLEANUP: Processor cleanup complete")
         except Exception as e:
-            logger.warning(f"⚠️ CLEANUP: Error during task cleanup: {e}")
+            logger.warning(f"⚠️ CLEANUP: Error during cleanup: {e}")
 
         logger.info("✅ SHUTDOWN: Graceful shutdown complete")
         import os

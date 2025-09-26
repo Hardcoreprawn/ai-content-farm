@@ -247,6 +247,15 @@ class ContentProcessor:
     ) -> Optional[TopicMetadata]:
         """Convert a collection item to TopicMetadata."""
         try:
+            # Debug: log the actual item type and content
+            logger.info(f"🔍 ITEM-DEBUG: Processing item type: {type(item)}")
+            logger.info(f"🔍 ITEM-DEBUG: Item content: {item}")
+
+            # Validate that item is a dictionary
+            if not isinstance(item, dict):
+                logger.error(f"❌ ITEM-ERROR: Expected dict, got {type(item)}: {item}")
+                return None
+
             # Extract basic information
             topic_id = item.get("id", f"unknown_{blob_name}")
             title = item.get("title", "Untitled Topic")

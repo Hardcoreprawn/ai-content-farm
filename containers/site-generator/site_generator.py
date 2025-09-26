@@ -25,6 +25,7 @@ from security_utils import SecurityValidator
 from site_service import SiteService
 
 from config import Config
+from libs.data_contracts import ContractValidator, DataContractError
 from libs.simplified_blob_client import SimplifiedBlobClient
 
 # Add the project root to Python path for imports

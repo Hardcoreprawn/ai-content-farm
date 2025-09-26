@@ -13,6 +13,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
+from libs.data_contracts import ContractValidator, DataContractError
 from libs.queue_client import (
     QueueMessageModel,
     get_queue_client,
@@ -165,8 +166,32 @@ class SiteGeneratorStorageQueueRouter:
 
             import json
 
-            processed_data = json.loads(content_json)
-            processed_items = processed_data.get("items", [])
+            # Use data contracts to validate processed content
+            try:
+                raw_data = json.loads(content_json)
+                logger.info(
+                    f"🔍 SITE-GEN: Validating processed content with data contracts"
+                )
+
+                # Validate using contract validator (supports migration from legacy formats)
+                validated_collection = ContractValidator.validate_collection_data(
+                    raw_data
+                )
+                processed_items = validated_collection.items
+
+                logger.info(
+                    f"✅ SITE-GEN: Successfully validated {len(processed_items)} items"
+                )
+
+            except DataContractError as e:
+                logger.error(f"❌ SITE-GEN: Invalid processed content format: {e}")
+                return {
+                    "status": "error",
+                    "error": f"Processed content validation failed: {e}",
+                }
+            except json.JSONDecodeError as e:
+                logger.error(f"❌ SITE-GEN: Invalid JSON in processed content: {e}")
+                return {"status": "error", "error": f"Invalid JSON format: {e}"}
 
             # Generate site from processed content
             from site_generator import SiteGenerator
