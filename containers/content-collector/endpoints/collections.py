@@ -121,7 +121,7 @@ async def create_collection(
         # Format result as CollectionResult
         collection_result = CollectionResult(
             sources_processed=len(request.sources),
-            total_items_collected=result.get("metadata", {}).get("total_collected", 0),
+            total_items_collected=result.get("metadata", {}).get("total_items", 0),
             items_saved=len(result.get("collected_items", [])),
             storage_location=result.get("storage_location", ""),
             processing_time_ms=processing_time_ms,
