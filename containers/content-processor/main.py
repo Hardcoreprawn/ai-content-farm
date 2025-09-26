@@ -140,8 +140,9 @@ async def lifespan(app: FastAPI):
             # Clean up the processor instance if it exists
             from processor import ContentProcessor
 
-            # Create a temporary processor instance for cleanup (if needed)
-            # Most cleanup happens automatically when containers exit
+            # Create a temporary processor instance for cleanup
+            processor = ContentProcessor()
+            await processor.cleanup()
             logger.info("🧹 CLEANUP: Processor cleanup complete")
         except Exception as e:
             logger.warning(f"⚠️ CLEANUP: Error during cleanup: {e}")
@@ -158,6 +159,15 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         logger.info("Shutting down Content Processor service")
+        try:
+            # Clean up any remaining async resources
+            from processor import ContentProcessor
+
+            processor = ContentProcessor()
+            await processor.cleanup()
+            logger.info("✅ FINAL-CLEANUP: Async resources cleaned up")
+        except Exception as e:
+            logger.warning(f"⚠️ FINAL-CLEANUP: Error during final cleanup: {e}")
 
 
 # Initialize FastAPI app
