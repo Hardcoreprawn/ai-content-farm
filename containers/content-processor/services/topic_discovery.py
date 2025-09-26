@@ -28,12 +28,24 @@ class TopicDiscoveryService:
         """Find topics available for processing (pure function)."""
         try:
             logger.info(
-                f"Searching for topics (batch_size={batch_size}, threshold={priority_threshold})"
+                f"🔍 TOPIC-DISCOVERY: Searching for topics (batch_size={batch_size}, threshold={priority_threshold})"
             )
 
             # List all collections from blob storage
+            logger.info(
+                "📂 BLOB-STORAGE: Connecting to blob storage to list collections..."
+            )
             blobs = await self.blob_client.list_blobs("collected-content")
-            logger.info(f"Found {len(blobs)} total collections")
+            logger.info(f"📂 BLOB-STORAGE: Found {len(blobs)} total collection blobs")
+
+            if blobs:
+                logger.info(
+                    f"📋 BLOB-LIST: Recent collections found: {[b['name'] for b in blobs[-3:]]}"
+                )
+            else:
+                logger.warning(
+                    "⚠️ BLOB-STORAGE: No collections found in collected-content container!"
+                )
 
             valid_collections = []
             empty_collections = 0

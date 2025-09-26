@@ -130,12 +130,17 @@ class ContentProcessor:
 
         try:
             # Phase 1: Find available topics
+            logger.info(
+                f"🔍 DISCOVERY: Searching for available topics with batch_size={batch_size}, priority_threshold={priority_threshold}"
+            )
             available_topics = await self.topic_discovery.find_available_topics(
                 batch_size, priority_threshold
             )
 
             if not available_topics:
-                logger.info("No topics available for processing")
+                logger.info(
+                    "ℹ️ DISCOVERY: No topics available for processing - returning empty result"
+                )
                 return ProcessingResult(
                     success=True,
                     topics_processed=0,
@@ -144,7 +149,9 @@ class ContentProcessor:
                     processing_time=0.0,
                 )
 
-            logger.info(f"Found {len(available_topics)} topics for processing")
+            logger.info(
+                f"✅ DISCOVERY: Found {len(available_topics)} topics for processing"
+            )
 
             # Phase 2: Process each topic with lease coordination
             for topic_metadata in available_topics:
@@ -314,29 +321,51 @@ class ContentProcessor:
     ) -> Optional[Dict[str, Any]]:
         """Process a single topic into an article using ArticleGenerationService."""
         try:
+            logger.info(
+                f"📝 TOPIC-PROCESSING: Starting processing for topic: '{topic_metadata.title}' (ID: {topic_metadata.topic_id})"
+            )
+            logger.info(
+                f"📝 TOPIC-PROCESSING: Topic priority: {topic_metadata.priority}, source: {topic_metadata.source}"
+            )
+
             # Generate article using service
+            logger.info("🎯 ARTICLE-GENERATION: Calling ArticleGenerationService...")
             result = await self.article_generation.generate_article_from_topic(
                 topic_metadata, self.processor_id, self.session_id
             )
 
             if not result:
                 logger.error(
-                    f"Failed to generate article for topic: {topic_metadata.title}"
+                    f"❌ ARTICLE-GENERATION: Failed to generate article for topic: {topic_metadata.title}"
                 )
                 return None
+
+            logger.info(
+                f"✅ ARTICLE-GENERATION: Successfully generated article for '{topic_metadata.title}' - cost: ${result.get('cost', 0):.6f}"
+            )
 
             # Save to processed-content container
             article_result = result.get("article_result")
             if article_result:
+                logger.info(f"💾 STORAGE: Saving processed article to blob storage...")
                 await self.storage.save_processed_article(article_result)
+                logger.info(f"✅ STORAGE: Article saved successfully")
+            else:
+                logger.warning(
+                    "⚠️ STORAGE: No article_result to save - skipping storage"
+                )
 
             # Return minimal result for session tracking
-            return {
+            processing_result = {
                 "article_content": result.get("article_content"),
                 "word_count": result.get("word_count"),
                 "quality_score": result.get("quality_score"),
                 "cost": result.get("cost"),
             }
+            logger.info(
+                f"📊 TOPIC-PROCESSING: Topic processing completed - word_count: {processing_result.get('word_count')}, quality: {processing_result.get('quality_score')}"
+            )
+            return processing_result
 
         except Exception as e:
             logger.error(f"Error processing topic {topic_metadata.topic_id}: {e}")

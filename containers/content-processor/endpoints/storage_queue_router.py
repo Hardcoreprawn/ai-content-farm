@@ -65,23 +65,35 @@ class ContentProcessorStorageQueueRouter:
         """
         try:
             logger.info(
-                f"Processing Storage Queue message: {message.operation} from {message.service_name}"
+                f"🔄 PROCESSING: Storage Queue message {message.message_id} - operation: {message.operation} from {message.service_name}"
             )
+            logger.info(f"📝 MESSAGE PAYLOAD: {message.payload}")
 
             if message.operation == "wake_up":
                 # Handle wake-up message - scan for available work
                 logger.info(
-                    "Received wake-up signal from Storage Queue - scanning for available work"
+                    "🚀 WAKE-UP: Received wake-up signal from Storage Queue - scanning for available work"
                 )
 
                 # Process available work using the wake-up pattern
+                logger.info("🏭 PROCESSOR: Creating ContentProcessor instance...")
                 processor = self.get_processor()
+                logger.info(
+                    "✅ PROCESSOR: ContentProcessor instance created successfully"
+                )
+
+                logger.info(
+                    f"⚙️ PROCESSING: Starting work processing with batch_size=10, priority_threshold=0.5"
+                )
                 result = await processor.process_available_work(
                     batch_size=10,  # Default batch size
                     priority_threshold=0.5,  # Default priority threshold
                 )
+                logger.info(
+                    f"✅ PROCESSING: Work processing completed - {result.topics_processed} topics processed, cost: ${result.total_cost:.4f}"
+                )
 
-                return {
+                response = {
                     "status": "success",
                     "operation": "wake_up_processed",
                     "result": {
@@ -92,6 +104,8 @@ class ContentProcessorStorageQueueRouter:
                     },
                     "message_id": message.message_id,
                 }
+                logger.info(f"📤 RESPONSE: Returning processing result: {response}")
+                return response
 
             elif message.operation == "process":
                 # Handle specific processing request - use the available work processor

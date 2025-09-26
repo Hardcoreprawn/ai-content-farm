@@ -94,12 +94,20 @@ class OpenAIClient:
             return self._generate_mock_article(topic_title), 0.0, 0
 
         try:
+            logger.info(f"🤖 OPENAI: Generating article for topic: '{topic_title}'")
+            logger.info(
+                f"🤖 OPENAI: Using model: {self.model_name}, endpoint: {self.endpoint}"
+            )
+            logger.info(f"🤖 OPENAI: Target word count: {target_word_count}")
+
             # Build prompt for article generation
             prompt = self._build_article_prompt(
                 topic_title, research_content, target_word_count, quality_requirements
             )
+            logger.info(f"📝 PROMPT: Built prompt with {len(prompt)} characters")
 
             # Generate article
+            logger.info("🚀 OPENAI: Sending request to Azure OpenAI...")
             response = self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[
@@ -112,12 +120,18 @@ class OpenAIClient:
                 max_tokens=4000,  # ~3000 words
                 temperature=0.7,
             )
+            logger.info("✅ OPENAI: Received response from Azure OpenAI")
 
             # Extract results
             article_content = response.choices[0].message.content
             tokens_used = response.usage.total_tokens if response.usage else 0
             prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+            logger.info(
+                f"📊 OPENAI: Generated article with {len(article_content)} characters, {tokens_used} tokens used ({prompt_tokens} prompt + {tokens_used - prompt_tokens} completion)"
+            )
+
             cost_usd = await self._calculate_cost(tokens_used, prompt_tokens)
+            logger.info(f"💰 COST: Article generation cost: ${cost_usd:.6f}")
 
             logger.info(f"Article generated: {tokens_used} tokens, ${cost_usd:.4f}")
             return article_content, cost_usd, tokens_used
