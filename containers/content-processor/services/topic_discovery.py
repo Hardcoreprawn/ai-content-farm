@@ -81,7 +81,16 @@ class TopicDiscoveryService:
             # Convert collections to TopicMetadata objects
             topics = []
             for blob_name, collection_data in valid_collections:
-                for item in collection_data.get("items", []):
+                logger.info(
+                    f"📄 PROCESSING: Collection {blob_name} - data type: {type(collection_data)}"
+                )
+                items = collection_data.get("items", [])
+                logger.info(f"📄 PROCESSING: Found {len(items)} items in collection")
+
+                for idx, item in enumerate(items):
+                    logger.info(
+                        f"📄 ITEM-{idx}: Type: {type(item)}, Content: {item if isinstance(item, (str, int, float)) else str(item)[:100]}..."
+                    )
                     topic = self._collection_item_to_topic_metadata(
                         item, blob_name, collection_data
                     )
@@ -147,6 +156,15 @@ class TopicDiscoveryService:
             TopicMetadata object or None if conversion fails
         """
         try:
+            logger.debug(f"🔄 CONVERTING: Item type: {type(item)}, value: {item}")
+
+            # Check if item is actually a dictionary
+            if not isinstance(item, dict):
+                logger.warning(
+                    f"⚠️ CONVERT-ERROR: Item is not a dict, it's {type(item)}: {item}"
+                )
+                return None
+
             # Extract required fields
             title = item.get("title", "").strip()
             url = item.get("url", "").strip()
