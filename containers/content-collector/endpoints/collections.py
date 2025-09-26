@@ -220,6 +220,10 @@ async def run_scheduled_collection(
                     container=BlobContainers.COLLECTION_TEMPLATES,
                     blob_name="default.json",
                 )
+                if template_content is None:
+                    raise ValueError(
+                        "Template content is None - blob may not exist or access denied"
+                    )
                 default_template = json.loads(template_content)
             except Exception as e:
                 # Fallback template if blob storage fails
