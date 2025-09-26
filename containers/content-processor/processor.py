@@ -68,6 +68,25 @@ class ContentProcessor:
             # Close async OpenAI client
             await self.openai_client.close()
             logger.info("OpenAI client closed")
+
+            # Close blob client if it has async resources
+            if hasattr(self.blob_client, "close"):
+                await self.blob_client.close()
+                logger.info("Blob client closed")
+
+            # Close any other service clients
+            services_to_close = [
+                self.topic_discovery,
+                self.article_generation,
+                self.lease_coordinator,
+                self.storage,
+            ]
+
+            for service in services_to_close:
+                if hasattr(service, "close"):
+                    await service.close()
+                    logger.info(f"{service.__class__.__name__} closed")
+
         except Exception as e:
             logger.error(f"Error during cleanup: {e}")
 
