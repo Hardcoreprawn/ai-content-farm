@@ -275,8 +275,8 @@ class ContentCollectorService:
         container_name = BlobContainers.COLLECTED_CONTENT
         blob_name = f"collections/{timestamp.strftime('%Y/%m/%d')}/{collection_id}.json"
 
-        # Save standardized format using Pydantic serialization
-        content_json = collection_result.json(indent=2)
+        # Save standardized format using Pydantic v2 serialization
+        content_json = collection_result.model_dump_json(indent=2)
         await self.storage.upload_text(
             container=container_name,
             blob_name=blob_name,
