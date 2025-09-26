@@ -13,6 +13,7 @@ Security Test: Triggering security pipeline validation (Sep 19, 2025)
 import asyncio
 import importlib.util
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -37,6 +38,7 @@ from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from libs.container_lifecycle import create_lifecycle_manager
 from libs.shared_models import (
     StandardError,
     StandardResponse,
@@ -73,84 +75,48 @@ async def lifespan(app: FastAPI):
 
     from libs.queue_client import process_queue_messages
 
-    async def startup_queue_processor():
-        """Process any existing queue messages on startup."""
-        try:
-            logger.info("Starting up - checking for pending queue messages...")
+    # Initialize lifecycle manager
+    lifecycle_manager = create_lifecycle_manager("content-processor")
 
-            # Process message handler
-            async def process_message(queue_message, message) -> Dict[str, Any]:
-                """Process a single message on startup."""
-                try:
-                    router_instance = get_storage_queue_router()
-                    result = await router_instance.process_storage_queue_message(
-                        queue_message
+    async def startup_queue_processor():
+        """Process any existing queue messages on startup using lifecycle manager."""
+
+        # Process message handler
+        async def process_message(queue_message, message) -> Dict[str, Any]:
+            """Process a single message on startup."""
+            try:
+                router_instance = get_storage_queue_router()
+                result = await router_instance.process_storage_queue_message(
+                    queue_message
+                )
+
+                if result["status"] == "success":
+                    logger.info(
+                        f"Startup: Successfully processed message {queue_message.message_id}"
+                    )
+                else:
+                    logger.warning(
+                        f"Startup: Message processing failed: {result.get('error', 'Unknown error')}"
                     )
 
-                    if result["status"] == "success":
-                        logger.info(
-                            f"Startup: Successfully processed message {queue_message.message_id}"
-                        )
-                    else:
-                        logger.warning(
-                            f"Startup: Message processing failed: {result.get('error', 'Unknown error')}"
-                        )
+                return result
+            except Exception as e:
+                logger.error(f"Startup: Error processing message: {e}")
+                return {"status": "error", "error": str(e)}
 
-                    return result
-                except Exception as e:
-                    logger.error(f"Startup: Error processing message: {e}")
-                    return {"status": "error", "error": str(e)}
-
-            # Process up to 32 messages on startup (Azure Storage Queue API limit)
-            processed_count = await process_queue_messages(
-                queue_name="content-processing-requests",
+        # Use lifecycle manager for queue processing
+        async def process_messages_wrapper(queue_name: str, max_messages: int):
+            return await process_queue_messages(
+                queue_name=queue_name,
                 message_handler=process_message,
-                max_messages=32,
+                max_messages=max_messages,
             )
 
-            if processed_count > 0:
-                logger.info(f"Startup: Processed {processed_count} pending messages")
-                logger.info(
-                    "Startup: All messages processed - scheduling graceful shutdown"
-                )
-                # Schedule graceful shutdown after processing
-                asyncio.create_task(graceful_shutdown())
-            else:
-                logger.info(
-                    "Startup: No pending messages found - scheduling graceful shutdown"
-                )
-                # Schedule shutdown if no work to do
-                asyncio.create_task(graceful_shutdown())
-
-        except Exception as e:
-            logger.error(f"Startup queue processing failed: {e}")
-            # Schedule shutdown with error
-            asyncio.create_task(graceful_shutdown(exit_code=1))
-
-    async def graceful_shutdown(exit_code: int = 0):
-        """Gracefully shutdown the container after a brief delay."""
-        logger.info(
-            f"🛑 SHUTDOWN: Scheduling graceful shutdown in 2 seconds (exit_code: {exit_code})"
+        await lifecycle_manager.handle_startup_queue_processing(
+            process_messages_wrapper, "content-processing-requests", max_messages=32
         )
-        await asyncio.sleep(2)
 
-        # Clean up processor resources to prevent asyncio errors
-        logger.info("🧹 CLEANUP: Closing processor connections...")
-        try:
-            # Clean up the processor instance if it exists
-            from processor import ContentProcessor
-
-            # Create a temporary processor instance for cleanup
-            processor = ContentProcessor()
-            await processor.cleanup()
-            logger.info("🧹 CLEANUP: Processor cleanup complete")
-        except Exception as e:
-            logger.warning(f"⚠️ CLEANUP: Error during cleanup: {e}")
-
-        logger.info("✅ SHUTDOWN: Graceful shutdown complete")
-        import os
-
-        os._exit(exit_code)
+    # Graceful shutdown is now handled by the lifecycle manager
 
     # Start the background task
     asyncio.create_task(startup_queue_processor())

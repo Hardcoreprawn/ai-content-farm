@@ -126,24 +126,47 @@ async def lifespan(app: FastAPI):
                 max_messages=5,
             )
 
+            # Check if auto-shutdown is disabled (for development/testing)
+            disable_auto_shutdown = (
+                os.getenv("DISABLE_AUTO_SHUTDOWN", "false").lower() == "true"
+            )
+
             if processed_count > 0:
                 logger.info(f"Startup: Processed {processed_count} pending messages")
-                logger.info(
-                    "Startup: All messages processed - scheduling graceful shutdown"
-                )
-                # Schedule graceful shutdown after processing
-                asyncio.create_task(graceful_shutdown())
+                if disable_auto_shutdown:
+                    logger.info(
+                        "Startup: All messages processed - container will remain active (DISABLE_AUTO_SHUTDOWN=true)"
+                    )
+                else:
+                    logger.info(
+                        "Startup: All messages processed - scheduling graceful shutdown"
+                    )
+                    # Schedule graceful shutdown after processing
+                    asyncio.create_task(graceful_shutdown())
             else:
-                logger.info(
-                    "Startup: No pending messages found - scheduling graceful shutdown"
-                )
-                # Schedule shutdown if no work to do
-                asyncio.create_task(graceful_shutdown())
+                if disable_auto_shutdown:
+                    logger.info(
+                        "Startup: No pending messages found - container will remain active (DISABLE_AUTO_SHUTDOWN=true)"
+                    )
+                else:
+                    logger.info(
+                        "Startup: No pending messages found - scheduling graceful shutdown"
+                    )
+                    # Schedule shutdown if no work to do
+                    asyncio.create_task(graceful_shutdown())
 
         except Exception as e:
             logger.error(f"Startup queue processing failed: {e}")
-            # Schedule shutdown with error
-            asyncio.create_task(graceful_shutdown(exit_code=1))
+            disable_auto_shutdown = (
+                os.getenv("DISABLE_AUTO_SHUTDOWN", "false").lower() == "true"
+            )
+            if disable_auto_shutdown:
+                logger.warning(
+                    "Startup error occurred but container will remain active (DISABLE_AUTO_SHUTDOWN=true)"
+                )
+            else:
+                # Schedule shutdown with error
+                asyncio.create_task(graceful_shutdown(exit_code=1))
 
     async def graceful_shutdown(exit_code: int = 0):
         """Gracefully shutdown the container after a brief delay."""

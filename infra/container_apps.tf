@@ -261,6 +261,12 @@ resource "azurerm_container_app" "content_collector" {
         name  = "KEDA_CRON_TRIGGER"
         value = "true"
       }
+
+      # Disable auto-shutdown for debugging (set to false for production efficiency)
+      env {
+        name  = "DISABLE_AUTO_SHUTDOWN"
+        value = "true"
+      }
     }
 
     min_replicas = 0
@@ -375,6 +381,12 @@ resource "azurerm_container_app" "content_processor" {
       env {
         name  = "STORAGE_QUEUE_NAME"
         value = azurerm_storage_queue.content_processing_requests.name
+      }
+
+      # Disable auto-shutdown for debugging (set to false for production efficiency)
+      env {
+        name  = "DISABLE_AUTO_SHUTDOWN"
+        value = "true"
       }
     }
 
@@ -503,6 +515,12 @@ resource "azurerm_container_app" "site_generator" {
       env {
         name  = "STORAGE_QUEUE_NAME"
         value = azurerm_storage_queue.site_generation_requests.name
+      }
+
+      # Disable auto-shutdown for debugging (set to false for production efficiency)
+      env {
+        name  = "DISABLE_AUTO_SHUTDOWN"
+        value = "true"
       }
     }
 

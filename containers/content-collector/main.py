@@ -9,7 +9,9 @@ Pipeline Fix Test: Testing Issue #421 fix deployment
 Matrix Test: Full container matrix validation (Sep 15, 2025)
 """
 
+import asyncio
 import logging
+import os
 import time
 from contextlib import asynccontextmanager
 from typing import Any, Dict
@@ -40,14 +42,22 @@ logger = logging.getLogger(__name__)
 service_metadata = create_service_dependency("content-womble")
 
 
+async def graceful_shutdown(exit_code: int = 0):
+    """Gracefully shutdown the container after a brief delay."""
+    logger.info(
+        f"🛑 SHUTDOWN: Scheduling graceful shutdown in 2 seconds (exit_code: {exit_code})"
+    )
+    await asyncio.sleep(2)
+    logger.info("✅ SHUTDOWN: Graceful shutdown complete")
+    os._exit(exit_code)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager with KEDA cron auto-collection."""
     logger.info("Content Womble starting up...")
 
     # Check if this startup was triggered by KEDA cron scaling
-    import os
-
     if os.getenv("KEDA_CRON_TRIGGER", "false").lower() == "true":
         logger.info("Detected KEDA cron trigger - running scheduled collection")
         try:
@@ -60,8 +70,35 @@ async def lifespan(app: FastAPI):
             }
             result = await run_scheduled_collection(metadata)
             logger.info(f"Scheduled collection completed: {result.message}")
+
+            # Check if auto-shutdown is disabled (for development/testing)
+            disable_auto_shutdown = (
+                os.getenv("DISABLE_AUTO_SHUTDOWN", "false").lower() == "true"
+            )
+
+            if disable_auto_shutdown:
+                logger.info(
+                    "Scheduled collection completed - container will remain active (DISABLE_AUTO_SHUTDOWN=true)"
+                )
+            else:
+                logger.info(
+                    "Scheduled collection completed - scheduling graceful shutdown"
+                )
+                # Schedule graceful shutdown after collection
+                asyncio.create_task(graceful_shutdown())
+
         except Exception as e:
             logger.error(f"Failed to run scheduled collection: {str(e)}")
+            disable_auto_shutdown = (
+                os.getenv("DISABLE_AUTO_SHUTDOWN", "false").lower() == "true"
+            )
+            if disable_auto_shutdown:
+                logger.warning(
+                    "Collection error occurred but container will remain active (DISABLE_AUTO_SHUTDOWN=true)"
+                )
+            else:
+                # Schedule shutdown with error
+                asyncio.create_task(graceful_shutdown(exit_code=1))
 
     # KEDA cron scaling handles scheduling - no background polling needed
     logger.info("Content Womble startup complete - ready for KEDA cron triggers")
