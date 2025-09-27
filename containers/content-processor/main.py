@@ -68,6 +68,47 @@ async def lifespan(app: FastAPI):
     logger.info(f"Log level: {settings.log_level}")
     logger.info("Content Processor ready for KEDA Storage Queue scaling")
 
+    # Optional startup diagnostics (enabled via environment variable)
+    if os.getenv("RUN_STARTUP_DIAGNOSTICS", "false").lower() == "true":
+        logger.info("🔍 Running startup diagnostics...")
+        try:
+            from endpoints.diagnostics import PipelineDiagnostics
+
+            diagnostics = PipelineDiagnostics()
+            result = await diagnostics.run_all_tests(deep_scan=True)
+
+            logger.info(
+                f"📊 Startup Diagnostics: {result.overall_status} - {result.summary}"
+            )
+
+            if result.overall_status == "failed":
+                logger.error("❌ Startup diagnostics failed:")
+                for test in result.tests:
+                    if test.status == "fail":
+                        logger.error(f"  - {test.name}: {test.message}")
+
+                for rec in result.recommendations:
+                    logger.error(f"  💡 {rec}")
+
+                # In strict mode, exit on diagnostics failure
+                if os.getenv("STRICT_STARTUP_DIAGNOSTICS", "false").lower() == "true":
+                    logger.error(
+                        "Exiting due to failed startup diagnostics (STRICT_STARTUP_DIAGNOSTICS=true)"
+                    )
+                    raise SystemExit(1)
+            elif result.overall_status == "degraded":
+                logger.warning("⚠️ Startup diagnostics have warnings:")
+                for test in result.tests:
+                    if test.status == "warning":
+                        logger.warning(f"  - {test.name}: {test.message}")
+            else:
+                logger.info("✅ All startup diagnostics passed successfully")
+
+        except Exception as e:
+            logger.error(f"❌ Startup diagnostics failed with error: {e}")
+            if os.getenv("STRICT_STARTUP_DIAGNOSTICS", "false").lower() == "true":
+                raise SystemExit(1)
+
     # Start background queue processing on startup
     import asyncio
 
