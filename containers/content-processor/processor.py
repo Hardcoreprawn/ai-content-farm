@@ -30,6 +30,8 @@ from services import (
     TopicDiscoveryService,
 )
 
+from config import ContentProcessorSettings
+from libs.processing_config import ProcessingConfigManager
 from libs.simplified_blob_client import SimplifiedBlobClient
 
 logger = logging.getLogger(__name__)
@@ -47,8 +49,10 @@ class ContentProcessor:
         self.session_id = str(uuid4())
         self.blob_client = SimplifiedBlobClient()
         self.openai_client = OpenAIClient()
+        self.config = ContentProcessorSettings()
+        self.processing_config = ProcessingConfigManager(self.blob_client)
 
-        # Initialize service dependencies
+        # Initialize service dependencies - will load container config from blob storage
         self.topic_discovery = TopicDiscoveryService(self.blob_client)
         self.article_generation = ArticleGenerationService(self.openai_client)
         self.lease_coordinator = LeaseCoordinator(self.processor_id)
@@ -61,6 +65,43 @@ class ContentProcessor:
         self.session_processing_time = 0.0
 
         logger.info(f"Content processor initialized: {self.processor_id}")
+
+    async def initialize_config(self):
+        """Initialize configuration from blob storage."""
+        try:
+            # Load container configuration
+            container_config = await self.processing_config.get_container_config(
+                "content-processor"
+            )
+
+            # Update topic discovery with the correct container
+            input_container = container_config.get("input_container")
+            if input_container:
+                self.topic_discovery = TopicDiscoveryService(
+                    self.blob_client, input_container=input_container
+                )
+                logger.info(
+                    f"✅ CONFIG: Topic discovery configured for container: {input_container}"
+                )
+
+            # Load processing configuration
+            processing_config = await self.processing_config.get_processing_config(
+                "content-processor"
+            )
+            self.default_batch_size = processing_config.get("default_batch_size", 10)
+            self.max_batch_size = processing_config.get("max_batch_size", 100)
+            self.default_priority_threshold = processing_config.get(
+                "default_priority_threshold", 0.5
+            )
+
+            logger.info(
+                f"✅ CONFIG: Processing config loaded - batch_size={self.default_batch_size}, threshold={self.default_priority_threshold}"
+            )
+
+        except Exception as e:
+            logger.warning(
+                f"⚠️ CONFIG: Failed to load configuration from blob storage, using defaults: {e}"
+            )
 
     async def cleanup(self):
         """Clean up resources to prevent asyncio errors."""
@@ -138,8 +179,8 @@ class ContentProcessor:
 
     async def process_available_work(
         self,
-        batch_size: int = 10,
-        priority_threshold: float = 0.5,
+        batch_size: Optional[int] = None,
+        priority_threshold: Optional[float] = None,
         options: Optional[Dict[str, Any]] = None,
         debug_bypass: bool = False,
     ) -> ProcessingResult:
@@ -158,6 +199,15 @@ class ContentProcessor:
         total_cost = 0.0
 
         try:
+            # Initialize configuration from blob storage if not done yet
+            if not hasattr(self, "default_batch_size"):
+                await self.initialize_config()
+
+            # Use configured defaults if parameters not provided
+            if batch_size is None:
+                batch_size = getattr(self, "default_batch_size", 10)
+            if priority_threshold is None:
+                priority_threshold = getattr(self, "default_priority_threshold", 0.5)
             # Phase 1: Find available topics
             if debug_bypass:
                 logger.info(

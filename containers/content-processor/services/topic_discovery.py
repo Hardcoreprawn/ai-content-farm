@@ -44,6 +44,7 @@ from typing import Any, Dict, List, Optional
 
 from models import TopicMetadata, TopicState
 
+from libs.app_config import BlobContainers
 from libs.data_contracts import ContractValidator, DataContractError
 from libs.simplified_blob_client import SimplifiedBlobClient
 
@@ -53,8 +54,13 @@ logger = logging.getLogger(__name__)
 class TopicDiscoveryService:
     """Service for discovering and filtering available topics from blob storage."""
 
-    def __init__(self, blob_client: Optional[SimplifiedBlobClient] = None):
+    def __init__(
+        self,
+        blob_client: Optional[SimplifiedBlobClient] = None,
+        input_container: str = BlobContainers.COLLECTED_CONTENT,
+    ):
         self.blob_client = blob_client or SimplifiedBlobClient()
+        self.input_container = input_container
 
     async def find_available_topics(
         self, batch_size: int, priority_threshold: float, debug_bypass: bool = False
@@ -71,12 +77,17 @@ class TopicDiscoveryService:
                 f"🔍 TOPIC-DISCOVERY: Searching for topics (batch_size={batch_size}, threshold={priority_threshold}, debug_bypass={debug_bypass})"
             )
 
-            # List all collections from blob storage
+            # List all collections from blob storage using standardized paths
             logger.info(
                 "📂 BLOB-STORAGE: Connecting to blob storage to list collections..."
             )
-            blobs = await self.blob_client.list_blobs("collected-content")
-            logger.info(f"📂 BLOB-STORAGE: Found {len(blobs)} total collection blobs")
+            # Use the collections/ prefix to find all collections in the standardized path structure
+            blobs = await self.blob_client.list_blobs(
+                self.input_container, prefix="collections/"
+            )
+            logger.info(
+                f"📂 BLOB-STORAGE: Found {len(blobs)} total collection blobs in collections/ path"
+            )
 
             if blobs:
                 logger.info(
@@ -84,7 +95,7 @@ class TopicDiscoveryService:
                 )
             else:
                 logger.warning(
-                    "⚠️ BLOB-STORAGE: No collections found in collected-content container!"
+                    f"⚠️ BLOB-STORAGE: No collections found in {self.input_container}/collections/ path!"
                 )
 
             # Process each collection file
@@ -99,7 +110,7 @@ class TopicDiscoveryService:
 
                     # Download and parse collection
                     collection_data = await self.blob_client.download_json(
-                        "collected-content", blob_name
+                        self.input_container, blob_name
                     )
 
                     # Validate collection structure (bypass in debug mode)

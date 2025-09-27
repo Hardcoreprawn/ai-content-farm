@@ -3,52 +3,41 @@
 Standardized Configuration for Content Processor
 
 Uses pydantic-settings BaseSettings for type-safe configuration management.
-Replaces custom config classes with standard library approach.
-
-Following Phase 1 Foundation requirements from issue #390.
+Now using standardized base config for consistency across all containers.
 """
 
 import logging
+import os
+import sys
 from typing import Dict, Optional
 
 from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Add libs to path for shared config
+sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
+from libs.config_base import BaseContainerConfig
 
 
-class ContentProcessorSettings(BaseSettings):
+class ContentProcessorSettings(BaseContainerConfig):
     """
-    Content Processor configuration using pydantic-settings.
+    Content Processor configuration using standardized base config.
 
-    All configuration comes from environment variables or defaults.
-    Type-safe and validation-enabled configuration management.
+    Inherits common container configuration and adds processor-specific settings.
     """
 
-    model_config = SettingsConfigDict(
-        env_file=".env",
-        env_file_encoding="utf-8",
-        case_sensitive=False,
-        extra="ignore",  # Ignore unknown environment variables
-    )
-
-    # Service Information
     service_name: str = Field(default="content-processor", description="Service name")
-    service_version: str = Field(default="1.0.0", description="Service version")
-    environment: str = Field(default="local", description="Deployment environment")
 
-    # Server Configuration
-    host: str = Field(default="0.0.0.0", description="Server host")
-    port: int = Field(default=8000, description="Server port")
+    # Service Information (inherit most from base, override as needed)
+    service_version: str = Field(default="1.0.0", description="Service version")
     log_level: str = Field(default="INFO", description="Logging level")
 
-    # Azure Configuration
-    azure_key_vault_url: Optional[str] = Field(
-        default=None, description="Azure Key Vault URL"
+    # Processing-specific containers (extending the base set)
+    processed_content_container: str = Field(
+        default="processed-content",
+        description="Container for processed content output",
     )
-    azure_storage_account: Optional[str] = Field(
-        default=None, description="Azure Storage Account"
-    )
-    azure_storage_container: str = Field(
-        default="content-data", description="Azure Storage Container"
+    enriched_content_container: str = Field(
+        default="enriched-content", description="Container for enriched content"
     )
 
     # OpenAI Configuration (Multi-Region Support)
