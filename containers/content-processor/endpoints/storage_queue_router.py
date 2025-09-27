@@ -82,12 +82,18 @@ class ContentProcessorStorageQueueRouter:
                     "✅ PROCESSOR: ContentProcessor instance created successfully"
                 )
 
+                # Extract parameters from message payload with safe defaults
+                batch_size = message.payload.get("batch_size", 10)
+                priority_threshold = message.payload.get("priority_threshold", 0.5)
+                debug_bypass = message.payload.get("debug_bypass", False)
+
                 logger.info(
-                    f"⚙️ PROCESSING: Starting work processing with batch_size=10, priority_threshold=0.5"
+                    f"⚙️ PROCESSING: Starting work processing with batch_size={batch_size}, priority_threshold={priority_threshold}, debug_bypass={debug_bypass}"
                 )
                 result = await processor.process_available_work(
-                    batch_size=10,  # Default batch size
-                    priority_threshold=0.5,  # Default priority threshold
+                    batch_size=batch_size,
+                    priority_threshold=priority_threshold,
+                    debug_bypass=debug_bypass,
                 )
                 logger.info(
                     f"✅ PROCESSING: Work processing completed - {result.topics_processed} topics processed, cost: ${result.total_cost:.4f}"
@@ -101,6 +107,9 @@ class ContentProcessorStorageQueueRouter:
                         "articles_generated": result.articles_generated,
                         "total_cost": result.total_cost,
                         "processing_time": result.processing_time,
+                        "batch_size": batch_size,
+                        "priority_threshold": priority_threshold,
+                        "debug_bypass": debug_bypass,
                     },
                     "message_id": message.message_id,
                 }

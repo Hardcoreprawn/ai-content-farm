@@ -9,6 +9,7 @@ from typing import Any, Dict
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends
+from models import WakeUpRequest
 from pydantic import BaseModel, Field
 
 from libs.shared_models import ErrorCodes, StandardResponse, create_service_dependency
@@ -112,6 +113,7 @@ async def get_processing_types(
     description="Wake up the processor to scan and process all available content",
 )
 async def wake_up_processor(
+    request: WakeUpRequest,
     metadata: Dict[str, Any] = Depends(service_metadata),
 ):
     """
@@ -128,8 +130,9 @@ async def wake_up_processor(
 
         # Process all available work (this scans blob storage)
         result = await processor.process_available_work(
-            batch_size=50,  # Process up to 50 items per wake-up
-            priority_threshold=0.0,  # Process all available content
+            batch_size=request.batch_size,
+            priority_threshold=request.priority_threshold,
+            debug_bypass=request.debug_bypass,
         )
 
         return StandardResponse(
@@ -140,10 +143,12 @@ async def wake_up_processor(
                 "total_cost": result.total_cost,
                 "processing_time": result.processing_time,
                 "trigger_type": "manual_api",
-                "batch_size": 50,
-                "priority_threshold": 0.0,
+                "batch_size": request.batch_size,
+                "priority_threshold": request.priority_threshold,
+                "debug_bypass": request.debug_bypass,
+                "source": request.source,
             },
-            message=f"Wake-up processing completed: {result.topics_processed} topics processed, {result.articles_generated} articles generated",
+            message=f"Wake-up processing completed: {result.topics_processed} topics processed, {result.articles_generated} articles generated (debug_bypass={request.debug_bypass})",
             errors=None,
             metadata=metadata,
         )
