@@ -1,0 +1,10 @@
+{
+    "input_container": "collected-content",
+    "output_container": "processed-content",
+    "staging_container": "ranked-content",
+    "collections_prefix": "collections/",
+    "processed_prefix": "processed/",
+    "description": "Container configuration for content-processor service",
+    "last_updated": "2025-09-27T13:45:00Z",
+    "version": "1.0"
+}

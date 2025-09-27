@@ -1,0 +1,13 @@
+{
+    "default_batch_size": 50,
+    "max_batch_size": 200,
+    "default_priority_threshold": 0.3,
+    "timeout_seconds": 600,
+    "min_content_length": 100,
+    "max_content_length": 50000,
+    "retry_attempts": 3,
+    "retry_delay_seconds": 30,
+    "description": "Processing configuration for content-processor service",
+    "last_updated": "2025-09-27T13:45:00Z",
+    "version": "1.0"
+}

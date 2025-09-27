@@ -711,6 +711,25 @@ resource "azurerm_storage_blob" "collection_template_web_overlap_test" {
   content_type           = "application/json"
 }
 
+# Container Configuration Files - Upload container-specific configuration to enable blob-based config management
+resource "azurerm_storage_blob" "content_processor_containers_config" {
+  name                   = "config/content-processor-containers.json"
+  storage_account_name   = azurerm_storage_account.main.name
+  storage_container_name = azurerm_storage_container.collection_templates.name
+  type                   = "Block"
+  source                 = "${path.module}/../container-config/content-processor-containers.json"
+  content_type           = "application/json"
+}
+
+resource "azurerm_storage_blob" "content_processor_processing_config" {
+  name                   = "config/content-processor-processing.json"
+  storage_account_name   = azurerm_storage_account.main.name
+  storage_container_name = azurerm_storage_container.collection_templates.name
+  type                   = "Block"
+  source                 = "${path.module}/../container-config/content-processor-processing.json"
+  content_type           = "application/json"
+}
+
 # Resource lock to prevent accidental deletion
 # Created LAST to avoid blocking infrastructure updates during deployment
 # Note: Temporarily disabled during deployment to allow resource cleanup
