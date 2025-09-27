@@ -12,7 +12,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class ContentSource(str, Enum):
@@ -55,6 +55,27 @@ class CollectionItem(BaseModel):
 
     # Processing metadata
     priority_score: Optional[float] = None
+
+    @field_validator("collected_at", mode="before")
+    @classmethod
+    def parse_datetime_with_z_suffix(cls, v):
+        """
+        Handle ISO 8601 datetime formats with optional Z suffix.
+
+        Accepts both:
+        - 2025-09-27T08:00:57.533546+00:00Z (with redundant Z)
+        - 2025-09-27T08:00:57.533546+00:00 (standard format)
+
+        The Z suffix is redundant when timezone offset is present but valid ISO 8601.
+        """
+        if isinstance(v, str):
+            # Remove redundant Z if timezone offset is already present
+            if "+00:00Z" in v:
+                v = v.replace("+00:00Z", "+00:00")
+            elif v.endswith("Z") and ("+" in v or "-" in v[-6:]):
+                # Handle other timezone formats with redundant Z
+                v = v.rstrip("Z")
+        return v
 
     class Config:
         json_encoders = {datetime: lambda v: v.isoformat() + "Z"}

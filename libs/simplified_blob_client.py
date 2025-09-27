@@ -3,21 +3,24 @@ Simplified Blob Storage Client - Production Implementation
 
 Clean, focused API with only essential operations.
 Replaces the bloated BlobOperations class with 8 core methods.
+Now includes standardized blob path management for consistent naming.
 """
 
 import json
 import logging
+from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from azure.storage.blob import BlobServiceClient
 
 from libs.blob_auth import BlobAuthManager
+from libs.blob_paths import BlobPathManager
 
 logger = logging.getLogger(__name__)
 
 
 class SimplifiedBlobClient:
-    """Focused blob storage client with only essential operations."""
+    """Focused blob storage client with only essential operations and standardized paths."""
 
     def __init__(self, blob_service_client: Optional[BlobServiceClient] = None):
         if blob_service_client:
@@ -28,6 +31,10 @@ class SimplifiedBlobClient:
             self.auth_manager = BlobAuthManager()
             self.blob_service_client = self.auth_manager.get_blob_service_client()
             logger.info("SimplifiedBlobClient initialized with Azure authentication")
+
+        # Initialize path manager for standardized blob naming
+        self.path_manager = BlobPathManager()
+        logger.info("BlobPathManager initialized for standardized path naming")
 
     def test_connection(self, timeout_seconds: float = None) -> Dict[str, Any]:
         """Test blob storage connection."""
@@ -234,6 +241,154 @@ class BlobClientAdapter:
     ) -> Optional[Dict]:
         """Legacy method - already matches new API."""
         return await self._client.download_json(container_name, blob_name)
+
+    # Standardized Path Methods
+    def get_collection_path(
+        self, source_identifier: str, timestamp: Optional[datetime] = None
+    ) -> str:
+        """
+        Generate standardized collection blob path.
+
+        Format: collections/YYYY/MM/DD/HH/HHMMSS_source.json
+        Example: collections/2025/09/27/08/080026_arstechnica.com.json
+
+        Args:
+            source_identifier: Source domain/identifier (e.g., "arstechnica.com", "reddit.r_technology")
+            timestamp: Optional datetime (defaults to now)
+
+        Returns:
+            str: Standardized collection blob path
+        """
+        return self.path_manager.get_collection_path(source_identifier, timestamp)
+
+    def get_processing_path(
+        self,
+        collection_source: str,
+        processing_stage: str,
+        timestamp: Optional[datetime] = None,
+    ) -> str:
+        """
+        Generate processing stage blob path.
+
+        Format: processing/YYYY/MM/DD/stage/HHMMSS_source.json
+        Example: processing/2025/09/27/enriched/080026_arstechnica.com.json
+
+        Args:
+            collection_source: Original collection source identifier
+            processing_stage: Processing stage (e.g., "ranked", "enriched", "generated")
+            timestamp: Optional datetime (defaults to now)
+
+        Returns:
+            str: Processing stage blob path
+        """
+        return self.path_manager.get_processing_path(
+            collection_source, processing_stage, timestamp
+        )
+
+    def get_generated_path(
+        self, content_type: str, topic_id: str, timestamp: Optional[datetime] = None
+    ) -> str:
+        """
+        Generate final output blob path.
+
+        Format: generated/YYYY/MM/DD/type/topic_id.ext
+        Example: generated/2025/09/27/articles/apple-airpods-pro-3-review.md
+
+        Args:
+            content_type: Type of generated content (e.g., "articles", "summaries")
+            topic_id: Topic identifier (sanitized)
+            timestamp: Optional datetime (defaults to now)
+
+        Returns:
+            str: Generated content blob path
+        """
+        return self.path_manager.get_generated_path(content_type, topic_id, timestamp)
+
+    def parse_collection_path(self, blob_path: str) -> Optional[Dict[str, str]]:
+        """
+        Parse a collection blob path to extract metadata.
+
+        Args:
+            blob_path: Blob path to parse
+
+        Returns:
+            Dict with keys: year, month, day, hour, minute, second, source, original_path
+            None if path doesn't match expected format
+        """
+        return self.path_manager.parse_collection_path(blob_path)
+
+    def list_collections_by_date(
+        self, year: int, month: int, day: int, hour: Optional[int] = None
+    ) -> str:
+        """
+        Generate blob prefix for listing collections by date.
+
+        Args:
+            year: Year (e.g., 2025)
+            month: Month (1-12)
+            day: Day (1-31)
+            hour: Optional hour (0-23) for more specific filtering
+
+        Returns:
+            str: Blob prefix for filtering
+        """
+        return self.path_manager.list_collections_by_date(year, month, day, hour)
+
+    async def upload_collection(
+        self,
+        container_name: str,
+        source_identifier: str,
+        collection_data: Dict[str, Any],
+        timestamp: Optional[datetime] = None,
+        overwrite: bool = True,
+    ) -> str:
+        """
+        Upload collection using standardized path naming.
+
+        Args:
+            container_name: Container to upload to (e.g., "collected-content")
+            source_identifier: Source domain/identifier
+            collection_data: Collection data to upload as JSON
+            timestamp: Optional timestamp (defaults to now)
+            overwrite: Whether to overwrite existing blob
+
+        Returns:
+            str: The blob path that was used for upload
+        """
+        blob_path = self.get_collection_path(source_identifier, timestamp)
+        await self.upload_json(container_name, blob_path, collection_data, overwrite)
+        logger.info(f"Uploaded collection to standardized path: {blob_path}")
+        return blob_path
+
+    async def upload_processing_result(
+        self,
+        container_name: str,
+        collection_source: str,
+        processing_stage: str,
+        result_data: Dict[str, Any],
+        timestamp: Optional[datetime] = None,
+        overwrite: bool = True,
+    ) -> str:
+        """
+        Upload processing result using standardized path naming.
+
+        Args:
+            container_name: Container to upload to (e.g., "processed-content")
+            collection_source: Original collection source identifier
+            processing_stage: Processing stage (e.g., "ranked", "enriched")
+            result_data: Processing result data to upload as JSON
+            timestamp: Optional timestamp (defaults to now)
+            overwrite: Whether to overwrite existing blob
+
+        Returns:
+            str: The blob path that was used for upload
+        """
+        blob_path = self.get_processing_path(
+            collection_source, processing_stage, timestamp
+        )
+        await self.upload_json(container_name, blob_path, result_data, overwrite)
+        logger.info(f"Uploaded processing result to standardized path: {blob_path}")
+        return blob_path
 
     async def upload_json_data(
         self, container_name: str, blob_name: str, data: Dict
