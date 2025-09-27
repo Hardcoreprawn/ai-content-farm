@@ -25,6 +25,10 @@ class WakeUpRequest(BaseModel):
     processing_options: Optional[Dict[str, Any]] = Field(
         default_factory=dict, description="Additional processing parameters"
     )
+    debug_bypass: Optional[bool] = Field(
+        False,
+        description="Bypass all filtering for diagnostic purposes - opens the taps!",
+    )
 
 
 class ProcessBatchRequest(BaseModel):

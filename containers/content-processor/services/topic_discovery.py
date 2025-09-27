@@ -1,7 +1,40 @@
 """
 Topic Discovery Service
 
-Handles finding and filtering available topics for processing.
+Handles finding and filtering available topics for pro                    processed_col                    processed_collections += 1ions += 1
+
+                    # Process items in the collection
+                    items = collection_data.get("items", [])
+                    logger.info(f"📋 ITEMS: Found {len(items)} items in {blob_name}")
+
+                    if debug_bypass:
+                        # In debug mode, process raw items without validation
+                        for idx, item_data in enumerate(items):
+                            topic = self._raw_item_to_topic_metadata(item_data, blob_name, debug_bypass=True)
+                            if topic:
+                                topics.append(topic)
+                                logger.info(f"🔧 DEBUG-RAW: Added topic {idx+1}/{len(items)}: {topic.title[:50]}...")
+                    else:
+                        # Normal mode: validate with data contracts
+                        try:
+                            validated_collection = ContractValidator.validate_collection_data(collection_data)
+                            logger.info(f"✅ CONTRACT: Successfully validated collection with {len(validated_collection.items)} items")
+
+                            # Process validated items
+                            for idx, item in enumerate(validated_collection.items):
+                                topic = self._validated_item_to_topic_metadata(item, blob_name)
+                                if topic:
+                                    topics.append(topic)
+                                    logger.info(f"📄 ITEM-{idx}: Added validated topic: {topic.title[:50]}...")
+                        except DataContractError as e:
+                            logger.error(f"❌ CONTRACT: Collection {blob_name} failed validation: {e}")
+                            continue
+
+                except Exception as e:
+                    logger.error(f"❌ PROCESSING: Unexpected error processing {blob_name}: {e}")
+                    continue
+
+            logger.info(f"📊 SUMMARY: Processed {processed_collections} collections, skipped {skipped_collections}, found {len(topics)} total topics")ing.
 Extracted from ContentProcessor to improve maintainability.
 """
 
@@ -24,12 +57,18 @@ class TopicDiscoveryService:
         self.blob_client = blob_client or SimplifiedBlobClient()
 
     async def find_available_topics(
-        self, batch_size: int, priority_threshold: float
+        self, batch_size: int, priority_threshold: float, debug_bypass: bool = False
     ) -> List[TopicMetadata]:
-        """Find topics available for processing (pure function)."""
+        """Find topics available for processing (pure function).
+
+        Args:
+            batch_size: Maximum number of topics to return
+            priority_threshold: Minimum priority score required
+            debug_bypass: If True, bypass all filtering for diagnosis
+        """
         try:
             logger.info(
-                f"🔍 TOPIC-DISCOVERY: Searching for topics (batch_size={batch_size}, threshold={priority_threshold})"
+                f"🔍 TOPIC-DISCOVERY: Searching for topics (batch_size={batch_size}, threshold={priority_threshold}, debug_bypass={debug_bypass})"
             )
 
             # List all collections from blob storage
@@ -48,76 +87,106 @@ class TopicDiscoveryService:
                     "⚠️ BLOB-STORAGE: No collections found in collected-content container!"
                 )
 
-            valid_collections = []
-            empty_collections = 0
+            # Process each collection file
+            topics = []
+            processed_collections = 0
+            skipped_collections = 0
 
-            # Process each collection
-            for blob_info in blobs:
-                blob_name = blob_info["name"]
-
+            for blob in blobs:
                 try:
+                    blob_name = blob["name"]
+                    logger.info(f"📄 PROCESSING: {blob_name}")
+
                     # Download and parse collection
                     collection_data = await self.blob_client.download_json(
                         "collected-content", blob_name
                     )
 
-                    # Filter out empty collections
-                    if self._is_valid_collection(collection_data):
-                        valid_collections.append((blob_name, collection_data))
-                        logger.debug(
-                            f"Valid collection: {blob_name} ({len(collection_data.get('items', []))} items)"
-                        )
-                    else:
-                        empty_collections += 1
-                        logger.debug(f"Skipping empty collection: {blob_name}")
-
-                except Exception as e:
-                    logger.warning(f"Error processing collection {blob_name}: {e}")
-                    continue
-
-            logger.info(
-                f"Found {len(valid_collections)} valid collections, skipped {empty_collections} empty collections"
-            )
-
-            # Convert collections to TopicMetadata objects using data contracts
-            topics = []
-            for blob_name, collection_data in valid_collections:
-                logger.info(
-                    f"📄 PROCESSING: Collection {blob_name} - validating with data contracts"
-                )
-
-                try:
-                    # Use contract validator to ensure consistent data structure
-                    validated_collection = ContractValidator.validate_collection_data(
+                    # Validate collection structure (bypass in debug mode)
+                    if not debug_bypass and not self._is_valid_collection(
                         collection_data
-                    )
-                    logger.info(
-                        f"✅ CONTRACT: Successfully validated collection with {len(validated_collection.items)} items"
-                    )
-
-                    # Process validated items
-                    for idx, item in enumerate(validated_collection.items):
-                        logger.info(
-                            f"📄 ITEM-{idx}: Processing validated item: {item.title[:50]}..."
+                    ):
+                        logger.warning(
+                            f"⚠️ VALIDATION: Skipping invalid collection: {blob_name}"
                         )
-                        topic = self._validated_item_to_topic_metadata(item, blob_name)
-                        if topic:
-                            topics.append(topic)
+                        skipped_collections += 1
+                        continue
+                    elif debug_bypass:
+                        logger.info(
+                            f"🔧 DEBUG-BYPASS: Skipping validation for {blob_name}"
+                        )
 
-                except DataContractError as e:
-                    logger.error(
-                        f"❌ CONTRACT: Collection {blob_name} failed validation: {e}"
-                    )
-                    continue
+                    processed_collections += 1
+
+                    # Process items in the collection
+                    items = collection_data.get("items", [])
+                    logger.info(f"� ITEMS: Found {len(items)} items in {blob_name}")
+
+                    if debug_bypass:
+                        # In debug mode, process raw items without validation
+                        for idx, item_data in enumerate(items):
+                            topic = self._raw_item_to_topic_metadata(
+                                item_data, blob_name, debug_bypass=True
+                            )
+                            if topic:
+                                topics.append(topic)
+                                logger.info(
+                                    f"🔧 DEBUG-RAW: Added topic {idx+1}/{len(items)}: {topic.title[:50]}..."
+                                )
+                    else:
+                        # Normal mode: validate with data contracts
+                        try:
+                            validated_collection = (
+                                ContractValidator.validate_collection_data(
+                                    collection_data
+                                )
+                            )
+                            logger.info(
+                                f"✅ CONTRACT: Successfully validated collection with {len(validated_collection.items)} items"
+                            )
+
+                            # Process validated items
+                            for idx, item in enumerate(validated_collection.items):
+                                topic = self._validated_item_to_topic_metadata(
+                                    item, blob_name
+                                )
+                                if topic:
+                                    topics.append(topic)
+                                    logger.info(
+                                        f"📄 ITEM-{idx}: Added validated topic: {topic.title[:50]}..."
+                                    )
+                        except DataContractError as e:
+                            logger.error(
+                                f"❌ CONTRACT: Collection {blob_name} failed validation: {e}"
+                            )
+                            continue
+
                 except Exception as e:
                     logger.error(
                         f"❌ PROCESSING: Unexpected error processing {blob_name}: {e}"
                     )
                     continue
 
-            # Sort by priority and limit batch size
-            topics.sort(key=lambda t: t.priority_score, reverse=True)
-            result = topics[:batch_size]
+            logger.info(
+                f"📊 SUMMARY: Processed {processed_collections} collections, skipped {skipped_collections}, found {len(topics)} total topics"
+            )
+
+            # Sort by priority and limit batch size (bypass filtering in debug mode)
+            if debug_bypass:
+                logger.info(
+                    f"🔧 DEBUG-BYPASS: Found {len(topics)} raw topics, returning first {min(batch_size, len(topics))}"
+                )
+                result = topics[:batch_size]
+            else:
+                # Apply priority filtering
+                filtered_topics = [
+                    t for t in topics if t.priority_score >= priority_threshold
+                ]
+                logger.info(
+                    f"📊 FILTERING: {len(topics)} total topics, {len(filtered_topics)} above threshold {priority_threshold}"
+                )
+                filtered_topics.sort(key=lambda t: t.priority_score, reverse=True)
+                result = filtered_topics[:batch_size]
 
             logger.info(f"Returning {len(result)} topics for processing")
             return result
@@ -416,3 +485,39 @@ class TopicDiscoveryService:
         except Exception as e:
             logger.warning(f"Error calculating priority score from validated item: {e}")
             return 0.5  # Default to 0.5 instead of 0.0
+
+    def _raw_item_to_topic_metadata(
+        self, item_data: Dict[str, Any], blob_name: str, debug_bypass: bool = False
+    ) -> Optional[TopicMetadata]:
+        """
+        Create TopicMetadata from raw item data for debug bypass mode.
+        Minimal validation, just ensure basic fields exist.
+        """
+        try:
+            title = item_data.get("title", "NO_TITLE")
+            url = item_data.get("url", "")
+            content = item_data.get("content", "")
+
+            # In debug mode, use high priority score to ensure processing
+            priority_score = 0.9 if debug_bypass else 0.5
+
+            logger.info(
+                f"🔧 DEBUG-RAW: Creating topic for '{title[:50]}...' with score {priority_score}"
+            )
+
+            return TopicMetadata(
+                id=item_data.get("id", f"raw_{blob_name}_{title[:20]}"),
+                title=title,
+                url=url,
+                content=content,
+                source=item_data.get("source", "unknown"),
+                priority_score=priority_score,
+                collected_at=datetime.now(timezone.utc),  # Use current time if missing
+                upvotes=item_data.get("upvotes", 0),
+                comments=item_data.get("comments", 0),
+                state=TopicState.PENDING,
+            )
+
+        except Exception as e:
+            logger.warning(f"Error creating raw TopicMetadata: {e}")
+            return None

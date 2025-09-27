@@ -158,6 +158,7 @@ async def wake_up_endpoint(
             batch_size=request.batch_size,
             priority_threshold=request.priority_threshold,
             options=request.processing_options,
+            debug_bypass=request.debug_bypass,
         )
 
         response_data = WakeUpResponse(

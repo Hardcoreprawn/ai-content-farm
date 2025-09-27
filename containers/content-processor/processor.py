@@ -141,6 +141,7 @@ class ContentProcessor:
         batch_size: int = 10,
         priority_threshold: float = 0.5,
         options: Optional[Dict[str, Any]] = None,
+        debug_bypass: bool = False,
     ) -> ProcessingResult:
         """
         Process available work using wake-up work queue pattern.
@@ -158,11 +159,16 @@ class ContentProcessor:
 
         try:
             # Phase 1: Find available topics
-            logger.info(
-                f"🔍 DISCOVERY: Searching for available topics with batch_size={batch_size}, priority_threshold={priority_threshold}"
-            )
+            if debug_bypass:
+                logger.info(
+                    f"🔧 DEBUG-BYPASS: Opening the taps! Searching for ALL topics (batch_size={batch_size}, bypassing threshold={priority_threshold})"
+                )
+            else:
+                logger.info(
+                    f"🔍 DISCOVERY: Searching for available topics with batch_size={batch_size}, priority_threshold={priority_threshold}"
+                )
             available_topics = await self.topic_discovery.find_available_topics(
-                batch_size, priority_threshold
+                batch_size, priority_threshold, debug_bypass=debug_bypass
             )
 
             if not available_topics:
