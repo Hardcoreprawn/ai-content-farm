@@ -241,20 +241,24 @@ class PipelineDiagnostics:
         auth_test = await self._test_blob_authentication()
         tests.append(auth_test)
 
-        # Test 3: Blob Connectivity
+        # Test 3: Configuration Loading
+        config_test = await self._test_configuration_loading()
+        tests.append(config_test)
+
+        # Test 4: Blob Connectivity
         conn_test = await self._test_blob_connectivity()
         tests.append(conn_test)
 
-        # Test 4: Container Access
+        # Test 5: Container Access
         container_test = await self._test_container_access()
         tests.append(container_test)
 
-        # Test 5: Collection Discovery (if deep scan enabled)
+        # Test 6: Collection Discovery (if deep scan enabled)
         if deep_scan:
             discovery_test = await self._test_collection_discovery()
             tests.append(discovery_test)
 
-            # Test 6: Data Validation
+            # Test 7: Data Validation
             validation_test = await self._test_data_validation()
             tests.append(validation_test)
 
@@ -316,6 +320,78 @@ class PipelineDiagnostics:
                 status="pass",
                 message="All required environment variables are present",
                 details={"checked_variables": required_vars},
+                duration_ms=duration,
+            )
+
+    async def _test_configuration_loading(self) -> DiagnosticTest:
+        """Test loading configuration from blob storage."""
+        start_time = datetime.now()
+
+        try:
+            # Import ProcessingConfigManager
+            from libs.processing_config import ProcessingConfigManager
+            from libs.simplified_blob_client import SimplifiedBlobClient
+
+            blob_client = SimplifiedBlobClient()
+            config_manager = ProcessingConfigManager(blob_client)
+
+            # Try to load container configuration
+            container_config = await config_manager.get_container_config(
+                "content-processor"
+            )
+
+            # Try to load processing configuration
+            processing_config = await config_manager.get_processing_config(
+                "content-processor"
+            )
+
+            duration = (datetime.now() - start_time).total_seconds() * 1000
+
+            config_details = {
+                "container_config": {
+                    "input_container": container_config.get(
+                        "input_container", "default"
+                    ),
+                    "output_container": container_config.get(
+                        "output_container", "default"
+                    ),
+                    "collections_prefix": container_config.get(
+                        "collections_prefix", "default"
+                    ),
+                },
+                "processing_config": {
+                    "default_batch_size": processing_config.get(
+                        "default_batch_size", "default"
+                    ),
+                    "max_batch_size": processing_config.get(
+                        "max_batch_size", "default"
+                    ),
+                    "default_priority_threshold": processing_config.get(
+                        "default_priority_threshold", "default"
+                    ),
+                },
+                "config_source": (
+                    "blob_storage"
+                    if "input_container" in container_config
+                    else "defaults"
+                ),
+            }
+
+            return DiagnosticTest(
+                name="Configuration Loading",
+                status="pass",
+                message=f"Configuration loaded successfully from {config_details['config_source']}",
+                details=config_details,
+                duration_ms=duration,
+            )
+
+        except Exception as e:
+            duration = (datetime.now() - start_time).total_seconds() * 1000
+            return DiagnosticTest(
+                name="Configuration Loading",
+                status="fail",
+                message=f"Failed to load configuration: {str(e)}",
+                details={"error": str(e), "config_source": "unknown"},
                 duration_ms=duration,
             )
 
