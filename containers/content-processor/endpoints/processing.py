@@ -110,56 +110,73 @@ async def get_processing_types(
     "/wake-up",
     response_model=StandardResponse,
     summary="Wake Up Processor",
-    description="Wake up the processor to scan and process all available content",
+    description="Process the latest collection - simple and direct",
 )
 async def wake_up_processor(
     request: WakeUpRequest,
     metadata: Dict[str, Any] = Depends(service_metadata),
 ):
     """
-    Wake up the processor to scan blob storage and process all available content.
-
-    This endpoint provides the same functionality as Service Bus wake-up messages
-    but can be triggered manually for testing or manual processing.
+    Simple wake-up: get latest collection, process items, done.
+    No complex discovery, no filtering - just work.
     """
     try:
-        # Import processor here to avoid circular imports
-        from processor import ContentProcessor
+        from libs.simplified_blob_client import SimplifiedBlobClient
 
-        processor = ContentProcessor()
+        blob_client = SimplifiedBlobClient()
 
-        # Process all available work (this scans blob storage)
-        result = await processor.process_available_work(
-            batch_size=request.batch_size,
-            priority_threshold=request.priority_threshold,
-            debug_bypass=request.debug_bypass,
+        # 1. Get latest collection file
+        blobs = await blob_client.list_blobs("collected-content", prefix="collections/")
+        if not blobs:
+            return StandardResponse(
+                status="success",
+                data={"topics_processed": 0, "message": "No collections found"},
+                message="No collections to process",
+                metadata=metadata,
+            )
+
+        # Get the most recent collection
+        latest_blob = sorted(blobs, key=lambda x: x["name"])[-1]
+        collection_data = await blob_client.download_json(
+            "collected-content", latest_blob["name"]
         )
+
+        items = collection_data.get("items", [])
+
+        # 2. Process items (simplified - just convert to basic articles)
+        articles_generated = 0
+        for item in items[: request.batch_size]:
+            # Simple processing - just create a basic article
+            article = {
+                "title": item.get("title", "Untitled"),
+                "content": item.get("content", item.get("description", "No content")),
+                "url": item.get("url", ""),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+
+            # Save to processed-content container
+            article_path = f"articles/{datetime.now().strftime('%Y/%m/%d')}/article_{uuid4().hex[:8]}.json"
+            await blob_client.upload_json("processed-content", article_path, article)
+            articles_generated += 1
 
         return StandardResponse(
             status="success",
             data={
-                "topics_processed": result.topics_processed,
-                "articles_generated": result.articles_generated,
-                "total_cost": result.total_cost,
-                "processing_time": result.processing_time,
-                "trigger_type": "manual_api",
-                "batch_size": request.batch_size,
-                "priority_threshold": request.priority_threshold,
-                "debug_bypass": request.debug_bypass,
-                "source": request.source,
+                "topics_processed": len(items[: request.batch_size]),
+                "articles_generated": articles_generated,
+                "collection_processed": latest_blob["name"],
+                "total_items_in_collection": len(items),
             },
-            message=f"Wake-up processing completed: {result.topics_processed} topics processed, {result.articles_generated} articles generated (debug_bypass={request.debug_bypass})",
-            errors=None,
+            message=f"Processed {articles_generated} articles from {latest_blob['name']}",
             metadata=metadata,
         )
 
     except Exception as e:
-        error_message = ErrorCodes.secure_internal_error(e, "wake_up_processor")
         return StandardResponse(
             status="error",
-            data={"trigger_type": "manual_api"},
-            message="Wake-up processing failed",
-            errors=[str(error_message)],
+            data={"error": str(e)},
+            message="Processing failed",
+            errors=[str(e)],
             metadata=metadata,
         )
 
