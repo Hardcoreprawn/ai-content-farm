@@ -1,6 +1,6 @@
 {
-    "default_batch_size": 50,
-    "max_batch_size": 200,
+    "default_batch_size": 32,
+    "max_batch_size": 32,
     "default_priority_threshold": 0.3,
     "timeout_seconds": 600,
     "min_content_length": 100,

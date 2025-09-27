@@ -27,8 +27,8 @@ class ProcessingConfig:
     """Configuration for content processing pipeline."""
 
     # Default batch sizes
-    DEFAULT_BATCH_SIZE = 50
-    MAX_BATCH_SIZE = 200
+    DEFAULT_BATCH_SIZE = 32
+    MAX_BATCH_SIZE = 32
 
     # Timeout settings (in seconds)
     DEFAULT_TIMEOUT = 300
