@@ -441,7 +441,7 @@ class PipelineDiagnostics:
 
             duration = (datetime.now() - start_time).total_seconds() * 1000
 
-            if connectivity.get("status") == "connected":
+            if connectivity.get("status") == "healthy":
                 return DiagnosticTest(
                     name="Blob Connectivity",
                     status="pass",
