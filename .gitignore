@@ -68,8 +68,7 @@ site/_site/
 *.log
 
 # Local development outputs
-output/*.json
-!output/.gitkeep
+output/
 
 # OS
 .DS_Store

@@ -401,17 +401,26 @@ class PipelineDiagnostics:
 
         try:
             auth_manager = BlobAuthManager()
-            credential = await auth_manager.get_credential()
+            connection_result = auth_manager.test_connection()
 
             duration = (datetime.now() - start_time).total_seconds() * 1000
 
-            return DiagnosticTest(
-                name="Blob Authentication",
-                status="pass",
-                message="Successfully obtained Azure credentials",
-                details={"credential_type": str(type(credential).__name__)},
-                duration_ms=duration,
-            )
+            if connection_result:
+                return DiagnosticTest(
+                    name="Blob Authentication",
+                    status="pass",
+                    message="Successfully authenticated to blob storage",
+                    details={"connection_test": "passed"},
+                    duration_ms=duration,
+                )
+            else:
+                return DiagnosticTest(
+                    name="Blob Authentication",
+                    status="fail",
+                    message="Blob authentication test failed",
+                    details={"connection_test": "failed"},
+                    duration_ms=duration,
+                )
         except Exception as e:
             duration = (datetime.now() - start_time).total_seconds() * 1000
             return DiagnosticTest(
@@ -428,7 +437,7 @@ class PipelineDiagnostics:
 
         try:
             blob_client = SimplifiedBlobClient()
-            connectivity = await blob_client.test_storage_connectivity()
+            connectivity = blob_client.test_connection()
 
             duration = (datetime.now() - start_time).total_seconds() * 1000
 
