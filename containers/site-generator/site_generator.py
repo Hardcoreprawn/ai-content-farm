@@ -44,8 +44,10 @@ class SiteGenerator:
         """Initialize the site generator with required services."""
         self.generator_id = str(uuid4())[:8]
         self.config = Config()
+        self._initialized = False
 
-        # Initialize SimplifiedBlobClient with Azure authentication
+        # Initialize SimplifiedBlobClient with environment-based storage account URL
+        # Container names and processing settings come from blob-based config
         storage_account_url = os.getenv("AZURE_STORAGE_ACCOUNT_URL")
         if not storage_account_url:
             raise ValueError(
@@ -63,7 +65,7 @@ class SiteGenerator:
         self.archive_manager = ArchiveManager(self.blob_client)
         self.security_validator = SecurityValidator()
 
-        # Initialize services
+        # Initialize services (will be updated after config initialization)
         self.markdown_service = MarkdownService(self.blob_client, self.config)
         self.site_service = SiteService(
             self.blob_client, self.config, self.content_manager, self.archive_manager
@@ -76,6 +78,13 @@ class SiteGenerator:
         self.error_message = None
 
         logger.info(f"SiteGenerator initialized: {self.generator_id}")
+
+    async def initialize(self):
+        """Initialize configuration from blob storage."""
+        if not self._initialized:
+            await self.config.initialize()
+            self._initialized = True
+            logger.info("SiteGenerator configuration initialized from blob storage")
 
     async def check_blob_connectivity(self) -> Dict[str, Any]:
         """Test blob storage connectivity with fast timeout for health checks."""
@@ -141,6 +150,9 @@ class SiteGenerator:
     ) -> GenerationResponse:
         """Generate markdown files from processed content."""
         try:
+            # Ensure configuration is loaded
+            await self.initialize()
+
             self.current_status = "generating"
             self._clear_error_state()
             result = await self.markdown_service.generate_batch(
@@ -170,6 +182,9 @@ class SiteGenerator:
     ) -> GenerationResponse:
         """Generate complete static HTML site."""
         try:
+            # Ensure configuration is loaded
+            await self.initialize()
+
             self.current_status = "generating"
             self.current_theme = theme
             self._clear_error_state()

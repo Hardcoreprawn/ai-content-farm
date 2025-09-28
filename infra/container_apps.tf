@@ -482,6 +482,11 @@ resource "azurerm_container_app" "site_generator" {
       }
 
       env {
+        name  = "AZURE_STORAGE_ACCOUNT_URL"
+        value = azurerm_storage_account.main.primary_blob_endpoint
+      }
+
+      env {
         name  = "SITE_TITLE"
         value = "JabLab Tech News"
       }

@@ -94,18 +94,40 @@ class MarkdownService:
     async def _get_processed_articles(self, limit: int) -> List[Dict]:
         """Get latest processed articles from blob storage."""
         try:
+            container_name = self.config.PROCESSED_CONTENT_CONTAINER
+
+            # Get the prefix from container config if available
+            prefix = None
+            if (
+                hasattr(self.config, "_container_config")
+                and self.config._container_config
+            ):
+                prefix = self.config._container_config.get("input_prefix", "articles/")
+                logger.info(f"Using prefix: {prefix}")
+            else:
+                # Fallback - try both old flat structure and new articles/ structure
+                logger.info("No container config available, trying articles/ prefix")
+                prefix = "articles/"
+
             logger.info(
-                f"Attempting to list blobs from container: {self.config.PROCESSED_CONTENT_CONTAINER}"
+                f"Attempting to list blobs from container: {container_name} with prefix: {prefix}"
             )
 
-            # List blobs in processed-content container
+            # List blobs in processed-content container with prefix
             blobs = await self.blob_client.list_blobs(
-                container_name=self.config.PROCESSED_CONTENT_CONTAINER
+                container=container_name, prefix=prefix
             )
 
-            logger.info(f"Found {len(blobs)} blobs in container")
+            logger.info(f"Found {len(blobs)} blobs in container with prefix {prefix}")
             if blobs:
                 logger.info(f"First blob info: {blobs[0]}")
+            else:
+                # If no files found with prefix, try without prefix (old structure)
+                logger.info(
+                    "No files found with prefix, trying without prefix (old structure)"
+                )
+                blobs = await self.blob_client.list_blobs(container=container_name)
+                logger.info(f"Found {len(blobs)} blobs in container without prefix")
 
             articles = []
             # Take only the requested number of blobs and extract blob names properly
@@ -115,7 +137,7 @@ class MarkdownService:
                 logger.info(f"Processing blob: {blob_name}")
                 try:
                     article_data = await self.blob_client.download_json(
-                        container_name=self.config.PROCESSED_CONTENT_CONTAINER,
+                        container_name=container_name,
                         blob_name=blob_name,
                     )
                     logger.info(f"Successfully downloaded article data for {blob_name}")
@@ -161,14 +183,36 @@ class MarkdownService:
     def _create_markdown_content(self, article_data: Dict) -> str:
         """Create markdown content with frontmatter."""
         title = article_data.get("title", "Untitled")
-        content = article_data.get("article_content", "")
-        word_count = article_data.get("word_count", 0)
-        quality_score = article_data.get("quality_score", 0)
+        # Handle both old format (article_content) and new format (content)
+        content = article_data.get("article_content") or article_data.get("content", "")
+        word_count = article_data.get(
+            "word_count", len(content.split()) if content else 0
+        )
+        quality_score = article_data.get(
+            "quality_score", 0.8
+        )  # Default reasonable score
         cost = article_data.get("cost", 0)
+
+        # Handle URL field variations
+        original_url = article_data.get("original_url") or article_data.get("url") or ""
+
+        # Extract source from URL if not provided
         source = article_data.get("source", "unknown")
-        original_url = article_data.get("original_url", "")
-        generated_at = article_data.get(
-            "generated_at", datetime.now(timezone.utc).isoformat()
+        if source == "unknown" and original_url:
+            if "wired.com" in original_url:
+                source = "wired"
+            elif "arstechnica" in original_url:
+                source = "arstechnica"
+            elif "theregister" in original_url:
+                source = "theregister"
+            else:
+                source = "web"
+
+        # Handle timestamp variations
+        generated_at = (
+            article_data.get("generated_at")
+            or article_data.get("timestamp")
+            or datetime.now(timezone.utc).isoformat()
         )
         topic_id = article_data.get("topic_id", "")
 
