@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Union
 from unittest.mock import AsyncMock
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class MockQueueMessage(BaseModel):
@@ -35,8 +35,7 @@ class MockQueueMessage(BaseModel):
     next_visible_on: Optional[datetime] = None
     dequeue_count: Optional[int] = 1
 
-    class Config:
-        arbitrary_types_allowed = True
+    model_config = ConfigDict(arbitrary_types_allowed=True)
 
     def get(self, key: str, default=None):
         """Dict-like interface for backward compatibility."""

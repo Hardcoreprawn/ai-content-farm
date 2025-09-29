@@ -12,7 +12,7 @@ from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class ContentSource(str, Enum):
@@ -77,8 +77,7 @@ class CollectionItem(BaseModel):
                 v = v.rstrip("Z")
         return v
 
-    class Config:
-        json_encoders = {datetime: lambda v: v.isoformat() + "Z"}
+    model_config = ConfigDict()
 
 
 class CollectionMetadata(BaseModel):

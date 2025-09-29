@@ -7,7 +7,7 @@ for type-safe, validated environment variable handling.
 
 from typing import Optional
 
-from pydantic import Field
+from pydantic import ConfigDict, Field
 from pydantic_settings import BaseSettings
 
 
@@ -68,13 +68,14 @@ class BaseContainerConfig(BaseSettings):
                 f"https://{self.storage_account_name}.blob.core.windows.net"
             )
 
-    class Config:
+    model_config = ConfigDict(
         # Load from environment variables
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
         # Allow extra fields for container-specific config
-        extra = "allow"
+        extra="allow",
+    )
 
 
 class ContentCollectorConfig(BaseContainerConfig):
