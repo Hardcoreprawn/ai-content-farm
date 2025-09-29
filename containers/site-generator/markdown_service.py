@@ -95,6 +95,14 @@ class MarkdownService:
         """Get latest processed articles from blob storage."""
         try:
             container_name = self.config.PROCESSED_CONTENT_CONTAINER
+            logger.info(f"🔍 DEBUG: Using container name: {container_name}")
+            logger.info(
+                f"🔍 DEBUG: Config initialized: {hasattr(self.config, '_container_config') and self.config._container_config is not None}"
+            )
+            if hasattr(self.config, "_container_config"):
+                logger.info(
+                    f"🔍 DEBUG: Container config: {self.config._container_config}"
+                )
 
             # Get the prefix from container config if available
             prefix = None
