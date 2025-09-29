@@ -118,16 +118,26 @@ class MarkdownService:
                 container=container_name, prefix=prefix
             )
 
-            logger.info(f"Found {len(blobs)} blobs in container with prefix {prefix}")
+            logger.info(
+                f"Found {len(blobs)} blobs in container {container_name} with prefix {prefix}"
+            )
             if blobs:
                 logger.info(f"First blob info: {blobs[0]}")
+                # Filter to only JSON files to avoid processing markdown files
+                json_blobs = [blob for blob in blobs if blob["name"].endswith(".json")]
+                logger.info(f"Filtered to {len(json_blobs)} JSON files")
+                blobs = json_blobs
             else:
                 # If no files found with prefix, try without prefix (old structure)
                 logger.info(
                     "No files found with prefix, trying without prefix (old structure)"
                 )
-                blobs = await self.blob_client.list_blobs(container=container_name)
-                logger.info(f"Found {len(blobs)} blobs in container without prefix")
+                all_blobs = await self.blob_client.list_blobs(container=container_name)
+                # Filter to only JSON files to avoid processing markdown files
+                blobs = [blob for blob in all_blobs if blob["name"].endswith(".json")]
+                logger.info(
+                    f"Found {len(blobs)} JSON files in container {container_name} without prefix"
+                )
 
             articles = []
             # Take only the requested number of blobs and extract blob names properly
@@ -198,6 +208,25 @@ class MarkdownService:
 
         # Extract source from URL if not provided
         source = article_data.get("source", "unknown")
+
+        # Improved source detection for new normalized content
+        if source == "unknown" and original_url:
+            # Enhanced source detection with more site patterns
+            url_lower = original_url.lower()
+            if "wired.com" in url_lower:
+                source = "wired"
+            elif "arstechnica" in url_lower:
+                source = "arstechnica"
+            elif "theregister" in url_lower:
+                source = "theregister"
+            elif "reddit.com" in url_lower:
+                source = "reddit"
+            elif "github.com" in url_lower:
+                source = "github"
+            elif "stackoverflow.com" in url_lower:
+                source = "stackoverflow"
+            else:
+                source = "web"
         if source == "unknown" and original_url:
             if "wired.com" in original_url:
                 source = "wired"
