@@ -45,13 +45,18 @@ class SiteService:
         self.security_validator = SecurityValidator()
         self.error_handler = SecureErrorHandler("site-service")
         self._config = Config()
+        self._initialized = False
+        logger.debug(f"SiteService initialized: {self.service_id}")
 
     @property
     def config(self):
         """Get configuration instance."""
         return self._config
-        self._initialized = False
-        logger.debug(f"SiteService initialized: {self.service_id}")
+
+    @config.setter
+    def config(self, value):
+        """Set configuration instance (for testing)."""
+        self._config = value
 
     async def initialize(self):
         """Initialize the service with all dependencies."""

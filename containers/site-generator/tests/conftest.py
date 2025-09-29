@@ -230,6 +230,9 @@ def mock_generator(
         generator.archive_manager = mock_archive_manager
         generator.security_validator = mock_security_validator
 
+        # Mark as initialized to prevent re-initialization during tests
+        generator._initialized = True
+
         return generator
 
 

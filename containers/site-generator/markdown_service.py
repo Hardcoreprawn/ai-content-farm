@@ -41,13 +41,18 @@ class MarkdownService:
         self.service_id = str(uuid4())[:8]
         self.security_validator = SecurityValidator()
         self._config = Config()
+        self._initialized = False
+        logger.debug(f"MarkdownService initialized: {self.service_id}")
 
     @property
     def config(self):
         """Get configuration instance."""
         return self._config
-        self._initialized = False
-        logger.debug(f"MarkdownService initialized: {self.service_id}")
+
+    @config.setter
+    def config(self, value):
+        """Set configuration instance (for testing)."""
+        self._config = value
 
     async def initialize(self):
         """Initialize the service with blob client."""
