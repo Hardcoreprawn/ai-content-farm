@@ -1,0 +1,8 @@
+{
+    "output_container": "collected-content",
+    "collections_prefix": "collections/",
+    "temp_prefix": "temp/",
+    "description": "Container configuration for content-collector service",
+    "last_updated": "2025-09-29T00:00:00Z",
+    "version": "1.0"
+}

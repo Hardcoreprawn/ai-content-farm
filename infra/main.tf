@@ -730,6 +730,24 @@ resource "azurerm_storage_blob" "content_processor_processing_config" {
   content_type           = "application/json"
 }
 
+resource "azurerm_storage_blob" "content_collector_containers_config" {
+  name                   = "config/content-collector-containers.json"
+  storage_account_name   = azurerm_storage_account.main.name
+  storage_container_name = azurerm_storage_container.collection_templates.name
+  type                   = "Block"
+  source                 = "${path.module}/../container-config/content-collector-containers.json"
+  content_type           = "application/json"
+}
+
+resource "azurerm_storage_blob" "content_collector_processing_config" {
+  name                   = "config/content-collector-processing.json"
+  storage_account_name   = azurerm_storage_account.main.name
+  storage_container_name = azurerm_storage_container.collection_templates.name
+  type                   = "Block"
+  source                 = "${path.module}/../container-config/content-collector-processing.json"
+  content_type           = "application/json"
+}
+
 # Resource lock to prevent accidental deletion
 # Created LAST to avoid blocking infrastructure updates during deployment
 # Note: Temporarily disabled during deployment to allow resource cleanup

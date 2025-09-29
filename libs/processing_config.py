@@ -144,6 +144,17 @@ class ProcessingConfigManager:
                 "min_content_length": ProcessingConfig.MIN_CONTENT_LENGTH,
                 "max_content_length": ProcessingConfig.MAX_CONTENT_LENGTH,
             }
+        elif service_name == "content-collector":
+            return {
+                "enhanced_contracts_enabled": True,
+                "max_items_per_collection": 100,
+                "collection_timeout_seconds": 300,
+                "retry_attempts": 3,
+                "retry_delay_seconds": 5,
+                "default_subreddits": ["technology", "programming", "python"],
+                "rate_limit_requests_per_minute": 60,
+                "batch_size": 25,
+            }
         else:
             # Generic defaults
             return {
