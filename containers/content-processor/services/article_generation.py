@@ -57,7 +57,7 @@ class ArticleGenerationService:
             word_count = len(article_content.split())
             quality_score = self._calculate_quality_score(article_content, word_count)
 
-            # Prepare article result
+            # Prepare enhanced article result with provenance tracking
             article_result = {
                 "topic_id": topic_metadata.topic_id,
                 "title": topic_metadata.title,
@@ -83,6 +83,63 @@ class ArticleGenerationService:
                 },
             }
 
+            # Add enhanced metadata and provenance if available
+            if (
+                hasattr(topic_metadata, "enhanced_metadata")
+                and topic_metadata.enhanced_metadata
+            ):
+                enhanced = topic_metadata.enhanced_metadata
+
+                # Include enhanced metadata in article result
+                article_result["enhanced_metadata"] = {
+                    "source_metadata": enhanced.get("source_metadata"),
+                    "quality_scores": {
+                        "content_quality": enhanced.get("quality_score"),
+                        "relevance_score": enhanced.get("relevance_score"),
+                        "engagement_score": enhanced.get("engagement_score"),
+                        "generated_quality": quality_score,
+                    },
+                    "extracted_context": {
+                        "topics": enhanced.get("topics", []),
+                        "keywords": enhanced.get("keywords", []),
+                        "entities": enhanced.get("entities", []),
+                        "sentiment": enhanced.get("sentiment"),
+                    },
+                    "custom_fields": enhanced.get("custom_fields", {}),
+                }
+
+                # Create provenance chain
+                previous_provenance = enhanced.get("provenance_entries", [])
+                article_result["provenance_chain"] = {
+                    "previous_steps": len(previous_provenance),
+                    "total_previous_cost": sum(
+                        p.cost_usd
+                        for p in previous_provenance
+                        if hasattr(p, "cost_usd") and p.cost_usd
+                    ),
+                    "current_step": {
+                        "stage": "processing",
+                        "service_name": "content-processor",
+                        "operation": "article_generation",
+                        "processor_id": processor_id,
+                        "ai_model": getattr(
+                            self.openai_client, "model_name", "unknown"
+                        ),
+                        "cost_usd": cost_usd,
+                        "tokens_used": tokens_used,
+                        "processing_time_ms": int(processing_time * 1000),
+                        "timestamp": start_time.isoformat(),
+                    },
+                }
+
+                logger.info(
+                    f"📋 PROVENANCE: Added article generation provenance for {topic_metadata.topic_id}"
+                )
+            else:
+                logger.info(
+                    f"📋 LEGACY: Processing legacy topic without enhanced metadata for {topic_metadata.topic_id}"
+                )
+
             logger.info(
                 f"Article generated successfully: {word_count} words, "
                 f"${cost_usd:.4f} cost, {processing_time:.2f}s processing time"
@@ -102,7 +159,7 @@ class ArticleGenerationService:
 
     def _prepare_research_content(self, topic_metadata: TopicMetadata) -> str:
         """
-        Prepare research content for article generation.
+        Prepare research content for article generation with enhanced metadata support.
 
         Args:
             topic_metadata: The topic to prepare content for
@@ -113,6 +170,7 @@ class ArticleGenerationService:
         try:
             # Build comprehensive research content from topic metadata
             research_lines = []
+            enhanced_context = []
 
             # Basic topic information
             research_lines.append(f"Title: {topic_metadata.title}")
@@ -142,10 +200,94 @@ class ArticleGenerationService:
             if hasattr(topic_metadata, "subreddit") and topic_metadata.subreddit:
                 research_lines.append(f"Subreddit: {topic_metadata.subreddit}")
 
-            # Create structured research content
-            research_content = "\n".join(research_lines)
+            # Enhanced metadata processing
+            if (
+                hasattr(topic_metadata, "enhanced_metadata")
+                and topic_metadata.enhanced_metadata
+            ):
+                enhanced = topic_metadata.enhanced_metadata
+                logger.info(
+                    f"📋 ARTICLE-GEN: Using enhanced metadata for {topic_metadata.topic_id}"
+                )
 
-            # Add context instructions for better article generation
+                # Extract quality and relevance scores
+                if enhanced.get("quality_score"):
+                    enhanced_context.append(
+                        f"Content Quality Score: {enhanced['quality_score']:.3f}"
+                    )
+                if enhanced.get("relevance_score"):
+                    enhanced_context.append(
+                        f"Topic Relevance Score: {enhanced['relevance_score']:.3f}"
+                    )
+                if enhanced.get("engagement_score"):
+                    enhanced_context.append(
+                        f"Engagement Score: {enhanced['engagement_score']:.3f}"
+                    )
+
+                # Add extracted topics and keywords for better context
+                if enhanced.get("topics"):
+                    enhanced_context.append(
+                        f"Extracted Topics: {', '.join(enhanced['topics'])}"
+                    )
+                if enhanced.get("keywords"):
+                    enhanced_context.append(
+                        f"SEO Keywords: {', '.join(enhanced['keywords'])}"
+                    )
+                if enhanced.get("entities"):
+                    enhanced_context.append(
+                        f"Named Entities: {', '.join(enhanced['entities'])}"
+                    )
+                if enhanced.get("sentiment"):
+                    enhanced_context.append(
+                        f"Content Sentiment: {enhanced['sentiment']}"
+                    )
+
+                # Add source-specific metadata
+                source_meta = enhanced.get("source_metadata")
+                if source_meta:
+                    if hasattr(source_meta, "reddit_data") and source_meta.reddit_data:
+                        enhanced_context.append(
+                            f"Reddit Context: {source_meta.reddit_data}"
+                        )
+                    if (
+                        hasattr(source_meta, "mastodon_data")
+                        and source_meta.mastodon_data
+                    ):
+                        enhanced_context.append(
+                            f"Mastodon Context: {source_meta.mastodon_data}"
+                        )
+                    if hasattr(source_meta, "rss_data") and source_meta.rss_data:
+                        enhanced_context.append(f"RSS Context: {source_meta.rss_data}")
+
+                # Add custom fields if available
+                if enhanced.get("custom_fields"):
+                    enhanced_context.append(
+                        f"Additional Context: {enhanced['custom_fields']}"
+                    )
+
+                # Add provenance information for transparency
+                if enhanced.get("provenance_entries"):
+                    prov_count = len(enhanced["provenance_entries"])
+                    enhanced_context.append(
+                        f"Processing History: {prov_count} processing steps"
+                    )
+
+                    # Extract AI models used in provenance
+                    ai_models = [
+                        p.ai_model
+                        for p in enhanced["provenance_entries"]
+                        if hasattr(p, "ai_model") and p.ai_model
+                    ]
+                    if ai_models:
+                        enhanced_context.append(
+                            f"Previous AI Models: {', '.join(set(ai_models))}"
+                        )
+
+            # Combine basic and enhanced research content
+            all_research_lines = research_lines + enhanced_context
+            research_content = "\n".join(all_research_lines)
+
+            # Enhanced context instructions based on available metadata
             context_instructions = f"""
 Research Context:
 {research_content}
@@ -155,7 +297,10 @@ Instructions: Use this information to create a comprehensive, well-researched ar
 2. Maintains factual accuracy
 3. Engages readers with clear, informative content
 4. Incorporates relevant context from the source material
-5. Aims for approximately 3000 words with good structure and flow
+5. Leverages extracted topics, keywords, and entities for SEO optimization
+6. Respects the content sentiment and engagement patterns
+7. Aims for approximately 3000 words with good structure and flow
+8. Uses source-specific context to enhance authenticity and relevance
 """
 
             return context_instructions
