@@ -13,6 +13,10 @@ terraform {
       source  = "hashicorp/random"
       version = "3.6.0"
     }
+    external = {
+      source  = "hashicorp/external"
+      version = "~> 2.3"
+    }
   }
   required_version = ">= 1.3.0"
 }
@@ -23,7 +27,5 @@ provider "azurerm" {
 }
 
 provider "azuread" {}
-
-provider "azapi" {}
 
 provider "random" {}
