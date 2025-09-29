@@ -21,9 +21,13 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import uvicorn
+from diagnostic_endpoints import (
+    debug_content_discovery,
+    debug_force_process,
+    debug_pipeline_test,
+)
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from models import GenerationRequest, GenerationResponse, SiteStatus
 from site_generator import SiteGenerator
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -31,7 +35,10 @@ from storage_queue_router import router as storage_queue_router
 from theme_api import router as theme_router
 from theme_security import create_security_headers
 
+# Local imports
 from config import Config
+
+# Shared library imports
 from libs import SecureErrorHandler
 from libs.shared_models import (
     StandardResponse,
@@ -45,7 +52,7 @@ from libs.standard_endpoints import (
     create_standard_status_endpoint,
 )
 
-# Add the project root to Python path for imports
+# Add project root to Python path
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
 
@@ -57,14 +64,10 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Create service metadata dependency
-service_metadata = create_service_dependency("site-generator")
-
 # Initialize components
+service_metadata = create_service_dependency("site-generator")
 config = Config()
-
-# Lazy initialization for site_generator to avoid startup failures
-_site_generator_instance = None
+_site_generator_instance = None  # Lazy initialization for site_generator
 
 
 def get_site_generator() -> SiteGenerator:
@@ -84,109 +87,42 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager for KEDA-triggered site generation."""
     logger.info("Site Generator starting up...")
 
-    # Load standardized configuration at startup
+    # Load configuration and initialize site generator
     from libs.startup_config import load_service_config
 
     config = await load_service_config("site-generator")
     logger.info(f"� Loaded configuration: {config}")
 
-    # Initialize SiteGenerator with loaded config
     site_generator = get_site_generator()
     await site_generator.initialize(config)
     logger.info("✅ SiteGenerator configuration loaded successfully")
 
+    # Run boot-time diagnostics
+    from startup_diagnostics import run_boot_diagnostics
+
+    await run_boot_diagnostics(site_generator)
     logger.info("Site Generator ready for KEDA Storage Queue scaling")
 
     # Start background queue processing on startup
-    import asyncio
-
-    from storage_queue_router import storage_queue_router
+    from shutdown_handler import (
+        handle_startup_auto_shutdown,
+        handle_startup_error_shutdown,
+    )
+    from startup_diagnostics import process_startup_queue_messages
 
     from libs.queue_client import process_queue_messages
 
     async def startup_queue_processor():
-        """Process any existing queue messages on startup."""
         try:
-            logger.info("Starting up - checking for pending queue messages...")
-
-            # Process message handler
-            async def process_message(queue_message, message) -> Dict[str, Any]:
-                """Process a single message on startup."""
-                try:
-                    result = await storage_queue_router.process_storage_queue_message(
-                        queue_message
-                    )
-
-                    if result["status"] == "success":
-                        logger.info(
-                            f"Startup: Successfully processed message {queue_message.message_id}"
-                        )
-                    else:
-                        logger.warning(
-                            f"Startup: Message processing failed: {result.get('error', 'Unknown error')}"
-                        )
-
-                    return result
-                except Exception as e:
-                    logger.error(f"Startup: Error processing message: {e}")
-                    return {"status": "error", "error": str(e)}
-
-            # Process up to 5 messages on startup
-            processed_count = await process_queue_messages(
-                queue_name="site-generation-requests",
-                message_handler=process_message,
-                max_messages=5,
+            processed_messages = await process_startup_queue_messages(
+                storage_queue_router, process_queue_messages
             )
-
-            # Check if auto-shutdown is disabled (for development/testing)
-            disable_auto_shutdown = (
-                os.getenv("DISABLE_AUTO_SHUTDOWN", "false").lower() == "true"
-            )
-
-            if processed_count > 0:
-                logger.info(f"Startup: Processed {processed_count} pending messages")
-                if disable_auto_shutdown:
-                    logger.info(
-                        "Startup: All messages processed - container will remain active (DISABLE_AUTO_SHUTDOWN=true)"
-                    )
-                else:
-                    logger.info(
-                        "Startup: All messages processed - scheduling graceful shutdown"
-                    )
-                    # Schedule graceful shutdown after processing
-                    asyncio.create_task(graceful_shutdown())
-            else:
-                if disable_auto_shutdown:
-                    logger.info(
-                        "Startup: No pending messages found - container will remain active (DISABLE_AUTO_SHUTDOWN=true)"
-                    )
-                else:
-                    logger.info(
-                        "Startup: No pending messages found - scheduling graceful shutdown"
-                    )
-                    # Schedule shutdown if no work to do
-                    asyncio.create_task(graceful_shutdown())
-
+            processed_count = 1 if processed_messages else 0
+            await handle_startup_auto_shutdown(processed_count)
         except Exception as e:
             logger.error(f"Startup queue processing failed: {e}")
-            disable_auto_shutdown = (
-                os.getenv("DISABLE_AUTO_SHUTDOWN", "false").lower() == "true"
-            )
-            if disable_auto_shutdown:
-                logger.warning(
-                    "Startup error occurred but container will remain active (DISABLE_AUTO_SHUTDOWN=true)"
-                )
-            else:
-                # Schedule shutdown with error
-                asyncio.create_task(graceful_shutdown(exit_code=1))
+            await handle_startup_error_shutdown()
 
-    async def graceful_shutdown(exit_code: int = 0):
-        """Gracefully shutdown the container after a brief delay."""
-        await asyncio.sleep(2)  # Brief delay to ensure logs are flushed
-        logger.info(f"Gracefully shutting down container with exit code {exit_code}")
-        os._exit(exit_code)
-
-    # Start the background task
     asyncio.create_task(startup_queue_processor())
 
     try:
@@ -430,6 +366,33 @@ async def preview_site(site_id: str):
             user_message=f"Site preview not found for ID: {site_id}",
         )
         raise HTTPException(status_code=404, detail=error_response)
+
+
+# Diagnostic endpoints for pipeline debugging
+
+
+@app.get("/debug/content-discovery", response_model=StandardResponse)
+async def debug_content_discovery_endpoint():
+    """Debug endpoint: Check what content is discovered in each container."""
+    generator = get_site_generator()
+    await generator.initialize()
+    return await debug_content_discovery(generator)
+
+
+@app.get("/debug/pipeline-test", response_model=StandardResponse)
+async def debug_pipeline_test_endpoint():
+    """Debug endpoint: Test the complete pipeline with real data."""
+    generator = get_site_generator()
+    await generator.initialize()
+    return await debug_pipeline_test(generator)
+
+
+@app.post("/debug/force-process", response_model=StandardResponse)
+async def debug_force_process_endpoint():
+    """Debug endpoint: Force process new content end-to-end."""
+    generator = get_site_generator()
+    await generator.initialize()
+    return await debug_force_process(generator)
 
 
 # Exception handlers
