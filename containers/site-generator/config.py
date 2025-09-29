@@ -1,60 +1,80 @@
 """
 Site Generator Configuration
 
-Blob-based configuration for the static site generator.
-Uses ProcessingConfigManager for dynamic configuration management.
+Uses standardized startup configuration for consistent behavior.
 """
 
+import logging
 import os
 import sys
 from pathlib import Path
-from typing import Dict, Optional
-
-from libs.processing_config import ProcessingConfigManager
-from libs.simplified_blob_client import SimplifiedBlobClient
+from typing import Any, Dict, Optional
 
 # Add the project root to Python path for imports
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
+logger = logging.getLogger(__name__)
+
+# Global configuration loaded at startup
+_startup_config: Optional[Dict[str, Any]] = None
+
+
+def set_startup_config(config: Dict[str, Any]):
+    """Set the startup configuration."""
+    global _startup_config
+    _startup_config = config
+    logger.info(f"Configuration set: {config}")
+
+
+def get_config_value(key: str, default: Any = None) -> Any:
+    """Get a configuration value with fallback to default."""
+    if _startup_config is None:
+        logger.warning(f"Configuration not loaded, using default for {key}: {default}")
+        return default
+    return _startup_config.get(key, default)
+
 
 class Config:
-    """Configuration management for site generator using blob-based config."""
+    """Configuration management for site generator using startup config."""
 
     def __init__(self):
-        self.blob_client = SimplifiedBlobClient()
-        self.config_manager = ProcessingConfigManager(self.blob_client)
-        self._container_config = None
-        self._processing_config = None
+        pass
 
-    async def initialize(self):
-        """Initialize configuration from blob storage."""
-        self._container_config = await self.config_manager.get_container_config(
-            "site-generator"
-        )
-        self._processing_config = await self.config_manager.get_processing_config(
-            "site-generator"
-        )
+    async def initialize(self, startup_config: dict = None):
+        """Initialize configuration with startup config."""
+        if startup_config:
+            set_startup_config(startup_config)
+        logger.info("Configuration initialized")
 
     @property
     def PROCESSED_CONTENT_CONTAINER(self) -> str:
         """Get the processed content container name."""
-        if not self._container_config:
-            return "processed-content"  # fallback
-        return self._container_config.get("input_container", "processed-content")
+        return get_config_value("input_container", "processed-content")
 
     @property
     def MARKDOWN_CONTENT_CONTAINER(self) -> str:
         """Get the markdown content container name."""
-        if not self._container_config:
-            return "markdown-content"  # fallback
-        return self._container_config.get("output_container", "markdown-content")
+        return get_config_value("output_container", "markdown-content")
 
     @property
     def STATIC_SITES_CONTAINER(self) -> str:
         """Get the static sites container name."""
-        if not self._container_config:
-            return "static-sites"  # fallback
-        return self._container_config.get("static_sites_container", "static-sites")
+        return get_config_value("static_sites_container", "static-sites")
+
+    @property
+    def INPUT_PREFIX(self) -> str:
+        """Get the input prefix for processed content."""
+        return get_config_value("input_prefix", "articles/")
+
+    @property
+    def MARKDOWN_PREFIX(self) -> str:
+        """Get the markdown prefix."""
+        return get_config_value("markdown_prefix", "articles/")
+
+    @property
+    def SITES_PREFIX(self) -> str:
+        """Get the sites prefix."""
+        return get_config_value("sites_prefix", "sites/")
 
     # Publishing Configuration (still from environment for now)
     PUBLISH_METHOD: str = os.environ.get(
@@ -85,30 +105,22 @@ class Config:
     @property
     def ARTICLES_PER_PAGE(self) -> int:
         """Get articles per page from processing config."""
-        if not self._processing_config:
-            return 10  # fallback
-        return self._processing_config.get("articles_per_page", 10)
+        return get_config_value("articles_per_page", 10)
 
     @property
     def MAX_ARTICLES_TOTAL(self) -> int:
         """Get max articles total from processing config."""
-        if not self._processing_config:
-            return 100  # fallback
-        return self._processing_config.get("max_articles_total", 100)
+        return get_config_value("max_articles_total", 100)
 
     @property
     def DEFAULT_THEME(self) -> str:
         """Get default theme from processing config."""
-        if not self._processing_config:
-            return "minimal"  # fallback
-        return self._processing_config.get("default_theme", "minimal")
+        return get_config_value("default_theme", "minimal")
 
     @property
     def CONCURRENT_OPERATIONS(self) -> int:
         """Get concurrent operations from processing config."""
-        if not self._processing_config:
-            return 5  # fallback
-        return self._processing_config.get("concurrent_operations", 5)
+        return get_config_value("concurrent_operations", 5)
 
     @property
     def azure_storage_configured(self) -> bool:

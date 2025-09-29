@@ -83,6 +83,18 @@ error_handler = SecureErrorHandler("site-generator")
 async def lifespan(app: FastAPI):
     """Application lifespan manager for KEDA-triggered site generation."""
     logger.info("Site Generator starting up...")
+
+    # Load standardized configuration at startup
+    from libs.startup_config import load_service_config
+
+    config = await load_service_config("site-generator")
+    logger.info(f"� Loaded configuration: {config}")
+
+    # Initialize SiteGenerator with loaded config
+    site_generator = get_site_generator()
+    await site_generator.initialize(config)
+    logger.info("✅ SiteGenerator configuration loaded successfully")
+
     logger.info("Site Generator ready for KEDA Storage Queue scaling")
 
     # Start background queue processing on startup

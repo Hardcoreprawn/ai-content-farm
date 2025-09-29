@@ -79,12 +79,26 @@ class SiteGenerator:
 
         logger.info(f"SiteGenerator initialized: {self.generator_id}")
 
-    async def initialize(self):
-        """Initialize configuration from blob storage."""
-        if not self._initialized:
-            await self.config.initialize()
-            self._initialized = True
-            logger.info("SiteGenerator configuration initialized from blob storage")
+    async def initialize(self, startup_config: dict = None):
+        """Initialize the site generator with startup configuration."""
+        if self._initialized:
+            return
+
+        logger.info("Initializing site generator...")
+
+        # Initialize configuration with startup config
+        await self.config.initialize(startup_config)
+
+        # Initialize markdown service
+        self._markdown_service = MarkdownService()
+        await self._markdown_service.initialize()
+
+        # Initialize site service
+        self._site_service = SiteService()
+        await self._site_service.initialize()
+
+        self._initialized = True
+        logger.info("Site generator initialized")
 
     async def check_blob_connectivity(self) -> Dict[str, Any]:
         """Test blob storage connectivity with fast timeout for health checks."""
@@ -150,8 +164,12 @@ class SiteGenerator:
     ) -> GenerationResponse:
         """Generate markdown files from processed content."""
         try:
-            # Ensure configuration is loaded
-            await self.initialize()
+            # Configuration should already be loaded at startup
+            if not self._initialized:
+                logger.warning(
+                    "⚠️  Configuration not initialized - this should not happen with proper startup"
+                )
+                await self.initialize()
 
             self.current_status = "generating"
             self._clear_error_state()
