@@ -23,6 +23,8 @@ from uuid import uuid4
 from models import GenerationResponse
 from security_utils import SecurityValidator
 
+from config import Config
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,6 +40,12 @@ class MarkdownService:
         self.blob_client = None
         self.service_id = str(uuid4())[:8]
         self.security_validator = SecurityValidator()
+        self._config = Config()
+
+    @property
+    def config(self):
+        """Get configuration instance."""
+        return self._config
         self._initialized = False
         logger.debug(f"MarkdownService initialized: {self.service_id}")
 

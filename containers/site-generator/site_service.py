@@ -16,6 +16,8 @@ from uuid import uuid4
 from models import ArticleMetadata, GenerationResponse
 from security_utils import SecurityValidator
 
+from config import Config
+
 # Import from libs package (installed in container) or fallback to relative path (dev)
 try:
     from libs.secure_error_handler import SecureErrorHandler
@@ -42,6 +44,12 @@ class SiteService:
         self.service_id = str(uuid4())[:8]
         self.security_validator = SecurityValidator()
         self.error_handler = SecureErrorHandler("site-service")
+        self._config = Config()
+
+    @property
+    def config(self):
+        """Get configuration instance."""
+        return self._config
         self._initialized = False
         logger.debug(f"SiteService initialized: {self.service_id}")
 
