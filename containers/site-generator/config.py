@@ -10,11 +10,11 @@ import sys
 from pathlib import Path
 from typing import Dict, Optional
 
-# Add the project root to Python path for imports
-sys.path.append(str(Path(__file__).parent.parent.parent))
-
 from libs.processing_config import ProcessingConfigManager
 from libs.simplified_blob_client import SimplifiedBlobClient
+
+# Add the project root to Python path for imports
+sys.path.append(str(Path(__file__).parent.parent.parent))
 
 
 class Config:
