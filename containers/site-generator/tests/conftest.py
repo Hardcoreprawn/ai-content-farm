@@ -112,6 +112,8 @@ def mock_config():
     mock_config.PROCESSED_CONTENT_CONTAINER = "processed-content"
     mock_config.MARKDOWN_CONTENT_CONTAINER = "markdown-content"
     mock_config.STATIC_SITES_CONTAINER = "static-sites"
+    # Mock the async initialize method
+    mock_config.initialize = AsyncMock()
     return mock_config
 
 
