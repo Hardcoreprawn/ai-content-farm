@@ -42,8 +42,10 @@ class TestUtilityMethods:
     @pytest.mark.asyncio
     async def test_count_markdown_files(self, mock_generator):
         """Test counting markdown files in container."""
-        # Mock the markdown service to return count
-        mock_generator.markdown_service.count_markdown_files = AsyncMock(return_value=3)
+        # Create a mock markdown service and attach it
+        mock_markdown_service = AsyncMock()
+        mock_markdown_service.count_markdown_files = AsyncMock(return_value=3)
+        mock_generator.markdown_service = mock_markdown_service
 
         count = await mock_generator._count_markdown_files()
 
@@ -53,7 +55,10 @@ class TestUtilityMethods:
     @pytest.mark.asyncio
     async def test_count_markdown_files_empty_container(self, mock_generator):
         """Test counting markdown files in empty container."""
-        mock_generator.blob_client.list_blobs.return_value = []
+        # Create a mock markdown service that returns 0
+        mock_markdown_service = AsyncMock()
+        mock_markdown_service.count_markdown_files = AsyncMock(return_value=0)
+        mock_generator.markdown_service = mock_markdown_service
 
         count = await mock_generator._count_markdown_files()
 
@@ -64,10 +69,12 @@ class TestUtilityMethods:
         self, mock_generator, caplog
     ):
         """Test that counting handles exceptions gracefully."""
-        # Mock the markdown service to raise an exception
-        mock_generator.markdown_service.count_markdown_files = AsyncMock(
+        # Create a mock markdown service that raises an exception
+        mock_markdown_service = AsyncMock()
+        mock_markdown_service.count_markdown_files = AsyncMock(
             side_effect=Exception("Service error")
         )
+        mock_generator.markdown_service = mock_markdown_service
 
         # The method should propagate the exception since it doesn't handle it
         with pytest.raises(Exception, match="Service error"):
@@ -76,10 +83,10 @@ class TestUtilityMethods:
     @pytest.mark.asyncio
     async def test_get_site_metrics_success(self, mock_generator):
         """Test successful site metrics retrieval."""
-        # Mock dependencies - mock the markdown service directly
-        mock_generator.markdown_service.count_markdown_files = AsyncMock(
-            return_value=20
-        )
+        # Create and attach mock markdown service
+        mock_markdown_service = AsyncMock()
+        mock_markdown_service.count_markdown_files = AsyncMock(return_value=20)
+        mock_generator.markdown_service = mock_markdown_service
         mock_generator.blob_client.list_blobs = AsyncMock(
             return_value=[
                 {"name": "page1.html", "size": 4096},
@@ -98,9 +105,10 @@ class TestUtilityMethods:
     @pytest.mark.asyncio
     async def test_get_site_metrics_with_build_time(self, mock_generator):
         """Test site metrics includes last build time if available."""
-        mock_generator.markdown_service.count_markdown_files = AsyncMock(
-            return_value=15
-        )
+        # Create and attach mock markdown service
+        mock_markdown_service = AsyncMock()
+        mock_markdown_service.count_markdown_files = AsyncMock(return_value=15)
+        mock_generator.markdown_service = mock_markdown_service
         mock_generator.blob_client.list_blobs = AsyncMock(return_value=[])
         mock_generator.last_generation = datetime.now(timezone.utc)
 
@@ -116,10 +124,12 @@ class TestUtilityMethods:
 
         caplog.set_level(logging.ERROR, logger="site_generator")
 
-        # Mock the markdown service to raise an exception
-        mock_generator.markdown_service.count_markdown_files = AsyncMock(
+        # Create and attach mock markdown service that raises exception
+        mock_markdown_service = AsyncMock()
+        mock_markdown_service.count_markdown_files = AsyncMock(
             side_effect=Exception("Count error")
         )
+        mock_generator.markdown_service = mock_markdown_service
 
         metrics = await mock_generator._get_site_metrics()
 
@@ -190,6 +200,11 @@ class TestErrorHandling:
     @pytest.mark.asyncio
     async def test_error_state_persistence(self, mock_generator):
         """Test that error state persists across operations."""
+        # Set up mock markdown service so get_status doesn't fail
+        mock_markdown_service = AsyncMock()
+        mock_markdown_service.count_markdown_files = AsyncMock(return_value=5)
+        mock_generator.markdown_service = mock_markdown_service
+
         mock_generator._set_error_state("Persistent error")
 
         status = await mock_generator.get_status()

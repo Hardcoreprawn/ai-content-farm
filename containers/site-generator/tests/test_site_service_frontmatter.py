@@ -47,12 +47,14 @@ class TestSiteServiceFrontmatter:
         self, mock_blob_client, mock_config, mock_content_manager, mock_archive_manager
     ):
         """Create SiteService instance with mocked dependencies."""
-        return SiteService(
-            blob_client=mock_blob_client,
-            config=mock_config,
-            content_manager=mock_content_manager,
-            archive_manager=mock_archive_manager,
-        )
+        service = SiteService()
+        # Mock the initialize method and set up dependencies
+        service.initialize = AsyncMock()
+        service.blob_client = mock_blob_client
+        service.config = mock_config
+        service.content_manager = mock_content_manager
+        service.archive_manager = mock_archive_manager
+        return service
 
     def test_parse_markdown_frontmatter_success(self, site_service):
         """Test successful frontmatter parsing with all required fields."""
