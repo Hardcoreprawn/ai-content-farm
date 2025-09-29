@@ -19,6 +19,17 @@ from libs.data_contracts import (
     CollectionResult,
     ContentSource,
 )
+from libs.extended_data_contracts import (
+    CollectionMetadata as EnhancedCollectionMetadata,
+)
+from libs.extended_data_contracts import (
+    ContentItem,
+    ExtendedCollectionResult,
+    ProcessingStage,
+    ProvenanceEntry,
+    SourceMetadata,
+)
+from libs.processing_config import ProcessingConfigManager
 from libs.simplified_blob_client import SimplifiedBlobClient
 
 
@@ -46,6 +57,9 @@ class ContentCollectorService:
             self.storage = mock_client
         else:
             self.storage = SimplifiedBlobClient()
+
+        # Initialize processing config manager
+        self.config_manager = ProcessingConfigManager(self.storage)
 
         # Initialize Storage Queue client for sending processing requests
         self.queue_client = None
@@ -270,13 +284,32 @@ class ContentCollectorService:
 
         # Success! Data contracts working
 
+        # Check if enhanced contracts are enabled via blob-based configuration
+        try:
+            processing_config = await self.config_manager.get_processing_config(
+                "content-collector"
+            )
+            enhanced_enabled = processing_config.get("enhanced_contracts_enabled", True)
+        except Exception as e:
+            print(f"Warning: Could not load processing config, using default: {e}")
+            enhanced_enabled = True  # Default to enhanced contracts
+
+        if enhanced_enabled:
+            # Create enhanced format collection
+            enhanced_result = self._create_enhanced_collection(
+                collection_id, collected_items, metadata
+            )
+            content_json = enhanced_result.model_dump_json(indent=2)
+        else:
+            # Use legacy format
+            content_json = collection_result.model_dump_json(indent=2)
+
         # Generate storage path
         timestamp = datetime.now(timezone.utc)
         container_name = BlobContainers.COLLECTED_CONTENT
         blob_name = f"collections/{timestamp.strftime('%Y/%m/%d')}/{collection_id}.json"
 
-        # Save standardized format using Pydantic v2 serialization
-        content_json = collection_result.model_dump_json(indent=2)
+        # Save format using Pydantic v2 serialization
         await self.storage.upload_text(
             container=container_name,
             blob_name=blob_name,
@@ -286,6 +319,109 @@ class ContentCollectorService:
         # Saved successfully with data contracts
 
         return f"{container_name}/{blob_name}"
+
+    def _create_enhanced_collection(
+        self,
+        collection_id: str,
+        collected_items: List[Dict[str, Any]],
+        metadata: Dict[str, Any],
+    ) -> ExtendedCollectionResult:
+        """Create enhanced format collection with rich metadata and provenance."""
+        enhanced_items = []
+
+        for idx, item in enumerate(collected_items):
+            try:
+                if not isinstance(item, dict):
+                    continue
+
+                # Create source metadata based on source type
+                source_type = item.get("source", "web").lower()
+
+                if source_type == "reddit":
+                    source_metadata = SourceMetadata(
+                        source_type="reddit",
+                        source_identifier=f"r/{item.get('subreddit', 'unknown')}",
+                        collected_at=datetime.now(timezone.utc),
+                        upvotes=item.get("ups") or item.get("upvotes"),
+                        comments=item.get("num_comments") or item.get("comments"),
+                        reddit_data={
+                            "subreddit": item.get("subreddit"),
+                            "flair": item.get("link_flair_text"),
+                            "author": item.get("author"),
+                            "score": item.get("score"),
+                        },
+                    )
+                elif source_type == "rss":
+                    source_metadata = SourceMetadata(
+                        source_type="rss",
+                        source_identifier=item.get("feed_url", "unknown"),
+                        collected_at=datetime.now(timezone.utc),
+                        rss_data={
+                            "feed_title": item.get("feed_title"),
+                            "category": item.get("category"),
+                            "published": item.get("published"),
+                            "author": item.get("author"),
+                        },
+                    )
+                else:
+                    # Generic web or other source
+                    source_metadata = SourceMetadata(
+                        source_type=source_type,
+                        source_identifier=item.get("url", "unknown"),
+                        collected_at=datetime.now(timezone.utc),
+                        custom_fields=item.get("source_specific_data", {}),
+                    )
+
+                # Create enhanced content item
+                content_item = ContentItem(
+                    id=item.get("id", f"{collection_id}_item_{idx}"),
+                    title=item.get("title", "Untitled"),
+                    url=item.get("url"),
+                    content=item.get("content"),
+                    summary=item.get("summary"),
+                    source=source_metadata,
+                )
+
+                # Add collection provenance
+                collection_provenance = ProvenanceEntry(
+                    stage=ProcessingStage.COLLECTION,
+                    service_name="content-collector",
+                    service_version=metadata.get("collector_version", "2.0.0"),
+                    operation=f"{source_type}_collection",
+                    processing_time_ms=item.get("processing_time_ms", 0),
+                    parameters={
+                        "collection_method": "adaptive",
+                        "source_config": item.get("source_config", {}),
+                    },
+                )
+                content_item.add_provenance(collection_provenance)
+                enhanced_items.append(content_item)
+
+            except Exception as e:
+                # Skip invalid items
+                continue
+
+        # Create enhanced metadata
+        enhanced_metadata = EnhancedCollectionMetadata(
+            timestamp=datetime.now(timezone.utc),
+            collection_id=collection_id,
+            total_items=len(enhanced_items),
+            sources_processed=metadata.get("sources_processed", 1),
+            processing_time_ms=metadata.get("processing_time_ms", 0),
+            collector_version=metadata.get("collector_version", "2.0.0"),
+            collection_strategy="adaptive",
+            collection_template=metadata.get("template_name", "default"),
+        )
+
+        # Create enhanced collection result
+        enhanced_result = ExtendedCollectionResult(
+            metadata=enhanced_metadata, items=enhanced_items, schema_version="3.0"
+        )
+
+        # Calculate aggregate metrics
+        enhanced_result.calculate_aggregate_metrics()
+
+        return enhanced_result
 
     def get_service_stats(self) -> Dict[str, Any]:
         """Get current service statistics."""
