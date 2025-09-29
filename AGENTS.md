@@ -1,7 +1,29 @@
 # Copilot Agent Instructions for Personal Content Curation Platform
 
 ## Project Overview
-This is a **personal content aggregation and curation platform** that collects interesting articles from various sources and presents them in a clean, ad-free, low-stress reading environment. The system uses AI for fact-checking, reference finding, and summarization to create trustworthy content with both high-level summaries and deep-dive options.
+This is a **personal content aggregation and curation platform** that collects interesting articles from various sources and presents them in### Development Workflow
+
+#### CI/CD-Only Deployment (MANDATORY)
+**All deployments must go through GitHub Actions CI/CD pipeline:**
+
+```bash
+# Correct workflow:
+git checkout -b feature/fix-site-generator
+# Make changes...
+git commit -m "Fix AttributeError in site-generator"
+git push origin feature/fix-site-generator
+# Create PR to develop branch
+# CI/CD runs: tests → security → build → deploy to staging
+# After testing, merge develop → main for production
+```
+
+**Never use manual deployment commands:**
+- ❌ `make deploy-staging`
+- ❌ `make deploy-production` 
+- ❌ `az containerapp update`
+- ✅ Use Git branches and GitHub Actions
+
+### Environment Promotion (Strictly Enforced)clean, ad-free, low-stress reading environment. The system uses AI for fact-checking, reference finding, and summarization to create trustworthy content with both high-level summaries and deep-dive options.
 
 **Core Vision**: Create a personal reading grid that aggregates cool and interesting content about topics you care about (technology, science, etc.), eliminating the need to search hundreds of sites. Future plans include multi-modal experiences (audio for walking/driving), AI imagery/video support, multiple AI "writer" perspectives, and community sharing capabilities.
 
@@ -243,8 +265,8 @@ Our Makefile provides comprehensive automation for all development tasks:
 ```bash
 make help              # Show all available targets
 make verify            # Complete pre-deployment validation pipeline
-make deploy-staging    # Deploy to staging (develop branch only)
-make deploy-production # Deploy to production (main branch only)
+  # NOTE: Deployments handled by CI/CD pipeline only
+  # deploy-staging and deploy-production are legacy commands - use Git branches instead
 make security-scan     # Run Checkov + Trivy + Terrascan security analysis
 make cost-estimate     # Generate Infracost impact analysis
 make test-staging      # Run integration tests against staging
@@ -310,14 +332,19 @@ PYTHONPATH=/workspaces/ai-content-farm python -m pytest tests/ -m integration -v
 - **PydanticSerializationError with Mock**: Mock objects in test responses - add explicit return values to mocks
 - **Test isolation**: Use autouse fixtures in conftest.py to ensure clean test environment
 
-### Deployment Process
-1. **Local Development**: Implement and test locally
-2. **Security Validation**: `make security-scan` must pass
-3. **Cost Analysis**: `make cost-estimate` for infrastructure changes
-4. **Infrastructure Drift Check**: Run `terraform plan` to verify no unexpected changes
-5. **Staging Deployment**: Deploy to staging for integration testing
-6. **Production Approval**: Manual review and approval process
-7. **Production Deployment**: Deploy from main branch only
+### Deployment Process (CI/CD Only)
+**CRITICAL**: All deployments happen through GitHub Actions CI/CD pipeline only. No manual deployment commands.
+
+1. **Local Development**: Implement and test locally with `make test`
+2. **Create Pull Request**: Push changes to feature branch, create PR to `develop`
+3. **CI/CD Validation**: GitHub Actions automatically runs security, testing, and cost analysis
+4. **Staging Deployment**: Merge to `develop` branch automatically deploys to staging environment
+5. **Production Deployment**: Merge `develop` to `main` automatically deploys to production
+6. **Emergency Fixes**: Direct commits to `main` trigger immediate production deployment
+
+**Deployment Targets**:
+- `develop` branch → `ai-content-dev-rg` (staging environment)
+- `main` branch → `ai-content-prod-rg` (production environment)
 
 ## Infrastructure Efficiency Guidelines
 

@@ -68,8 +68,6 @@ class SiteGenerator:
         # Services will be initialized during async initialize() call
         self.markdown_service = None
         self.site_service = None
-        self._markdown_service = None
-        self._site_service = None
 
         # Status tracking
         self.current_status = "idle"
@@ -90,12 +88,12 @@ class SiteGenerator:
         await self.config.initialize(startup_config)
 
         # Initialize markdown service
-        self._markdown_service = MarkdownService()
-        await self._markdown_service.initialize()
+        self.markdown_service = MarkdownService()
+        await self.markdown_service.initialize()
 
         # Initialize site service
-        self._site_service = SiteService()
-        await self._site_service.initialize()
+        self.site_service = SiteService()
+        await self.site_service.initialize()
 
         self._initialized = True
         logger.info("Site generator initialized")
