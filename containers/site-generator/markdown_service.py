@@ -21,19 +21,28 @@ logger = logging.getLogger(__name__)
 class MarkdownService:
     """Service for generating markdown files from processed content."""
 
-    def __init__(self, blob_client, config):
+    def __init__(self):
         """
         Initialize MarkdownService.
 
-        Args:
-            blob_client: Blob storage client for file operations
-            config: Configuration object with container names
+        Uses the global configuration system and lazy-initializes blob client.
         """
-        self.blob_client = blob_client
-        self.config = config
+        self.blob_client = None
         self.service_id = str(uuid4())[:8]
         self.security_validator = SecurityValidator()
+        self._initialized = False
         logger.debug(f"MarkdownService initialized: {self.service_id}")
+
+    async def initialize(self):
+        """Initialize the service with blob client."""
+        if self._initialized:
+            return
+
+        from libs.simplified_blob_client import SimplifiedBlobClient
+
+        self.blob_client = SimplifiedBlobClient()
+        self._initialized = True
+        logger.info("MarkdownService initialized with blob client")
 
     async def generate_batch(
         self,
@@ -42,6 +51,9 @@ class MarkdownService:
         force_regenerate: bool = False,
     ) -> GenerationResponse:
         """Generate markdown files from processed content."""
+        if not self._initialized:
+            await self.initialize()
+
         start_time = datetime.now(timezone.utc)
         generated_files = []
         errors = []
@@ -76,12 +88,14 @@ class MarkdownService:
                 f"Markdown generation complete: {len(generated_files)} files generated"
             )
 
+            from config import MARKDOWN_CONTENT_CONTAINER
+
             return GenerationResponse(
                 generator_id=self.service_id,
                 operation_type="markdown_generation",
                 files_generated=len(generated_files),
                 processing_time=processing_time,
-                output_location=f"blob://{self.config.MARKDOWN_CONTENT_CONTAINER}",
+                output_location=f"blob://{MARKDOWN_CONTENT_CONTAINER()}",
                 generated_files=generated_files,
                 errors=errors,
             )
@@ -94,28 +108,15 @@ class MarkdownService:
     async def _get_processed_articles(self, limit: int) -> List[Dict]:
         """Get latest processed articles from blob storage."""
         try:
-            container_name = self.config.PROCESSED_CONTENT_CONTAINER
-            logger.info(f"🔍 DEBUG: Using container name: {container_name}")
-            logger.info(
-                f"🔍 DEBUG: Config initialized: {hasattr(self.config, '_container_config') and self.config._container_config is not None}"
-            )
-            if hasattr(self.config, "_container_config"):
-                logger.info(
-                    f"🔍 DEBUG: Container config: {self.config._container_config}"
-                )
+            # Use the new configuration system
+            from config import INPUT_PREFIX, PROCESSED_CONTENT_CONTAINER
 
-            # Get the prefix from container config if available
-            prefix = None
-            if (
-                hasattr(self.config, "_container_config")
-                and self.config._container_config
-            ):
-                prefix = self.config._container_config.get("input_prefix", "articles/")
-                logger.info(f"Using prefix: {prefix}")
-            else:
-                # Fallback - try both old flat structure and new articles/ structure
-                logger.info("No container config available, trying articles/ prefix")
-                prefix = "articles/"
+            container_name = PROCESSED_CONTENT_CONTAINER()
+            prefix = INPUT_PREFIX()
+
+            logger.info(
+                f"🔍 DEBUG: Using container: {container_name}, prefix: {prefix}"
+            )
 
             logger.info(
                 f"Attempting to list blobs from container: {container_name} with prefix: {prefix}"
@@ -189,8 +190,10 @@ class MarkdownService:
         markdown_content = self._create_markdown_content(article_data)
 
         # Upload to blob storage
+        from config import MARKDOWN_CONTENT_CONTAINER
+
         await self.blob_client.upload_text(
-            container_name=self.config.MARKDOWN_CONTENT_CONTAINER,
+            container_name=MARKDOWN_CONTENT_CONTAINER(),
             blob_name=filename,
             content=markdown_content,
             content_type="text/markdown",
@@ -310,20 +313,24 @@ published: true
 
     def _create_empty_response(self) -> GenerationResponse:
         """Create empty response when no articles found."""
+        from config import MARKDOWN_CONTENT_CONTAINER
+
         return GenerationResponse(
             generator_id=self.service_id,
             operation_type="markdown_generation",
             files_generated=0,
             processing_time=0.0,
-            output_location=f"blob://{self.config.MARKDOWN_CONTENT_CONTAINER}",
+            output_location=f"blob://{MARKDOWN_CONTENT_CONTAINER()}",
             generated_files=[],
         )
 
     async def count_markdown_files(self) -> int:
         """Count markdown files in storage."""
         try:
+            from config import MARKDOWN_CONTENT_CONTAINER
+
             blobs = await self.blob_client.list_blobs(
-                container_name=self.config.MARKDOWN_CONTENT_CONTAINER
+                container_name=MARKDOWN_CONTENT_CONTAINER()
             )
             return len(blobs)
         except Exception:

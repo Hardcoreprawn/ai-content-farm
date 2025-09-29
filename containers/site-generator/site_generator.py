@@ -65,11 +65,11 @@ class SiteGenerator:
         self.archive_manager = ArchiveManager(self.blob_client)
         self.security_validator = SecurityValidator()
 
-        # Initialize services (will be updated after config initialization)
-        self.markdown_service = MarkdownService(self.blob_client, self.config)
-        self.site_service = SiteService(
-            self.blob_client, self.config, self.content_manager, self.archive_manager
-        )
+        # Services will be initialized during async initialize() call
+        self.markdown_service = None
+        self.site_service = None
+        self._markdown_service = None
+        self._site_service = None
 
         # Status tracking
         self.current_status = "idle"

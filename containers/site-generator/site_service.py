@@ -30,24 +30,36 @@ logger = logging.getLogger(__name__)
 class SiteService:
     """Service for generating complete static HTML sites."""
 
-    def __init__(self, blob_client, config, content_manager, archive_manager):
+    def __init__(self):
         """
         Initialize SiteService.
 
-        Args:
-            blob_client: Blob storage client for file operations
-            config: Configuration object with container names
-            content_manager: ContentManager for page generation
-            archive_manager: ArchiveManager for archive operations
+        Uses the global configuration system and lazy-initializes dependencies.
         """
-        self.blob_client = blob_client
-        self.config = config
-        self.content_manager = content_manager
-        self.archive_manager = archive_manager
+        self.blob_client = None
+        self.content_manager = None
+        self.archive_manager = None
         self.service_id = str(uuid4())[:8]
         self.security_validator = SecurityValidator()
         self.error_handler = SecureErrorHandler("site-service")
+        self._initialized = False
         logger.debug(f"SiteService initialized: {self.service_id}")
+
+    async def initialize(self):
+        """Initialize the service with all dependencies."""
+        if self._initialized:
+            return
+
+        from content_manager import ContentManager
+        from file_operations import ArchiveManager
+
+        from libs.simplified_blob_client import SimplifiedBlobClient
+
+        self.blob_client = SimplifiedBlobClient()
+        self.content_manager = ContentManager()
+        self.archive_manager = ArchiveManager()
+        self._initialized = True
+        logger.info("SiteService initialized with dependencies")
 
     async def generate_site(
         self, theme: str = "minimal", force_rebuild: bool = False
