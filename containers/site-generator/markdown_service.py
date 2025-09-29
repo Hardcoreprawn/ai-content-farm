@@ -1,7 +1,15 @@
 """
 Markdown generation service for Site Generator
 
-Handles conversion from processed JSON articles to markdown files.
+Handles conversion from processed JSON            return GenerationResponse(
+                generator_id=self.service_id,
+                operation_type="markdown_generation",
+                files_generated=len(generated_files),
+                processing_time=processing_time,
+                output_location=f"blob://{self.config.MARKDOWN_CONTENT_CONTAINER}",
+                generated_files=generated_files,
+                errors=[],
+            )o markdown files.
 Uses project standard libraries for consistency.
 """
 
@@ -109,10 +117,8 @@ class MarkdownService:
         """Get latest processed articles from blob storage."""
         try:
             # Use the new configuration system
-            from config import INPUT_PREFIX, PROCESSED_CONTENT_CONTAINER
-
-            container_name = PROCESSED_CONTENT_CONTAINER()
-            prefix = INPUT_PREFIX()
+            container_name = self.config.PROCESSED_CONTENT_CONTAINER
+            prefix = self.config.INPUT_PREFIX
 
             logger.info(
                 f"🔍 DEBUG: Using container: {container_name}, prefix: {prefix}"
@@ -190,10 +196,8 @@ class MarkdownService:
         markdown_content = self._create_markdown_content(article_data)
 
         # Upload to blob storage
-        from config import MARKDOWN_CONTENT_CONTAINER
-
         await self.blob_client.upload_text(
-            container_name=MARKDOWN_CONTENT_CONTAINER(),
+            container_name=self.config.MARKDOWN_CONTENT_CONTAINER,
             blob_name=filename,
             content=markdown_content,
             content_type="text/markdown",
@@ -313,24 +317,21 @@ published: true
 
     def _create_empty_response(self) -> GenerationResponse:
         """Create empty response when no articles found."""
-        from config import MARKDOWN_CONTENT_CONTAINER
-
         return GenerationResponse(
             generator_id=self.service_id,
             operation_type="markdown_generation",
             files_generated=0,
             processing_time=0.0,
-            output_location=f"blob://{MARKDOWN_CONTENT_CONTAINER()}",
+            output_location=f"blob://{self.config.MARKDOWN_CONTENT_CONTAINER}",
             generated_files=[],
+            errors=[],
         )
 
     async def count_markdown_files(self) -> int:
         """Count markdown files in storage."""
         try:
-            from config import MARKDOWN_CONTENT_CONTAINER
-
             blobs = await self.blob_client.list_blobs(
-                container_name=MARKDOWN_CONTENT_CONTAINER()
+                container_name=self.config.MARKDOWN_CONTENT_CONTAINER
             )
             return len(blobs)
         except Exception:
