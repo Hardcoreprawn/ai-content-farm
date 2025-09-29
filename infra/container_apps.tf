@@ -414,8 +414,7 @@ resource "azurerm_container_app" "content_processor" {
         queueLength = "1" # Scale immediately when individual items arrive
         cloud       = "AzurePublicCloud"
       }
-      # Using managed identity - no authentication block needed
-      # The container's managed identity will be used automatically
+      # Managed identity authentication - will be configured via Azure CLI
     }
   }
 
@@ -553,8 +552,7 @@ resource "azurerm_container_app" "site_generator" {
         queueLength = "1" # Process generation requests immediately
         cloud       = "AzurePublicCloud"
       }
-      # Using managed identity - no authentication block needed
-      # The container's managed identity will be used automatically
+      # Managed identity authentication - will be configured via Azure CLI
     }
   }
 
