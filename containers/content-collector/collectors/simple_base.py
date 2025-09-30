@@ -194,9 +194,9 @@ class HTTPCollector(SimpleCollector):
         super().__init__(config)
 
         # HTTP client configuration
-        self.user_agent = self.config.get(
-            "user_agent", "azure:content-womble:v2.0.2 (by /u/hardcorepr4wn)"
-        )
+        from constants import DEFAULT_USER_AGENT
+
+        self.user_agent = self.config.get("user_agent", DEFAULT_USER_AGENT)
 
         # Create HTTP client
         self.client = httpx.AsyncClient(
