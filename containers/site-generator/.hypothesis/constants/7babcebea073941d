@@ -1,4 +1,0 @@
-# file: /workspaces/ai-content-farm/libs/secure_error_handler.py
-# hypothesis_version: 6.140.2
-
-[100, 400, 500, 600, '...[TRUNCATED]', '1.0.0', 'Access denied', 'Rate limit exceeded', '[REDACTED]', 'api_key', 'auth', 'authentication', 'authorization', 'configuration', 'connection_string', 'context', 'cookie', 'correlation_id', 'credential', 'critical', 'data', 'error', 'error_id', 'error_type', 'errors', 'function', 'general', 'high', 'key', 'low', 'medium', 'message', 'metadata', 'not_found', 'password', 'rate_limit', 'sas_token', 'secret', 'service', 'service_unavailable', 'session', 'severity', 'status', 'timeout', 'timestamp', 'token', 'validation', 'version']

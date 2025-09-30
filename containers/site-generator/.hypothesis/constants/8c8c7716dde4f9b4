@@ -1,4 +1,0 @@
-# file: /workspaces/ai-content-farm/libs/blob_mock.py
-# hypothesis_version: 6.140.2
-
-['/', 'application/json', 'blobs', 'container', 'containers', 'content_type', 'created', 'data', 'healthy', 'ignore', 'last_modified', 'mock-blob-storage', 'name', 'service', 'size', 'status', 'timestamp', 'total_blobs', 'utf-8']

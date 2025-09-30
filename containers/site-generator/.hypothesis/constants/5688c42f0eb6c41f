@@ -1,4 +1,0 @@
-# file: /workspaces/ai-content-farm/libs/blob_utils.py
-# hypothesis_version: 6.140.2
-
-[1024, 'azure-blob-storage', 'container', 'containers_count', 'content_settings', 'content_type', 'content_types', 'copied', 'creation_time', 'deleted', 'error', 'errors', 'etag', 'failed', 'healthy', 'last_modified', 'metadata', 'name', 'service', 'size', 'status', 'timestamp', 'total_blobs', 'total_size_bytes', 'total_size_mb', 'unhealthy', 'unknown']

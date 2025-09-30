@@ -1,4 +1,0 @@
-# file: /workspaces/ai-content-farm/libs/blob_paths.py
-# hypothesis_version: 6.140.2
-
-['-', '-+', '[^a-z0-9._-]', '[^a-z0-9_-]', '_', '_+', 'articles', 'collected-content', 'day', 'generated-content', 'hour', 'html', 'https?://', 'json', 'md', 'minute', 'month', 'original_path', 'processed-content', 'reddit', 'reddit.*?/r/', 'reddit.r_', 'second', 'source', 'summaries', 'text', 'timestamp_str', 'txt', 'www\\.', 'year']

@@ -1,4 +1,0 @@
-# file: /workspaces/ai-content-farm/containers/site-generator/content_processing_functions.py
-# hypothesis_version: 6.140.2
-
-['article_data', 'article_id', 'content', 'content-processing', 'details', 'general', 'markdown_generation', 'message', 'original_error', 'processing', 'required_fields', 'site_generation', 'storage', 'title', 'topic_id', 'type_check', 'unknown', 'validation']

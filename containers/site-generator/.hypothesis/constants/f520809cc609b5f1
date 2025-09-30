@@ -1,4 +1,0 @@
-# file: /workspaces/ai-content-farm/containers/site-generator/functional_config.py
-# hypothesis_version: 6.140.2
-
-['10', '100', 'ARTICLES_PER_PAGE', 'DEFAULT_THEME', 'ENVIRONMENT', 'JabLab Tech News', 'MAX_ARTICLES_TOTAL', 'SITE_DESCRIPTION', 'SITE_DOMAIN', 'SITE_TITLE', 'SITE_URL', 'blob_client', 'blob_client_creation', 'config', 'config_dict', 'config_validation', 'configuration', 'created_at', 'credential_error', 'development', 'failed', 'generator_id', 'https://', 'https://jablab.com', 'jablab.com', 'markdown-content', 'minimal', 'processed-content', 'service_unavailable', 'static-sites', 'unexpected_error', 'utcnow().isoformat()', 'validation']

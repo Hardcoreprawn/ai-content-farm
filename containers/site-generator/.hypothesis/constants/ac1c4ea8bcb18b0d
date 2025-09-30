@@ -1,4 +1,0 @@
-# file: /workspaces/ai-content-farm/libs/blob_storage.py
-# hypothesis_version: 6.140.2
-
-['%Y%m%d_%H%M%S', 'BLOB_STORAGE_MOCK', 'BlobStorageClient', 'application/json', 'connection_type', 'false', 'get_blob_client', 'healthy', 'json', 'message', 'mock', 'status', 'text/plain', 'true']

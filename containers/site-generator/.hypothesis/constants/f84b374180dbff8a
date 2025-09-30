@@ -1,4 +1,0 @@
-# file: /workspaces/ai-content-farm/libs/data_contracts.py
-# hypothesis_version: 6.140.2
-
-[0.5, '+', '+00:00', '+00:00Z', '-', '1.0.0', '2.0', 'Untitled', 'Z', 'before', 'collected_at', 'collection_id', 'comments', 'content', 'id', 'items', 'num_comments', 'process', 'reddit', 'rss', 'schema_version', 'source', 'subreddit', 'title', 'twitter', 'unknown', 'ups', 'upvotes', 'url', 'web']

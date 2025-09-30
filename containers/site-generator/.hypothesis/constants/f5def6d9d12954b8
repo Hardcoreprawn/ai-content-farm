@@ -1,4 +1,0 @@
-# file: /workspaces/ai-content-farm/libs/site_generator_exceptions.py
-# hypothesis_version: 6.140.2
-
-['CONFIG_ERROR', 'PROCESSING_ERROR', 'STORAGE_ERROR', 'THEME_ERROR', 'VALIDATION_ERROR', 'blob_name', 'config_key', 'container', 'context', 'context_sanitization', 'field_name', 'operation', 'theme_name', 'validation_rule']
