@@ -1,0 +1,4 @@
+# file: /workspaces/ai-content-farm/containers/site-generator/html_feed_generation.py
+# hypothesis_version: 6.140.2
+
+[300, '#333333', '#ffffff', '%Y-%m-%d', '+00:00', '...', '/', '/icon-192.png', '/icon-512.png', '192x192', '512x512', 'Generated robots.txt', 'JabLab', 'JabLab Tech News', 'SITE_DESCRIPTION', 'SITE_TITLE', 'SITE_URL', 'Z', '[.!?]+', 'article_count', 'background_color', 'content', 'description', 'display', 'general', 'html-feed-generation', 'https://jablab.com', 'icons', 'image/png', 'max_items', 'message', 'name', 'published_date', 'short_name', 'sizes', 'src', 'standalone', 'start_url', 'theme_color', 'title', 'type', 'url', 'validation']

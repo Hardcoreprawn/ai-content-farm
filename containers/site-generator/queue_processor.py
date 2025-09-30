@@ -9,7 +9,10 @@ from typing import Any, Callable, Dict, Optional
 
 from fastapi import HTTPException
 
+from libs import SecureErrorHandler
+
 logger = logging.getLogger(__name__)
+error_handler = SecureErrorHandler("queue-processor")
 
 
 class QueueMessageProcessor:
@@ -61,8 +64,13 @@ class QueueMessageProcessor:
                         return {"status": "warning", "data": result}
 
                 except Exception as e:
-                    logger.error(f"❌ Failed to process message: {e}")
-                    return {"status": "error", "error": str(e)}
+                    error_response = error_handler.handle_error(
+                        e, "processing", user_message="Failed to process queue message"
+                    )
+                    logger.error(
+                        f"❌ Failed to process message: {error_response['message']}"
+                    )
+                    return {"status": "error", "error": error_response["message"]}
 
             # Process queue messages
             results = await self._process_queue_messages(

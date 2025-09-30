@@ -12,7 +12,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from libs import SecureErrorHandler
+
 logger = logging.getLogger(__name__)
+error_handler = SecureErrorHandler("theme-manager")
 
 
 @dataclass
@@ -72,8 +75,20 @@ class ThemeManager:
                         if metadata:
                             self.themes_cache[metadata.name] = metadata
                             logger.debug(f"Loaded theme: {metadata.name}")
+                    except (ValueError, TypeError, KeyError) as e:
+                        error_response = error_handler.handle_error(
+                            e, "validation", context={"theme_dir": theme_dir.name}
+                        )
+                        logger.warning(
+                            f"Invalid theme configuration in {theme_dir.name}: {error_response['message']}"
+                        )
                     except Exception as e:
-                        logger.warning(f"Failed to load theme {theme_dir.name}: {e}")
+                        error_response = error_handler.handle_error(
+                            e, "general", context={"theme_dir": theme_dir.name}
+                        )
+                        logger.warning(
+                            f"Unexpected error loading theme {theme_dir.name}: {error_response['message']}"
+                        )
         except OSError as e:
             logger.warning(f"Failed to scan themes directory {self.themes_dir}: {e}")
 
@@ -250,8 +265,21 @@ class ThemeManager:
             # Refresh cache
             self._scan_themes()
             return True
+        except (ValueError, TypeError) as e:
+            error_response = error_handler.handle_error(
+                e, "validation", context={"theme_name": theme_name}
+            )
+            logger.error(
+                f"Invalid configuration data for theme {theme_name}: {error_response['message']}"
+            )
+            return False
         except Exception as e:
-            logger.error(f"Failed to create theme config for {theme_name}: {e}")
+            error_response = error_handler.handle_error(
+                e, "general", context={"theme_name": theme_name}
+            )
+            logger.error(
+                f"Failed to create theme config for {theme_name}: {error_response['message']}"
+            )
             return False
 
     def get_theme_assets(self, theme_name: str) -> List[Path]:

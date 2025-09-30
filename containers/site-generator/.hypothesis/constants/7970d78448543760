@@ -1,0 +1,4 @@
+# file: /workspaces/ai-content-farm/containers/site-generator/html_page_generation.py
+# hypothesis_version: 6.140.2
+
+[160, 200, '%B %d, %Y', '+00:00', '...', 'AI Content Team', 'ARTICLES_PER_PAGE', 'JabLab Tech News', 'Recently', 'SITE_DESCRIPTION', 'SITE_DOMAIN', 'SITE_TITLE', 'SITE_URL', 'Z', '[.!?]+', 'article', 'article_count', 'article_title', 'articles', 'articles_per_page', 'author', 'content', 'current_page', 'description', 'domain', 'general', 'has_next', 'has_prev', 'html-page-generation', 'https://jablab.com', 'jablab.com', 'message', 'next_page', 'number', 'page', 'page_number', 'pagination', 'prev_page', 'published_date', 'site', 'tags', 'title', 'total_articles', 'total_pages', 'type', 'unknown', 'url', 'validation', 'website']

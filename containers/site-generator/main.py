@@ -18,7 +18,7 @@ import sys
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, AsyncGenerator, Callable, Dict, List
 
 import uvicorn
 from diagnostic_endpoints import (
@@ -83,8 +83,8 @@ error_handler = SecureErrorHandler("site-generator")
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Application lifespan manager for KEDA-triggered site generation."""
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Manage application lifespan events."""
     logger.info("Site Generator starting up...")
 
     # Load configuration and initialize site generator
@@ -160,7 +160,7 @@ app.include_router(theme_router)
 
 # Add comprehensive security headers middleware
 @app.middleware("http")
-async def add_security_headers(request: Request, call_next):
+async def add_security_headers(request: Request, call_next: Callable) -> Response:
     response = await call_next(request)
 
     # Add all security headers
@@ -178,8 +178,28 @@ async def add_security_headers(request: Request, call_next):
 # Define health check functions for shared library
 
 
-async def check_blob_connectivity():
-    """Check blob storage connectivity for health endpoint with timeout."""
+async def check_blob_connectivity() -> bool:
+    """
+    Check blob storage connectivity for health endpoint with timeout.
+
+    Performs a quick health check of blob storage connectivity with a 5-second
+    timeout to ensure health endpoints respond promptly and don't cause gateway timeouts.
+
+    Returns:
+        bool: True if blob storage is healthy and accessible, False otherwise
+
+    Examples:
+        >>> # In health check endpoint
+        >>> is_healthy = await check_blob_connectivity()
+        >>> if is_healthy:
+        ...     print("Storage is accessible")
+        ... else:
+        ...     print("Storage connection issues")
+
+        >>> # Timeout handling
+        >>> # Function automatically handles timeouts and returns False
+        >>> # preventing 504 Gateway Timeout errors in health checks
+    """
     try:
         # Add timeout to prevent 504 Gateway Timeout errors
         # Health checks should be fast - use 5-second timeout to stay well under Azure's limits
@@ -232,7 +252,7 @@ app.add_api_route(
 
 
 @app.post("/generate-markdown", response_model=StandardResponse)
-async def generate_markdown(request: GenerationRequest):
+async def generate_markdown(request: GenerationRequest) -> Dict[str, Any]:
     """Generate markdown files from processed content."""
     try:
         logger.info(f"Starting markdown generation from: {request.source}")
@@ -265,7 +285,7 @@ async def generate_markdown(request: GenerationRequest):
 
 
 @app.post("/generate-site", response_model=StandardResponse)
-async def generate_site(request: GenerationRequest):
+async def generate_site(request: GenerationRequest) -> Dict[str, Any]:
     """Generate complete static site from markdown content."""
     try:
         logger.info(f"Starting site generation for theme: {request.theme}")
@@ -296,7 +316,7 @@ async def generate_site(request: GenerationRequest):
 
 
 @app.post("/wake-up", response_model=StandardResponse)
-async def wake_up():
+async def wake_up() -> Dict[str, Any]:
     """Wake up generator to process new content."""
     try:
         logger.info("Wake-up triggered - checking for new content")
@@ -340,7 +360,7 @@ async def wake_up():
 
 
 @app.get("/preview/{site_id}", response_model=StandardResponse)
-async def preview_site(site_id: str):
+async def preview_site(site_id: str) -> Dict[str, Any]:
     """Get preview URL for generated site."""
     try:
         preview_url = await get_site_generator().get_preview_url(site_id)
@@ -372,7 +392,7 @@ async def preview_site(site_id: str):
 
 
 @app.get("/debug/content-discovery", response_model=StandardResponse)
-async def debug_content_discovery_endpoint():
+async def debug_content_discovery_endpoint() -> Dict[str, Any]:
     """Debug endpoint: Check what content is discovered in each container."""
     generator = get_site_generator()
     await generator.initialize()
@@ -380,7 +400,7 @@ async def debug_content_discovery_endpoint():
 
 
 @app.get("/debug/pipeline-test", response_model=StandardResponse)
-async def debug_pipeline_test_endpoint():
+async def debug_pipeline_test_endpoint() -> Dict[str, Any]:
     """Debug endpoint: Test the complete pipeline with real data."""
     generator = get_site_generator()
     await generator.initialize()
@@ -388,7 +408,7 @@ async def debug_pipeline_test_endpoint():
 
 
 @app.post("/debug/force-process", response_model=StandardResponse)
-async def debug_force_process_endpoint():
+async def debug_force_process_endpoint() -> Dict[str, Any]:
     """Debug endpoint: Force process new content end-to-end."""
     generator = get_site_generator()
     await generator.initialize()

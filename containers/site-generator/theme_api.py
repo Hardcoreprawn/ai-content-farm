@@ -8,7 +8,7 @@ validation, and preview generation.
 import logging
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import List
+from typing import Any, Dict, List
 
 from fastapi import APIRouter, HTTPException
 from theme_manager import ThemeManager
@@ -24,13 +24,64 @@ error_handler = SecureErrorHandler("theme-api")
 
 
 def get_theme_manager() -> ThemeManager:
-    """Get ThemeManager instance with templates directory."""
+    """
+    Get ThemeManager instance with templates directory.
+
+    Creates and returns a configured ThemeManager instance pointing to the
+    standard templates directory for theme management operations.
+
+    Returns:
+        ThemeManager: Configured theme manager instance
+
+    Examples:
+        >>> manager = get_theme_manager()
+        >>> themes = manager.list_themes()
+        >>> len(themes) >= 0
+        True
+
+        >>> # Use for theme operations
+        >>> manager = get_theme_manager()
+        >>> is_valid = manager.validate_theme("minimal")
+        >>> isinstance(is_valid, dict)
+        True
+    """
     return ThemeManager(Path("templates"))
 
 
 @router.get("", response_model=StandardResponse)
-async def list_themes():
-    """List all available themes."""
+async def list_themes() -> Dict[str, Any]:
+    """
+    List all available themes.
+
+    Retrieves all available themes from the templates directory with their
+    metadata and validation status.
+
+    Returns:
+        Dict[str, Any]: StandardResponse with theme list and metadata
+
+    Raises:
+        HTTPException: If theme directory is inaccessible
+
+    Examples:
+        Response format:
+        {
+            "status": "success",
+            "message": "Retrieved 3 themes",
+            "data": {
+                "themes": [
+                    {
+                        "name": "minimal",
+                        "display_name": "Minimal Theme",
+                        "description": "Clean, minimal design",
+                        "version": "1.0.0",
+                        "author": "AI Content Farm",
+                        "validation": {"is_valid": True, "errors": []}
+                    }
+                ],
+                "total_count": 1
+            }
+        }
+    """
     try:
         theme_manager = get_theme_manager()
         themes = theme_manager.list_themes()
@@ -78,7 +129,7 @@ async def list_themes():
 
 
 @router.get("/{theme_name}", response_model=StandardResponse)
-async def get_theme_details(theme_name: str):
+async def get_theme_details(theme_name: str) -> Dict[str, Any]:
     """Get detailed information about a specific theme."""
     try:
         theme_manager = get_theme_manager()
@@ -136,7 +187,7 @@ async def get_theme_details(theme_name: str):
 
 
 @router.post("/{theme_name}/validate", response_model=StandardResponse)
-async def validate_theme_endpoint(theme_name: str):
+async def validate_theme_endpoint(theme_name: str) -> Dict[str, Any]:
     """Validate a theme's structure and templates."""
     try:
         theme_manager = get_theme_manager()
@@ -176,7 +227,7 @@ async def validate_theme_endpoint(theme_name: str):
 
 
 @router.get("/{theme_name}/preview", response_model=StandardResponse)
-async def preview_theme(theme_name: str):
+async def preview_theme(theme_name: str) -> Dict[str, Any]:
     """Generate a preview of a theme with sample content."""
     try:
         theme_manager = get_theme_manager()

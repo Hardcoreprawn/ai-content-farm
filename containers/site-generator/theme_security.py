@@ -9,7 +9,7 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, Generator, List, Optional
 
 import bleach
 
@@ -345,7 +345,7 @@ class ThemeFileValidator:
 
 
 @contextmanager
-def secure_temp_dir(prefix: str = "aicontentfarm_"):
+def secure_temp_dir(prefix: str = "aicontentfarm_") -> Generator[Path, None, None]:
     """
     Create a secure temporary directory.
 

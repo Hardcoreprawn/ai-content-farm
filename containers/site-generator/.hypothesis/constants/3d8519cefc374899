@@ -1,0 +1,4 @@
+# file: /workspaces/ai-content-farm/libs/simplified_blob_client.py
+# hypothesis_version: 6.140.2
+
+['application/json', 'azure', 'connection_type', 'content_type', 'error', 'healthy', 'last_modified', 'message', 'name', 'size', 'status', 'text/plain', 'utf-8']

@@ -1,0 +1,4 @@
+# file: /workspaces/ai-content-farm/containers/site-generator/models.py
+# hypothesis_version: 6.140.2
+
+[100, 'Site theme to use', 'manual']

@@ -1,0 +1,4 @@
+# file: /workspaces/ai-content-farm/libs/app_config.py
+# hypothesis_version: 6.140.2
+
+[100, 300, 1800, 50000, 'BlobContainers', 'ProcessingConfig', 'cms-exports', 'collected-content', 'collection-templates', 'enriched-content', 'markdown-content', 'pipeline-logs', 'processed-content', 'ranked-content', 'static-sites']

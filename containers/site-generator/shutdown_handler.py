@@ -12,7 +12,7 @@ from typing import Any, Dict
 logger = logging.getLogger(__name__)
 
 
-async def graceful_shutdown(exit_code: int = 0):
+async def graceful_shutdown(exit_code: int = 0) -> None:
     """Gracefully shutdown the container after a brief delay."""
     await asyncio.sleep(2)  # Brief delay to ensure logs are flushed
     logger.info(f"Gracefully shutting down container with exit code {exit_code}")
