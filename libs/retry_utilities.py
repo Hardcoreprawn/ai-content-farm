@@ -8,6 +8,7 @@ error handling and logging patterns.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from functools import wraps
 from typing import Any, Callable, Optional, Type, Union
@@ -202,8 +203,6 @@ def with_secure_retry(
                 raise
 
         # Return appropriate wrapper based on function type
-        import asyncio
-
         if asyncio.iscoroutinefunction(func):
             return async_wrapper
         else:

@@ -69,7 +69,7 @@ class SiteGeneratorError(Exception):
             try:
                 # Use SecureErrorHandler to sanitize context
                 sanitized = error_handler.handle_error(
-                    error=self, error_type="context_sanitization", context=self.details
+                    error=None, error_type="context_sanitization", context=self.details
                 )
                 self._safe_context = sanitized.get("context", {})
             except Exception:

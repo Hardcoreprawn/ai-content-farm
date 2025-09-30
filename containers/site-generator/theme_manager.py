@@ -77,14 +77,18 @@ class ThemeManager:
                             logger.debug(f"Loaded theme: {metadata.name}")
                     except (ValueError, TypeError, KeyError) as e:
                         error_response = error_handler.handle_error(
-                            e, "validation", context={"theme_dir": theme_dir.name}
+                            error=e,
+                            error_type="validation",
+                            context={"theme_dir": theme_dir.name},
                         )
                         logger.warning(
                             f"Invalid theme configuration in {theme_dir.name}: {error_response['message']}"
                         )
                     except Exception as e:
                         error_response = error_handler.handle_error(
-                            e, "general", context={"theme_dir": theme_dir.name}
+                            error=e,
+                            error_type="general",
+                            context={"theme_dir": theme_dir.name},
                         )
                         logger.warning(
                             f"Unexpected error loading theme {theme_dir.name}: {error_response['message']}"
@@ -267,7 +271,7 @@ class ThemeManager:
             return True
         except (ValueError, TypeError) as e:
             error_response = error_handler.handle_error(
-                e, "validation", context={"theme_name": theme_name}
+                error=e, error_type="validation", context={"theme_name": theme_name}
             )
             logger.error(
                 f"Invalid configuration data for theme {theme_name}: {error_response['message']}"
@@ -275,7 +279,7 @@ class ThemeManager:
             return False
         except Exception as e:
             error_response = error_handler.handle_error(
-                e, "general", context={"theme_name": theme_name}
+                error=e, error_type="general", context={"theme_name": theme_name}
             )
             logger.error(
                 f"Failed to create theme config for {theme_name}: {error_response['message']}"
