@@ -12,11 +12,9 @@ import datetime
 import logging
 from typing import Any, Dict
 
+from article_loading import list_processed_articles
 from functional_config import validate_storage_connectivity
-from storage_content_operations import (
-    list_processed_articles,
-    verify_storage_containers,
-)
+from storage_verification import verify_storage_containers
 
 from libs import SecureErrorHandler
 from libs.simplified_blob_client import SimplifiedBlobClient

@@ -14,9 +14,9 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import yaml
-from html_feed_generation import generate_rss_feed
 from html_page_generation import generate_article_page, generate_index_page
 from models import GenerationResponse
+from rss_generation import generate_rss_feed
 
 from libs import SecureErrorHandler
 from libs.data_contracts import ContractValidator
