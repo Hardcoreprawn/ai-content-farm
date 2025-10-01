@@ -214,8 +214,8 @@ async def check_blob_connectivity() -> bool:
             asyncio.to_thread(blob_client.test_connection, 5.0), timeout=5.0
         )
 
-        # Check if connection test was successful
-        return result.get("status") == "connected"
+        # Check if connection test was successful (returns "healthy" or "error")
+        return result.get("status") == "healthy"
     except asyncio.TimeoutError:
         logger.warning("Blob storage health check timed out after 5 seconds")
         return False
