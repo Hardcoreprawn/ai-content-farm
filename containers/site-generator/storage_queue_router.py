@@ -64,13 +64,32 @@ async def _generate_static_site(payload: Dict[str, Any]) -> Dict[str, Any]:
             f"Processing {topics_processed} topics, {articles_generated} articles"
         )
 
-        # TODO: Implement actual site generation logic
-        # For now, just acknowledge the message
+        # Create generator context and blob client
+        context = create_generator_context()
+        blob_client = SimplifiedBlobClient()  # Uses default Azure auth
+
+        # Generate static site from markdown content
+        result = await generate_static_site(
+            theme=context.get("THEME", "default"),
+            force_rebuild=payload.get("force_rebuild", False),
+            blob_client=blob_client,
+            config=context,
+            generator_id=payload.get("correlation_id"),
+        )
+
+        logger.info(
+            f"Site generation completed: {result.files_generated} files, "
+            f"{result.pages_generated} pages in {result.processing_time:.2f}s"
+        )
 
         return {
             "status": "success",
             "topics_processed": topics_processed,
             "articles_generated": articles_generated,
+            "files_generated": result.files_generated,
+            "pages_generated": result.pages_generated,
+            "processing_time": result.processing_time,
+            "output_location": result.output_location,
             "message": "Site generation completed successfully",
         }
 
