@@ -93,44 +93,157 @@ class TestUtilityFunctionsCoverage:
         return mock
 
     @pytest.mark.asyncio
-    async def test_get_processed_articles_success(self, mock_blob_client):
-        """Test successful retrieval of processed articles."""
-        # Mock blob list response with name attribute
+    async def test_get_processed_articles_batch_format(self, mock_blob_client):
+        """Test retrieval of batch collection files (CollectionResult format)."""
+        from datetime import datetime, timezone
+
+        # Mock blob list with batch collection files
         mock_blobs = [
-            {"name": "processed-batch-001.json"},
-            {"name": "processed-batch-002.json"},
+            {
+                "name": "batch-001.json",
+                "last_modified": datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            },
+            {
+                "name": "batch-002.json",
+                "last_modified": datetime(2024, 1, 1, 13, 0, 0, tzinfo=timezone.utc),
+            },
         ]
         mock_blob_client.list_blobs = AsyncMock(return_value=mock_blobs)
 
-        # Mock the text content download
-        mock_json_content = {
+        # Batch format with metadata and items
+        mock_json_content_1 = {
+            "metadata": {
+                "timestamp": "2024-01-01T12:00:00Z",
+                "collection_id": "batch-001",
+                "total_items": 1,
+                "sources_processed": 1,
+                "processing_time_ms": 100,
+            },
             "items": [
-                {"topic_id": "art1", "title": "Article 1", "content": "Content 1"},
-                {"topic_id": "art2", "title": "Article 2", "content": "Content 2"},
-            ]
+                {
+                    "id": "1",
+                    "title": "Article 1",
+                    "content": "Content 1",
+                    "source": "reddit",
+                    "collected_at": "2024-01-01T12:00:00Z",
+                },
+            ],
         }
-        mock_blob_client.download_text = AsyncMock(
-            return_value=json.dumps(mock_json_content)
-        )
+        mock_json_content_2 = {
+            "metadata": {
+                "timestamp": "2024-01-01T13:00:00Z",
+                "collection_id": "batch-002",
+                "total_items": 1,
+                "sources_processed": 1,
+                "processing_time_ms": 100,
+            },
+            "items": [
+                {
+                    "id": "2",
+                    "title": "Article 2",
+                    "content": "Content 2",
+                    "source": "reddit",
+                    "collected_at": "2024-01-01T13:00:00Z",
+                },
+            ],
+        }
 
-        # Mock the ContractValidator
+        async def mock_download(container, blob_name):
+            if blob_name == "batch-002.json":
+                return json.dumps(mock_json_content_2)
+            return json.dumps(mock_json_content_1)
+
+        mock_blob_client.download_text = AsyncMock(side_effect=mock_download)
+
+        # Mock ContractValidator
         with patch("content_utility_functions.ContractValidator") as mock_validator:
-            mock_validated = Mock()
-            mock_validated.items = mock_json_content["items"]
-            mock_validator.validate_collection_data.return_value = mock_validated
+            from pydantic import BaseModel
 
-            # Call the function with correct signature
+            class MockItem(BaseModel):
+                id: str
+                title: str
+                content: str
+                source: str
+                collected_at: str
+
+            def mock_validate(data):
+                mock_validated = Mock()
+                items_data = data.get("items", [])
+                mock_validated.items = [MockItem(**item) for item in items_data]
+                return mock_validated
+
+            mock_validator.validate_collection_data.side_effect = mock_validate
+
             result = await get_processed_articles(
                 mock_blob_client, "processed-content", limit=10
             )
 
-            # Verify the result
+            # Verify batch format processing
             assert len(result) == 2
-            assert result[0]["topic_id"] == "art1"
-            assert result[1]["topic_id"] == "art2"
-            mock_blob_client.list_blobs.assert_called_once_with(
-                "processed-content", prefix="processed-"
-            )
+            # Sorted by last_modified desc, so batch-002 comes first
+            assert result[0]["id"] == "2"
+            assert result[0]["_source_blob"] == "batch-002.json"
+            assert result[0]["_batch_file"] is True
+            assert result[1]["id"] == "1"
+            assert result[1]["_source_blob"] == "batch-001.json"
+            assert result[1]["_batch_file"] is True
+            mock_blob_client.list_blobs.assert_called_once_with("processed-content")
+
+    @pytest.mark.asyncio
+    async def test_get_processed_articles_individual_format(self, mock_blob_client):
+        """Test retrieval of individual article files (one JSON = one article)."""
+        from datetime import datetime, timezone
+
+        # Mock blob list with individual article files
+        mock_blobs = [
+            {
+                "name": "articles/2025/09/28/article_123.json",
+                "last_modified": datetime(2024, 1, 1, 12, 0, 0, tzinfo=timezone.utc),
+            },
+            {
+                "name": "articles/2025/09/29/article_456.json",
+                "last_modified": datetime(2024, 1, 1, 13, 0, 0, tzinfo=timezone.utc),
+            },
+        ]
+        mock_blob_client.list_blobs = AsyncMock(return_value=mock_blobs)
+
+        # Individual article format (no metadata/items structure)
+        article_1 = {
+            "title": "Individual Article 1",
+            "content": "This is article 1 content",
+            "topic_id": "topic-123",
+            "source": "reddit",
+        }
+        article_2 = {
+            "title": "Individual Article 2",
+            "content": "This is article 2 content",
+            "topic_id": "topic-456",
+            "source": "rss",
+        }
+
+        async def mock_download(container, blob_name):
+            if "article_456" in blob_name:
+                return json.dumps(article_2)
+            return json.dumps(article_1)
+
+        mock_blob_client.download_text = AsyncMock(side_effect=mock_download)
+
+        result = await get_processed_articles(
+            mock_blob_client, "processed-content", limit=10
+        )
+
+        # Verify individual format processing
+        assert len(result) == 2
+        # Sorted by last_modified desc, so article_456 comes first
+        assert result[0]["title"] == "Individual Article 2"
+        assert result[0]["topic_id"] == "topic-456"
+        assert result[0]["_blob_name"] == "articles/2025/09/29/article_456.json"
+        assert result[0]["_batch_file"] is False
+        assert result[1]["title"] == "Individual Article 1"
+        assert result[1]["topic_id"] == "topic-123"
+        assert result[1]["_blob_name"] == "articles/2025/09/28/article_123.json"
+        assert result[1]["_batch_file"] is False
+        mock_blob_client.list_blobs.assert_called_once_with("processed-content")
 
     @pytest.mark.asyncio
     async def test_get_processed_articles_empty(self, mock_blob_client):
