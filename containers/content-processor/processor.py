@@ -418,7 +418,7 @@ class ContentProcessor:
                 f"📝 TOPIC-PROCESSING: Starting processing for topic: '{topic_metadata.title}' (ID: {topic_metadata.topic_id})"
             )
             logger.info(
-                f"📝 TOPIC-PROCESSING: Topic priority: {topic_metadata.priority}, source: {topic_metadata.source}"
+                f"📝 TOPIC-PROCESSING: Topic priority: {topic_metadata.priority_score}, source: {topic_metadata.source}"
             )
 
             # Generate article using service
