@@ -88,7 +88,7 @@ class PricingService:
         try:
             # Check if cached pricing exists and is recent
             pricing_data = await self.blob_client.download_json(
-                container_name=self.pricing_container, blob_name=self.pricing_blob
+                container=self.pricing_container, blob_name=self.pricing_blob
             )
 
             if not pricing_data:
@@ -160,7 +160,7 @@ class PricingService:
 
                 # Save to blob storage
                 success = await self.blob_client.upload_json(
-                    container_name=self.pricing_container,
+                    container=self.pricing_container,
                     blob_name=self.pricing_blob,
                     data=cache_data,
                 )

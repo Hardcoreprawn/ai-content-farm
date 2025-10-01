@@ -46,7 +46,7 @@ class ProcessorStorageService:
 
             # Save to processed-content container
             success = await self.blob_client.upload_json(
-                container_name="processed-content",
+                container="processed-content",
                 blob_name=blob_name,
                 data=article_result,
             )
