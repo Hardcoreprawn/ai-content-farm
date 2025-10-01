@@ -52,6 +52,7 @@ class TestContentProcessingBehavior:
             MAX_ARTICLES_TOTAL=100,
             DEFAULT_THEME="default",
             ENVIRONMENT="test",
+            QUEUE_NAME="test-queue",
         )
 
     @pytest.fixture
@@ -305,6 +306,7 @@ class TestStorageOperationBehavior:
             MAX_ARTICLES_TOTAL=100,
             DEFAULT_THEME="default",
             ENVIRONMENT="test",
+            QUEUE_NAME="test-queue",
         )
 
     @pytest.fixture
@@ -383,6 +385,7 @@ class TestConfigurationBehavior:
             MAX_ARTICLES_TOTAL=100,
             DEFAULT_THEME="default",
             ENVIRONMENT="test",
+            QUEUE_NAME="test-queue",
         )
         assert "validaccount" in valid_config.AZURE_STORAGE_ACCOUNT_URL
 
@@ -400,6 +403,7 @@ class TestConfigurationBehavior:
             MAX_ARTICLES_TOTAL=100,
             DEFAULT_THEME="default",
             ENVIRONMENT="test",
+            QUEUE_NAME="test-queue",
         )
 
         # Validation should fail for invalid URL
