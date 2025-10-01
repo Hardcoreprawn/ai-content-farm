@@ -12,8 +12,6 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from azure.identity import DefaultAzureCredential
-from azure.storage.blob import BlobServiceClient
 from content_processing_functions import generate_static_site
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from functional_config import create_generator_context
@@ -25,7 +23,6 @@ from libs.queue_client import (
     get_queue_client,
     process_queue_messages,
 )
-from libs.simplified_blob_client import SimplifiedBlobClient
 
 logger = logging.getLogger(__name__)
 
@@ -64,17 +61,16 @@ async def _generate_static_site(payload: Dict[str, Any]) -> Dict[str, Any]:
             f"Processing {topics_processed} topics, {articles_generated} articles"
         )
 
-        # Create generator context and blob client
+        # Create generator context (contains config, blob_client, etc.)
         context = create_generator_context()
-        blob_client = SimplifiedBlobClient()  # Uses default Azure auth
 
         # Generate static site from markdown content
         result = await generate_static_site(
-            theme=context.get("THEME", "default"),
+            theme=context["config"].DEFAULT_THEME,
             force_rebuild=payload.get("force_rebuild", False),
-            blob_client=blob_client,
-            config=context,
-            generator_id=payload.get("correlation_id"),
+            blob_client=context["blob_client"],
+            config=context["config_dict"],  # Pass config dict, not object
+            generator_id=payload.get("correlation_id") or context["generator_id"],
         )
 
         logger.info(
