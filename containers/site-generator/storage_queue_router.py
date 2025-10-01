@@ -5,12 +5,18 @@ Implements Storage Queue message processing for site generation requests.
 Uses unified queue interface and existing site generator functionality.
 """
 
+import json
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from azure.identity import DefaultAzureCredential
+from azure.storage.blob import BlobServiceClient
+from content_processing_functions import generate_static_site
 from fastapi import APIRouter, BackgroundTasks, HTTPException
+from functional_config import create_generator_context
 from pydantic import BaseModel
 
 from libs.data_contracts import ContractValidator, DataContractError
@@ -19,6 +25,7 @@ from libs.queue_client import (
     get_queue_client,
     process_queue_messages,
 )
+from libs.simplified_blob_client import SimplifiedBlobClient
 
 logger = logging.getLogger(__name__)
 
@@ -115,11 +122,13 @@ class SiteGeneratorStorageQueueRouter:
                 logger.info(
                     "No specific content location provided, generating from available content"
                 )
-                from site_generator import SiteGenerator
-
-                generator = SiteGenerator()
-                result = await generator.generate_static_site(
-                    theme="minimal", force_rebuild=True
+                context = create_generator_context()
+                result = await generate_static_site(
+                    theme="minimal",
+                    force_rebuild=True,
+                    blob_client=context["blob_client"],
+                    config=context["config_dict"],
+                    generator_id=context["generator_id"],
                 )
 
                 logger.info("Generated site from available content")
@@ -134,13 +143,6 @@ class SiteGeneratorStorageQueueRouter:
                 }
 
             # Load processed content from storage
-            import os
-
-            from azure.identity import DefaultAzureCredential
-            from azure.storage.blob import BlobServiceClient
-
-            from libs.simplified_blob_client import SimplifiedBlobClient
-
             storage_account_url = os.getenv("AZURE_STORAGE_ACCOUNT_URL")
             if not storage_account_url:
                 raise ValueError(
@@ -163,8 +165,6 @@ class SiteGeneratorStorageQueueRouter:
 
             container_name, blob_name = parts
             content_json = await storage.download_text(container_name, blob_name)
-
-            import json
 
             # Use data contracts to validate processed content
             try:
@@ -194,13 +194,15 @@ class SiteGeneratorStorageQueueRouter:
                 return {"status": "error", "error": f"Invalid JSON format: {e}"}
 
             # Generate site from processed content
-            from site_generator import SiteGenerator
+            context = create_generator_context()
 
-            generator = SiteGenerator()
-
-            # Generate markdown files from processed content
-            result = await generator.generate_static_site(
-                theme="minimal", force_rebuild=True
+            # Generate static site from processed content
+            result = await generate_static_site(
+                theme="minimal",
+                force_rebuild=True,
+                blob_client=context["blob_client"],
+                config=context["config_dict"],
+                generator_id=context["generator_id"],
             )
 
             logger.info(f"Generated site from {len(processed_items)} processed items")

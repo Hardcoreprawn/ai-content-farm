@@ -54,8 +54,8 @@ jobs:
           while IFS= read -r file; do
             if [[ -z "$file" ]]; then continue; fi
 
-            # Skip binary files, images, and other non-source files
-            if [[ "$file" =~ \.(jpg|jpeg|png|gif|ico|pdf|zip|tar|gz|bz2|xz|7z|rar|exe|dll|so|dylib|bin|dat)$ ]]; then
+            # Skip binary files, images, documentation, and other non-source files
+            if [[ "$file" =~ \.(jpg|jpeg|png|gif|ico|pdf|zip|tar|gz|bz2|xz|7z|rar|exe|dll|so|dylib|bin|dat|md|txt|rst|adoc)$ ]]; then
               continue
             fi
 

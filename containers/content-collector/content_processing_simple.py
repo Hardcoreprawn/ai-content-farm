@@ -137,7 +137,7 @@ async def deduplicate_content(items: List[Dict[str, Any]]) -> List[Dict[str, Any
     for item in items:
         # Create hash from title and content for deduplication
         content_text = f"{item.get('title', '')}{item.get('content', '')}"
-        content_hash = hashlib.md5(content_text.encode("utf-8")).hexdigest()
+        content_hash = hashlib.sha256(content_text.encode("utf-8")).hexdigest()
 
         if content_hash not in seen_hashes:
             seen_hashes.add(content_hash)

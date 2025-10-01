@@ -22,6 +22,7 @@ dependencies = [
     "uvicorn[standard]",
     "httpx",
     "requests",
+    "tenacity",
 ]
 
 [project.optional-dependencies]

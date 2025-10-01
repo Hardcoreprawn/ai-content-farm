@@ -5,9 +5,13 @@ Provides path validation, filename sanitization, and other security functions.
 Uses project standard libraries for consistency.
 """
 
+from __future__ import annotations
+
 import logging
+import re
 import tempfile
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from uuid import uuid4
 
@@ -18,8 +22,6 @@ except ImportError:
     # Fallback for testing environments
     def secure_filename(filename: str) -> str:
         """Fallback implementation when werkzeug is not available."""
-        import re
-
         # Basic sanitization fallback
         return re.sub(r"[^a-zA-Z0-9._-]", "_", filename)
 
@@ -46,11 +48,26 @@ class SecurityValidator:
         """
         Sanitize filename to prevent path injection.
 
+        Removes dangerous characters, path separators, and enforces length limits
+        to prevent directory traversal attacks and filesystem issues.
+
         Args:
-            filename: The filename to sanitize
+            filename: The filename to sanitize (can be None or any type)
 
         Returns:
-            A safe filename with dangerous characters removed
+            A safe filename with dangerous characters removed (max 50 chars)
+
+        Examples:
+            >>> SecurityValidator.sanitize_filename("../../../etc/passwd")
+            'etc_passwd'
+            >>> SecurityValidator.sanitize_filename("file with spaces.txt")
+            'file_with_spaces.txt'
+            >>> SecurityValidator.sanitize_filename(None)
+            'default'
+            >>> SecurityValidator.sanitize_filename(".hidden")
+            'default'
+            >>> SecurityValidator.sanitize_filename("a" * 100)
+            'default'  # Too long, returns default
         """
         # Handle None or non-string input
         if filename is None:
@@ -80,16 +97,27 @@ class SecurityValidator:
         """
         Sanitize blob name for safe storage operations.
 
+        Creates Azure Blob Storage compatible names by removing or replacing
+        invalid characters while preserving path structure for hierarchical naming.
+
         Args:
             name: The blob name to sanitize
 
         Returns:
-            A safe blob name
+            A safe blob name compatible with Azure Blob Storage naming rules
+
+        Examples:
+            >>> SecurityValidator.sanitize_blob_name("folder/file name.txt")
+            'folder/file-name.txt'
+            >>> SecurityValidator.sanitize_blob_name("articles/my-article!@#.md")
+            'articles/my-article.md'
+            >>> SecurityValidator.sanitize_blob_name("UPPERCASE FILE.HTML")
+            'uppercase-file.html'
+            >>> SecurityValidator.sanitize_blob_name("")
+            'default-blob'
         """
         if not name or not name.strip():
             # Generate a default name with timestamp
-            from datetime import datetime, timezone
-
             timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
             return f"site_archive_{timestamp}.tar.gz"
 
@@ -212,7 +240,7 @@ class SecurityValidator:
         return True
 
     @staticmethod
-    def filter_safe_files(files: list) -> list:
+    def filter_safe_files(files: list[str]) -> list[str]:
         """
         Filter a list of files to only include safe ones.
 

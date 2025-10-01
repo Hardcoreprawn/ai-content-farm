@@ -81,6 +81,7 @@ Thumbs.db
 # Pytest and type-checker caches
 .pytest_cache/
 .mypy_cache/
+.hypothesis/
 
 # Test results and coverage reports (should not be committed)
 coverage-*.xml

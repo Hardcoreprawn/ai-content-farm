@@ -122,6 +122,7 @@ def calculate_research_potential(topic: str, mentions: int) -> float:
 
 def generate_research_recommendations(
     topics: List[TrendingTopic],
+    research_focus: str,
 ) -> List[ResearchRecommendation]:
     """Generate research recommendations for trending topics."""
     recommendations = []
@@ -197,17 +198,19 @@ def estimate_depth(topic: TrendingTopic) -> str:
         return "brief"
 
 
-async def save_discovery_results(result: DiscoveryResult, blob_client) -> None:
+async def save_discovery_results(
+    discovery_id: str, results_data: dict, blob_client
+) -> None:
     """Save discovery results to blob storage."""
     try:
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        blob_name = f"topic_discovery_{timestamp}.json"
+        blob_name = f"topic_discovery_{discovery_id}_{timestamp}.json"
 
         # Save to collected content container
         await blob_client.upload_json(
             container_name=BlobContainers.COLLECTED_CONTENT,
             blob_name=blob_name,
-            data=result.model_dump(),
+            data=results_data,
         )
 
         logger.info(f"Saved discovery results to {blob_name}")

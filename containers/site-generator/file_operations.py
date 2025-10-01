@@ -16,7 +16,10 @@ from uuid import uuid4
 import aiofiles
 from security_utils import SecurityValidator
 
+from libs import SecureErrorHandler
+
 logger = logging.getLogger(__name__)
+error_handler = SecureErrorHandler("file-operations")
 
 
 class ArchiveManager:
@@ -68,10 +71,20 @@ class ArchiveManager:
         try:
             with tarfile.open(archive_path, "w:gz") as tar:
                 self._add_files_to_archive(tar, site_dir)
+        except (OSError, PermissionError) as e:
+            error_response = error_handler.handle_error(
+                e,
+                "filesystem",
+                user_message="Archive creation failed due to file system error",
+            )
+            logger.error(error_response["message"])
+            raise ValueError(error_response["message"]) from e
         except Exception as e:
-            logger.error("Failed to create site archive")
-            logger.debug(f"Site archive creation error details: {e}")
-            raise ValueError("Archive creation failed")
+            error_response = error_handler.handle_error(
+                e, "general", user_message="Unexpected error during archive creation"
+            )
+            logger.error(error_response["message"])
+            raise RuntimeError(error_response["message"]) from e
 
         return archive_path
 
@@ -142,10 +155,18 @@ class ArchiveManager:
                     content_type="application/gzip",
                 )
             logger.info(f"Archive uploaded successfully: {safe_blob_name}")
+        except (ValueError, TypeError) as e:
+            error_response = error_handler.handle_error(
+                e, "validation", user_message="Archive upload failed with invalid data"
+            )
+            logger.error(error_response["message"])
+            raise ValueError(error_response["message"]) from e
         except Exception as e:
-            logger.error("Failed to upload archive")
-            logger.debug(f"Archive upload error details: {e}")
-            raise ValueError("Upload failed")
+            error_response = error_handler.handle_error(
+                e, "general", user_message="Unexpected error during archive upload"
+            )
+            logger.error(error_response["message"])
+            raise RuntimeError(error_response["message"]) from e
 
     def cleanup_temp_files(self, file_paths: List[Path]) -> None:
         """
@@ -209,8 +230,24 @@ class StaticAssetManager:
 
             logger.info(f"Copied {len(copied_files)} static assets for theme '{theme}'")
 
+        except (OSError, PermissionError) as e:
+            error_response = error_handler.handle_error(
+                e, "filesystem", context={"theme": theme}
+            )
+            logger.error(
+                f"File system error copying assets for theme '{theme}': {error_response['message']}"
+            )
+            # Create minimal fallback assets
+            copied_files.extend(
+                await StaticAssetManager._create_fallback_assets(output_dir)
+            )
         except Exception as e:
-            logger.error(f"Failed to copy static assets for theme '{theme}': {e}")
+            error_response = error_handler.handle_error(
+                e, "general", context={"theme": theme}
+            )
+            logger.error(
+                f"Unexpected error copying assets for theme '{theme}': {error_response['message']}"
+            )
             # Create minimal fallback assets
             copied_files.extend(
                 await StaticAssetManager._create_fallback_assets(output_dir)
