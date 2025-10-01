@@ -1,0 +1,62 @@
+{
+    "include": [
+        "containers",
+        "libs",
+        "tests"
+    ],
+    "exclude": [
+        "**/__pycache__",
+        "**/.pytest_cache",
+        "**/htmlcov",
+        "**/.coverage",
+        "**/node_modules"
+    ],
+    "extraPaths": [
+        "."
+    ],
+    "pythonVersion": "3.11",
+    "pythonPlatform": "Linux",
+    "executionEnvironments": [
+        {
+            "root": ".",
+            "pythonVersion": "3.11",
+            "pythonPlatform": "Linux",
+            "extraPaths": [
+                "."
+            ]
+        },
+        {
+            "root": "containers/site-generator",
+            "pythonVersion": "3.11",
+            "extraPaths": [
+                "../..",
+                "../../libs"
+            ]
+        },
+        {
+            "root": "containers/content-processor",
+            "pythonVersion": "3.11",
+            "extraPaths": [
+                "../..",
+                "../../libs"
+            ]
+        },
+        {
+            "root": "containers/content-collector",
+            "pythonVersion": "3.11",
+            "extraPaths": [
+                "../..",
+                "../../libs"
+            ]
+        }
+    ],
+    "typeCheckingMode": "basic",
+    "useLibraryCodeForTypes": true,
+    "autoImportCompletions": true,
+    "reportMissingImports": "warning",
+    "reportMissingTypeStubs": "none",
+    "reportGeneralTypeIssues": "warning",
+    "reportOptionalMemberAccess": "warning",
+    "reportOptionalSubscript": "warning",
+    "reportPrivateImportUsage": "none"
+}
