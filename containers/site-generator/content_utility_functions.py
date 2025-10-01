@@ -35,6 +35,13 @@ async def get_processed_articles(
     """
     Retrieve latest processed articles from blob storage.
 
+    Supports TWO formats for maximum pipeline flexibility:
+    1. Individual article files (one JSON = one article) - for real-time single-item flow
+    2. Batch collection files (CollectionResult with multiple items) - for batch efficiency
+
+    Processes ALL JSON files in the container, regardless of prefix or subdirectory.
+    Automatically detects format and handles both seamlessly.
+
     Args:
         blob_client: Blob storage client
         container_name: Container name for processed content
@@ -44,40 +51,95 @@ async def get_processed_articles(
         List of processed article data dictionaries
     """
     try:
-        # List blobs with processed content
-        blobs = await blob_client.list_blobs(container_name, prefix="processed-")
+        # List ALL blobs in the container (no prefix filter)
+        blobs = await blob_client.list_blobs(container_name)
 
         if not blobs:
+            logger.info(f"No blobs found in container: {container_name}")
             return []
 
-        # Get the most recent processed content file
-        latest_blob = sorted(blobs, key=lambda x: x["name"])[-1]
-        content_json = await blob_client.download_text(
-            container_name, latest_blob["name"]
+        # Filter to only JSON files and sort by last modified (newest first)
+        json_blobs = [blob for blob in blobs if blob.get("name", "").endswith(".json")]
+
+        if not json_blobs:
+            logger.info(f"No JSON files found in container: {container_name}")
+            return []
+
+        # Sort by last modified date, newest first
+        sorted_blobs = sorted(
+            json_blobs, key=lambda x: x.get("last_modified", datetime.min), reverse=True
         )
 
-        # Parse and validate content
-        raw_data = json.loads(content_json)
-        validated_collection = ContractValidator.validate_collection_data(raw_data)
-
-        # Return limited number of items
-        return validated_collection.items[:limit]
-
-    except (ValueError, TypeError) as e:
-        # Handle validation or data format errors
-        error_response = error_handler.handle_error(
-            error=e,
-            error_type="validation",
-            context={
-                "operation": "get_processed_articles",
-                "container": container_name,
-            },
-            user_message="Error processing article data",
+        logger.info(
+            f"Found {len(sorted_blobs)} JSON files in {container_name}, processing up to {limit}"
         )
-        logger.error(
-            f"Article processing validation error: {error_response['error_id']}"
+
+        # Load and process files, detecting format automatically
+        articles = []
+        for blob in sorted_blobs:
+            if len(articles) >= limit:
+                break
+
+            try:
+                blob_name = blob.get("name", "")
+                content_json = await blob_client.download_text(
+                    container_name, blob_name
+                )
+
+                if not content_json:
+                    logger.warning(f"Empty content in blob {blob_name}")
+                    continue
+
+                # Parse JSON content
+                raw_data = json.loads(content_json)
+
+                # Detect format: batch collection or individual article
+                if (
+                    isinstance(raw_data, dict)
+                    and "items" in raw_data
+                    and "metadata" in raw_data
+                ):
+                    # Format 1: Batch collection file (CollectionResult format)
+                    try:
+                        validated_collection = (
+                            ContractValidator.validate_collection_data(raw_data)
+                        )
+                        # Extract items and convert to dict format
+                        for item in validated_collection.items:
+                            if len(articles) >= limit:
+                                break
+                            article_dict = item.model_dump()
+                            article_dict["_source_blob"] = blob_name
+                            article_dict["_batch_file"] = True
+                            articles.append(article_dict)
+                        logger.debug(
+                            f"Loaded {len(validated_collection.items)} articles from batch file: {blob_name}"
+                        )
+                    except Exception as e:
+                        logger.warning(
+                            f"Failed to validate collection file {blob_name}: {e}"
+                        )
+                        continue
+                else:
+                    # Format 2: Individual article file
+                    raw_data["_blob_name"] = blob_name
+                    raw_data["_last_modified"] = blob.get("last_modified")
+                    raw_data["_batch_file"] = False
+                    articles.append(raw_data)
+                    logger.debug(f"Loaded individual article from: {blob_name}")
+
+            except json.JSONDecodeError as e:
+                logger.warning(f"Invalid JSON in blob {blob_name}: {e}")
+                continue
+            except Exception as e:
+                logger.warning(f"Error loading blob {blob_name}: {e}")
+                continue
+
+        logger.info(
+            f"Successfully loaded {len(articles)} articles from {container_name}"
         )
-        return []
+        return articles
+
     except Exception as e:
         # Handle unexpected errors securely
         error_response = error_handler.handle_error(
