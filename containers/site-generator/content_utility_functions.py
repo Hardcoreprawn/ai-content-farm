@@ -52,7 +52,7 @@ async def get_processed_articles(
     """
     try:
         # List ALL blobs in the container (no prefix filter)
-        blobs = await blob_client.list_blobs(container_name)
+        blobs = await blob_client.list_blobs(container=container_name)
 
         if not blobs:
             logger.info(f"No blobs found in container: {container_name}")
@@ -83,7 +83,7 @@ async def get_processed_articles(
             try:
                 blob_name = blob.get("name", "")
                 content_json = await blob_client.download_text(
-                    container_name, blob_name
+                    container=container_name, blob_name=blob_name
                 )
 
                 if not content_json:
@@ -171,7 +171,7 @@ async def get_markdown_articles(
     """
     try:
         # List all markdown files
-        markdown_files = await blob_client.list_blobs(container_name)
+        markdown_files = await blob_client.list_blobs(container=container_name)
 
         articles = []
         for blob_info in markdown_files:
@@ -179,8 +179,15 @@ async def get_markdown_articles(
                 try:
                     # Download and parse markdown file
                     content = await blob_client.download_text(
-                        container_name, blob_info["name"]
+                        container=container_name, blob_name=blob_info["name"]
                     )
+
+                    # Skip if content is empty
+                    if not content:
+                        logger.warning(
+                            f"Empty content in markdown file: {blob_info['name']}"
+                        )
+                        continue
 
                     # Parse frontmatter and create article metadata
                     article_metadata = parse_markdown_frontmatter(
@@ -229,7 +236,7 @@ async def generate_article_markdown(
 
     # Check if file already exists and skip if not forcing regeneration
     if not force_regenerate:
-        existing_blobs = await blob_client.list_blobs(container_name)
+        existing_blobs = await blob_client.list_blobs(container=container_name)
         if any(blob["name"] == markdown_filename for blob in existing_blobs):
             logger.debug(f"Skipping existing file: {markdown_filename}")
             return markdown_filename
@@ -239,10 +246,10 @@ async def generate_article_markdown(
 
     # Upload to blob storage
     await blob_client.upload_text(
-        container_name=container_name,
+        container=container_name,
         blob_name=markdown_filename,
-        content=markdown_content,
-        content_type="text/markdown",
+        text=markdown_content,
+        overwrite=force_regenerate,
     )
 
     logger.debug(f"Generated markdown: {markdown_filename}")
@@ -273,28 +280,51 @@ async def create_complete_site(
 
     # Generate individual article pages
     for article in articles:
-        page_filename = await generate_article_page(
+        # Generate HTML using pure function
+        html_content = generate_article_page(
             article=article,
-            theme=theme,
-            blob_client=blob_client,
-            container_name=config["STATIC_SITES_CONTAINER"],
+            config=config,
         )
-        generated_files.append(f"articles/{page_filename}")
+
+        # Upload to blob storage
+        filename = f"articles/{article.get('id', 'article')}.html"
+        await blob_client.upload_text(
+            container=config["STATIC_SITES_CONTAINER"],
+            blob_name=filename,
+            text=html_content,
+            overwrite=True,
+        )
+        generated_files.append(filename)
 
     # Generate index page
-    index_filename = await generate_index_page(
+    html_content = generate_index_page(
         articles=articles,
-        theme=theme,
-        blob_client=blob_client,
-        container_name=config["STATIC_SITES_CONTAINER"],
+        config=config,
+    )
+
+    # Upload to blob storage
+    index_filename = "index.html"
+    await blob_client.upload_text(
+        container=config["STATIC_SITES_CONTAINER"],
+        blob_name=index_filename,
+        text=html_content,
+        overwrite=True,
     )
     generated_files.append(index_filename)
 
     # Generate RSS feed
-    rss_filename = await generate_rss_feed(
+    rss_content = generate_rss_feed(
         articles=articles,
-        blob_client=blob_client,
-        container_name=config["STATIC_SITES_CONTAINER"],
+        config=config,
+    )
+
+    # Upload to blob storage
+    rss_filename = "feed.xml"
+    await blob_client.upload_text(
+        container=config["STATIC_SITES_CONTAINER"],
+        blob_name=rss_filename,
+        text=rss_content,
+        overwrite=True,
     )
     generated_files.append(rss_filename)
 

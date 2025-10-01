@@ -187,7 +187,9 @@ class TestUtilityFunctionsCoverage:
             assert result[1]["id"] == "1"
             assert result[1]["_source_blob"] == "batch-001.json"
             assert result[1]["_batch_file"] is True
-            mock_blob_client.list_blobs.assert_called_once_with("processed-content")
+            mock_blob_client.list_blobs.assert_called_once_with(
+                container="processed-content"
+            )
 
     @pytest.mark.asyncio
     async def test_get_processed_articles_individual_format(self, mock_blob_client):
@@ -243,7 +245,10 @@ class TestUtilityFunctionsCoverage:
         assert result[1]["topic_id"] == "topic-123"
         assert result[1]["_blob_name"] == "articles/2025/09/28/article_123.json"
         assert result[1]["_batch_file"] is False
-        mock_blob_client.list_blobs.assert_called_once_with("processed-content")
+        # Verify the blob client was called correctly
+        mock_blob_client.list_blobs.assert_called_once_with(
+            container="processed-content"
+        )
 
     @pytest.mark.asyncio
     async def test_get_processed_articles_empty(self, mock_blob_client):
