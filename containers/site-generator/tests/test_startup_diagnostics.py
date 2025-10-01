@@ -45,7 +45,9 @@ async def test_process_startup_queue_messages_calls_with_correct_parameters():
     ), "process_queue_messages should not receive timeout_seconds parameter"
 
     # Verify correct values
-    assert call_kwargs["queue_name"] == "site-generator-queue"
+    from functional_config import QUEUE_NAME
+
+    assert call_kwargs["queue_name"] == QUEUE_NAME
     assert call_kwargs["max_messages"] == 10
     assert callable(call_kwargs["message_handler"])
 

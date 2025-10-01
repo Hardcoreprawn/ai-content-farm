@@ -126,8 +126,10 @@ async def process_startup_queue_messages(
                 return {"status": "error", "error": str(e)}
 
         # Process queue with our message handler
+        from functional_config import QUEUE_NAME
+
         messages_processed = await process_queue_messages_func(
-            queue_name="site-generator-queue",
+            queue_name=QUEUE_NAME,
             max_messages=10,
             message_handler=process_message,
         )

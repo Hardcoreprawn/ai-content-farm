@@ -25,6 +25,9 @@ from libs.simplified_blob_client import SimplifiedBlobClient
 logger = logging.getLogger(__name__)
 error_handler = SecureErrorHandler("site-generator-config")
 
+# Queue configuration constant
+QUEUE_NAME = os.getenv("QUEUE_NAME", "site-generation-requests")
+
 
 @dataclass(frozen=True)
 class SiteGeneratorConfig:
@@ -40,6 +43,9 @@ class SiteGeneratorConfig:
     PROCESSED_CONTENT_CONTAINER: str
     MARKDOWN_CONTENT_CONTAINER: str
     STATIC_SITES_CONTAINER: str
+
+    # Queue configuration
+    QUEUE_NAME: str
 
     # Site configuration
     SITE_TITLE: str
@@ -168,6 +174,11 @@ def load_configuration(
                 "STATIC_SITES_CONTAINER",
                 os.getenv("STATIC_SITES_CONTAINER", "static-sites"),
             ),
+            # Queue configuration
+            QUEUE_NAME=startup_config.get(
+                "QUEUE_NAME",
+                os.getenv("QUEUE_NAME", "site-generation-requests"),
+            ),
             # Site configuration
             SITE_TITLE=startup_config.get(
                 "SITE_TITLE", os.getenv("SITE_TITLE", "JabLab Tech News")
@@ -179,10 +190,10 @@ def load_configuration(
                 ),
             ),
             SITE_DOMAIN=startup_config.get(
-                "SITE_DOMAIN", os.getenv("SITE_DOMAIN", "jablab.com")
+                "SITE_DOMAIN", os.getenv("SITE_DOMAIN", "jablab.dev")
             ),
             SITE_URL=startup_config.get(
-                "SITE_URL", os.getenv("SITE_URL", "https://jablab.com")
+                "SITE_URL", os.getenv("SITE_URL", "https://jablab.dev")
             ),
             # Generation settings
             ARTICLES_PER_PAGE=int(

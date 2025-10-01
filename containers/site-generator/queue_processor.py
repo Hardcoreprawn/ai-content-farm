@@ -28,7 +28,9 @@ class QueueMessageProcessor:
         """Process messages from storage queue with optional configuration."""
         try:
             # Default configuration
-            queue_name = "site-generator-queue"
+            from functional_config import QUEUE_NAME
+
+            queue_name = QUEUE_NAME
             max_messages = 5
             timeout_seconds = 30
 
