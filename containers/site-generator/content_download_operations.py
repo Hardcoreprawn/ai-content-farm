@@ -1,8 +1,10 @@
 """
-Basic Blob Storage Operations
+Content Download Operations for Site Generator
 
-Pure functions for fundamental blob storage operations like downloading content.
-Extracted from storage_content_operations.py for better maintainability.
+Pure functions specifically for downloading content used in site generation.
+Focused on article content retrieval and processing workflows.
+
+This module is distinct from libs/blob_operations.py which provides general blob operations.
 """
 
 import logging

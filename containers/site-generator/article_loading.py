@@ -7,10 +7,19 @@ Extracted from storage_content_operations.py for better maintainability.
 
 import json
 import logging
+import os
+
+# Import from same directory (site-generator container)
+# Use explicit path to avoid conflict with libs.blob_operations
+import sys
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from .blob_operations import download_blob_content
+from content_download_operations import download_blob_content
+
+sys.path.insert(0, os.path.dirname(__file__))
+# Import from same directory (site-generator container)
+# Import from same directory (site-generator container) - now with clear name
 
 logger = logging.getLogger(__name__)
 
