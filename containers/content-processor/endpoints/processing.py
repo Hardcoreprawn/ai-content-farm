@@ -5,10 +5,10 @@ RESTful endpoints for content processing operations.
 """
 
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from models import WakeUpRequest
 from pydantic import BaseModel, Field
 
@@ -19,6 +19,9 @@ router = APIRouter(prefix="/process", tags=["processing"])
 
 # Create service metadata dependency
 service_metadata = create_service_dependency("content-processor")
+
+# Job tracking (in-memory for now, could use Redis/database for production)
+_processing_jobs: Dict[str, Dict[str, Any]] = {}
 
 
 class ProcessRequest(BaseModel):
@@ -110,30 +113,82 @@ async def get_processing_types(
     "/wake-up",
     response_model=StandardResponse,
     summary="Wake Up Processor",
-    description="Process the latest collection - simple and direct",
+    description="Process the latest collection asynchronously",
+    status_code=202,
 )
 async def wake_up_processor(
     request: WakeUpRequest,
+    background_tasks: BackgroundTasks,
     metadata: Dict[str, Any] = Depends(service_metadata),
 ):
     """
-    Simple wake-up: get latest collection, process items, done.
-    No complex discovery, no filtering - just work.
+    Async wake-up: queue processing job and return immediately.
+    Use /process/jobs/{job_id} to check status.
+    """
+    job_id = str(uuid4())
+
+    # Initialize job tracking
+    _processing_jobs[job_id] = {
+        "job_id": job_id,
+        "status": "accepted",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "started_at": None,
+        "completed_at": None,
+        "topics_processed": 0,
+        "articles_generated": 0,
+        "collection_processed": None,
+        "error": None,
+        "request": {
+            "source": request.source,
+            "batch_size": request.batch_size,
+            "priority_threshold": request.priority_threshold,
+        },
+    }
+
+    # Queue the processing work
+    background_tasks.add_task(
+        _process_collection_async,
+        job_id=job_id,
+        request=request,
+    )
+
+    return StandardResponse(
+        status="accepted",
+        data={
+            "job_id": job_id,
+            "status": "accepted",
+            "message": "Processing job queued",
+            "status_endpoint": f"/process/jobs/{job_id}",
+        },
+        message=f"Processing job {job_id} accepted and queued",
+        errors=None,
+        metadata=metadata,
+    )
+
+
+async def _process_collection_async(job_id: str, request: WakeUpRequest):
+    """
+    Background task: actually process the collection.
+    Updates job status as it progresses.
     """
     try:
         from libs.simplified_blob_client import SimplifiedBlobClient
+
+        # Update job status to processing
+        _processing_jobs[job_id]["status"] = "processing"
+        _processing_jobs[job_id]["started_at"] = datetime.now(timezone.utc).isoformat()
 
         blob_client = SimplifiedBlobClient()
 
         # 1. Get latest collection file
         blobs = await blob_client.list_blobs("collected-content", prefix="collections/")
         if not blobs:
-            return StandardResponse(
-                status="success",
-                data={"topics_processed": 0, "message": "No collections found"},
-                message="No collections to process",
-                metadata=metadata,
-            )
+            _processing_jobs[job_id]["status"] = "completed"
+            _processing_jobs[job_id]["completed_at"] = datetime.now(
+                timezone.utc
+            ).isoformat()
+            _processing_jobs[job_id]["message"] = "No collections found"
+            return
 
         # Get the most recent collection
         latest_blob = sorted(blobs, key=lambda x: x["name"])[-1]
@@ -142,8 +197,10 @@ async def wake_up_processor(
         )
 
         items = collection_data.get("items", [])
+        _processing_jobs[job_id]["collection_processed"] = latest_blob["name"]
+        _processing_jobs[job_id]["total_items"] = len(items)
 
-        # 2. Process items (simplified - just convert to basic articles)
+        # 2. Process items (simplified - just create basic articles)
         articles_generated = 0
         for item in items[: request.batch_size]:
             # Simple processing - just create a basic article
@@ -159,26 +216,82 @@ async def wake_up_processor(
             await blob_client.upload_json("processed-content", article_path, article)
             articles_generated += 1
 
+            # Update progress
+            _processing_jobs[job_id]["articles_generated"] = articles_generated
+            _processing_jobs[job_id]["topics_processed"] = articles_generated
+
+        # Mark as completed
+        _processing_jobs[job_id]["status"] = "completed"
+        _processing_jobs[job_id]["completed_at"] = datetime.now(
+            timezone.utc
+        ).isoformat()
+
+    except Exception as e:
+        # Mark as failed
+        _processing_jobs[job_id]["status"] = "failed"
+        _processing_jobs[job_id]["completed_at"] = datetime.now(
+            timezone.utc
+        ).isoformat()
+        _processing_jobs[job_id]["error"] = str(e)
+
+
+@router.get(
+    "/jobs/{job_id}",
+    response_model=StandardResponse,
+    summary="Get Job Status",
+    description="Check the status of a processing job",
+)
+async def get_job_status(
+    job_id: str,
+    metadata: Dict[str, Any] = Depends(service_metadata),
+):
+    """Get the status of a processing job."""
+    job_data = _processing_jobs.get(job_id)
+
+    if not job_data:
         return StandardResponse(
-            status="success",
-            data={
-                "topics_processed": len(items[: request.batch_size]),
-                "articles_generated": articles_generated,
-                "collection_processed": latest_blob["name"],
-                "total_items_in_collection": len(items),
-            },
-            message=f"Processed {articles_generated} articles from {latest_blob['name']}",
+            status="error",
+            data=None,
+            message=f"Job {job_id} not found",
+            errors=[f"No job found with ID: {job_id}"],
             metadata=metadata,
         )
 
-    except Exception as e:
-        return StandardResponse(
-            status="error",
-            data={"error": str(e)},
-            message="Processing failed",
-            errors=[str(e)],
-            metadata=metadata,
-        )
+    return StandardResponse(
+        status="success",
+        data=job_data,
+        message=f"Job status: {job_data['status']}",
+        errors=None,
+        metadata=metadata,
+    )
+
+
+@router.get(
+    "/jobs",
+    response_model=StandardResponse,
+    summary="List All Jobs",
+    description="Get all processing jobs (recent first)",
+)
+async def list_jobs(
+    limit: Optional[int] = 50,
+    metadata: Dict[str, Any] = Depends(service_metadata),
+):
+    """List all processing jobs."""
+    jobs = sorted(
+        _processing_jobs.values(), key=lambda x: x["created_at"], reverse=True
+    )[:limit]
+
+    return StandardResponse(
+        status="success",
+        data={
+            "jobs": jobs,
+            "total": len(_processing_jobs),
+            "showing": len(jobs),
+        },
+        message=f"Found {len(jobs)} jobs",
+        errors=None,
+        metadata=metadata,
+    )
 
 
 @router.get(
