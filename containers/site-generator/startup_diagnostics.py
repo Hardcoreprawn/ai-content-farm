@@ -130,7 +130,6 @@ async def process_startup_queue_messages(
             queue_name="site-generator-queue",
             max_messages=10,
             message_handler=process_message,
-            timeout_seconds=30,
         )
 
         if results.get("messages_processed", 0) > 0:
