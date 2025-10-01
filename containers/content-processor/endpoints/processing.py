@@ -193,9 +193,17 @@ async def _process_collection_async(job_id: str, request: WakeUpRequest):
 
         # Get the most recent collection
         latest_blob = sorted(blobs, key=lambda x: x["name"])[-1]
-        collection_data = await blob_client.download_json(
+        collection_data: Optional[Dict[str, Any]] = await blob_client.download_json(
             "collected-content", latest_blob["name"]
         )
+
+        if not collection_data:
+            _processing_jobs[job_id]["status"] = "failed"
+            _processing_jobs[job_id]["completed_at"] = datetime.now(
+                timezone.utc
+            ).isoformat()
+            _processing_jobs[job_id]["error"] = "Failed to load collection data"
+            return
 
         items = collection_data.get("items", [])
         _processing_jobs[job_id]["collection_processed"] = latest_blob["name"]
