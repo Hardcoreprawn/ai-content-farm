@@ -28,6 +28,7 @@ bleach~=6.2.0
 
 # Testing Framework
 pytest~=8.4.2
+hypothesis~=6.118.0
 
 # Additional Development Tools
 flake8~=7.3.0
