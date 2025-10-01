@@ -126,16 +126,14 @@ async def process_startup_queue_messages(
                 return {"status": "error", "error": str(e)}
 
         # Process queue with our message handler
-        results = await process_queue_messages_func(
+        messages_processed = await process_queue_messages_func(
             queue_name="site-generator-queue",
             max_messages=10,
             message_handler=process_message,
         )
 
-        if results.get("messages_processed", 0) > 0:
-            logger.info(
-                f"✅ Processed {results['messages_processed']} startup messages"
-            )
+        if messages_processed > 0:
+            logger.info(f"✅ Processed {messages_processed} startup messages")
             return True
         else:
             logger.info("ℹ️ No pending messages found during startup")

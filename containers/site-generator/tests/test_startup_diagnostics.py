@@ -22,10 +22,8 @@ async def test_process_startup_queue_messages_calls_with_correct_parameters():
         return_value={"status": "success", "message": "Test message processed"}
     )
 
-    # Mock process_queue_messages_func - this is what we're testing
-    mock_process_func = AsyncMock(
-        return_value={"messages_processed": 2, "status": "success"}
-    )
+    # Mock process_queue_messages_func - returns int (count of messages processed)
+    mock_process_func = AsyncMock(return_value=2)
 
     # Call the function with our mocks
     result = await process_startup_queue_messages(
@@ -59,9 +57,8 @@ async def test_process_startup_queue_messages_calls_with_correct_parameters():
 async def test_process_startup_queue_messages_returns_false_when_no_messages():
     """Test that startup queue processing returns False when no messages processed."""
     mock_router = AsyncMock()
-    mock_process_func = AsyncMock(
-        return_value={"messages_processed": 0, "status": "success"}
-    )
+    # process_queue_messages returns int, not dict
+    mock_process_func = AsyncMock(return_value=0)
 
     result = await process_startup_queue_messages(
         storage_queue_router=mock_router, process_queue_messages_func=mock_process_func
