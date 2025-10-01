@@ -95,20 +95,19 @@ async def run_boot_diagnostics(site_generator) -> Dict[str, Any]:
         return {"error": str(e), "timestamp": datetime.datetime.now().isoformat()}
 
 
-async def process_startup_queue_messages(
-    storage_queue_router, process_queue_messages_func
-):
-    """Process any existing queue messages on startup."""
+async def process_startup_queue_messages(process_queue_messages_func):
+    """Process any existing queue messages on startup (functional approach)."""
     try:
         logger.info("Starting up - checking for pending queue messages...")
+
+        # Import functional message processor
+        from storage_queue_router import process_storage_queue_message
 
         # Process message handler
         async def process_message(queue_message, message) -> Dict[str, Any]:
             """Process a single message on startup."""
             try:
-                result = await storage_queue_router.process_storage_queue_message(
-                    queue_message
-                )
+                result = await process_storage_queue_message(queue_message)
 
                 if result["status"] == "success":
                     logger.info(

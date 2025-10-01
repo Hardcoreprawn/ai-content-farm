@@ -117,7 +117,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     async def startup_queue_processor():
         try:
             processed_messages = await process_startup_queue_messages(
-                storage_queue_router, process_queue_messages
+                process_queue_messages
             )
             processed_count = 1 if processed_messages else 0
             await handle_startup_auto_shutdown(processed_count)
