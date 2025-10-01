@@ -205,9 +205,17 @@ async def check_blob_connectivity() -> bool:
     try:
         # Add timeout to prevent 504 Gateway Timeout errors
         # Health checks should be fast - use 5-second timeout to stay well under Azure's limits
-        result = await asyncio.wait_for(check_blob_connectivity(), timeout=5.0)
-        # Function already returns boolean
-        return result
+        from libs.simplified_blob_client import SimplifiedBlobClient
+
+        blob_client = SimplifiedBlobClient()
+
+        # Test connection with timeout - returns dict with status info
+        result = await asyncio.wait_for(
+            asyncio.to_thread(blob_client.test_connection, 5.0), timeout=5.0
+        )
+
+        # Check if connection test was successful
+        return result.get("status") == "connected"
     except asyncio.TimeoutError:
         logger.warning("Blob storage health check timed out after 5 seconds")
         return False
