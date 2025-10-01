@@ -12,6 +12,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends
 from models import WakeUpRequest
 from pydantic import BaseModel, Field
 
+from libs.queue_client import send_wake_up_message
 from libs.shared_models import ErrorCodes, StandardResponse, create_service_dependency
 
 # Create router for processing
@@ -219,6 +220,25 @@ async def _process_collection_async(job_id: str, request: WakeUpRequest):
             # Update progress
             _processing_jobs[job_id]["articles_generated"] = articles_generated
             _processing_jobs[job_id]["topics_processed"] = articles_generated
+
+        # Trigger site-generator if we processed articles
+        if articles_generated > 0:
+            try:
+                await send_wake_up_message(
+                    queue_name="site-generation-requests",
+                    service_name="content-processor",
+                    payload={
+                        "trigger": "content_processed",
+                        "topics_processed": articles_generated,
+                        "articles_generated": articles_generated,
+                        "collection": latest_blob["name"],
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    },
+                )
+                _processing_jobs[job_id]["site_generator_triggered"] = True
+            except Exception as e:
+                _processing_jobs[job_id]["site_generator_triggered"] = False
+                _processing_jobs[job_id]["site_generator_error"] = str(e)
 
         # Mark as completed
         _processing_jobs[job_id]["status"] = "completed"
