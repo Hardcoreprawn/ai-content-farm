@@ -90,9 +90,15 @@ class ArticleGenerationService:
             ):
                 enhanced = topic_metadata.enhanced_metadata
 
+                # Convert SourceMetadata Pydantic object to dict for JSON serialization
+                source_metadata = enhanced.get("source_metadata")
+                source_metadata_dict = (
+                    source_metadata.model_dump() if source_metadata else None
+                )
+
                 # Include enhanced metadata in article result
                 article_result["enhanced_metadata"] = {
-                    "source_metadata": enhanced.get("source_metadata"),
+                    "source_metadata": source_metadata_dict,
                     "quality_scores": {
                         "content_quality": enhanced.get("quality_score"),
                         "relevance_score": enhanced.get("relevance_score"),
@@ -109,13 +115,22 @@ class ArticleGenerationService:
                 }
 
                 # Create provenance chain
+                # Convert ProvenanceEntry Pydantic objects to dicts for JSON serialization
                 previous_provenance = enhanced.get("provenance_entries", [])
+                previous_provenance_dicts = [
+                    p.model_dump() if hasattr(p, "model_dump") else p
+                    for p in previous_provenance
+                ]
                 article_result["provenance_chain"] = {
                     "previous_steps": len(previous_provenance),
                     "total_previous_cost": sum(
-                        p.cost_usd
+                        (
+                            p.get("cost_usd", 0)
+                            if isinstance(p, dict)
+                            else (p.cost_usd or 0)
+                        )
                         for p in previous_provenance
-                        if hasattr(p, "cost_usd") and p.cost_usd
+                        if p
                     ),
                     "current_step": {
                         "stage": "processing",
