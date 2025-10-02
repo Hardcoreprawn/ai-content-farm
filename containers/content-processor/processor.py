@@ -30,7 +30,10 @@ from services import (
     TopicDiscoveryService,
 )
 
+# Local application imports
 from config import ContentProcessorSettings
+
+# Shared library imports
 from libs.processing_config import ProcessingConfigManager
 from libs.queue_triggers import (
     should_trigger_next_stage,
@@ -114,10 +117,7 @@ class ContentProcessor:
             await self.openai_client.close()
             logger.info("OpenAI client closed")
 
-            # Close blob client if it has async resources
-            if hasattr(self.blob_client, "close"):
-                await self.blob_client.close()
-                logger.info("Blob client closed")
+            # Note: SimplifiedBlobClient doesn't require explicit cleanup
 
             # Close any other service clients
             services_to_close = [
@@ -212,6 +212,11 @@ class ContentProcessor:
                 batch_size = getattr(self, "default_batch_size", 10)
             if priority_threshold is None:
                 priority_threshold = getattr(self, "default_priority_threshold", 0.5)
+
+            # Type assertions for linter (values guaranteed to be set above)
+            assert batch_size is not None
+            assert priority_threshold is not None
+
             # Phase 1: Find available topics
             if debug_bypass:
                 logger.info(
