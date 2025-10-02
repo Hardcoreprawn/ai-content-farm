@@ -10,7 +10,7 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from .content_download_operations import download_blob_content
+from content_download_operations import download_blob_content
 
 logger = logging.getLogger(__name__)
 
