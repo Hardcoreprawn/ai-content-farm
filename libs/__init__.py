@@ -34,6 +34,15 @@ try:
 except ImportError:
     blob_storage_available = False
 
+# Import queue trigger functions
+from .queue_triggers import (
+    should_trigger_next_stage,
+    trigger_html_generation,
+    trigger_markdown_generation,
+    trigger_next_stage,
+    trigger_processing,
+)
+
 # Import secure error handler
 from .secure_error_handler import ErrorSeverity, SecureErrorHandler, handle_error_safely
 
@@ -53,6 +62,12 @@ __all__ = [
     "SecureErrorHandler",
     "ErrorSeverity",
     "handle_error_safely",
+    # Queue triggers
+    "trigger_next_stage",
+    "trigger_processing",
+    "trigger_markdown_generation",
+    "trigger_html_generation",
+    "should_trigger_next_stage",
     # Legacy support
     "wrap_legacy_response",
 ]
