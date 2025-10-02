@@ -20,4 +20,26 @@ runs:
       shell: bash
       run: |
         echo "Running Terraform format check..."
-        docker run --rm -v "$(pwd)/infra:/workspace" -w /workspace hashicorp/terraform:latest fmt -check -recursive .
+
+        # Retry logic for Docker Hub transient failures
+        MAX_RETRIES=3
+        RETRY_DELAY=10
+
+        for i in $(seq 1 $MAX_RETRIES); do
+          echo "Attempt $i of $MAX_RETRIES..."
+
+          if docker run --rm -v "$(pwd)/infra:/workspace" -w /workspace hashicorp/terraform:latest fmt -check -recursive .; then
+            echo "Terraform format check passed"
+            exit 0
+          else
+            EXIT_CODE=$?
+
+            if [ $i -lt $MAX_RETRIES ]; then
+              echo "Failed with exit code $EXIT_CODE. Retrying in ${RETRY_DELAY}s..."
+              sleep $RETRY_DELAY
+            else
+              echo "Failed after $MAX_RETRIES attempts"
+              exit $EXIT_CODE
+            fi
+          fi
+        done
