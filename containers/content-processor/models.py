@@ -56,6 +56,10 @@ class TopicMetadata(BaseModel):
     upvotes: Optional[int] = None
     comments: Optional[int] = None
 
+    # Enhanced metadata from extended data contracts (optional)
+    # Contains source_metadata, provenance_entries, quality scores, etc.
+    enhanced_metadata: Optional[Dict[str, Any]] = None
+
 
 class ProcessingAttempt(BaseModel):
     """Single processing attempt with cost tracking."""
