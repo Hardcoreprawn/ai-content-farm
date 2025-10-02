@@ -21,10 +21,16 @@ from content_utility_functions import (
 from models import GenerationResponse
 
 from libs import SecureErrorHandler
-from libs.retry_utilities import storage_retry, with_secure_retry
-from libs.simplified_blob_client import SimplifiedBlobClient
 
 # Import Phase 3 components
+from libs.queue_triggers import (
+    should_trigger_next_stage as should_trigger_html_generation,
+)
+from libs.queue_triggers import (
+    trigger_html_generation,
+)
+from libs.retry_utilities import storage_retry, with_secure_retry
+from libs.simplified_blob_client import SimplifiedBlobClient
 from libs.site_generator_exceptions import (
     ContentProcessingError,
     SiteGeneratorError,

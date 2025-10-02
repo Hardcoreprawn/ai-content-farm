@@ -32,6 +32,10 @@ from services import (
 
 from config import ContentProcessorSettings
 from libs.processing_config import ProcessingConfigManager
+from libs.queue_triggers import (
+    should_trigger_next_stage,
+    trigger_markdown_generation,
+)
 from libs.simplified_blob_client import SimplifiedBlobClient
 
 logger = logging.getLogger(__name__)
@@ -272,6 +276,9 @@ class ContentProcessor:
             self.session_cost += total_cost
             self.session_processing_time += processing_time
 
+            # Note: Queue triggers happen per-article in _process_single_topic
+            # after each blob write succeeds, not batched here
+
             return ProcessingResult(
                 success=True,
                 topics_processed=len(processed_topics),
@@ -441,8 +448,37 @@ class ContentProcessor:
             article_result = result.get("article_result")
             if article_result:
                 logger.info(f"💾 STORAGE: Saving processed article to blob storage...")
-                await self.storage.save_processed_article(article_result)
-                logger.info(f"✅ STORAGE: Article saved successfully")
+                save_success, blob_name = await self.storage.save_processed_article(
+                    article_result
+                )
+                if save_success and blob_name:
+                    logger.info(
+                        f"✅ STORAGE: Article saved successfully to {blob_name}"
+                    )
+
+                    # Trigger markdown generation now that blob is written
+                    should_trigger = await should_trigger_next_stage(
+                        files=[blob_name],
+                        force_trigger=True,
+                        minimum_files=1,
+                    )
+                    if should_trigger:
+                        trigger_result = await trigger_markdown_generation(
+                            processed_files=[blob_name],
+                            correlation_id=self.session_id,
+                        )
+                        if trigger_result["status"] == "success":
+                            logger.info(
+                                f"✅ TRIGGER: Sent markdown generation request for {blob_name} - message_id={trigger_result.get('message_id')}"
+                            )
+                        else:
+                            logger.warning(
+                                f"⚠️ TRIGGER: Failed to send markdown generation request - {trigger_result.get('error')}"
+                            )
+                else:
+                    logger.error(
+                        f"❌ STORAGE: Failed to save article - no trigger sent"
+                    )
             else:
                 logger.warning(
                     "⚠️ STORAGE: No article_result to save - skipping storage"

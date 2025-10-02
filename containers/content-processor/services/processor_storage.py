@@ -7,7 +7,7 @@ Extracted from ContentProcessor to improve maintainability.
 
 import logging
 from datetime import datetime, timezone
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from libs.simplified_blob_client import SimplifiedBlobClient
 
@@ -26,7 +26,9 @@ class ProcessorStorageService:
         """
         self.blob_client = blob_client
 
-    async def save_processed_article(self, article_result: Dict[str, Any]) -> bool:
+    async def save_processed_article(
+        self, article_result: Dict[str, Any]
+    ) -> tuple[bool, Optional[str]]:
         """
         Save processed article to the processed-content container.
 
@@ -34,7 +36,9 @@ class ProcessorStorageService:
             article_result: Complete article data including metadata
 
         Returns:
-            bool: True if saved successfully, False otherwise
+            tuple: (success: bool, blob_name: Optional[str])
+                   Returns (True, blob_name) if saved successfully
+                   Returns (False, None) if save failed
         """
         try:
             # Generate blob name with consistent prefix structure like collector
@@ -53,14 +57,14 @@ class ProcessorStorageService:
 
             if success:
                 logger.info(f"Saved processed article to blob: {blob_name}")
-                return True
+                return (True, blob_name)
             else:
                 logger.error(f"Failed to save processed article: {blob_name}")
-                return False
+                return (False, None)
 
         except Exception as e:
             logger.error(f"Error saving processed article: {e}")
-            return False
+            return (False, None)
 
     async def test_storage_connectivity(self) -> bool:
         """

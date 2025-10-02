@@ -151,6 +151,9 @@ async def create_collection(
         # Update metadata with timing
         metadata["execution_time_ms"] = processing_time_ms
 
+        # Note: Queue trigger is handled by ContentCollectorService._send_processing_request
+        # which is called after blob save in collect_and_store_content()
+
         return StandardResponse(
             status="success",
             message=f"Created collection from {len(request.sources)} sources",

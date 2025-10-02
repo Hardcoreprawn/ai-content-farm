@@ -74,43 +74,44 @@ class ContentCollectorService:
     async def _send_processing_request(self, collection_result: Dict[str, Any]) -> bool:
         """Send wake-up message to Storage Queue to trigger content processing.
 
-        Sends a single wake-up message that causes the processor to scan
-        blob storage and process all available collections, including this one.
+        Uses shared library trigger_processing function to maintain consistency
+        across all containers in the pipeline.
         """
         import logging
 
         logger = logging.getLogger(__name__)
 
         try:
-            from libs.queue_client import send_wake_up_message
+            from libs.queue_triggers import trigger_processing
 
             collection_id = collection_result.get("collection_id")
+            storage_location = collection_result.get("storage_location")
             total_items = len(collection_result.get("collected_items", []))
 
             logger.info(
-                f"Sending wake-up message for collection {collection_id} ({total_items} items collected)"
+                f"Sending processing trigger for collection {collection_id} ({total_items} items collected)"
             )
 
-            # Send wake-up message to the processor using our unified interface
-            result = await send_wake_up_message(
-                queue_name="content-processing-requests",
-                service_name="content-collector",
-                payload={
-                    "trigger_reason": "new_collection",
-                    "collection_id": collection_id,
-                    "items_count": total_items,
-                    "storage_location": collection_result.get("storage_location"),
-                    "message": f"Content collected for {collection_id}, processor should scan storage",
-                },
+            # Trigger processing using shared library function
+            # Pass the actual blob path that was saved
+            result = await trigger_processing(
+                collected_files=[storage_location] if storage_location else [],
+                correlation_id=collection_id,
             )
 
-            logger.info(
-                f"Wake-up message sent successfully for collection {collection_id}, message_id: {result['message_id']}"
-            )
-            return True
+            if result["status"] == "success":
+                logger.info(
+                    f"✅ Processing trigger sent for {collection_id}, message_id: {result.get('message_id')}"
+                )
+                return True
+            else:
+                logger.error(
+                    f"❌ Failed to send processing trigger: {result.get('error')}"
+                )
+                return False
 
         except Exception as e:
-            logger.error(f"Failed to send wake-up message: {e}")
+            logger.error(f"Failed to send processing trigger: {e}")
             return False
 
     async def collect_and_store_content(
