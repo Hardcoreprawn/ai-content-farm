@@ -400,9 +400,9 @@ resource "azurerm_container_app" "content_processor" {
       }
     }
 
-    # Temporarily set min_replicas=1 to bypass KEDA authentication issues
-    # TODO: Fix KEDA managed identity authentication or use azapi provider
-    min_replicas = 1
+    # Scale to zero when queue is empty
+    # KEDA authentication configured via null_resource in container_apps_keda_auth.tf
+    min_replicas = 0
     max_replicas = 3
 
     # KEDA scaling rules for Storage Queue messages with managed identity
@@ -416,7 +416,7 @@ resource "azurerm_container_app" "content_processor" {
         queueLength = "1" # Scale immediately when individual items arrive
         cloud       = "AzurePublicCloud"
       }
-      # Managed identity authentication - will be configured via Azure CLI
+      # Managed identity authentication configured via null_resource (see container_apps_keda_auth.tf)
     }
   }
 
@@ -540,9 +540,9 @@ resource "azurerm_container_app" "site_generator" {
       }
     }
 
-    # Temporarily set min_replicas=1 to bypass KEDA authentication issues
-    # TODO: Fix KEDA managed identity authentication or use azapi provider
-    min_replicas = 1
+    # Scale to zero when queue is empty
+    # KEDA authentication configured via null_resource in container_apps_keda_auth.tf
+    min_replicas = 0
     max_replicas = 2
 
     # KEDA scaling rules for Storage Queue messages with managed identity
@@ -556,7 +556,7 @@ resource "azurerm_container_app" "site_generator" {
         queueLength = "1" # Process generation requests immediately
         cloud       = "AzurePublicCloud"
       }
-      # Managed identity authentication - will be configured via Azure CLI
+      # Managed identity authentication configured via null_resource (see container_apps_keda_auth.tf)
     }
   }
 
