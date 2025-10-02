@@ -149,17 +149,6 @@ resource "azurerm_key_vault_access_policy" "github_actions" {
   depends_on = [azurerm_user_assigned_identity.github_actions]
 }
 
-# Event Grid System Topic for Storage Account - used by Azure Functions for pipeline automation
-resource "azurerm_eventgrid_system_topic" "storage" {
-  name                   = "${local.resource_prefix}-storage-events"
-  location               = var.location
-  resource_group_name    = azurerm_resource_group.main.name
-  source_arm_resource_id = azurerm_storage_account.main.id
-  topic_type             = "Microsoft.Storage.StorageAccounts"
-
-  tags = local.common_tags
-}
-
 # Storage Queue configuration replaces Service Bus for better Container Apps integration
 # Storage Queues support managed identity authentication with KEDA scaling
 # This resolves the authentication conflict between managed identity and connection strings
@@ -302,7 +291,11 @@ resource "azurerm_container_app" "content_processor" {
   revision_mode                = "Single"
 
   lifecycle {
-    ignore_changes = [template[0].container[0].image]
+    # Ignore authentication changes - managed by null_resource in container_apps_keda_auth.tf
+    ignore_changes = [
+      template[0].custom_scale_rule[0].authentication,
+      template[0].container[0].image
+    ]
   }
 
   identity {
@@ -437,7 +430,11 @@ resource "azurerm_container_app" "site_generator" {
   revision_mode                = "Single"
 
   lifecycle {
-    ignore_changes = [template[0].container[0].image]
+    # Ignore authentication changes - managed by null_resource in container_apps_keda_auth.tf
+    ignore_changes = [
+      template[0].custom_scale_rule[0].authentication,
+      template[0].container[0].image
+    ]
   }
 
   identity {

@@ -495,18 +495,18 @@ resource "azurerm_storage_container" "pricing_cache" {
 # Storage Queues for container service communication (replaces Service Bus)
 # Using Storage Queues to resolve Container Apps managed identity vs Service Bus connection string conflicts
 resource "azurerm_storage_queue" "content_collection_requests" {
-  name                 = "content-collection-requests"
-  storage_account_name = azurerm_storage_account.main.name
+  name               = "content-collection-requests"
+  storage_account_id = azurerm_storage_account.main.id
 }
 
 resource "azurerm_storage_queue" "content_processing_requests" {
-  name                 = "content-processing-requests"
-  storage_account_name = azurerm_storage_account.main.name
+  name               = "content-processing-requests"
+  storage_account_id = azurerm_storage_account.main.id
 }
 
 resource "azurerm_storage_queue" "site_generation_requests" {
-  name                 = "site-generation-requests"
-  storage_account_name = azurerm_storage_account.main.name
+  name               = "site-generation-requests"
+  storage_account_id = azurerm_storage_account.main.id
 }
 
 # Container services now handle the content processing pipeline

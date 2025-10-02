@@ -41,6 +41,12 @@ resource "null_resource" "configure_processor_keda_auth" {
         --name ${azurerm_container_app.content_processor.name} \
         --resource-group ${azurerm_resource_group.main.name} \
         --scale-rule-name storage-queue-scaler \
+        --scale-rule-type azure-queue \
+        --scale-rule-metadata \
+          accountName=${azurerm_storage_account.main.name} \
+          queueName=${azurerm_storage_queue.content_processing_requests.name} \
+          queueLength=1 \
+          cloud=AzurePublicCloud \
         --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
         --output none || {
           echo "WARNING: KEDA auth configuration failed for content-processor"
@@ -76,6 +82,12 @@ resource "null_resource" "configure_site_generator_keda_auth" {
         --name ${azurerm_container_app.site_generator.name} \
         --resource-group ${azurerm_resource_group.main.name} \
         --scale-rule-name storage-queue-scaler \
+        --scale-rule-type azure-queue \
+        --scale-rule-metadata \
+          accountName=${azurerm_storage_account.main.name} \
+          queueName=${azurerm_storage_queue.site_generation_requests.name} \
+          queueLength=1 \
+          cloud=AzurePublicCloud \
         --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
         --output none || {
           echo "WARNING: KEDA auth configuration failed for site-generator"
