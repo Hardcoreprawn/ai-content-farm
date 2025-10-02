@@ -7,19 +7,10 @@ Extracted from storage_content_operations.py for better maintainability.
 
 import json
 import logging
-import os
-
-# Import from same directory (site-generator container)
-# Use explicit path to avoid conflict with libs.blob_operations
-import sys
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from content_download_operations import download_blob_content
-
-sys.path.insert(0, os.path.dirname(__file__))
-# Import from same directory (site-generator container)
-# Import from same directory (site-generator container) - now with clear name
+from .content_download_operations import download_blob_content
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +19,7 @@ def list_processed_articles(
     blob_client,
     container_name: str,
     prefix: str = "",
-    max_results: Optional[int] = None,
+    max_results: int = 1000,
 ) -> List[Dict[str, Any]]:
     """
     List processed articles from blob storage.

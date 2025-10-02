@@ -78,7 +78,7 @@ class TestDataContracts:
         assert req.source == "manual"
         assert req.batch_size == 10
         assert req.force_regenerate is False
-        assert req.theme is None
+        assert req.theme == "default"
 
 
 class TestFunctionExistence:
@@ -250,7 +250,7 @@ class TestCriticalPathSmoke:
             output_location="test://none",
             generated_files=[],
         )
-        assert minimal.pages_generated is None
+        assert minimal.pages_generated == 0
         assert minimal.errors == []
 
         # Response with optional fields

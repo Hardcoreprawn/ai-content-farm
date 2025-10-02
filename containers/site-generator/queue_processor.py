@@ -5,11 +5,12 @@ Handles message processing and routing for site generation tasks.
 """
 
 import logging
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional
 
 from fastapi import HTTPException
 
 from libs import SecureErrorHandler
+from libs.queue_client import get_queue_client
 
 logger = logging.getLogger(__name__)
 error_handler = SecureErrorHandler("queue-processor")
@@ -30,22 +31,26 @@ class QueueMessageProcessor:
             # Default configuration
             from functional_config import QUEUE_NAME
 
-            queue_name = QUEUE_NAME
-            max_messages = 5
-            timeout_seconds = 30
+            queue_name: str = QUEUE_NAME
+            max_messages: int = 5
+            timeout_seconds: int = 30
 
             # Override with request data if provided
             if request_data:
-                queue_name = request_data.get("queue_name", queue_name)
-                max_messages = request_data.get("max_messages", max_messages)
-                timeout_seconds = request_data.get("timeout_seconds", timeout_seconds)
+                queue_name = str(request_data.get("queue_name", queue_name))
+                max_messages = int(request_data.get("max_messages", max_messages))
+                timeout_seconds = int(
+                    request_data.get("timeout_seconds", timeout_seconds)
+                )
 
             logger.info(
                 f"Processing storage queue messages: queue={queue_name}, max={max_messages}, timeout={timeout_seconds}"
             )
 
             # Message handler for individual messages
-            async def message_handler(queue_message, message) -> Dict[str, Any]:
+            async def message_handler(
+                queue_message: Dict[str, Any], message: Any
+            ) -> Dict[str, Any]:
                 """Handle individual queue message."""
                 try:
                     result = (
@@ -103,35 +108,29 @@ class QueueMessageProcessor:
         self,
         queue_name: str,
         max_messages: int,
-        message_handler: Callable,
+        message_handler: Callable[[Dict[str, Any], Any], Awaitable[Dict[str, Any]]],
         timeout_seconds: int,
     ) -> Dict[str, Any]:
         """Internal queue message processing with timeout."""
         try:
-            from libs.queue_client import QueueClient
-
-            queue_client = QueueClient()
+            queue_client = get_queue_client(queue_name)
 
             # Get messages from queue
-            messages = await queue_client.receive_messages(
-                queue_name=queue_name,
-                max_messages=max_messages,
-                visibility_timeout=timeout_seconds,
-            )
+            messages = await queue_client.receive_messages(max_messages=max_messages)
 
             if not messages:
                 logger.info(f"No messages found in queue: {queue_name}")
                 return {"messages_processed": 0, "messages_found": 0, "results": []}
 
             logger.info(f"Found {len(messages)} messages in queue: {queue_name}")
-            results = []
-            processed_count = 0
+            results: list[Dict[str, Any]] = []
+            processed_count: int = 0
 
             # Process each message
             for message in messages:
                 try:
                     # Parse queue message
-                    queue_message = {
+                    queue_message: Dict[str, Any] = {
                         "id": message.id,
                         "content": message.content,
                         "pop_receipt": message.pop_receipt,
@@ -144,11 +143,8 @@ class QueueMessageProcessor:
 
                     if result["status"] == "success":
                         # Delete processed message
-                        await queue_client.delete_message(
-                            queue_name=queue_name,
-                            message_id=message.id,
-                            pop_receipt=message.pop_receipt,
-                        )
+                        # Note: StorageQueueClient uses delete_message() but interface defines complete_message()
+                        await queue_client.delete_message(message)  # type: ignore[attr-defined]
                         processed_count += 1
                     else:
                         logger.warning(

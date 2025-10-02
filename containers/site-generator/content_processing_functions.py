@@ -38,11 +38,12 @@ error_handler = SecureErrorHandler("content-processing")
 
 async def generate_markdown_batch(
     source: str,
-    batch_size: int,
-    force_regenerate: bool,
     blob_client: SimplifiedBlobClient,
     config: Dict[str, Any],
-    generator_id: Optional[str] = None,
+    batch_size: int = 10,
+    force_regenerate: bool = False,
+    generator_id: str = "",
+    trigger_html_generation: bool = True,
 ) -> GenerationResponse:
     """
     Generate markdown files from processed content.
@@ -57,9 +58,10 @@ async def generate_markdown_batch(
         blob_client: Initialized blob storage client
         config: Configuration dictionary with container names and settings
         generator_id: Optional generator identifier for tracking
+        trigger_html_generation: Whether to send queue message for HTML generation
 
     Returns:
-        GenerationResponse with processing results
+        GenerationResponse with processing results and queue trigger status
     """
     start_time = datetime.now(timezone.utc)
     generator_id = generator_id or str(uuid4())[:8]
@@ -179,6 +181,44 @@ async def generate_markdown_batch(
             f"Generated {len(generated_files)} markdown files in {processing_time:.2f}s"
         )
 
+        # Trigger HTML generation if markdown files were created
+        if generated_files and trigger_html_generation:
+            from queue_trigger_functions import (
+                should_trigger_html_generation,
+            )
+            from queue_trigger_functions import (
+                trigger_html_generation as send_html_trigger,
+            )
+
+            # Check if we should trigger (allows for future threshold logic)
+            should_trigger = should_trigger_html_generation(
+                markdown_files=generated_files,
+                config=config,
+                force_trigger=False,
+            )
+
+            if should_trigger:
+                queue_trigger_result = await send_html_trigger(
+                    markdown_files=generated_files,
+                    queue_name=config.get("QUEUE_NAME", "site-generation-requests"),
+                    generator_id=generator_id,
+                    correlation_id=generator_id,
+                    additional_metadata={
+                        "source": source,
+                        "batch_size": batch_size,
+                    },
+                )
+
+                if queue_trigger_result["status"] == "success":
+                    logger.info(
+                        f"✅ HTML generation triggered: message_id={queue_trigger_result.get('message_id')}"
+                    )
+                elif queue_trigger_result["status"] == "error":
+                    # Log error but don't fail markdown generation
+                    logger.warning(
+                        f"⚠️  HTML generation trigger failed (non-fatal): {queue_trigger_result.get('error')}"
+                    )
+
         return GenerationResponse(
             generator_id=generator_id,
             operation_type="markdown_generation",
@@ -227,11 +267,11 @@ async def generate_markdown_batch(
 
 
 async def generate_static_site(
-    theme: str,
-    force_rebuild: bool,
     blob_client: SimplifiedBlobClient,
     config: Dict[str, Any],
-    generator_id: Optional[str] = None,
+    theme: str = "default",
+    force_rebuild: bool = False,
+    generator_id: str = "",
 ) -> GenerationResponse:
     """
     Generate complete static HTML site from markdown content.

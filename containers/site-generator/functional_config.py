@@ -355,7 +355,7 @@ def validate_storage_connectivity(config: SiteGeneratorConfig) -> bool:
         return False
 
 
-def validate_required_containers(config: SiteGeneratorConfig) -> Dict[str, bool]:
+async def validate_required_containers(config: SiteGeneratorConfig) -> Dict[str, bool]:
     """
     Validate that all required containers exist.
 
@@ -378,7 +378,8 @@ def validate_required_containers(config: SiteGeneratorConfig) -> Dict[str, bool]
         for container_name in required_containers:
             try:
                 # Try to list blobs in container (tests existence and permissions)
-                blobs = blob_client.list_blobs(container_name, max_results=1)
+                # list_blobs already returns a List and tests container accessibility
+                await blob_client.list_blobs(container_name, prefix="")
                 container_status[container_name] = True
 
             except Exception as e:

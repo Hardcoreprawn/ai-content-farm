@@ -12,6 +12,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from pydantic import Field
+
 from libs import SecureErrorHandler
 
 logger = logging.getLogger(__name__)
@@ -34,15 +36,8 @@ class ThemeMetadata:
     tech_optimized: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
-    assets: List[str] = None
-    template_files: List[str] = None
-
-    def __post_init__(self):
-        """Initialize default values."""
-        if self.assets is None:
-            self.assets = []
-        if self.template_files is None:
-            self.template_files = []
+    assets: List[str] = Field(default_factory=list)
+    template_files: List[str] = Field(default_factory=list)
 
 
 class ThemeManager:

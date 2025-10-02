@@ -96,20 +96,41 @@ class TestContentProcessingBehavior:
             )
             return {"status": "uploaded"}
 
-        # Mock upload_blob method (different signature)
-        async def mock_upload_blob(
-            blob_name: str, blob_data: bytes, container_name: str = None, **kwargs
+        # Mock common upload methods to match SimplifiedBlobClient interface
+        async def mock_upload_text(
+            container: str, blob_name: str, content: str, **kwargs
         ):
             mock_client.uploaded_files.append(
                 {
-                    "container": container_name,
+                    "container": container,
                     "blob_name": blob_name,
-                    "content": blob_data,
+                    "content": content.encode(),
                 }
             )
-            return {"status": "uploaded"}
+            return True
 
-        mock_client.upload_blob = AsyncMock(side_effect=mock_upload_blob)
+        async def mock_upload_binary(
+            container: str, blob_name: str, data: bytes, **kwargs
+        ):
+            mock_client.uploaded_files.append(
+                {"container": container, "blob_name": blob_name, "content": data}
+            )
+            return True
+
+        async def mock_upload_json(
+            container: str, blob_name: str, data: dict, **kwargs
+        ):
+            import json
+
+            content = json.dumps(data, indent=2).encode("utf-8")
+            mock_client.uploaded_files.append(
+                {"container": container, "blob_name": blob_name, "content": content}
+            )
+            return True
+
+        mock_client.upload_text = AsyncMock(side_effect=mock_upload_text)
+        mock_client.upload_binary = AsyncMock(side_effect=mock_upload_binary)
+        mock_client.upload_json = AsyncMock(side_effect=mock_upload_json)
         return mock_client
 
     @pytest.mark.asyncio
@@ -320,8 +341,12 @@ class TestStorageOperationBehavior:
         async def failing_upload(*args, **kwargs):
             raise Exception("Upload failed - insufficient permissions")
 
-        mock_client.download_blob = AsyncMock(side_effect=failing_download)
-        mock_client.upload_blob = AsyncMock(side_effect=failing_upload)
+        # Mock the correct SimplifiedBlobClient methods
+        mock_client.download_json = AsyncMock(side_effect=failing_download)
+        mock_client.download_text = AsyncMock(side_effect=failing_download)
+        mock_client.upload_text = AsyncMock(side_effect=failing_upload)
+        mock_client.upload_json = AsyncMock(side_effect=failing_upload)
+        mock_client.upload_binary = AsyncMock(side_effect=failing_upload)
 
         return mock_client
 

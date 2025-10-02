@@ -13,7 +13,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from content_processing_functions import generate_static_site
-from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi.responses import JSONResponse
 from functional_config import create_generator_context
 from pydantic import BaseModel
 
@@ -41,60 +42,114 @@ class StorageQueueProcessingResponse(BaseModel):
     timestamp: datetime
 
 
-async def _generate_static_site(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Generate static site from processed content.
+async def _process_queue_request(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Handle Storage Queue request with two-path logic.
 
-    Args:
-        payload: Message payload with generation parameters
+    If payload.content_type == 'json':
+      - Generate markdown from processed JSON articles only
+    If payload.content_type == 'markdown':
+      - Generate static HTML site from existing markdown only
+    Else (backward-compat / unspecified):
+      - Generate markdown first, then generate static site
 
-    Returns:
-        Generation result
+    Returns detailed processing results.
     """
     try:
-        logger.info("Starting static site generation from Storage Queue trigger")
-
-        # Extract parameters from payload
+        content_type = (payload or {}).get("content_type")
         topics_processed = payload.get("topics_processed", 0)
         articles_generated = payload.get("articles_generated", 0)
 
         logger.info(
-            f"Processing {topics_processed} topics, {articles_generated} articles"
+            f"Queue trigger received (content_type={content_type or 'auto'}; "
+            f"topics={topics_processed}, articles={articles_generated})"
         )
 
         # Create generator context (contains config, blob_client, etc.)
         context = create_generator_context()
 
-        # Generate static site from markdown content
-        result = await generate_static_site(
-            theme=context["config"].DEFAULT_THEME,
-            force_rebuild=payload.get("force_rebuild", False),
-            blob_client=context["blob_client"],
-            config=context["config_dict"],  # Pass config dict, not object
-            generator_id=payload.get("correlation_id") or context["generator_id"],
-        )
+        markdown_files = 0
+        site_result = None
 
-        logger.info(
-            f"Site generation completed: {result.files_generated} files, "
-            f"{result.pages_generated} pages in {result.processing_time:.2f}s"
-        )
+        # Import locally to avoid circular imports at module import time
+        from content_processing_functions import generate_markdown_batch
+
+        if content_type == "json":
+            # Only create markdown from processed JSON content
+            mr = await generate_markdown_batch(
+                source="storage-queue-trigger",
+                batch_size=articles_generated or 10,
+                force_regenerate=payload.get("force_regenerate", False),
+                blob_client=context["blob_client"],
+                config=context["config_dict"],
+                generator_id=payload.get("correlation_id") or context["generator_id"],
+            )
+            markdown_files = mr.files_generated
+            logger.info(f"Markdown generation completed: {markdown_files} files")
+
+        elif content_type == "markdown":
+            # Only generate the static site from existing markdown
+            site_result = await generate_static_site(
+                theme=context["config"].DEFAULT_THEME,
+                force_rebuild=payload.get("force_rebuild", False),
+                blob_client=context["blob_client"],
+                config=context["config_dict"],
+                generator_id=payload.get("correlation_id") or context["generator_id"],
+            )
+            logger.info(
+                f"Site generation completed: {site_result.files_generated} files, "
+                f"{site_result.pages_generated} pages in {site_result.processing_time:.2f}s"
+            )
+
+        else:
+            # Backward-compatible behavior: markdown then site
+            mr = await generate_markdown_batch(
+                source="storage-queue-trigger",
+                batch_size=articles_generated or 10,
+                force_regenerate=payload.get("force_regenerate", False),
+                blob_client=context["blob_client"],
+                config=context["config_dict"],
+                generator_id=payload.get("correlation_id") or context["generator_id"],
+            )
+            markdown_files = mr.files_generated
+            logger.info(f"Markdown generation completed: {markdown_files} files")
+
+            if markdown_files > 0:
+                site_result = await generate_static_site(
+                    theme=context["config"].DEFAULT_THEME,
+                    force_rebuild=payload.get("force_rebuild", False),
+                    blob_client=context["blob_client"],
+                    config=context["config_dict"],
+                    generator_id=payload.get("correlation_id")
+                    or context["generator_id"],
+                )
+                logger.info(
+                    f"Site generation completed: {site_result.files_generated} files, "
+                    f"{site_result.pages_generated} pages in {site_result.processing_time:.2f}s"
+                )
 
         return {
             "status": "success",
+            "content_type": content_type or "auto",
             "topics_processed": topics_processed,
             "articles_generated": articles_generated,
-            "files_generated": result.files_generated,
-            "pages_generated": result.pages_generated,
-            "processing_time": result.processing_time,
-            "output_location": result.output_location,
-            "message": "Site generation completed successfully",
+            "markdown_files": markdown_files,
+            "site_updated": site_result is not None,
+            "site_pages": site_result.pages_generated if site_result else 0,
+            "site_files": site_result.files_generated if site_result else 0,
+            "processing_time": site_result.processing_time if site_result else 0,
+            "output_location": site_result.output_location if site_result else None,
+            "message": (
+                f"Processed {content_type or 'auto'}: "
+                f"markdown={markdown_files}, site={'updated' if site_result else 'unchanged'}"
+            ),
         }
 
     except Exception as e:
-        logger.error(f"Site generation failed: {e}")
+        logger.error(f"Queue request processing failed: {e}")
         return {
             "status": "error",
             "error": str(e),
-            "message": "Site generation failed",
+            "message": "Queue request processing failed",
         }
 
 
@@ -116,10 +171,12 @@ async def process_storage_queue_message(
         )
 
         if message.operation == "wake_up":
-            # Handle wake-up message - generate site
-            logger.info("Received wake-up signal from Storage Queue - generating site")
+            # Handle wake-up message - branch based on content type
+            logger.info(
+                "Received wake-up signal from Storage Queue - processing trigger"
+            )
 
-            result = await _generate_static_site(message.payload)
+            result = await _process_queue_request(message.payload)
 
             return {
                 "status": "success",
@@ -129,8 +186,10 @@ async def process_storage_queue_message(
             }
 
         elif message.operation == "generate_site":
-            # Handle specific site generation request
-            result = await _generate_static_site(message.payload)
+            # Explicit site generation request (treat as markdown path)
+            payload = dict(message.payload or {})
+            payload.setdefault("content_type", "markdown")
+            result = await _process_queue_request(payload)
 
             return {
                 "status": "success",
@@ -172,7 +231,7 @@ class SiteGeneratorStorageQueueRouter:
 
     async def _generate_static_site(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """Delegate to functional implementation."""
-        return await _generate_static_site(payload)
+        return await _process_queue_request(payload)
 
 
 # Global router instance (deprecated - kept for backward compatibility)
@@ -207,7 +266,7 @@ async def storage_queue_health() -> Dict[str, Any]:
 async def process_storage_queue_messages(
     background_tasks: BackgroundTasks,
     # Site generator handles fewer messages due to file generation overhead
-    max_messages: Optional[int] = 2,
+    max_messages: int = Query(default=2, ge=1, le=10),
 ) -> StorageQueueProcessingResponse:
     """
     Process Storage Queue messages.

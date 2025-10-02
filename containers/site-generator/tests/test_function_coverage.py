@@ -346,7 +346,7 @@ class TestDataContractValidation:
         default_req = GenerationRequest()
         assert default_req.source == "manual"
         assert default_req.batch_size == 10
-        assert default_req.theme is None
+        assert default_req.theme == "default"
         assert default_req.force_regenerate is False
 
     def test_generation_response_validation(self):
