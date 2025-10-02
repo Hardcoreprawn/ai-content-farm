@@ -262,10 +262,10 @@ resource "azurerm_container_app" "content_collector" {
         value = "true"
       }
 
-      # Disable auto-shutdown for debugging (set to false for production efficiency)
+      # Enable auto-shutdown for production efficiency (KEDA will restart on schedule)
       env {
         name  = "DISABLE_AUTO_SHUTDOWN"
-        value = "true"
+        value = "false"
       }
     }
 
@@ -393,10 +393,10 @@ resource "azurerm_container_app" "content_processor" {
         value = azurerm_storage_queue.content_processing_requests.name
       }
 
-      # Disable auto-shutdown for debugging (set to false for production efficiency)
+      # Enable auto-shutdown for production efficiency (KEDA will restart on new messages)
       env {
         name  = "DISABLE_AUTO_SHUTDOWN"
-        value = "true"
+        value = "false"
       }
     }
 
