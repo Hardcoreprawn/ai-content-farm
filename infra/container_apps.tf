@@ -400,7 +400,9 @@ resource "azurerm_container_app" "content_processor" {
       }
     }
 
-    min_replicas = 0
+    # Temporarily set min_replicas=1 to bypass KEDA authentication issues
+    # TODO: Fix KEDA managed identity authentication or use azapi provider
+    min_replicas = 1
     max_replicas = 3
 
     # KEDA scaling rules for Storage Queue messages with managed identity
@@ -538,7 +540,9 @@ resource "azurerm_container_app" "site_generator" {
       }
     }
 
-    min_replicas = 0
+    # Temporarily set min_replicas=1 to bypass KEDA authentication issues
+    # TODO: Fix KEDA managed identity authentication or use azapi provider
+    min_replicas = 1
     max_replicas = 2
 
     # KEDA scaling rules for Storage Queue messages with managed identity
