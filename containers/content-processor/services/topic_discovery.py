@@ -117,6 +117,14 @@ class TopicDiscoveryService:
                         self.input_container, blob_name
                     )
 
+                    # Check if download succeeded
+                    if collection_data is None:
+                        logger.warning(
+                            f"⚠️ DOWNLOAD: Failed to download or parse {blob_name}"
+                        )
+                        skipped_collections += 1
+                        continue
+
                     # Validate collection structure (bypass in debug mode)
                     if not debug_bypass and not self._is_valid_collection(
                         collection_data
@@ -279,7 +287,7 @@ class TopicDiscoveryService:
         return False
 
     def _validated_item_to_topic_metadata(
-        self, item, blob_name: str, provenance_entries: List = None
+        self, item, blob_name: str, provenance_entries: Optional[List] = None
     ) -> Optional[TopicMetadata]:
         """Convert validated CollectionItem or ContentItem to TopicMetadata with enhanced metadata support."""
         try:
@@ -348,8 +356,8 @@ class TopicDiscoveryService:
                         f"📋 ENHANCED: Found custom fields for topic {item.id}: {list(item.custom_fields.keys())}"
                     )
 
-                # Store enhanced metadata for later use in article generation
-                topic_metadata.__dict__["enhanced_metadata"] = enhanced_metadata
+                # Store enhanced metadata in the model field (not __dict__)
+                topic_metadata.enhanced_metadata = enhanced_metadata
                 logger.info(
                     f"📋 SOURCE-META: Enhanced metadata stored for topic {item.id}"
                 )
@@ -422,7 +430,6 @@ class TopicDiscoveryService:
                 upvotes=item.get("upvotes", 0),
                 comments=item.get("comments", 0),
                 collected_at=collected_at,
-                state=TopicState.AVAILABLE,
             )
 
         except Exception as e:
@@ -626,17 +633,15 @@ class TopicDiscoveryService:
             )
 
             return TopicMetadata(
-                id=item_data.get("id", f"raw_{blob_name}_{title[:20]}"),
+                topic_id=item_data.get("id", f"raw_{blob_name}_{title[:20]}"),
                 title=title,
                 url=url,
-                content=content,
                 source=item_data.get("source", "unknown"),
                 priority_score=priority_score,
                 # Use current time if missing
                 collected_at=datetime.now(timezone.utc),
                 upvotes=item_data.get("upvotes", 0),
                 comments=item_data.get("comments", 0),
-                state=TopicState.PENDING,
             )
 
         except Exception as e:
