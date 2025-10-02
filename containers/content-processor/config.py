@@ -4,6 +4,8 @@ Standardized Configuration for Content Processor
 
 Uses pydantic-settings BaseSettings for type-safe configuration management.
 Now using standardized base config for consistency across all containers.
+
+Version: 1.0.1 - Fixed Pydantic serialization for enhanced metadata
 """
 
 import logging
