@@ -531,10 +531,10 @@ resource "azurerm_container_app" "site_generator" {
         value = azurerm_storage_queue.site_generation_requests.name
       }
 
-      # Disable auto-shutdown for debugging (set to false for production efficiency)
+      # Enable auto-shutdown for production efficiency (KEDA will restart on new messages)
       env {
         name  = "DISABLE_AUTO_SHUTDOWN"
-        value = "true"
+        value = "false"
       }
     }
 
