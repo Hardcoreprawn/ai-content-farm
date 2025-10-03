@@ -15,9 +15,10 @@ from typing import Dict, Optional
 
 from pydantic import Field
 
+from libs.config_base import BaseContainerConfig
+
 # Add libs to path for shared config
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
-from libs.config_base import BaseContainerConfig
 
 
 class ContentProcessorSettings(BaseContainerConfig):

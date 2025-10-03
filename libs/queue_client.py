@@ -33,6 +33,8 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 
+from azure.identity.aio import DefaultAzureCredential
+from azure.storage.queue.aio import QueueClient
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -127,9 +129,6 @@ class StorageQueueClient(QueueClientInterface):
     async def connect(self) -> None:
         """Establish connection to Storage Queue using managed identity."""
         try:
-            from azure.identity.aio import DefaultAzureCredential
-            from azure.storage.queue.aio import QueueClient
-
             credential = DefaultAzureCredential()
 
             self._queue_client = QueueClient(
@@ -200,7 +199,11 @@ class StorageQueueClient(QueueClientInterface):
             raise
 
     async def receive_messages(self, max_messages: Optional[int] = None) -> List[Any]:
-        """Receive messages from the Storage Queue."""
+        """Receive messages from the Storage Queue.
+
+        Functional approach with proper async iterator cleanup to prevent
+        unclosed client session warnings and ensure messages are received.
+        """
         if not self._queue_client:
             await self.connect()
 
@@ -208,13 +211,30 @@ class StorageQueueClient(QueueClientInterface):
 
         try:
             messages = []
-            async for message in self._queue_client.receive_messages(
+
+            # Get the async iterator - this is the Azure SDK AsyncItemPaged object
+            message_pager = self._queue_client.receive_messages(
                 messages_per_page=max_msgs,
                 visibility_timeout=30,  # 30 seconds visibility timeout
-            ):
-                messages.append(message)
-                if len(messages) >= max_msgs:
-                    break
+            )
+
+            # Properly manage the async iterator lifecycle
+            try:
+                # Use async for but ensure we don't break without cleanup
+                count = 0
+                async for message in message_pager:
+                    messages.append(message)
+                    count += 1
+                    # Stop after max_msgs, but iterator will auto-close at loop end
+                    if count >= max_msgs:
+                        break
+            finally:
+                # Explicitly close the iterator if it has cleanup
+                # Azure AsyncItemPaged should have aclose() or close()
+                if hasattr(message_pager, "aclose"):
+                    await message_pager.aclose()
+                elif hasattr(message_pager, "close"):
+                    await message_pager.close()
 
             logger.info(
                 f"Received {len(messages)} messages from queue '{self.queue_name}'"
