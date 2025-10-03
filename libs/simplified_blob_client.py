@@ -1,9 +1,8 @@
 """
-Simplified Blob Storage Client - Production Implementation
+Simplified Blob Storage Client
 
-Clean, focused API with only essential operations.
-Replaces the bloated BlobOperations class with 8 core methods.
-Now includes standardized blob path management for consistent naming.
+Focused blob storage operations with functional datetime serialization.
+Uses pure functions internally for predictability and testability.
 """
 
 import json
@@ -19,27 +18,62 @@ from libs.blob_paths import BlobPathManager
 logger = logging.getLogger(__name__)
 
 
+# ============================================================================
+# FUNCTIONAL DATETIME SERIALIZATION (Internal Helper)
+# Pure function for converting datetime objects - used internally by the class
+# ============================================================================
+
+
+def serialize_datetime(obj: Any) -> Any:
+    """
+    Pure function to recursively convert datetime objects to ISO format strings.
+
+    This is used internally by upload_json() to handle datetime serialization.
+    It's a functional approach: pure, composable, testable, thread-safe.
+
+    Args:
+        obj: Any Python object (dict, list, datetime, primitive, etc.)
+
+    Returns:
+        Same structure with all datetime objects converted to ISO strings
+    """
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        return {key: serialize_datetime(value) for key, value in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [serialize_datetime(item) for item in obj]
+    else:
+        return obj
+
+
 class SimplifiedBlobClient:
-    """Focused blob storage client with only essential operations and standardized paths."""
+    """Simplified blob storage client with automatic datetime serialization."""
 
     def __init__(self, blob_service_client: Optional[BlobServiceClient] = None):
         if blob_service_client:
-            # Use provided client (for dependency injection)
-            self.blob_service_client = blob_service_client
+            self.blob_service_client: BlobServiceClient = blob_service_client
         else:
-            # Create our own Azure client using auth manager
-            self.auth_manager = BlobAuthManager()
-            self.blob_service_client = self.auth_manager.get_blob_service_client()
-            logger.info("SimplifiedBlobClient initialized with Azure authentication")
+            auth_manager = BlobAuthManager()
+            client = auth_manager.get_blob_service_client()
+            if not client:
+                raise ValueError("Failed to create blob service client")
+            self.blob_service_client = client
 
-        # Initialize path manager for standardized blob naming
         self.path_manager = BlobPathManager()
-        logger.info("BlobPathManager initialized for standardized path naming")
+        logger.info("SimplifiedBlobClient initialized")
 
-    def test_connection(self, timeout_seconds: float = None) -> Dict[str, Any]:
+    def test_connection(
+        self, timeout_seconds: Optional[float] = None
+    ) -> Dict[str, Any]:
         """Test blob storage connection."""
         try:
-            # Simple test - try to list containers (lightweight operation)
+            if not self.blob_service_client:
+                return {
+                    "status": "error",
+                    "connection_type": "azure",
+                    "message": "No blob service client available",
+                }
             containers = list(self.blob_service_client.list_containers())
             return {
                 "status": "healthy",
@@ -60,20 +94,19 @@ class SimplifiedBlobClient:
         data: Dict[str, Any],
         overwrite: bool = True,
     ) -> bool:
-        """Upload JSON data. This covers 90% of all uploads."""
+        """Upload JSON with automatic datetime serialization."""
         try:
             blob_client = self.blob_service_client.get_blob_client(
                 container=container, blob=blob_name
             )
-
-            json_bytes = json.dumps(data, indent=2).encode("utf-8")
+            # Use functional datetime serialization internally
+            serializable_data = serialize_datetime(data)
+            json_bytes = json.dumps(serializable_data, indent=2).encode("utf-8")
             blob_client.upload_blob(
                 json_bytes, overwrite=overwrite, content_type="application/json"
             )
-
             logger.info(f"Uploaded JSON to {container}/{blob_name}")
             return True
-
         except Exception as e:
             logger.error(f"Failed to upload JSON to {container}/{blob_name}: {e}")
             return False
@@ -81,18 +114,15 @@ class SimplifiedBlobClient:
     async def download_json(
         self, container: str, blob_name: str
     ) -> Optional[Dict[str, Any]]:
-        """Download and parse JSON. This covers 90% of all downloads."""
+        """Download and parse JSON."""
         try:
             blob_client = self.blob_service_client.get_blob_client(
                 container=container, blob=blob_name
             )
-
             content = blob_client.download_blob().readall()
             if isinstance(content, bytes):
                 content = content.decode("utf-8")
-
             return json.loads(content)
-
         except Exception as e:
             logger.error(f"Failed to download JSON from {container}/{blob_name}: {e}")
             return None
@@ -100,35 +130,30 @@ class SimplifiedBlobClient:
     async def upload_text(
         self, container: str, blob_name: str, text: str, overwrite: bool = True
     ) -> bool:
-        """Upload text content. For generated articles, logs, etc."""
+        """Upload text content."""
         try:
             blob_client = self.blob_service_client.get_blob_client(
                 container=container, blob=blob_name
             )
-
             blob_client.upload_blob(
                 text.encode("utf-8"), overwrite=overwrite, content_type="text/plain"
             )
-
             logger.info(f"Uploaded text to {container}/{blob_name}")
             return True
-
         except Exception as e:
             logger.error(f"Failed to upload text to {container}/{blob_name}: {e}")
             return False
 
     async def download_text(self, container: str, blob_name: str) -> Optional[str]:
-        """Download text content. For markdown articles, templates, etc."""
+        """Download text content."""
         try:
             blob_client = self.blob_service_client.get_blob_client(
                 container=container, blob=blob_name
             )
-
             content = blob_client.download_blob().readall()
             if isinstance(content, bytes):
                 return content.decode("utf-8")
             return str(content)
-
         except Exception as e:
             logger.error(f"Failed to download text from {container}/{blob_name}: {e}")
             return None
@@ -141,32 +166,27 @@ class SimplifiedBlobClient:
         content_type: str,
         overwrite: bool = True,
     ) -> bool:
-        """Upload binary content. For images, audio, video, PDFs, etc."""
+        """Upload binary content."""
         try:
             blob_client = self.blob_service_client.get_blob_client(
                 container=container, blob=blob_name
             )
-
             blob_client.upload_blob(
                 data, overwrite=overwrite, content_type=content_type
             )
-
             logger.info(f"Uploaded binary to {container}/{blob_name} ({content_type})")
             return True
-
         except Exception as e:
             logger.error(f"Failed to upload binary to {container}/{blob_name}: {e}")
             return False
 
     async def download_binary(self, container: str, blob_name: str) -> Optional[bytes]:
-        """Download binary content. For images, audio, video, PDFs, etc."""
+        """Download binary content."""
         try:
             blob_client = self.blob_service_client.get_blob_client(
                 container=container, blob=blob_name
             )
-
             return blob_client.download_blob().readall()
-
         except Exception as e:
             logger.error(f"Failed to download binary from {container}/{blob_name}: {e}")
             return None
@@ -174,7 +194,7 @@ class SimplifiedBlobClient:
     async def list_blobs(
         self, container: str, prefix: str = ""
     ) -> List[Dict[str, Any]]:
-        """List blobs with metadata. Essential for discovery and cleanup."""
+        """List blobs with metadata."""
         try:
             container_client = self.blob_service_client.get_container_client(container)
             return [
@@ -195,7 +215,7 @@ class SimplifiedBlobClient:
             return []
 
     async def delete_blob(self, container: str, blob_name: str) -> bool:
-        """Delete a blob. Essential for cleanup operations."""
+        """Delete a blob."""
         try:
             blob_client = self.blob_service_client.get_blob_client(
                 container=container, blob=blob_name
@@ -208,131 +228,11 @@ class SimplifiedBlobClient:
             return False
 
 
-# Compatibility layer for gradual migration
 class BlobClientAdapter:
-    """
-    Adapter to make SimplifiedBlobClient compatible with existing container code.
-    Provides old method names that delegate to new simplified methods.
-    """
+    """Adapter that adds standardized path management to SimplifiedBlobClient."""
 
     def __init__(self, simplified_client: SimplifiedBlobClient):
         self._client = simplified_client
-
-    # Legacy method compatibility
-    async def download_data(self, container_name: str, blob_name: str) -> Optional[str]:
-        """Legacy method - use download_text() instead."""
-        return await self._client.download_text(container_name, blob_name)
-
-    async def upload_data(
-        self,
-        container_name: str,
-        blob_name: str,
-        data: str,
-        content_type: str = "text/plain",
-        overwrite: bool = True,
-    ) -> bool:
-        """Legacy method - use upload_text() instead."""
-        return await self._client.upload_text(
-            container_name, blob_name, data, overwrite
-        )
-
-    async def download_json(
-        self, container_name: str, blob_name: str
-    ) -> Optional[Dict]:
-        """Legacy method - already matches new API."""
-        return await self._client.download_json(container_name, blob_name)
-
-    # Standardized Path Methods
-    def get_collection_path(
-        self, source_identifier: str, timestamp: Optional[datetime] = None
-    ) -> str:
-        """
-        Generate standardized collection blob path.
-
-        Format: collections/YYYY/MM/DD/HH/HHMMSS_source.json
-        Example: collections/2025/09/27/08/080026_arstechnica.com.json
-
-        Args:
-            source_identifier: Source domain/identifier (e.g., "arstechnica.com", "reddit.r_technology")
-            timestamp: Optional datetime (defaults to now)
-
-        Returns:
-            str: Standardized collection blob path
-        """
-        return self.path_manager.get_collection_path(source_identifier, timestamp)
-
-    def get_processing_path(
-        self,
-        collection_source: str,
-        processing_stage: str,
-        timestamp: Optional[datetime] = None,
-    ) -> str:
-        """
-        Generate processing stage blob path.
-
-        Format: processing/YYYY/MM/DD/stage/HHMMSS_source.json
-        Example: processing/2025/09/27/enriched/080026_arstechnica.com.json
-
-        Args:
-            collection_source: Original collection source identifier
-            processing_stage: Processing stage (e.g., "ranked", "enriched", "generated")
-            timestamp: Optional datetime (defaults to now)
-
-        Returns:
-            str: Processing stage blob path
-        """
-        return self.path_manager.get_processing_path(
-            collection_source, processing_stage, timestamp
-        )
-
-    def get_generated_path(
-        self, content_type: str, topic_id: str, timestamp: Optional[datetime] = None
-    ) -> str:
-        """
-        Generate final output blob path.
-
-        Format: generated/YYYY/MM/DD/type/topic_id.ext
-        Example: generated/2025/09/27/articles/apple-airpods-pro-3-review.md
-
-        Args:
-            content_type: Type of generated content (e.g., "articles", "summaries")
-            topic_id: Topic identifier (sanitized)
-            timestamp: Optional datetime (defaults to now)
-
-        Returns:
-            str: Generated content blob path
-        """
-        return self.path_manager.get_generated_path(content_type, topic_id, timestamp)
-
-    def parse_collection_path(self, blob_path: str) -> Optional[Dict[str, str]]:
-        """
-        Parse a collection blob path to extract metadata.
-
-        Args:
-            blob_path: Blob path to parse
-
-        Returns:
-            Dict with keys: year, month, day, hour, minute, second, source, original_path
-            None if path doesn't match expected format
-        """
-        return self.path_manager.parse_collection_path(blob_path)
-
-    def list_collections_by_date(
-        self, year: int, month: int, day: int, hour: Optional[int] = None
-    ) -> str:
-        """
-        Generate blob prefix for listing collections by date.
-
-        Args:
-            year: Year (e.g., 2025)
-            month: Month (1-12)
-            day: Day (1-31)
-            hour: Optional hour (0-23) for more specific filtering
-
-        Returns:
-            str: Blob prefix for filtering
-        """
-        return self.path_manager.list_collections_by_date(year, month, day, hour)
 
     async def upload_collection(
         self,
@@ -342,21 +242,13 @@ class BlobClientAdapter:
         timestamp: Optional[datetime] = None,
         overwrite: bool = True,
     ) -> str:
-        """
-        Upload collection using standardized path naming.
-
-        Args:
-            container_name: Container to upload to (e.g., "collected-content")
-            source_identifier: Source domain/identifier
-            collection_data: Collection data to upload as JSON
-            timestamp: Optional timestamp (defaults to now)
-            overwrite: Whether to overwrite existing blob
-
-        Returns:
-            str: The blob path that was used for upload
-        """
-        blob_path = self.get_collection_path(source_identifier, timestamp)
-        await self.upload_json(container_name, blob_path, collection_data, overwrite)
+        """Upload collection using standardized path naming."""
+        blob_path = self._client.path_manager.get_collection_path(
+            source_identifier, timestamp
+        )
+        await self._client.upload_json(
+            container_name, blob_path, collection_data, overwrite
+        )
         logger.info(f"Uploaded collection to standardized path: {blob_path}")
         return blob_path
 
@@ -369,29 +261,80 @@ class BlobClientAdapter:
         timestamp: Optional[datetime] = None,
         overwrite: bool = True,
     ) -> str:
-        """
-        Upload processing result using standardized path naming.
-
-        Args:
-            container_name: Container to upload to (e.g., "processed-content")
-            collection_source: Original collection source identifier
-            processing_stage: Processing stage (e.g., "ranked", "enriched")
-            result_data: Processing result data to upload as JSON
-            timestamp: Optional timestamp (defaults to now)
-            overwrite: Whether to overwrite existing blob
-
-        Returns:
-            str: The blob path that was used for upload
-        """
-        blob_path = self.get_processing_path(
+        """Upload processing result using standardized path naming."""
+        blob_path = self._client.path_manager.get_processing_path(
             collection_source, processing_stage, timestamp
         )
-        await self.upload_json(container_name, blob_path, result_data, overwrite)
+        await self._client.upload_json(
+            container_name, blob_path, result_data, overwrite
+        )
         logger.info(f"Uploaded processing result to standardized path: {blob_path}")
         return blob_path
+
+    async def download_data(self, container_name: str, blob_name: str) -> Optional[str]:
+        """Download text data."""
+        return await self._client.download_text(container_name, blob_name)
+
+    async def upload_data(
+        self,
+        container_name: str,
+        blob_name: str,
+        data: str,
+        content_type: str = "text/plain",
+        overwrite: bool = True,
+    ) -> bool:
+        """Upload text data."""
+        return await self._client.upload_text(
+            container_name, blob_name, data, overwrite
+        )
+
+    async def download_json(
+        self, container_name: str, blob_name: str
+    ) -> Optional[Dict]:
+        """Download JSON data."""
+        return await self._client.download_json(container_name, blob_name)
 
     async def upload_json_data(
         self, container_name: str, blob_name: str, data: Dict
     ) -> bool:
-        """Legacy method - use upload_json() instead."""
+        """Upload JSON data."""
         return await self._client.upload_json(container_name, blob_name, data)
+
+    def get_collection_path(
+        self, source_identifier: str, timestamp: Optional[datetime] = None
+    ) -> str:
+        """Get standardized collection path."""
+        return self._client.path_manager.get_collection_path(
+            source_identifier, timestamp
+        )
+
+    def get_processing_path(
+        self,
+        collection_source: str,
+        processing_stage: str,
+        timestamp: Optional[datetime] = None,
+    ) -> str:
+        """Get standardized processing path."""
+        return self._client.path_manager.get_processing_path(
+            collection_source, processing_stage, timestamp
+        )
+
+    def get_generated_path(
+        self, content_type: str, topic_id: str, timestamp: Optional[datetime] = None
+    ) -> str:
+        """Get standardized generated content path."""
+        return self._client.path_manager.get_generated_path(
+            content_type, topic_id, timestamp
+        )
+
+    def parse_collection_path(self, blob_path: str) -> Optional[Dict[str, str]]:
+        """Parse collection path."""
+        return self._client.path_manager.parse_collection_path(blob_path)
+
+    def list_collections_by_date(
+        self, year: int, month: int, day: int, hour: Optional[int] = None
+    ) -> str:
+        """Get path prefix for listing collections by date."""
+        return self._client.path_manager.list_collections_by_date(
+            year, month, day, hour
+        )
