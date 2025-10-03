@@ -167,6 +167,16 @@ async def lifespan(app: FastAPI):
     finally:
         logger.info("Shutting down Content Processor service")
         try:
+            # Close API client to prevent unclosed session warnings
+            from dependencies import get_api_client
+
+            try:
+                api_client = get_api_client()
+                await api_client.close()
+                logger.info("✅ API client closed")
+            except Exception as e:
+                logger.warning(f"⚠️ Error closing API client: {e}")
+
             # Clean up any remaining async resources
             from processor import ContentProcessor
 
