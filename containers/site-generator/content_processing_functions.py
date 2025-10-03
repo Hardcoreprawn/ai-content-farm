@@ -105,10 +105,19 @@ async def generate_markdown_batch(
                         validation_rule="type_check",
                     )
 
-                required_fields = ["title", "content"]
+                # Check for required fields - support both 'content' and 'article_content'
+                required_fields = ["title"]
                 missing_fields = [
                     field for field in required_fields if not article_data.get(field)
                 ]
+
+                # Validate content field (accept either 'content' or 'article_content')
+                has_content = article_data.get("content") or article_data.get(
+                    "article_content"
+                )
+                if not has_content:
+                    missing_fields.append("content or article_content")
+
                 if missing_fields:
                     raise ValidationError(
                         f"Missing required fields: {missing_fields}",

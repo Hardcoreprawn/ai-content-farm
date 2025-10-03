@@ -366,7 +366,8 @@ def create_markdown_content(article_data: Dict[str, Any]) -> str:
     """
     # Extract article information
     title = article_data.get("title", "Untitled")
-    content = article_data.get("content", "")
+    # Support both 'content' and 'article_content' field names for compatibility
+    content = article_data.get("content") or article_data.get("article_content", "")
     topic_id = article_data.get("topic_id", "")
     source = article_data.get("source", "unknown")
 
