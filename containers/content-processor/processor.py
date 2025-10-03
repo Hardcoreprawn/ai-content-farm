@@ -187,6 +187,7 @@ class ContentProcessor:
         priority_threshold: Optional[float] = None,
         options: Optional[Dict[str, Any]] = None,
         debug_bypass: bool = False,
+        collection_files: Optional[List[str]] = None,
     ) -> ProcessingResult:
         """
         Process available work using wake-up work queue pattern.
@@ -226,8 +227,13 @@ class ContentProcessor:
                 logger.info(
                     f"🔍 DISCOVERY: Searching for available topics with batch_size={batch_size}, priority_threshold={priority_threshold}"
                 )
+
+            # Pass collection_files to topic discovery for efficient processing
             available_topics = await self.topic_discovery.find_available_topics(
-                batch_size, priority_threshold, debug_bypass=debug_bypass
+                batch_size,
+                priority_threshold,
+                debug_bypass=debug_bypass,
+                collection_files=collection_files,
             )
 
             if not available_topics:

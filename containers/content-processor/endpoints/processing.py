@@ -181,21 +181,45 @@ async def _process_collection_async(job_id: str, request: WakeUpRequest):
 
         blob_client = SimplifiedBlobClient()
 
-        # 1. Get latest collection file
-        blobs = await blob_client.list_blobs("collected-content", prefix="collections/")
-        if not blobs:
-            _processing_jobs[job_id]["status"] = "completed"
-            _processing_jobs[job_id]["completed_at"] = datetime.now(
-                timezone.utc
-            ).isoformat()
-            _processing_jobs[job_id]["message"] = "No collections found"
-            return
+        # 1. Get collection file to process
+        # PRAGMATIC APPROACH: Read from payload.files if available, fall back to discovery
+        files_to_process = request.payload.get("files", []) if request.payload else []
 
-        # Get the most recent collection
-        latest_blob = sorted(blobs, key=lambda x: x["name"])[-1]
-        collection_data: Optional[Dict[str, Any]] = await blob_client.download_json(
-            "collected-content", latest_blob["name"]
-        )
+        if files_to_process:
+            # Use specific file from queue message (efficient, reliable)
+            blob_path = files_to_process[0]  # Process first file
+            # Parse path: "collected-content/collections/2025/10/03/file.json"
+            path_parts = blob_path.split("/", 1)
+            if len(path_parts) == 2:
+                container_name, blob_name = path_parts
+            else:
+                # Assume collected-content if no container prefix
+                container_name = "collected-content"
+                blob_name = blob_path
+
+            collection_data: Optional[Dict[str, Any]] = await blob_client.download_json(
+                container_name, blob_name
+            )
+            collection_blob_name = blob_name
+        else:
+            # Fall back to discovery (backwards compatible)
+            blobs = await blob_client.list_blobs(
+                "collected-content", prefix="collections/"
+            )
+            if not blobs:
+                _processing_jobs[job_id]["status"] = "completed"
+                _processing_jobs[job_id]["completed_at"] = datetime.now(
+                    timezone.utc
+                ).isoformat()
+                _processing_jobs[job_id]["message"] = "No collections found"
+                return
+
+            # Get the most recent collection
+            latest_blob = sorted(blobs, key=lambda x: x["name"])[-1]
+            collection_data: Optional[Dict[str, Any]] = await blob_client.download_json(
+                "collected-content", latest_blob["name"]
+            )
+            collection_blob_name = latest_blob["name"]
 
         if not collection_data:
             _processing_jobs[job_id]["status"] = "failed"
@@ -206,7 +230,7 @@ async def _process_collection_async(job_id: str, request: WakeUpRequest):
             return
 
         items = collection_data.get("items", [])
-        _processing_jobs[job_id]["collection_processed"] = latest_blob["name"]
+        _processing_jobs[job_id]["collection_processed"] = collection_blob_name
         _processing_jobs[job_id]["total_items"] = len(items)
 
         # 2. Process items (simplified - just create basic articles)

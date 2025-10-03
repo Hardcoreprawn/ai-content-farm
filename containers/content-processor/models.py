@@ -29,6 +29,10 @@ class WakeUpRequest(BaseModel):
         False,
         description="Bypass all filtering for diagnostic purposes - opens the taps!",
     )
+    payload: Optional[Dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Queue message payload with optional 'files' array for specific collections to process",
+    )
 
 
 class ProcessBatchRequest(BaseModel):

@@ -86,14 +86,18 @@ class ContentProcessorStorageQueueRouter:
                 batch_size = message.payload.get("batch_size", 10)
                 priority_threshold = message.payload.get("priority_threshold", 0.5)
                 debug_bypass = message.payload.get("debug_bypass", False)
+                collection_files = message.payload.get(
+                    "files", []
+                )  # Get specific files from payload
 
                 logger.info(
-                    f"⚙️ PROCESSING: Starting work processing with batch_size={batch_size}, priority_threshold={priority_threshold}, debug_bypass={debug_bypass}"
+                    f"⚙️ PROCESSING: Starting work processing with batch_size={batch_size}, priority_threshold={priority_threshold}, debug_bypass={debug_bypass}, files={collection_files}"
                 )
                 result = await processor.process_available_work(
                     batch_size=batch_size,
                     priority_threshold=priority_threshold,
                     debug_bypass=debug_bypass,
+                    collection_files=collection_files,  # Pass files to processor
                 )
                 logger.info(
                     f"✅ PROCESSING: Work processing completed - {result.topics_processed} topics processed, cost: ${result.total_cost:.4f}"

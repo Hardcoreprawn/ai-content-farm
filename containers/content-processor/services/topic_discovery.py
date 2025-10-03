@@ -67,7 +67,11 @@ class TopicDiscoveryService:
         self.input_container = input_container
 
     async def find_available_topics(
-        self, batch_size: int, priority_threshold: float, debug_bypass: bool = False
+        self,
+        batch_size: int,
+        priority_threshold: float,
+        debug_bypass: bool = False,
+        collection_files: Optional[List[str]] = None,
     ) -> List[TopicMetadata]:
         """Find topics available for processing (pure function).
 
@@ -75,39 +79,64 @@ class TopicDiscoveryService:
             batch_size: Maximum number of topics to return
             priority_threshold: Minimum priority score required
             debug_bypass: If True, bypass all filtering for diagnosis
+            collection_files: Optional list of specific collection file paths to process
         """
         try:
             logger.info(
-                f"🔍 TOPIC-DISCOVERY: Searching for topics (batch_size={batch_size}, threshold={priority_threshold}, debug_bypass={debug_bypass})"
+                f"🔍 TOPIC-DISCOVERY: Searching for topics (batch_size={batch_size}, threshold={priority_threshold}, debug_bypass={debug_bypass}, specific_files={len(collection_files) if collection_files else 0})"
             )
 
-            # List all collections from blob storage using standardized paths
-            logger.info(
-                "📂 BLOB-STORAGE: Connecting to blob storage to list collections..."
-            )
-            # Use the collections/ prefix to find all collections in the standardized path structure
-            blobs = await self.blob_client.list_blobs(
-                self.input_container, prefix="collections/"
-            )
-            logger.info(
-                f"📂 BLOB-STORAGE: Found {len(blobs)} total collection blobs in collections/ path"
-            )
-
-            if blobs:
+            # PRAGMATIC APPROACH: Use specific files if provided, otherwise discover
+            if collection_files:
+                # Process specific collection files from queue message
                 logger.info(
-                    f"📋 BLOB-LIST: Recent collections found: {[b['name'] for b in blobs[-3:]]}"
+                    f"📌 SPECIFIC-FILES: Processing {len(collection_files)} specific collection(s) from queue message"
                 )
+                blobs_to_process = []
+                for file_path in collection_files:
+                    # Parse path: "collected-content/collections/2025/10/03/file.json"
+                    # or just "collections/2025/10/03/file.json"
+                    if "/" in file_path:
+                        path_parts = file_path.split("/", 1)
+                        if (
+                            len(path_parts) == 2
+                            and path_parts[0] == self.input_container
+                        ):
+                            blob_name = path_parts[1]
+                        else:
+                            # No container prefix, use whole path as blob name
+                            blob_name = file_path
+
+                        blobs_to_process.append({"name": blob_name})
+                        logger.info(f"   📄 Will process: {blob_name}")
             else:
-                logger.warning(
-                    f"⚠️ BLOB-STORAGE: No collections found in {self.input_container}/collections/ path!"
+                # Fall back to discovery (list all collections)
+                logger.info(
+                    "📂 BLOB-STORAGE: Connecting to blob storage to list collections..."
                 )
+                # Use the collections/ prefix to find all collections in the standardized path structure
+                blobs_to_process = await self.blob_client.list_blobs(
+                    self.input_container, prefix="collections/"
+                )
+                logger.info(
+                    f"📂 BLOB-STORAGE: Found {len(blobs_to_process)} total collection blobs in collections/ path"
+                )
+
+                if blobs_to_process:
+                    logger.info(
+                        f"📋 BLOB-LIST: Recent collections found: {[b['name'] for b in blobs_to_process[-3:]]}"
+                    )
+                else:
+                    logger.warning(
+                        f"⚠️ BLOB-STORAGE: No collections found in {self.input_container}/collections/ path!"
+                    )
 
             # Process each collection file
             topics = []
             processed_collections = 0
             skipped_collections = 0
 
-            for blob in blobs:
+            for blob in blobs_to_process:
                 try:
                     blob_name = blob["name"]
                     logger.info(f"📄 PROCESSING: {blob_name}")
