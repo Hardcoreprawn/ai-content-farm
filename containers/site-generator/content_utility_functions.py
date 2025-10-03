@@ -462,12 +462,17 @@ def parse_markdown_frontmatter(filename: str, content: str) -> Optional[Dict[str
             return None
 
         # Create article metadata
+        slug = filename.replace(".md", "")
+        generated_at = frontmatter.get("generated_at")
+
         return {
-            "slug": filename.replace(".md", ""),
+            "slug": slug,
             "title": frontmatter.get("title", "Untitled"),
             "topic_id": frontmatter.get("topic_id", ""),
             "source": frontmatter.get("source", "unknown"),
-            "generated_at": frontmatter.get("generated_at"),
+            "generated_at": generated_at,
+            "published_date": generated_at,  # Use generated_at as published_date
+            "url": f"/articles/{slug}.html",  # Generate URL from slug
             "content": parts[2].strip(),
         }
 
