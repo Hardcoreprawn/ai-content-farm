@@ -287,7 +287,9 @@ async def create_complete_site(
         )
 
         # Upload to blob storage
-        filename = f"articles/{article.get('id', 'article')}.html"
+        # Use same safe filename logic as markdown generation for traceability
+        safe_title = create_safe_filename(article.get("title", "untitled"))
+        filename = f"articles/{safe_title}.html"
         await blob_client.upload_text(
             container=config["STATIC_SITES_CONTAINER"],
             blob_name=filename,
