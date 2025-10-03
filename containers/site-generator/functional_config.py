@@ -172,7 +172,7 @@ def load_configuration(
             ),
             STATIC_SITES_CONTAINER=startup_config.get(
                 "STATIC_SITES_CONTAINER",
-                os.getenv("STATIC_SITES_CONTAINER", "static-sites"),
+                os.getenv("STATIC_SITES_CONTAINER", "$web"),
             ),
             # Queue configuration
             QUEUE_NAME=startup_config.get(

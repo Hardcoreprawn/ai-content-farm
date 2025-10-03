@@ -345,6 +345,10 @@ resource "azurerm_storage_account_static_website" "main" {
   error_404_document = "404.html"
 }
 
+# Note: The static website resource automatically creates a special "$web" container
+# that serves content at the storage account's static website URL.
+# Site-generator container writes HTML/CSS/JS directly to $web for live hosting.
+
 # Enable Storage Analytics logging using modern diagnostic settings approach
 # TODO: Re-enable after determining correct log categories for Storage Account
 # resource "azurerm_monitor_diagnostic_setting" "storage_logging" {
