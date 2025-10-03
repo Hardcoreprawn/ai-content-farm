@@ -34,7 +34,7 @@ class StorageQueueProcessingResponse(BaseModel):
     queue_name: str
     messages_processed: int
     correlation_id: str
-    timestamp: datetime
+    timestamp: str  # ISO format timestamp
 
 
 class ContentProcessorStorageQueueRouter:
@@ -183,7 +183,7 @@ async def storage_queue_health() -> Dict[str, Any]:
         return {
             "status": "healthy",
             "storage_queue_client": health,
-            "timestamp": datetime.now(timezone.utc),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "service": "content-processor",
         }
     except Exception as e:
@@ -191,7 +191,7 @@ async def storage_queue_health() -> Dict[str, Any]:
         return {
             "status": "unhealthy",
             "error": "Storage queue health check failed",
-            "timestamp": datetime.now(timezone.utc),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "service": "content-processor",
         }
 
@@ -258,7 +258,7 @@ async def process_storage_queue_messages(
             queue_name="content-processing-requests",
             messages_processed=processed_count,
             correlation_id=correlation_id,
-            timestamp=start_time,
+            timestamp=start_time.isoformat(),
         )
 
     except Exception as e:
@@ -293,7 +293,7 @@ async def send_wake_up_endpoint() -> Dict[str, Any]:
             "message": "Wake-up message sent to site generator",
             "queue_name": "site-generation-requests",
             "message_id": result["message_id"],
-            "timestamp": datetime.now(timezone.utc),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
     except Exception as e:
