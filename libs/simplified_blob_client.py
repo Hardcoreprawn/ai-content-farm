@@ -128,17 +128,41 @@ class SimplifiedBlobClient:
             return None
 
     async def upload_text(
-        self, container: str, blob_name: str, text: str, overwrite: bool = True
+        self,
+        container: str,
+        blob_name: str,
+        text: str,
+        overwrite: bool = True,
+        content_type: Optional[str] = None,
     ) -> bool:
-        """Upload text content."""
+        """Upload text content with automatic content type detection."""
         try:
+            # Auto-detect content type based on file extension if not provided
+            if content_type is None:
+                if blob_name.endswith(".html"):
+                    content_type = "text/html"
+                elif blob_name.endswith(".xml"):
+                    content_type = "application/xml"
+                elif blob_name.endswith(".json"):
+                    content_type = "application/json"
+                elif blob_name.endswith(".css"):
+                    content_type = "text/css"
+                elif blob_name.endswith(".js"):
+                    content_type = "application/javascript"
+                elif blob_name.endswith(".md"):
+                    content_type = "text/markdown"
+                else:
+                    content_type = "text/plain"
+
             blob_client = self.blob_service_client.get_blob_client(
                 container=container, blob=blob_name
             )
             blob_client.upload_blob(
-                text.encode("utf-8"), overwrite=overwrite, content_type="text/plain"
+                text.encode("utf-8"), overwrite=overwrite, content_type=content_type
             )
-            logger.info(f"Uploaded text to {container}/{blob_name}")
+            logger.info(
+                f"Uploaded text to {container}/{blob_name} (content_type={content_type})"
+            )
             return True
         except Exception as e:
             logger.error(f"Failed to upload text to {container}/{blob_name}: {e}")
