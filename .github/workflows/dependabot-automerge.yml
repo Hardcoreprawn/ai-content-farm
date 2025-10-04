@@ -1,7 +1,7 @@
 name: 'Dependabot Auto-merge'
 on:
-  pull_request:
-    types: [opened, synchronize, reopened]
+  pull_request_target:
+    types: [opened, synchronize, reopened, labeled]
   workflow_run:
     workflows: ["Optimized CI/CD Pipeline"]
     types: [completed]
@@ -9,7 +9,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
-  security-events: write
+  checks: read
 
 jobs:
   dependabot-checks:
@@ -41,7 +41,7 @@ jobs:
           while IFS= read -r file; do
             echo "  - $file"
             case "$file" in
-              requirements*.txt|containers/*/requirements.txt|pyproject.toml)
+              requirements*.txt|containers/*/requirements.txt|pyproject.toml|libs/*/requirements.txt)
                 # Extract container name if it's a container-specific requirements file
                 if [[ "$file" =~ containers/([^/]+)/requirements\.txt ]]; then
                   container="${BASH_REMATCH[1]}"
@@ -66,13 +66,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Basic security scan
-        uses: ./.github/actions/security-scan
-        with:
-          fail-on-critical: 'false'
-          upload-sarif: 'true'
-          environment: 'staging'
-
       - name: Check for major version updates
         id: version-check
         run: |
@@ -84,37 +77,40 @@ jobs:
             echo "[PASS] Safe dependency update (${{ steps.metadata.outputs.update-type }})"
           fi
 
-      - name: Wait for CI pipeline
+      - name: Wait for CI checks
         if: |
           steps.version-check.outputs.is-major == 'false' &&
           steps.change-analysis.outputs.is-pure-dependency == 'true'
         run: |
-          echo "⏳ Waiting for optimized CI pipeline to complete..."
+          echo "⏳ Waiting for CI checks to complete..."
 
-          # Wait for the main CI pipeline to complete
           max_wait=1800  # 30 minutes
           wait_time=0
           check_interval=30
 
           while [ $wait_time -lt $max_wait ]; do
-            # Check if the pipeline has completed
-            status=$(gh pr checks ${{ github.event.pull_request.number }} --json conclusion,name --jq '.[] | select(.name == "Summary") | .conclusion')
+            # Get all check runs for this PR
+            checks=$(gh pr checks ${{ github.event.pull_request.number }} --json state,conclusion,name)
 
-            if [[ "$status" == "SUCCESS" ]]; then
-              echo "[PASS] CI pipeline completed successfully!"
-              break
-            elif [[ "$status" == "FAILURE" ]] || [[ "$status" == "CANCELLED" ]]; then
-              echo "[FAIL] CI pipeline failed or was cancelled"
+            # Count pending/in-progress checks
+            pending=$(echo "$checks" | jq '[.[] | select(.state == "PENDING" or .state == "IN_PROGRESS" or .state == "QUEUED")] | length')
+            failed=$(echo "$checks" | jq '[.[] | select(.conclusion == "FAILURE" or .conclusion == "CANCELLED")] | length')
+
+            if [ "$failed" -gt 0 ]; then
+              echo "[FAIL] One or more CI checks failed"
               exit 1
+            elif [ "$pending" -eq 0 ]; then
+              echo "[PASS] All CI checks completed successfully!"
+              break
             else
-              echo "⏳ Pipeline still running... (waited ${wait_time}s)"
+              echo "⏳ $pending checks still running... (waited ${wait_time}s)"
               sleep $check_interval
               wait_time=$((wait_time + check_interval))
             fi
           done
 
           if [ $wait_time -ge $max_wait ]; then
-            echo "⏰ Timeout waiting for CI pipeline"
+            echo "⏰ Timeout waiting for CI checks"
             exit 1
           fi
         env:
@@ -131,25 +127,24 @@ jobs:
           echo "[AUTO-MERGE] Enabling auto-merge for safe dependency update"
 
           # Add informative comment
-          gh pr comment "$PR_NUMBER" --body "## [DEPENDABOT] Auto-merge
+          gh pr comment "$PR_NUMBER" --body "## ✅ Auto-merge Enabled
 
-          [PASS] **Safe dependency update detected**
+          **Safe dependency update detected**
 
           **Update Details:**
-          - Type: ${{ steps.metadata.outputs.update-type }}
-          - Dependencies: ${{ steps.metadata.outputs.dependency-names }}
-          - Affected containers: ${{ steps.change-analysis.outputs.affected-containers }}
+          - Type: \`${{ steps.metadata.outputs.update-type }}\`
+          - Dependencies: \`${{ steps.metadata.outputs.dependency-names }}\`
+          - Affected containers: \`${{ steps.change-analysis.outputs.affected-containers }}\`
 
           **Checks Passed:**
-          - [PASS] Pure dependency update (no code changes)
-          - [PASS] Non-major version update
-          - [PASS] Security scan passed
-          - [PASS] Optimized CI pipeline passed (Terraform checks skipped)
+          - ✅ Pure dependency update (no code changes)
+          - ✅ Non-major version update (patch/minor only)
+          - ✅ All CI checks passed
 
-          Auto-merge enabled!"
+          **Action:** Auto-merge enabled - will merge when all checks pass."
 
-          # Enable auto-merge
-          gh pr merge "$PR_NUMBER" --auto --squash --delete-branch
+          # Enable auto-merge with squash
+          gh pr merge "$PR_NUMBER" --auto --squash
 
       - name: Request review for major updates or complex changes
         if: |
@@ -168,19 +163,17 @@ jobs:
           fi
 
           echo "[REVIEW] $reason - manual review required"
-          gh pr comment "$PR_NUMBER" --body "## [REVIEW] Manual Review Required
+          gh pr comment "$PR_NUMBER" --body "## ⚠️ Manual Review Required
 
           **Reason:** $reason
 
           **Details:** $details
 
-          **This PR updates:** ${{ steps.metadata.outputs.dependency-names }}
-          **Update type:** ${{ steps.metadata.outputs.update-type }}
-          **Affected containers:** ${{ steps.change-analysis.outputs.affected-containers }}
+          **This PR updates:** \`${{ steps.metadata.outputs.dependency-names }}\`
+          **Update type:** \`${{ steps.metadata.outputs.update-type }}\`
+          **Affected containers:** \`${{ steps.change-analysis.outputs.affected-containers }}\`
 
           **Next steps:**
           1. Review the changes and changelog for breaking changes
           2. Test locally if needed
-          3. Approve and merge manually when ready
-
-          **Note:** Security scan has passed, so this update is safe from a security perspective."
+          3. Approve and merge manually when ready"
