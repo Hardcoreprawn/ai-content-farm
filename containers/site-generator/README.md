@@ -61,7 +61,7 @@ AZURE_CLIENT_ID=your_managed_identity_client_id
 # Container Names
 PROCESSED_CONTENT_CONTAINER=processed-content
 MARKDOWN_CONTENT_CONTAINER=markdown-content
-STATIC_SITES_CONTAINER=$web              # Azure Static Website hosting container
+STATIC_SITES_CONTAINER="$web"            # Azure Static Website hosting container (quoted to prevent shell expansion)
 
 # Site Configuration
 SITE_TITLE="JabLab Tech News"
