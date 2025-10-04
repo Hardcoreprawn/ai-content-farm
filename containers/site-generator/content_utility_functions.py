@@ -290,8 +290,12 @@ async def create_complete_site(
     # Generate individual article pages
     for article in processed_articles:
         # Determine article ID and generate filename
-        # Use topic_id if available, otherwise use slug from markdown filename
-        article_id = article.get("topic_id") or article.get("slug", "article")
+        # Priority: topic_id (from content-processor) > id (legacy/test) > slug (from markdown filename)
+        article_id = (
+            article.get("topic_id")
+            or article.get("id")
+            or article.get("slug", "article")
+        )
         safe_title = create_safe_filename(article.get("title", "untitled"))
         filename = f"articles/{article_id}-{safe_title}.html"
 
