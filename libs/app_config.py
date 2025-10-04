@@ -14,13 +14,11 @@ class BlobContainers:
 
     COLLECTED_CONTENT = "collected-content"
     PROCESSED_CONTENT = "processed-content"
-    ENRICHED_CONTENT = "enriched-content"
-    RANKED_CONTENT = "ranked-content"
     MARKDOWN_CONTENT = "markdown-content"
-    STATIC_SITES = "static-sites"
     PIPELINE_LOGS = "pipeline-logs"
     CMS_EXPORTS = "cms-exports"
     COLLECTION_TEMPLATES = "collection-templates"
+    # Removed: ENRICHED_CONTENT, RANKED_CONTENT, STATIC_SITES (containers deleted)
 
 
 class ProcessingConfig:

@@ -49,9 +49,6 @@ class BaseContainerConfig(BaseSettings):
     collected_content_container: str = Field(
         default="collected-content", description="Container for collected content"
     )
-    ranked_content_container: str = Field(
-        default="ranked-content", description="Container for ranked content"
-    )
     generated_content_container: str = Field(
         default="generated-content", description="Container for generated content"
     )

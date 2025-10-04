@@ -149,7 +149,7 @@ class StartupConfigLoader:
                 **base_defaults,
                 "input_container": "processed-content",
                 "output_container": "markdown-content",
-                "static_sites_container": "static-sites",
+                # Removed static_sites_container - using $web directly
                 "input_prefix": "articles/",
                 "markdown_prefix": "articles/",
                 "sites_prefix": "sites/",

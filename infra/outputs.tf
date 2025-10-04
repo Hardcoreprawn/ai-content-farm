@@ -17,10 +17,6 @@ output "storage_account_name" {
   value = azurerm_storage_account.main.name
 }
 
-output "storage_container_name" {
-  value = azurerm_storage_container.topics.name
-}
-
 output "storage_collected_content_container_name" {
   value = azurerm_storage_container.collected_content.name
 }
@@ -29,20 +25,8 @@ output "storage_processed_content_container_name" {
   value = azurerm_storage_container.processed_content.name
 }
 
-output "storage_enriched_content_container_name" {
-  value = azurerm_storage_container.enriched_content.name
-}
-
-output "storage_ranked_content_container_name" {
-  value = azurerm_storage_container.ranked_content.name
-}
-
 output "storage_markdown_content_container_name" {
   value = azurerm_storage_container.markdown_content.name
-}
-
-output "storage_static_sites_container_name" {
-  value = azurerm_storage_container.static_sites.name
 }
 
 output "static_website_url" {
@@ -52,10 +36,6 @@ output "static_website_url" {
 
 output "storage_pipeline_logs_container_name" {
   value = azurerm_storage_container.pipeline_logs.name
-}
-
-output "storage_pricing_cache_container_name" {
-  value = azurerm_storage_container.pricing_cache.name
 }
 
 output "key_vault_name" {
