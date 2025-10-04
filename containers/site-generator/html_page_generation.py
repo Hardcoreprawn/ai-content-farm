@@ -363,7 +363,8 @@ def render_index_template(context: Dict[str, Any]) -> str:
                 else sentences[0] if sentences else ""
             )
 
-        article_url = f"/articles/{article['url']}/"
+        # Use article URL directly (already contains /articles/ prefix)
+        article_url = article["url"]
 
         article_html = f"""
         <article class="article-preview">

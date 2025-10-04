@@ -289,6 +289,15 @@ async def create_complete_site(
 
     # Generate individual article pages
     for article in processed_articles:
+        # Determine article ID and generate filename
+        # Use topic_id if available, otherwise use slug from markdown filename
+        article_id = article.get("topic_id") or article.get("slug", "article")
+        safe_title = create_safe_filename(article.get("title", "untitled"))
+        filename = f"articles/{article_id}-{safe_title}.html"
+
+        # Update article URL to match actual storage location
+        article["url"] = f"/{filename}"
+
         # Generate HTML using pure function
         html_content = generate_article_page(
             article=article,
@@ -296,11 +305,6 @@ async def create_complete_site(
         )
 
         # Upload to blob storage
-        # Use same safe filename logic as markdown generation for traceability
-        # Include article ID to prevent collisions with identical titles
-        article_id = article.get("id", "article")
-        safe_title = create_safe_filename(article.get("title", "untitled"))
-        filename = f"articles/{article_id}-{safe_title}.html"
         await blob_client.upload_text(
             container=config["STATIC_SITES_CONTAINER"],
             blob_name=filename,
