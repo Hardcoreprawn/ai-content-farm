@@ -478,6 +478,13 @@ def parse_markdown_frontmatter(filename: str, content: str) -> Optional[Dict[str
         slug = filename.replace(".md", "")
         generated_at = frontmatter.get("generated_at")
 
+        # Skip articles without generated_at (old format from Sept 2025)
+        if not generated_at:
+            logger.info(
+                f"Skipping article {filename} - missing generated_at field (old format)"
+            )
+            return None
+
         return {
             "slug": slug,
             "title": frontmatter.get("title", "Untitled"),
