@@ -11,7 +11,9 @@
     <p class="hero-subtitle">AI-curated articles from leading technology sources</p>
     <div class="hero-stats">
         <span class="stat">{{ articles|length }} Articles</span>
+        {% if last_updated %}
         <span class="stat">Updated {{ last_updated.strftime('%Y-%m-%d %H:%M UTC') }}</span>
+        {% endif %}
     </div>
 </div>
 
@@ -23,9 +25,13 @@
                 <a href="/articles/{{ article.slug }}.html">{{ article.title }}</a>
             </h3>
             <div class="article-meta">
-                <span class="article-source">{{ article.source }}</span>
+                <span class="article-source">{{ article.source | default('Unknown') }}</span>
+                {% if article.generated_at %}
                 <span class="article-date">{{ article.generated_at.strftime('%Y-%m-%d') }}</span>
+                {% endif %}
+                {% if article.quality_score %}
                 <span class="article-quality">Quality: {{ (article.quality_score * 100)|round }}%</span>
+                {% endif %}
             </div>
         </div>
 
@@ -39,7 +45,9 @@
 
         <div class="article-footer">
             <div class="article-stats">
+                {% if article.word_count %}
                 <span class="word-count">{{ article.word_count }} words</span>
+                {% endif %}
                 {% if article.original_url %}
                 <a href="{{ article.original_url }}" class="source-link" target="_blank" rel="noopener">
                     Original Source

@@ -8,15 +8,53 @@ that replace the mutable MarkdownService and SiteService classes.
 import logging
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
 from article_processing import calculate_last_updated
+from jinja2 import Environment, FileSystemLoader, TemplateNotFound, select_autoescape
 
 from libs import SecureErrorHandler
 
 logger = logging.getLogger(__name__)
 error_handler = SecureErrorHandler("html-page-generation")
+
+# Initialize Jinja2 environment
+_jinja_env = None
+
+
+def get_jinja_environment(theme: str = "minimal") -> Environment:
+    """
+    Get or create Jinja2 environment for template rendering.
+
+    Args:
+        theme: Theme name to use for template loading
+
+    Returns:
+        Configured Jinja2 Environment instance
+    """
+    global _jinja_env
+
+    if _jinja_env is None:
+        templates_dir = Path(__file__).parent / "templates"
+
+        if not templates_dir.exists():
+            logger.error(f"Templates directory not found: {templates_dir}")
+            raise FileNotFoundError(f"Templates directory not found: {templates_dir}")
+
+        _jinja_env = Environment(
+            loader=FileSystemLoader(str(templates_dir)),
+            autoescape=select_autoescape(["html", "xml"]),
+            trim_blocks=True,
+            lstrip_blocks=True,
+        )
+
+        logger.info(
+            f"Initialized Jinja2 environment with templates from: {templates_dir}"
+        )
+
+    return _jinja_env
 
 
 def generate_article_page(
@@ -229,223 +267,127 @@ def generate_index_page(
         raise RuntimeError(error_response["message"]) from e
 
 
-def render_article_template(context: Dict[str, Any]) -> str:
+def render_article_template(context: Dict[str, Any], theme: str = "minimal") -> str:
     """
-    Render HTML template for article page.
+    Render HTML template for article page using Jinja2.
 
     Args:
         context: Template context with article, site, and page data
+        theme: Theme name to use for template rendering
 
     Returns:
         Rendered HTML string
-    """
-    article = context["article"]
-    site = context["site"]
-    page = context["page"]
 
-    # Format published date for display
+    Raises:
+        TemplateNotFound: If article template doesn't exist for theme
+    """
     try:
-        if isinstance(article["published_date"], str):
-            pub_date = datetime.fromisoformat(
-                article["published_date"].replace("Z", "+00:00")
+        # Get Jinja2 environment
+        env = get_jinja_environment(theme)
+
+        # Prepare template context with proper data structure
+        article = context["article"]
+        site = context["site"]
+
+        # Ensure article has required date fields
+        if "generated_at" in article and isinstance(article["generated_at"], str):
+            article["generated_at"] = datetime.fromisoformat(
+                article["generated_at"].replace("Z", "+00:00")
             )
-        else:
-            pub_date = article["published_date"]
-        formatted_date = pub_date.strftime("%B %d, %Y")
-    except (ValueError, TypeError):
-        formatted_date = "Recently"
 
-    # Generate tags HTML
-    tags_html = ""
-    if article.get("tags"):
-        tag_items = [f'<span class="tag">{tag}</span>' for tag in article["tags"][:5]]
-        tags_html = f'<div class="tags">{"".join(tag_items)}</div>'
+        # Prepare context for Jinja2 template
+        template_context = {
+            "article": article,
+            "site": site,
+            "current_year": datetime.now(timezone.utc).year,
+        }
 
-    # Basic HTML template
-    html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{page['title']}</title>
-    <meta name="description" content="{page['description']}">
-    <link rel="canonical" href="{page['url']}">
-    <link rel="alternate" type="application/rss+xml" title="{site['title']}" href="{site['url']}/feed.xml">
+        # Load and render template
+        template = env.get_template(f"{theme}/article.html")
+        html_content = template.render(**template_context)
 
-    <!-- Open Graph -->
-    <meta property="og:title" content="{article['title']}">
-    <meta property="og:description" content="{page['description']}">
-    <meta property="og:url" content="{page['url']}">
-    <meta property="og:type" content="article">
-    <meta property="og:site_name" content="{site['title']}">
+        logger.debug(f"Rendered article template using theme: {theme}")
+        return html_content
 
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary">
-    <meta name="twitter:title" content="{article['title']}">
-    <meta name="twitter:description" content="{page['description']}">
-
-    <style>
-        body {{ font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; margin: 0; padding: 20px; max-width: 800px; margin: 0 auto; }}
-        .header {{ border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 30px; }}
-        .site-title {{ font-size: 1.8em; margin: 0; color: #333; text-decoration: none; }}
-        .article-meta {{ color: #666; font-size: 0.9em; margin-bottom: 20px; }}
-        .article-content {{ margin-bottom: 30px; }}
-        .tags {{ margin: 20px 0; }}
-        .tag {{ background: #f0f0f0; padding: 4px 8px; margin-right: 8px; border-radius: 3px; font-size: 0.8em; }}
-        .footer {{ border-top: 1px solid #eee; padding-top: 20px; margin-top: 40px; color: #666; font-size: 0.9em; }}
-    </style>
-</head>
-<body>
-    <header class="header">
-        <h1><a href="/" class="site-title">{site['title']}</a></h1>
-    </header>
-
-    <main>
-        <article>
-            <h1>{article['title']}</h1>
-            <div class="article-meta">
-                Published {formatted_date} by {article['author']}
-            </div>
-            <div class="article-content">
-                {article['content']}
-            </div>
-            {tags_html}
-        </article>
-    </main>
-
-    <footer class="footer">
-        <p>&copy; 2024 {site['title']}. Powered by AI content curation.</p>
-    </footer>
-</body>
-</html>"""
-
-    return html
+    except TemplateNotFound as e:
+        logger.error(f"Template not found for theme '{theme}': {e}")
+        # Fall back to minimal theme
+        if theme != "minimal":
+            logger.info("Falling back to minimal theme")
+            return render_article_template(context, theme="minimal")
+        raise
+    except Exception as e:
+        error_response = error_handler.handle_error(
+            e,
+            "general",
+            context={
+                "theme": theme,
+                "article_title": context.get("article", {}).get("title", "unknown"),
+            },
+        )
+        logger.error(f"Failed to render article template: {error_response['message']}")
+        raise RuntimeError(error_response["message"]) from e
 
 
-def render_index_template(context: Dict[str, Any]) -> str:
+def render_index_template(context: Dict[str, Any], theme: str = "minimal") -> str:
     """
-    Render HTML template for index page.
+    Render HTML template for index page using Jinja2.
 
     Args:
         context: Template context with articles, site, page, and pagination data
+        theme: Theme name to use for template rendering
 
     Returns:
         Rendered HTML string
+
+    Raises:
+        TemplateNotFound: If index template doesn't exist for theme
     """
-    articles = context["articles"]
-    site = context["site"]
-    page = context["page"]
-    pagination = context["pagination"]
+    try:
+        # Get Jinja2 environment
+        env = get_jinja_environment(theme)
 
-    # Generate article previews
-    article_items = []
-    for article in articles:
-        # Format date
-        try:
-            if isinstance(article["published_date"], str):
-                pub_date = datetime.fromisoformat(
-                    article["published_date"].replace("Z", "+00:00")
+        # Prepare template context
+        articles = context["articles"]
+        site = context["site"]
+
+        # Ensure articles have proper date fields
+        for article in articles:
+            if "generated_at" in article and isinstance(article["generated_at"], str):
+                article["generated_at"] = datetime.fromisoformat(
+                    article["generated_at"].replace("Z", "+00:00")
                 )
-            else:
-                pub_date = article["published_date"]
-            formatted_date = pub_date.strftime("%B %d, %Y")
-        except (ValueError, TypeError):
-            formatted_date = "Recently"
 
-        # Create preview
-        description = article.get("description", "")
-        if not description and article.get("content"):
-            content = article["content"]
-            sentences = re.split(r"[.!?]+", content.strip())
-            description = (
-                sentences[0][:200] + "..."
-                if sentences and len(sentences[0]) > 200
-                else sentences[0] if sentences else ""
-            )
+        # Prepare context for Jinja2 template
+        template_context = {
+            "articles": articles,
+            "site": site,
+            "last_updated": datetime.now(timezone.utc),
+            "current_year": datetime.now(timezone.utc).year,
+            "pagination": context.get("pagination", {}),
+        }
 
-        # Use article URL directly (already contains /articles/ prefix)
-        article_url = article["url"]
+        # Load and render template
+        template = env.get_template(f"{theme}/index.html")
+        html_content = template.render(**template_context)
 
-        article_html = f"""
-        <article class="article-preview">
-            <h2><a href="{article_url}">{article['title']}</a></h2>
-            <div class="article-meta">{formatted_date}</div>
-            <div class="article-description">{description}</div>
-        </article>"""
-
-        article_items.append(article_html)
-
-    # Generate pagination
-    pagination_html = ""
-    if pagination["total_pages"] > 1:
-        prev_link = (
-            f'<a href="/page/{pagination["prev_page"]}/">&larr; Previous</a>'
-            if pagination["has_prev"]
-            else ""
+        logger.debug(
+            f"Rendered index template with {len(articles)} articles using theme: {theme}"
         )
-        next_link = (
-            f'<a href="/page/{pagination["next_page"]}/">Next &rarr;</a>'
-            if pagination["has_next"]
-            else ""
+        return html_content
+
+    except TemplateNotFound as e:
+        logger.error(f"Template not found for theme '{theme}': {e}")
+        # Fall back to minimal theme
+        if theme != "minimal":
+            logger.info("Falling back to minimal theme")
+            return render_index_template(context, theme="minimal")
+        raise
+    except Exception as e:
+        error_response = error_handler.handle_error(
+            e,
+            "general",
+            context={"theme": theme, "article_count": len(context.get("articles", []))},
         )
-
-        pagination_html = f"""
-        <nav class="pagination">
-            {prev_link}
-            <span class="page-info">Page {pagination["current_page"]} of {pagination["total_pages"]}</span>
-            {next_link}
-        </nav>"""
-
-    # Basic HTML template
-    html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{page['title']}</title>
-    <meta name="description" content="{page['description']}">
-    <link rel="canonical" href="{page['url']}">
-    <link rel="alternate" type="application/rss+xml" title="{site['title']}" href="{site['url']}/feed.xml">
-
-    <!-- Open Graph -->
-    <meta property="og:title" content="{site['title']}">
-    <meta property="og:description" content="{page['description']}">
-    <meta property="og:url" content="{page['url']}">
-    <meta property="og:type" content="website">
-
-    <style>
-        body {{ font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; margin: 0; padding: 20px; max-width: 800px; margin: 0 auto; }}
-        .header {{ border-bottom: 1px solid #eee; padding-bottom: 20px; margin-bottom: 30px; }}
-        .site-title {{ font-size: 1.8em; margin: 0; color: #333; text-decoration: none; }}
-        .site-description {{ color: #666; margin-top: 5px; }}
-        .article-preview {{ margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #f0f0f0; }}
-        .article-preview h2 {{ margin: 0 0 10px 0; }}
-        .article-preview h2 a {{ color: #333; text-decoration: none; }}
-        .article-preview h2 a:hover {{ color: #0066cc; }}
-        .article-meta {{ color: #666; font-size: 0.9em; margin-bottom: 10px; }}
-        .article-description {{ color: #444; }}
-        .pagination {{ text-align: center; margin: 40px 0; }}
-        .pagination a {{ color: #0066cc; text-decoration: none; margin: 0 20px; }}
-        .page-info {{ color: #666; }}
-        .footer {{ border-top: 1px solid #eee; padding-top: 20px; margin-top: 40px; color: #666; font-size: 0.9em; text-align: center; }}
-    </style>
-</head>
-<body>
-    <header class="header">
-        <h1><a href="/" class="site-title">{site['title']}</a></h1>
-        <div class="site-description">{site['description']}</div>
-    </header>
-
-    <main>
-        {"".join(article_items)}
-        {pagination_html}
-    </main>
-
-    <footer class="footer">
-        <p>&copy; 2024 {site['title']}. Powered by AI content curation.</p>
-        <p><a href="/feed.xml">RSS Feed</a></p>
-    </footer>
-</body>
-</html>"""
-
-    return html
+        logger.error(f"Failed to render index template: {error_response['message']}")
+        raise RuntimeError(error_response["message"]) from e

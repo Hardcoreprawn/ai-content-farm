@@ -299,6 +299,9 @@ async def create_complete_site(
         safe_title = create_safe_filename(article.get("title", "untitled"))
         filename = f"articles/{article_id}-{safe_title}.html"
 
+        # Set slug for template compatibility (just the filename without path/extension)
+        article["slug"] = f"{article_id}-{safe_title}"
+
         # Update article URL to match actual storage location
         article["url"] = f"/{filename}"
 
@@ -348,6 +351,30 @@ async def create_complete_site(
         overwrite=True,
     )
     generated_files.append(rss_filename)
+
+    # Upload static assets (CSS, JS)
+    from pathlib import Path
+
+    static_dir = Path(__file__).parent / "static"
+    if static_dir.exists():
+        for static_file in static_dir.iterdir():
+            if static_file.is_file() and not static_file.name.startswith("."):
+                try:
+                    with open(static_file, "r", encoding="utf-8") as f:
+                        content = f.read()
+
+                    await blob_client.upload_text(
+                        container=config["STATIC_SITES_CONTAINER"],
+                        blob_name=static_file.name,
+                        text=content,
+                        overwrite=True,
+                    )
+                    generated_files.append(static_file.name)
+                    logger.debug(f"Uploaded static file: {static_file.name}")
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to upload static file {static_file.name}: {e}"
+                    )
 
     return generated_files
 
