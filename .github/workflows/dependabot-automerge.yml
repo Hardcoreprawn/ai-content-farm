@@ -89,12 +89,12 @@ jobs:
           check_interval=30
 
           while [ $wait_time -lt $max_wait ]; do
-            # Get all check runs for this PR
-            checks=$(gh pr checks ${{ github.event.pull_request.number }} --json state,conclusion,name)
+            # Get all check runs for this PR (state field only)
+            checks=$(gh pr checks ${{ github.event.pull_request.number }} --json state,name)
 
             # Count pending/in-progress checks
             pending=$(echo "$checks" | jq '[.[] | select(.state == "PENDING" or .state == "IN_PROGRESS" or .state == "QUEUED")] | length')
-            failed=$(echo "$checks" | jq '[.[] | select(.conclusion == "FAILURE" or .conclusion == "CANCELLED")] | length')
+            failed=$(echo "$checks" | jq '[.[] | select(.state == "FAILURE" or .state == "ERROR")] | length')
 
             if [ "$failed" -gt 0 ]; then
               echo "[FAIL] One or more CI checks failed"
