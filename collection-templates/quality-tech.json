@@ -1,0 +1,161 @@
+{
+    "sources": [
+        {
+            "type": "rss",
+            "feed_urls": [
+                "https://martinfowler.com/feed.atom",
+                "https://arxiv.org/rss/cs.AI",
+                "https://arxiv.org/rss/cs.LG",
+                "https://arxiv.org/rss/cs.CL",
+                "https://blog.research.google/feeds/posts/default",
+                "https://openai.com/blog/rss.xml",
+                "https://www.anthropic.com/news/rss.xml",
+                "https://engineering.fb.com/feed/",
+                "https://netflixtechblog.com/feed",
+                "https://engineering.atspotify.com/feed/",
+                "https://dropbox.tech/feed",
+                "https://stackoverflow.blog/feed/",
+                "https://github.blog/feed/",
+                "https://blog.cloudflare.com/rss/",
+                "https://blog.acolyer.org/feed/",
+                "https://queue.acm.org/rss/feeds/queuecontent.xml",
+                "https://cacm.acm.org/feeds/allnews",
+                "https://lwn.net/headlines/rss",
+                "https://thenewstack.io/feed/",
+                "https://increment.com/feed.xml",
+                "https://stratechery.com/feed/",
+                "https://danluu.com/atom.xml",
+                "https://jvns.ca/atom.xml",
+                "https://rachelbythebay.com/w/atom.xml",
+                "https://blog.pragmaticengineer.com/rss/",
+                "https://fasterthanli.me/index.xml"
+            ],
+            "limit": 10,
+            "criteria": {
+                "exclude_keywords": [
+                    "review",
+                    "unboxing",
+                    "deal",
+                    "sale",
+                    "discount",
+                    "best of",
+                    "top 10",
+                    "buying guide",
+                    "gadget",
+                    "smartphone",
+                    "tablet",
+                    "laptop review",
+                    "headphones",
+                    "earbuds"
+                ],
+                "include_keywords": [
+                    "architecture",
+                    "distributed systems",
+                    "algorithm",
+                    "performance",
+                    "scalability",
+                    "research",
+                    "engineering",
+                    "infrastructure",
+                    "design patterns",
+                    "machine learning",
+                    "artificial intelligence",
+                    "compilers",
+                    "operating systems",
+                    "databases",
+                    "networking",
+                    "security research",
+                    "formal methods",
+                    "programming languages"
+                ]
+            }
+        },
+        {
+            "type": "mastodon",
+            "instances": [
+                "hachyderm.io",
+                "fosstodon.org",
+                "infosec.exchange",
+                "mathstodon.xyz",
+                "sigmoid.social"
+            ],
+            "hashtags": [
+                "ComputerScience",
+                "DistributedSystems",
+                "MachineLearning",
+                "ResearchPaper",
+                "SystemsEngineering",
+                "Compilers",
+                "ProgrammingLanguages",
+                "Algorithms",
+                "DatabaseEngineering",
+                "NetworkEngineering",
+                "SecurityResearch",
+                "PerformanceEngineering",
+                "SoftwareArchitecture"
+            ],
+            "limit": 15,
+            "criteria": {
+                "min_favorites": 10,
+                "min_reblogs": 3,
+                "published_within_hours": 48,
+                "language": "en",
+                "exclude_keywords": [
+                    "bitcoin",
+                    "crypto",
+                    "web3",
+                    "nft",
+                    "blockchain hype"
+                ]
+            }
+        },
+        {
+            "type": "web",
+            "urls": [
+                "https://news.ycombinator.com"
+            ],
+            "limit": 20,
+            "criteria": {
+                "min_points": 100,
+                "exclude_keywords": [
+                    "Show HN",
+                    "Ask HN: Resume",
+                    "Ask HN: Who is hiring"
+                ]
+            }
+        }
+    ],
+    "deduplicate": true,
+    "similarity_threshold": 0.85,
+    "save_to_storage": true,
+    "metadata": {
+        "template_name": "quality-tech",
+        "description": "High-quality technical content from research, engineering blogs, and expert practitioners",
+        "focus_areas": [
+            "Research Papers (arXiv CS)",
+            "Systems Engineering (Netflix, Spotify, Dropbox, Facebook)",
+            "Software Architecture & Design",
+            "Performance & Scalability",
+            "Distributed Systems",
+            "Programming Language Theory",
+            "Infrastructure Engineering",
+            "Security Research"
+        ],
+        "content_philosophy": "Substantive technical depth over consumer gadget reviews",
+        "sources_rationale": {
+            "arxiv": "Latest CS research papers (AI, ML, NLP)",
+            "company_blogs": "Real-world engineering problems and solutions from scale",
+            "practitioner_blogs": "Deep technical posts from experienced engineers",
+            "acm": "Academic computer science research and industry practices",
+            "hacker_news": "Community-curated technical discussions (high-score threshold)"
+        },
+        "excluded_content": [
+            "Consumer gadget reviews",
+            "Product unboxings",
+            "Shopping guides",
+            "Listicles",
+            "Crypto hype",
+            "Generic startup advice"
+        ]
+    }
+}

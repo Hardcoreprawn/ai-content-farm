@@ -1,0 +1,118 @@
+{
+    "sources": [
+        {
+            "type": "rss",
+            "feed_urls": [
+                "https://arxiv.org/rss/cs.AI",
+                "https://arxiv.org/rss/cs.LG",
+                "https://arxiv.org/rss/cs.CL",
+                "https://arxiv.org/rss/cs.CV",
+                "https://arxiv.org/rss/cs.NE",
+                "https://arxiv.org/rss/stat.ML",
+                "https://blog.research.google/feeds/posts/default",
+                "https://openai.com/blog/rss.xml",
+                "https://www.anthropic.com/news/rss.xml",
+                "https://www.deepmind.com/blog/rss.xml",
+                "https://ai.meta.com/blog/feed/",
+                "https://blog.tensorflow.org/feeds/posts/default",
+                "https://pytorch.org/blog/feed.xml",
+                "https://huggingface.co/blog/feed.xml",
+                "https://distill.pub/rss.xml",
+                "https://thegradient.pub/rss/",
+                "https://sebastianraschka.com/rss_feed.xml",
+                "https://lilianweng.github.io/feed.xml",
+                "https://ruder.io/rss/index.rss",
+                "https://colah.github.io/rss.xml"
+            ],
+            "limit": 15,
+            "criteria": {
+                "include_keywords": [
+                    "transformer",
+                    "large language model",
+                    "LLM",
+                    "neural network",
+                    "deep learning",
+                    "reinforcement learning",
+                    "computer vision",
+                    "natural language",
+                    "diffusion model",
+                    "attention mechanism",
+                    "foundation model",
+                    "multimodal",
+                    "neural architecture",
+                    "optimization",
+                    "training",
+                    "inference",
+                    "alignment",
+                    "interpretability",
+                    "scaling laws"
+                ],
+                "exclude_keywords": [
+                    "crypto",
+                    "nft",
+                    "web3",
+                    "hype",
+                    "will replace humans",
+                    "singularity imminent",
+                    "AGI next year"
+                ]
+            }
+        },
+        {
+            "type": "mastodon",
+            "instances": [
+                "sigmoid.social",
+                "mathstodon.xyz",
+                "hachyderm.io",
+                "fosstodon.org"
+            ],
+            "hashtags": [
+                "MachineLearning",
+                "DeepLearning",
+                "NLP",
+                "ComputerVision",
+                "ReinforcementLearning",
+                "ResearchPaper",
+                "ArXiv",
+                "AIResearch",
+                "MLOps",
+                "TransformerArchitecture",
+                "NeuralNetworks"
+            ],
+            "limit": 10,
+            "criteria": {
+                "min_favorites": 15,
+                "min_reblogs": 5,
+                "published_within_hours": 72,
+                "language": "en"
+            }
+        }
+    ],
+    "deduplicate": true,
+    "similarity_threshold": 0.90,
+    "save_to_storage": true,
+    "metadata": {
+        "template_name": "ai-research",
+        "description": "Cutting-edge AI/ML research papers and technical analysis from leading researchers",
+        "focus_areas": [
+            "arXiv CS Papers (AI, ML, CL, CV, NE)",
+            "Industry Research Labs (Google, OpenAI, Anthropic, DeepMind, Meta)",
+            "ML Frameworks & Tooling (TensorFlow, PyTorch, HuggingFace)",
+            "Technical ML Blogs (Distill, The Gradient)",
+            "Researcher Blogs (Lilian Weng, Sebastian Ruder, Chris Olah)"
+        ],
+        "content_philosophy": "Research-quality AI/ML content with mathematical and technical depth",
+        "sources_rationale": {
+            "arxiv": "Pre-print research papers from leading AI labs and universities",
+            "research_labs": "Official announcements and papers from frontier AI companies",
+            "frameworks": "Technical updates on ML infrastructure and tooling",
+            "researcher_blogs": "In-depth explanations and analysis from ML practitioners",
+            "distill": "Interactive, visual explanations of ML concepts"
+        },
+        "quality_standards": {
+            "high_deduplication": "0.90 threshold to avoid near-duplicate paper announcements",
+            "technical_depth": "Focus on architecture, training, and novel techniques",
+            "avoid_hype": "Exclude breathless predictions and crypto crossover content"
+        }
+    }
+}

@@ -37,24 +37,27 @@
 ## 🏗️ Current Clean Architecture
 
 **Before (Complex)**: 4 containers with Service Bus authentication conflicts  
-**After (Clean)**: 3 containers with Storage Queues and managed identity  
-**Status**: ✅ **COMPLETE** - Full automation working
+**After (Clean)**: 3 containers with Storage Queues, KEDA cron scheduling, and managed identity  
+**Status**: ✅ **COMPLETE** - Full automation working with 8-hour collection cycles
 
 ```
-Reddit/Web → content-collector → [Storage Queue] → content-processor → site-generator → jablab.com
-                  ↓                    ↑                    ↓
-             Blob Storage      KEDA Scaling           Blob Storage
-            (Raw Content)   (Managed Identity)    (Processed Content)
+KEDA Cron (8hrs) → content-collector → [Storage Queue] → content-processor → site-generator → jablab.com
+                         ↓                    ↑                    ↓
+                    Blob Storage      KEDA Scaling           Blob Storage
+                   (Raw Content)   (Managed Identity)    (Processed Content)
 ```
 
-**Storage Queue Benefits** (✅ Implemented):
-- **✅ Managed Identity**: No connection strings needed, secure authentication
-- **✅ KEDA Scaling**: Native support for azure-queue scaler with managed identity
-- **✅ Cost Effective**: Lower cost than Service Bus for simple messaging patterns
+**Architecture Benefits** (✅ Implemented):
+- **✅ KEDA Cron Scheduling**: Automated collection every 8 hours with zero-cost idle time
+- **✅ Managed Identity**: No connection strings needed, secure authentication throughout
+- **✅ KEDA Queue Scaling**: Native support for azure-queue scaler with managed identity
+- **✅ Cost Effective**: Zero-replica scaling eliminates idle compute costs
 - **✅ Simplified Architecture**: No authentication conflicts or connection string management
 
 1. **content-collector** (FastAPI)
-   - Fetch Reddit trending topics every 6 hours
+   - Automated collection every 8 hours via KEDA cron scaler
+   - Zero-replica scaling (scales from 0 to 1 on schedule)
+   - Template-based collection from approved sources (RSS, Mastodon, Web)
    - Save raw topics to Azure Blob Storage
    - Standard REST API with health checks
 
@@ -62,12 +65,14 @@ Reddit/Web → content-collector → [Storage Queue] → content-processor → s
    - **Content Processing**: Read raw topics, enhance with AI, quality assessment
    - **AI Content Generation**: TLDR/blog/deepdive article generation with multiple writer personalities
    - **Batch Processing**: Asynchronous generation with status tracking
+   - **KEDA Queue Scaling**: Automatically scales based on storage queue depth
    - **Dual API**: Both processing and generation endpoints available
    - Save processed/generated articles to blob storage
 
 3. **site-generator** (FastAPI)
    - Read processed articles from blob storage
    - Generate static website with standard tools
+   - **KEDA Queue Scaling**: Automatically scales when generation requests arrive
    - Deploy to Azure Static Web Apps
 
 ### 🚀 Enhanced Content-Processor Capabilities

@@ -648,50 +648,21 @@ resource "azurerm_storage_container" "collection_templates" {
   container_access_type = "private"
 }
 
-# Collection Templates - Upload collection templates to dedicated blob storage container for dynamic loading
-resource "azurerm_storage_blob" "collection_template_default" {
-  name                   = "default.json"
-  storage_account_name   = azurerm_storage_account.main.name
-  storage_container_name = azurerm_storage_container.collection_templates.name
-  type                   = "Block"
-  source                 = "${path.module}/../collection-templates/default.json"
-  content_type           = "application/json"
-}
+# Collection Templates - Automatically upload all JSON templates from collection-templates/ folder
+# This uses fileset to discover all .json files and uploads them dynamically
+# Add new templates by simply creating .json files in collection-templates/ - no Terraform changes needed!
+resource "azurerm_storage_blob" "collection_templates" {
+  for_each = fileset("${path.module}/../collection-templates", "*.json")
 
-resource "azurerm_storage_blob" "collection_template_tech_news" {
-  name                   = "tech-news.json"
+  name                   = each.value
   storage_account_name   = azurerm_storage_account.main.name
   storage_container_name = azurerm_storage_container.collection_templates.name
   type                   = "Block"
-  source                 = "${path.module}/../collection-templates/tech-news.json"
+  source                 = "${path.module}/../collection-templates/${each.value}"
   content_type           = "application/json"
-}
 
-resource "azurerm_storage_blob" "collection_template_tech_rss" {
-  name                   = "tech-rss.json"
-  storage_account_name   = azurerm_storage_account.main.name
-  storage_container_name = azurerm_storage_container.collection_templates.name
-  type                   = "Block"
-  source                 = "${path.module}/../collection-templates/tech-rss.json"
-  content_type           = "application/json"
-}
-
-resource "azurerm_storage_blob" "collection_template_discovery" {
-  name                   = "discovery.json"
-  storage_account_name   = azurerm_storage_account.main.name
-  storage_container_name = azurerm_storage_container.collection_templates.name
-  type                   = "Block"
-  source                 = "${path.module}/../collection-templates/discovery.json"
-  content_type           = "application/json"
-}
-
-resource "azurerm_storage_blob" "collection_template_web_overlap_test" {
-  name                   = "web-overlap-test.json"
-  storage_account_name   = azurerm_storage_account.main.name
-  storage_container_name = azurerm_storage_container.collection_templates.name
-  type                   = "Block"
-  source                 = "${path.module}/../collection-templates/web-overlap-test.json"
-  content_type           = "application/json"
+  # Ensure templates are uploaded whenever they change
+  source_content = fileexists("${path.module}/../collection-templates/${each.value}") ? file("${path.module}/../collection-templates/${each.value}") : null
 }
 
 # Container Configuration Files - Upload container-specific configuration to enable blob-based config management

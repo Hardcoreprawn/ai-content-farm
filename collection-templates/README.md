@@ -1,6 +1,52 @@
 # Collection Templates
 
-This directory contains JSON templates for different types of content collection. These templates are used by the GitHub Actions workflow to trigger content collection with predefined configurations.
+This directory contains JSON templates for different types of content collection. These templates define **approved sources only** and are the exclusive way to trigger content collection for security reasons.
+
+## 🔒 Security Policy
+
+**IMPORTANT**: Collection templates are the ONLY way to define content sources. The collection API does NOT accept arbitrary URLs to prevent:
+- DDoS attacks on third-party sites
+- Malware downloads
+- Data exfiltration
+- Resource abuse
+
+All templates must be:
+1. Committed to this repository
+2. Security reviewed before deployment
+3. Deployed to Azure Blob Storage via CI/CD only
+
+See Issue #580 for security rationale.
+
+## 📚 Available Templates
+
+### Production Templates (High Quality)
+
+**quality-tech.json** - Substantive technical content
+- Focus: Systems engineering, architecture, research papers
+- Sources: arXiv CS, company engineering blogs (Netflix, Spotify, Facebook), practitioner blogs
+- Philosophy: Technical depth over consumer gadget reviews
+- **Recommended for regular collection**
+
+**ai-research.json** - Cutting-edge AI/ML research
+- Focus: Research papers, frontier AI developments
+- Sources: arXiv (AI/ML/CL/CV), research labs (Google, OpenAI, Anthropic, DeepMind)
+- Philosophy: Research-quality content with mathematical depth
+- **Recommended for AI-focused collection**
+
+### Legacy Templates (Under Review)
+
+**default.json** - Original broad collection (⚠️ DEPRECATED)
+- Contains consumer tech sources (WIRED, Engadget, etc.)
+- Too many listicles and product reviews
+- **DO NOT USE - being phased out**
+
+**tech-rss.json** - RSS-only collection
+- Mix of quality and consumer sources
+- Needs curation and filtering improvement
+
+**tech-news.json** - Reddit-focused (currently disabled)
+- Reddit sources temporarily disabled
+- Awaiting cooldown period
 
 ## Template Structure
 
@@ -48,13 +94,77 @@ Each template is a JSON file that follows the CollectionRequest schema:
 }
 ```
 
+## Usage
+
+### Via KEDA Cron Scheduler (Automated)
+The content-collector automatically runs every 8 hours using the configured template. To change which template is used:
+
+1. Update the KEDA cron scaler environment variable in `/infra/container_apps.tf`
+2. Deploy via CI/CD pipeline
+
+### Via API (Manual/Testing)
+```bash
+# Trigger collection with specific template
+curl -X POST https://ai-content-prod-collector.whitecliff-6844954b.uksouth.azurecontainerapps.io/collections \
+  -H "Content-Type: application/json" \
+  -d '{"template_name": "quality-tech"}'
+
+# List available templates
+curl https://ai-content-prod-collector.whitecliff-6844954b.uksouth.azurecontainerapps.io/templates
+
+# Get template details
+curl https://ai-content-prod-collector.whitecliff-6844954b.uksouth.azurecontainerapps.io/templates/quality-tech
+```
+
+## Content Philosophy
+
+### ✅ What We Want
+- **Research papers** and technical analysis
+- **Systems engineering** posts from companies at scale
+- **Deep dives** into architecture and performance
+- **Novel algorithms** and techniques
+- **Infrastructure** challenges and solutions
+- **Security research** and formal methods
+- **Programming language** theory and compilers
+
+### ❌ What We Avoid
+- Consumer gadget reviews ("Best iPhone cases")
+- Product unboxing videos
+- Shopping guides and deals
+- Listicles ("Top 10 programmer productivity hacks")
+- Crypto hype and speculation
+- Generic startup advice
+- Celebrity tech gossip
+
 ## Available Templates
 
-- `default.json` - Comprehensive collection from Reddit, RSS, Web, and Mastodon sources covering technology topics
-- `mastodon.json` - Focused collection specifically from Mastodon instances covering technology, science, business, and news
-- `discovery.json` - Discovery-focused collection from emerging tech subreddits  
-- `tech-rss.json` - RSS feeds from prominent technology websites with topic filtering
-- `web-overlap-test.json` - **Deduplication test template** with overlapping web sources across multiple categories to stress-test the deduplication system
+### 🌟 Recommended Production Templates
+
+**quality-tech.json** - High-quality technical content
+- Engineering blogs: Netflix, Spotify, Dropbox, Facebook, GitHub, Cloudflare
+- Research: arXiv CS papers, ACM Queue, Google Research
+- Practitioners: Martin Fowler, Dan Luu, Julia Evans, Xe Iaso
+- HN: High-score threshold (100+) for community curation
+- **Use this for general technical content collection**
+
+**ai-research.json** - AI/ML research focus
+- arXiv: AI, ML, CL (NLP), CV, NE, stat.ML categories
+- Research labs: Google, OpenAI, Anthropic, DeepMind, Meta
+- Frameworks: TensorFlow, PyTorch, HuggingFace
+- Analysis: Distill, The Gradient, researcher blogs
+- **Use this for AI-specific research collection**
+
+### 📦 Legacy/Deprecated Templates
+
+- `default.json` - **DEPRECATED** - Too much consumer content (WIRED, Engadget)
+- `tech-rss.json` - Needs curation review
+- `tech-news.json` - Reddit sources (currently disabled)
+- `mastodon.json` - General Mastodon collection
+- `mastodon-social.json` - Mastodon.social specific
+- `discovery.json` - Experimental discovery mode
+- `sustainable-reddit.json` - Sustainable Reddit collection strategy
+- `adaptive-multi-source.json` - Multi-source adaptive collection
+- `web-overlap-test.json` - Deduplication testing
 
 ## Adding New Templates
 

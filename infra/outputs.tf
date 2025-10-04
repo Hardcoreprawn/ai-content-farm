@@ -128,6 +128,17 @@ output "site_generator_name" {
   value       = azurerm_container_app.site_generator.name
 }
 
+# Collection Templates
+output "collection_templates_uploaded" {
+  description = "List of collection templates automatically uploaded to blob storage"
+  value       = keys(azurerm_storage_blob.collection_templates)
+}
+
+output "collection_templates_container" {
+  description = "Name of the blob container storing collection templates"
+  value       = azurerm_storage_container.collection_templates.name
+}
+
 # Function App outputs removed - Functions infrastructure cleaned up
 # Static site generation now handled by site-generator container
 
