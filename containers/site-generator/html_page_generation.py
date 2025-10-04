@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 from urllib.parse import urljoin
 
+from article_processing import calculate_last_updated
+
 from libs import SecureErrorHandler
 
 logger = logging.getLogger(__name__)
@@ -155,9 +157,17 @@ def generate_index_page(
         has_prev = page_number > 1
         has_next = page_number < total_pages
 
+        # Calculate last_updated from articles using pure function
+        last_updated = calculate_last_updated(articles)
+
+        # Use current time if no article dates found
+        if last_updated is None:
+            last_updated = datetime.now(timezone.utc)
+
         # Create template context
         template_context = {
             "articles": page_articles,
+            "last_updated": last_updated,
             "site": {
                 "title": config.get("SITE_TITLE", "JabLab Tech News"),
                 "description": config.get(

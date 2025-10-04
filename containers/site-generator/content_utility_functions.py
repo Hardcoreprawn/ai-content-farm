@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import yaml
+from article_processing import calculate_last_updated, prepare_articles_for_display
 from html_page_generation import generate_article_page, generate_index_page
 from models import GenerationResponse
 from rss_generation import generate_rss_feed
@@ -278,8 +279,16 @@ async def create_complete_site(
     """
     generated_files = []
 
+    # Prepare articles: deduplicate and sort by date (newest first)
+    processed_articles = prepare_articles_for_display(articles)
+
+    logger.info(
+        f"Processing {len(processed_articles)} unique articles "
+        f"(from {len(articles)} raw articles, sorted by date)"
+    )
+
     # Generate individual article pages
-    for article in articles:
+    for article in processed_articles:
         # Generate HTML using pure function
         html_content = generate_article_page(
             article=article,
@@ -300,9 +309,9 @@ async def create_complete_site(
         )
         generated_files.append(filename)
 
-    # Generate index page
+    # Generate index page with processed articles
     html_content = generate_index_page(
-        articles=articles,
+        articles=processed_articles,
         config=config,
     )
 
@@ -316,9 +325,9 @@ async def create_complete_site(
     )
     generated_files.append(index_filename)
 
-    # Generate RSS feed
+    # Generate RSS feed with processed articles
     rss_content = generate_rss_feed(
-        articles=articles,
+        articles=processed_articles,
         config=config,
     )
 
