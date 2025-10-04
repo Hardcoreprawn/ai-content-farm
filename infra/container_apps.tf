@@ -516,7 +516,7 @@ resource "azurerm_container_app" "site_generator" {
 
       env {
         name  = "STATIC_SITES_CONTAINER"
-        value = "static-sites"
+        value = "$web"
       }
 
       env {

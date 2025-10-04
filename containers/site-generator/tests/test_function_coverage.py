@@ -326,6 +326,119 @@ class TestUtilityFunctionsCoverage:
         assert 'title: "Simple Article"' in result
         assert "Simple content" in result
 
+    @pytest.mark.asyncio
+    async def test_duplicate_title_collision_prevention(self, mock_blob_client):
+        """Test that articles with identical titles generate unique filenames.
+
+        Addresses Copilot review comment: ensure two articles with the same title
+        do not overwrite each other's HTML files.
+        """
+        from content_utility_functions import create_complete_site
+
+        # Two articles with IDENTICAL titles but different IDs
+        articles = [
+            {
+                "id": "article-001",
+                "title": "Breaking News Today",
+                "content": "First article content",
+                "url": "https://example.com/1",
+                "created_utc": 1696118400,
+                "published_date": "2024-10-01T10:00:00Z",
+            },
+            {
+                "id": "article-002",
+                "title": "Breaking News Today",  # SAME TITLE
+                "content": "Second article content",
+                "url": "https://example.com/2",
+                "created_utc": 1696118500,
+                "published_date": "2024-10-01T10:05:00Z",
+            },
+        ]
+
+        # Mock upload_text to track uploaded files
+        uploaded_files = []
+
+        async def mock_upload_text(
+            container, blob_name, text=None, content=None, **kwargs
+        ):
+            # SimplifiedBlobClient.upload_text uses 'text' parameter
+            file_content = text or content
+            uploaded_files.append({"blob_name": blob_name, "content": file_content})
+            return {"status": "uploaded"}
+
+        mock_blob_client.upload_text = AsyncMock(side_effect=mock_upload_text)
+
+        # Mock required methods
+        mock_blob_client.test_connection = Mock(
+            return_value={
+                "status": "connected",
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            }
+        )
+
+        config = {
+            "STATIC_SITES_CONTAINER": "$web",
+            "SITE_TITLE": "Test Site",
+            "SITE_DESCRIPTION": "Test Description",
+            "SITE_URL": "https://test.example.com",
+        }
+
+        # Generate site with duplicate titles
+        result = await create_complete_site(
+            articles=articles,
+            theme="default",
+            blob_client=mock_blob_client,
+            config=config,
+            force_rebuild=False,
+        )
+
+        # Extract just the article HTML filenames (not index.html, feed.xml, etc)
+        article_files = [
+            f["blob_name"]
+            for f in uploaded_files
+            if f["blob_name"].startswith("articles/")
+            and f["blob_name"].endswith(".html")
+        ]
+
+        # CRITICAL ASSERTIONS:
+        # 1. Both articles should generate HTML files
+        assert (
+            len(article_files) == 2
+        ), f"Expected 2 article files, got {len(article_files)}"
+
+        # 2. Filenames should be DIFFERENT (not both "breaking-news-today.html")
+        assert (
+            article_files[0] != article_files[1]
+        ), f"Duplicate titles created identical filenames: {article_files[0]}"
+
+        # 3. Each filename should contain the article ID for uniqueness
+        assert (
+            "article-001" in article_files[0] or "article-002" in article_files[0]
+        ), f"First filename missing article ID: {article_files[0]}"
+        assert (
+            "article-001" in article_files[1] or "article-002" in article_files[1]
+        ), f"Second filename missing article ID: {article_files[1]}"
+
+        # 4. Verify each article's content is preserved (no overwrites)
+        first_content = next(
+            f["content"] for f in uploaded_files if f["blob_name"] == article_files[0]
+        )
+        second_content = next(
+            f["content"] for f in uploaded_files if f["blob_name"] == article_files[1]
+        )
+
+        assert (
+            "First article content" in first_content
+            or "Second article content" in first_content
+        )
+        assert (
+            "First article content" in second_content
+            or "Second article content" in second_content
+        )
+        assert (
+            first_content != second_content
+        ), "Articles with same title have identical content (likely overwritten)"
+
 
 class TestDataContractValidation:
     """Test that our data models work correctly."""

@@ -61,7 +61,7 @@ AZURE_CLIENT_ID=your_managed_identity_client_id
 # Container Names
 PROCESSED_CONTENT_CONTAINER=processed-content
 MARKDOWN_CONTENT_CONTAINER=markdown-content
-STATIC_SITES_CONTAINER=static-sites
+STATIC_SITES_CONTAINER="$web"            # Azure Static Website hosting container (quoted to prevent shell expansion)
 
 # Site Configuration
 SITE_TITLE="JabLab Tech News"
@@ -74,6 +74,26 @@ ARTICLES_PER_PAGE=10
 MAX_ARTICLES_TOTAL=100
 DEFAULT_THEME=minimal
 ```
+
+## 📦 Output Locations
+
+The site-generator writes generated content to Azure Storage containers:
+
+- **HTML/CSS/JS Files**: `$web` container (Azure Static Website hosting)
+  - Automatically served at storage account's static website URL
+  - Accessible via custom domain (e.g., https://jablab.dev)
+  - Files: `index.html`, `articles/*.html`, `feed.xml`
+
+- **Markdown Source**: `markdown-content` container
+  - Original markdown files with frontmatter
+  - Used for content management and archival
+  - Format: `{safe-title}.md`
+
+- **RSS Feed**: `$web/feed.xml`
+  - Public RSS feed for article subscriptions
+  - Updated on each site generation
+
+**Note:** The `$web` container is a special Azure Storage container created automatically when static website hosting is enabled. Files written to this container are immediately accessible via the static website URL.
 
 ## 🎨 Theme System
 
