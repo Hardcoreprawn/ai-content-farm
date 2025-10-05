@@ -56,14 +56,8 @@
 
     <div class="article-content">
         {% if article.content %}
-        <!-- Convert markdown-style content to HTML -->
-        {% set content_html = article.content | replace('**', '<strong>') | replace('**', '</strong>') %}
-        {% set content_html = content_html | replace('# ', '<h1>') | replace('\n\n', '</h1>\n\n<p>') %}
-            {% set content_html = content_html | replace('\n', '</p>\n<p>') %}
-            {% if not content_html.startswith('<') %} <p>{{ content_html }}</p>
-        {% else %}
-        {{ content_html | safe }}
-        {% endif %}
+        <!-- Convert markdown to HTML using proper markdown library -->
+        {{ article.content | markdown | safe }}
         {% else %}
         <p><em>No content available for this article.</em></p>
         {% endif %}

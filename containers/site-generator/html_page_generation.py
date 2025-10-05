@@ -14,6 +14,7 @@ from urllib.parse import urljoin
 
 from article_processing import calculate_last_updated
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound, select_autoescape
+from text_processing import register_jinja_filters
 
 from libs import SecureErrorHandler
 
@@ -28,11 +29,13 @@ def get_jinja_environment(theme: str = "minimal") -> Environment:
     """
     Get or create Jinja2 environment for template rendering.
 
+    Registers custom filters for markdown conversion and text processing.
+
     Args:
         theme: Theme name to use for template loading
 
     Returns:
-        Configured Jinja2 Environment instance
+        Configured Jinja2 Environment instance with custom filters
     """
     global _jinja_env
 
@@ -49,6 +52,9 @@ def get_jinja_environment(theme: str = "minimal") -> Environment:
             trim_blocks=True,
             lstrip_blocks=True,
         )
+
+        # Register custom filters for markdown and text processing
+        _jinja_env = register_jinja_filters(_jinja_env)
 
         logger.info(
             f"Initialized Jinja2 environment with templates from: {templates_dir}"

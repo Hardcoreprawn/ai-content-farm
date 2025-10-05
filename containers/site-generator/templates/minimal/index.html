@@ -37,7 +37,7 @@
 
         <div class="article-preview">
             {% if article.content %}
-            <p>{{ article.content[:200] }}{% if article.content|length > 200 %}...{% endif %}</p>
+            <p>{{ article.content | preview(200) }}</p>
             {% else %}
             <p>No preview available</p>
             {% endif %}
