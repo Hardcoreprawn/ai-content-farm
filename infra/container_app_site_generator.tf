@@ -105,14 +105,15 @@ resource "azurerm_container_app" "site_generator" {
         value = azurerm_storage_queue.site_generation_requests.name
       }
 
-      # Enable auto-shutdown for production efficiency (KEDA will restart on new messages)
+      # Disable auto-shutdown for site-generator (needs to stay up for HTTP endpoints)
+      # Container will stay alive during KEDA cooldown period (300s) for debugging
       env {
         name  = "DISABLE_AUTO_SHUTDOWN"
-        value = "false"
+        value = "true"
       }
     }
 
-    # Scale to zero when queue is empty
+    # Scale to zero when queue is empty (KEDA cooldown handles HTTP availability)
     # KEDA authentication configured via null_resource in container_apps_keda_auth.tf
     min_replicas = 0
     max_replicas = 2
