@@ -11,6 +11,8 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List
 from urllib.parse import urljoin
 
+from text_processing import clean_title
+
 from libs import SecureErrorHandler
 
 logger = logging.getLogger(__name__)
@@ -106,9 +108,12 @@ def _generate_rss_item(
     item_url = urljoin(site_url, f"/articles/{article['url']}/")
     description = _extract_description(article)
 
+    # Clean title for RSS feed
+    clean_article_title = clean_title(article["title"])
+
     return f"""
     <item>
-      <title><![CDATA[{article['title']}]]></title>
+      <title><![CDATA[{clean_article_title}]]></title>
       <link>{item_url}</link>
       <guid>{item_url}</guid>
       <description><![CDATA[{description}]]></description>

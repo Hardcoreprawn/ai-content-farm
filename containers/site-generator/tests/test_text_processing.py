@@ -171,6 +171,32 @@ class TestCleanTitle:
         cleaned = clean_title(title)
         assert cleaned == title
 
+    def test_real_world_mastodon_title(self):
+        """Test cleaning of real-world Mastodon post title with URL."""
+        title = "OpenAI prepares $4 ChatGPT Go for several new countries https://www.bleepingcomputer.com/news/artifi..."
+        cleaned = clean_title(title)
+        assert "https://" not in cleaned
+        assert "www.bleepingcomputer.com" not in cleaned
+        assert "..." not in cleaned
+        assert "OpenAI prepares $4 ChatGPT Go for several new countries" in cleaned
+
+    def test_multiple_urls_in_title(self):
+        """Test removal of multiple URLs from title."""
+        title = "Check out https://site1.com and www.site2.org for more info"
+        cleaned = clean_title(title)
+        assert "https://site1.com" not in cleaned
+        assert "www.site2.org" not in cleaned
+        assert "Check out" in cleaned
+        assert "for more info" in cleaned
+
+    def test_url_with_path_and_query(self):
+        """Test removal of complex URLs with paths and query strings."""
+        title = "Article about AI https://example.com/news/article?id=123&ref=twitter"
+        cleaned = clean_title(title)
+        assert "https://" not in cleaned
+        assert "example.com" not in cleaned
+        assert "Article about AI" == cleaned.strip()
+
 
 class TestStripHtmlTags:
     """Test HTML tag stripping."""

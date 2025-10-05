@@ -18,6 +18,7 @@ from article_processing import calculate_last_updated, prepare_articles_for_disp
 from html_page_generation import generate_article_page, generate_index_page
 from models import GenerationResponse
 from rss_generation import generate_rss_feed
+from text_processing import clean_title
 
 from libs import SecureErrorHandler
 from libs.data_contracts import ContractValidator
@@ -289,6 +290,9 @@ async def create_complete_site(
 
     # Generate individual article pages
     for article in processed_articles:
+        # Clean title before using it (remove URLs and artifacts)
+        article["title"] = clean_title(article.get("title", "untitled"))
+
         # Determine article ID and generate filename
         # Priority: topic_id (from content-processor) > id (legacy/test) > slug (from markdown filename)
         article_id = (
@@ -296,7 +300,7 @@ async def create_complete_site(
             or article.get("id")
             or article.get("slug", "article")
         )
-        safe_title = create_safe_filename(article.get("title", "untitled"))
+        safe_title = create_safe_filename(article["title"])
         filename = f"articles/{article_id}-{safe_title}.html"
 
         # Set slug for template compatibility (just the filename without path/extension)
@@ -430,8 +434,9 @@ def create_markdown_content(article_data: Dict[str, Any]) -> str:
         >>> "Untitled" in result
         True
     """
-    # Extract article information
-    title = article_data.get("title", "Untitled")
+    # Extract and clean article information
+    raw_title = article_data.get("title", "Untitled")
+    title = clean_title(raw_title)  # Remove URLs and artifacts from title
     # Support both 'content' and 'article_content' field names for compatibility
     content = article_data.get("content") or article_data.get("article_content", "")
     topic_id = article_data.get("topic_id", "")
