@@ -2,13 +2,13 @@ name: Individual Large File Issue Creator
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main]
     paths-ignore:
       - 'docs/**'
       - '**.md'
       - '.github/workflows/**'
   pull_request:
-    branches: [main, develop]
+    branches: [main]
     paths-ignore:
       - 'docs/**'
       - '**.md'
