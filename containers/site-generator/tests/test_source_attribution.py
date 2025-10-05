@@ -11,6 +11,17 @@ import pytest
 from html_page_generation import generate_article_page, generate_index_page
 
 
+@pytest.fixture
+def sample_config():
+    """Standard site configuration."""
+    return {
+        "SITE_TITLE": "JabLab Tech News",
+        "SITE_DESCRIPTION": "AI-curated technology news",
+        "SITE_URL": "https://jablab.com",
+        "SITE_DOMAIN": "jablab.com",
+    }
+
+
 class TestArticlePageAttribution:
     """Test source attribution on article pages."""
 
@@ -28,16 +39,6 @@ class TestArticlePageAttribution:
             "source": "reddit",  # Backward compatibility
             "source_author": "tech_enthusiast",
             "original_date": "2025-10-04T15:30:00Z",
-        }
-
-    @pytest.fixture
-    def sample_config(self):
-        """Standard site configuration."""
-        return {
-            "SITE_TITLE": "JabLab Tech News",
-            "SITE_DESCRIPTION": "AI-curated technology news",
-            "SITE_URL": "https://jablab.com",
-            "SITE_DOMAIN": "jablab.com",
         }
 
     def test_article_page_includes_original_url(
