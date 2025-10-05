@@ -240,55 +240,14 @@ a:hover {
 .articles-grid {
     display: grid;
     gap: var(--space-lg);
-    /* Mobile: 1 column */
-    grid-template-columns: 1fr;
+    /* Use auto-fit to fill available space with cards ~400px wide */
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
 }
 
-/* Tablet: 2 columns */
-@media (min-width: 640px) {
+/* On very small screens, allow cards to shrink */
+@media (max-width: 640px) {
     .articles-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-/* Desktop: 3 columns */
-@media (min-width: 1024px) {
-    .articles-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
-
-/* Large desktop: 4 columns */
-@media (min-width: 1440px) {
-    .articles-grid {
-        grid-template-columns: repeat(4, 1fr);
-    }
-}
-
-/* Extra large: 5 columns */
-@media (min-width: 1920px) {
-    .articles-grid {
-        grid-template-columns: repeat(5, 1fr);
-    }
-}
-
-/* Ultra-wide: 6 columns for 2560px+ */
-@media (min-width: 2560px) {
-    .articles-grid {
-        grid-template-columns: repeat(6, 1fr);
-    }
-}
-
-/* Massive displays: 7-8 columns for 3440px+ */
-@media (min-width: 3200px) {
-    .articles-grid {
-        grid-template-columns: repeat(7, 1fr);
-    }
-}
-
-@media (min-width: 3840px) {
-    .articles-grid {
-        grid-template-columns: repeat(8, 1fr);
+        grid-template-columns: 1fr;
     }
 }
 
