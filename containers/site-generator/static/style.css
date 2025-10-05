@@ -299,6 +299,19 @@ a:hover {
     font-weight: 500;
 }
 
+.article-source-link {
+    text-decoration: none;
+    transition: opacity 0.2s ease;
+}
+
+.article-source-link:hover {
+    opacity: 0.8;
+}
+
+.article-source-link .article-source {
+    cursor: pointer;
+}
+
 .article-preview {
     flex-grow: 1;
     margin-bottom: var(--space-lg);

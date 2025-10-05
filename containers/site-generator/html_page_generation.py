@@ -120,6 +120,13 @@ def generate_article_page(
                 "author": author,
                 "description": description,
                 "tags": tags,
+                # Source attribution fields
+                "original_url": article.get("original_url"),
+                "source_platform": article.get("source_platform")
+                or article.get("source"),
+                "source_author": article.get("author"),  # Original author
+                "original_date": article.get("original_date")
+                or article.get("created_at"),
             },
             "site": {
                 "title": config.get("SITE_TITLE", "JabLab Tech News"),

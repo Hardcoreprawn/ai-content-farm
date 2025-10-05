@@ -22,6 +22,27 @@
 
         <h1 class="article-title">{{ article.title }}</h1>
 
+        {% if article.original_url %}
+        <div class="source-attribution">
+            <h4>Original Source</h4>
+            <p>
+                <strong>Platform:</strong>
+                <a href="{{ article.original_url }}" target="_blank" rel="noopener noreferrer" class="source-link">
+                    {{ article.source_platform | default('Web') | title }}
+                </a>
+                {% if article.source_author %}
+                <br><strong>Author:</strong> {{ article.source_author }}
+                {% endif %}
+                {% if article.original_date %}
+                <br><strong>Published:</strong> {{ article.original_date[:10] if article.original_date else 'Unknown' }}
+                {% endif %}
+            </p>
+            <a href="{{ article.original_url }}" class="btn btn-secondary" target="_blank" rel="noopener noreferrer">
+                View Original Source →
+            </a>
+        </div>
+        {% endif %}
+
         <div class="article-meta-full">
             <div class="meta-row">
                 <span class="meta-label">Source:</span>

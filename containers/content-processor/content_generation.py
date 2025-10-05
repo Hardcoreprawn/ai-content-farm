@@ -42,6 +42,16 @@ class GeneratedContent(BaseModel):
     word_count: int = Field(..., description="Word count of generated content")
     sources_used: int = Field(..., description="Number of sources used")
 
+    # Source attribution fields
+    original_url: Optional[str] = Field(
+        None, description="URL of original source content"
+    )
+    source_platform: Optional[str] = Field(
+        None, description="Platform name (reddit, rss, mastodon, web)"
+    )
+    author: Optional[str] = Field(None, description="Original content author")
+    original_date: Optional[str] = Field(None, description="Original publication date")
+
 
 class BatchGenerationRequest(BaseModel):
     """Request for batch content generation."""
@@ -114,6 +124,82 @@ class ContentGenerator:
             title = lines[0] if lines else "Generated Content"
             content = "\n".join(lines[1:]) if len(lines) > 1 else ""
             return title, content
+
+    def _extract_source_attribution(
+        self, sources: List[Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """
+        Extract source attribution from the primary source.
+
+        Extracts URL, platform, author, and date from the first/primary source.
+        Falls back gracefully if fields are missing.
+
+        Args:
+            sources: List of source dictionaries
+
+        Returns:
+            Dictionary with original_url, source_platform, author, original_date
+        """
+        attribution: Dict[str, Any] = {
+            "original_url": None,
+            "source_platform": None,
+            "author": None,
+            "original_date": None,
+        }
+
+        if not sources:
+            return attribution
+
+        # Use the first source as primary
+        primary_source = sources[0]
+
+        # Validate that primary_source is a dict
+        if not isinstance(primary_source, dict):
+            return attribution
+
+        # Extract URL (try multiple field names)
+        attribution["original_url"] = (
+            primary_source.get("url")
+            or primary_source.get("link")
+            or primary_source.get("source_url")
+        )
+
+        # Extract source platform (normalize to lowercase)
+        source_platform = (
+            primary_source.get("source")
+            or primary_source.get("source_type")
+            or primary_source.get("platform")
+        )
+        if source_platform:
+            attribution["source_platform"] = str(source_platform).lower()
+
+        # Extract author
+        attribution["author"] = primary_source.get("author")
+
+        # Extract date (try multiple field names)
+        date_value = (
+            primary_source.get("created_at")
+            or primary_source.get("published")
+            or primary_source.get("created_utc")
+            or primary_source.get("date")
+        )
+        if date_value:
+            # Convert to ISO format if it's a timestamp
+            if isinstance(date_value, (int, float)):
+                try:
+                    # Validate timestamp is reasonable (between 1970 and 2100)
+                    if 0 <= date_value < 4102444800:  # Jan 1, 2100
+                        attribution["original_date"] = datetime.fromtimestamp(
+                            date_value, tz=timezone.utc
+                        ).isoformat()
+                    else:
+                        attribution["original_date"] = None
+                except (ValueError, OSError):
+                    attribution["original_date"] = None
+            else:
+                attribution["original_date"] = str(date_value)
+
+        return attribution
 
     def build_prompt(
         self,
@@ -200,6 +286,9 @@ Focus on providing value to readers with actionable insights."""
             # Count words
             word_count = len(content.split())
 
+            # Extract source attribution from primary source
+            source_attribution = self._extract_source_attribution(request.sources)
+
             return GeneratedContent(
                 title=title,
                 content=content,
@@ -207,6 +296,10 @@ Focus on providing value to readers with actionable insights."""
                 writer_personality=request.writer_personality,
                 word_count=word_count,
                 sources_used=len(request.sources),
+                original_url=source_attribution.get("original_url"),
+                source_platform=source_attribution.get("source_platform"),
+                author=source_attribution.get("author"),
+                original_date=source_attribution.get("original_date"),
             )
 
         except Exception as e:
