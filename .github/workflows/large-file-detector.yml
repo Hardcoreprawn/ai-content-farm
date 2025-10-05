@@ -59,6 +59,11 @@ jobs:
               continue
             fi
 
+            # Skip Makefiles and specific file patterns that are expected to be large
+            if [[ "$file" =~ ^Makefile$ ]] || [[ "$file" =~ /Makefile$ ]]; then
+              continue
+            fi
+
             # Skip directories
             if [[ ! -f "$file" ]]; then
               continue
