@@ -68,7 +68,7 @@ body {
 
 /* Container */
 .container {
-    max-width: 1280px;
+    max-width: 1200px;
     margin: 0 auto;
     padding: 0 var(--space-md);
     width: 100%;
@@ -77,12 +77,6 @@ body {
 @media (min-width: 768px) {
     .container {
         padding: 0 var(--space-xl);
-    }
-}
-
-@media (min-width: 1400px) {
-    .container {
-        padding: 0 var(--space-2xl);
     }
 }
 
@@ -145,6 +139,7 @@ a:hover {
     top: 0;
     z-index: 100;
     backdrop-filter: blur(10px);
+    width: 100%;
 }
 
 .site-nav {
@@ -153,6 +148,8 @@ a:hover {
     align-items: center;
     flex-wrap: wrap;
     gap: var(--space-md);
+    width: 100%;
+    max-width: 100%;
 }
 
 .site-logo h1 {
@@ -193,6 +190,8 @@ a:hover {
     text-align: center;
     margin-bottom: var(--space-2xl);
     padding: var(--space-xl) 0;
+    width: 100%;
+    max-width: 100%;
 }
 
 .hero-title {
@@ -229,12 +228,14 @@ a:hover {
     display: grid;
     gap: var(--space-lg);
     /* Use auto-fit with minmax for even column distribution */
-    /* Cards will be minimum 280px, maximum 1fr (equal width) */
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    /* Use minmax(0, 1fr) to prevent overflow */
+    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+    width: 100%;
+    max-width: 100%;
 }
 
 /* Ensure maximum 3 columns on very wide screens */
-@media (min-width: 1400px) {
+@media (min-width: 1200px) {
     .articles-grid {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -250,6 +251,8 @@ a:hover {
     display: flex;
     flex-direction: column;
     height: 100%;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .article-card:hover {
