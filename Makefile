@@ -710,18 +710,7 @@ clean:
 	@echo "🧹 All build artifacts and scan results cleaned"
 
 # Environment-specific deployment targets
-# NOTE: Staging deployment removed - all deployments via CI/CD to main branch only
-# deploy-staging: verify-staging
-#	@echo "Deploying to staging environment..."
-#	@if [ "$(shell git branch --show-current)" != "main" ]; then \
-#		echo "Deployment only allowed from main branch via CI/CD"; \
-#		exit 1; \
-#	fi
-#	cd infra && terraform workspace select staging || terraform workspace new staging
-#	cd infra && terraform plan -var-file="staging.tfvars"
-#	cd infra && terraform apply -auto-approve -var-file="staging.tfvars"
-#	@echo "Staging infrastructure deployment complete"
-#	@echo "🔐 Next step: Configure secrets with 'make setup-keyvault'"
+# NOTE: All deployments via CI/CD to main branch only
 
 # Staging-specific verification (more flexible than full verify)
 verify-staging: terraform-init lint-terraform security-scan cost-estimate-optional sbom terraform-plan-staging

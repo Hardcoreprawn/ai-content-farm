@@ -11,6 +11,7 @@ import json
 import logging
 import re
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
@@ -375,8 +376,6 @@ async def create_complete_site(
     generated_files.append(rss_filename)
 
     # Upload static assets (CSS, JS)
-    from pathlib import Path
-
     static_dir = Path(__file__).parent / "static"
     if static_dir.exists():
         for static_file in static_dir.iterdir():
