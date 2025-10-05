@@ -115,35 +115,70 @@ async def lifespan(app: FastAPI):
     from endpoints.storage_queue_router import get_storage_queue_router
 
     from libs.queue_client import process_queue_messages
+    from libs.storage_queue_poller import StorageQueuePoller
 
     # Initialize lifecycle manager
     lifecycle_manager = create_lifecycle_manager("content-processor")
 
-    async def startup_queue_processor():
-        """Process any existing queue messages on startup using lifecycle manager."""
+    # Message handler for background poller (takes message_data dict)
+    async def message_handler_wrapper(message_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Wrapper to convert message_data to QueueMessageModel for router."""
+        from libs.queue_client import QueueMessageModel
 
-        # Process message handler
-        async def process_message(queue_message, message) -> Dict[str, Any]:
-            """Process a single message on startup."""
-            try:
-                router_instance = get_storage_queue_router()
-                result = await router_instance.process_storage_queue_message(
-                    queue_message
+        try:
+            # Convert dict to QueueMessageModel
+            queue_message = QueueMessageModel(**message_data)
+            router_instance = get_storage_queue_router()
+            result = await router_instance.process_storage_queue_message(queue_message)
+
+            if result["status"] == "success":
+                logger.info(
+                    f"Background: Successfully processed message {queue_message.message_id}"
+                )
+            else:
+                logger.warning(
+                    f"Background: Message processing failed: {result.get('error', 'Unknown error')}"
                 )
 
-                if result["status"] == "success":
-                    logger.info(
-                        f"Startup: Successfully processed message {queue_message.message_id}"
-                    )
-                else:
-                    logger.warning(
-                        f"Startup: Message processing failed: {result.get('error', 'Unknown error')}"
-                    )
+            return result
+        except Exception as e:
+            logger.error(f"Background: Error processing message: {e}")
+            return {"status": "error", "error": str(e)}
 
-                return result
-            except Exception as e:
-                logger.error(f"Startup: Error processing message: {e}")
-                return {"status": "error", "error": str(e)}
+    # Process message handler for startup (legacy signature with queue_message, message)
+    async def process_message(queue_message, message) -> Dict[str, Any]:
+        """Process a single message on startup."""
+        try:
+            router_instance = get_storage_queue_router()
+            result = await router_instance.process_storage_queue_message(queue_message)
+
+            if result["status"] == "success":
+                logger.info(
+                    f"Startup: Successfully processed message {queue_message.message_id}"
+                )
+            else:
+                logger.warning(
+                    f"Startup: Message processing failed: {result.get('error', 'Unknown error')}"
+                )
+
+            return result
+        except Exception as e:
+            logger.error(f"Startup: Error processing message: {e}")
+            return {"status": "error", "error": str(e)}
+
+    # Initialize background poller
+    background_poller = StorageQueuePoller(
+        queue_name="content-processing-requests",
+        message_handler=message_handler_wrapper,
+        poll_interval=float(os.getenv("QUEUE_POLL_INTERVAL", "5.0")),
+        max_messages_per_batch=10,
+        max_empty_polls=3,
+        empty_queue_sleep=30.0,
+        process_queue_messages_func=process_queue_messages,
+    )
+
+    async def startup_queue_processor():
+        """Process any existing queue messages on startup using lifecycle manager."""
 
         # Use lifecycle manager for queue processing
         async def process_messages_wrapper(queue_name: str, max_messages: int):
@@ -157,7 +192,8 @@ async def lifespan(app: FastAPI):
             process_messages_wrapper, "content-processing-requests", max_messages=32
         )
 
-    # Graceful shutdown is now handled by the lifecycle manager
+        # Start continuous background polling if enabled
+        await background_poller.start()
 
     # Start the background task
     asyncio.create_task(startup_queue_processor())
@@ -166,6 +202,10 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         logger.info("Shutting down Content Processor service")
+
+        # Stop background poller
+        await background_poller.stop()
+
         try:
             # Close API client to prevent unclosed session warnings
             from dependencies import get_api_client

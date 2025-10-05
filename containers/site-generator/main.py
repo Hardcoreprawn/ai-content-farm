@@ -106,21 +106,62 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     logger.info("Site Generator ready for KEDA Storage Queue scaling")
 
     # Start background queue processing on startup
+    from functional_config import QUEUE_NAME
     from shutdown_handler import (
         handle_startup_auto_shutdown,
         handle_startup_error_shutdown,
     )
     from startup_diagnostics import process_startup_queue_messages
+    from storage_queue_router import process_storage_queue_message
 
     from libs.queue_client import process_queue_messages
+    from libs.storage_queue_poller import StorageQueuePoller
+
+    # Create message handler for the poller
+    async def message_handler_wrapper(message_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Wrapper to adapt our message processing to the poller interface."""
+        try:
+            # Create QueueMessageModel from message data
+            from libs.queue_client import QueueMessageModel
+
+            queue_message = QueueMessageModel(**message_data)
+
+            # Process using our existing logic
+            result = await process_storage_queue_message(queue_message)
+            return result
+        except Exception as e:
+            logger.error(f"Message handler error: {e}")
+            return {"status": "error", "error": str(e)}
+
+    # Initialize background poller
+    background_poller = StorageQueuePoller(
+        queue_name=QUEUE_NAME,
+        message_handler=message_handler_wrapper,
+        poll_interval=float(os.getenv("QUEUE_POLL_INTERVAL", "5.0")),
+        max_messages_per_batch=10,
+        max_empty_polls=3,
+        empty_queue_sleep=30.0,
+        process_queue_messages_func=process_queue_messages,
+    )
 
     async def startup_queue_processor():
         try:
+            # Process any startup messages
             processed_messages = await process_startup_queue_messages(
                 process_queue_messages
             )
             processed_count = 1 if processed_messages else 0
-            await handle_startup_auto_shutdown(processed_count)
+
+            # Start continuous background polling if enabled
+            await background_poller.start()
+
+            # Handle shutdown behavior for non-polling mode
+            disable_auto_shutdown = (
+                os.getenv("DISABLE_AUTO_SHUTDOWN", "false").lower() == "true"
+            )
+            if not disable_auto_shutdown:
+                await handle_startup_auto_shutdown(processed_count)
+
         except Exception as e:
             logger.error(f"Startup queue processing failed: {e}")
             await handle_startup_error_shutdown()
@@ -131,6 +172,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         yield
     finally:
         logger.info("Site Generator shutting down...")
+        # Stop background polling
+        await background_poller.stop()
 
 
 # Initialize FastAPI app
