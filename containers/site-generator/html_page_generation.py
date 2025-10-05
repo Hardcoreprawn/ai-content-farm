@@ -14,7 +14,7 @@ from urllib.parse import urljoin
 
 from article_processing import calculate_last_updated
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound, select_autoescape
-from text_processing import register_jinja_filters
+from text_processing import clean_title, register_jinja_filters
 
 from libs import SecureErrorHandler
 
@@ -91,8 +91,8 @@ def generate_article_page(
         if missing_fields:
             raise ValueError(f"Missing required article fields: {missing_fields}")
 
-        # Extract article data
-        title = article["title"]
+        # Extract and clean article data (idempotent - safe to call multiple times)
+        title = clean_title(article["title"])
         content = article["content"]
         url = article["url"]
         published_date = article["published_date"]

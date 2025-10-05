@@ -12,9 +12,9 @@ git checkout -b feature/fix-site-generator
 # Make changes...
 git commit -m "Fix AttributeError in site-generator"
 git push origin feature/fix-site-generator
-# Create PR to develop branch
-# CI/CD runs: tests → security → build → deploy to staging
-# After testing, merge develop → main for production
+# Create PR to main branch
+# CI/CD runs: tests → security → build → deploy
+# After approval, merge to main for deployment
 ```
 
 **Never use manual deployment commands:**
@@ -254,9 +254,8 @@ GET  /docs                           # API documentation
 
 ### Environment Promotion (Strictly Enforced)
 - **Development**: Local development and testing
-- **Staging**: `develop` branch deployment for integration testing  
-- **Production**: `main` branch only, requires manual approval
-- **Branch protection**: Production deployment blocked from non-main branches
+- **Production**: `main` branch only, all PRs merge directly to main
+- **Branch protection**: Production deployment requires PR approval and passing tests
 
 ### Build System (Make-based)
 Our Makefile provides comprehensive automation for all development tasks:
@@ -336,14 +335,12 @@ PYTHONPATH=/workspaces/ai-content-farm python -m pytest tests/ -m integration -v
 **CRITICAL**: All deployments happen through GitHub Actions CI/CD pipeline only. No manual deployment commands.
 
 1. **Local Development**: Implement and test locally with `make test`
-2. **Create Pull Request**: Push changes to feature branch, create PR to `develop`
+2. **Create Pull Request**: Push changes to feature branch, create PR to `main`
 3. **CI/CD Validation**: GitHub Actions automatically runs security, testing, and cost analysis
-4. **Staging Deployment**: Merge to `develop` branch automatically deploys to staging environment
-5. **Production Deployment**: Merge `develop` to `main` automatically deploys to production
-6. **Emergency Fixes**: Direct commits to `main` trigger immediate production deployment
+4. **Production Deployment**: Merge to `main` branch automatically deploys to production environment
+5. **Emergency Fixes**: Direct commits to `main` trigger immediate production deployment
 
 **Deployment Targets**:
-- `develop` branch → `ai-content-dev-rg` (staging environment)
 - `main` branch → `ai-content-prod-rg` (production environment)
 
 ## Infrastructure Efficiency Guidelines

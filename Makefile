@@ -47,7 +47,6 @@ help:
 	@echo "  clean           - Remove build artifacts"
 	@echo ""
 	@echo "Environment-specific targets:"
-	@echo "  deploy-staging   - Deploy to staging environment (develop branch)"
 	@echo "  deploy-production - Deploy to production environment (main branch only)"
 	@echo "  test-staging     - Run tests against staging environment"
 	@echo "  test-production  - Run tests against production environment"
@@ -711,17 +710,6 @@ clean:
 	@echo "🧹 All build artifacts and scan results cleaned"
 
 # Environment-specific deployment targets
-deploy-staging: verify-staging
-	@echo "Deploying to staging environment..."
-	@if [ "$(shell git branch --show-current)" != "develop" ] && [ ! "$(shell git branch --show-current)" = "feature/"* ]; then \
-		echo "Staging deployment only allowed from develop or feature/ branches"; \
-		exit 1; \
-	fi
-	cd infra && terraform workspace select staging || terraform workspace new staging
-	cd infra && terraform plan -var-file="staging.tfvars"
-	cd infra && terraform apply -auto-approve -var-file="staging.tfvars"
-	@echo "Staging infrastructure deployment complete"
-	@echo "🔐 Next step: Configure secrets with 'make setup-keyvault'"
 
 # Staging-specific verification (more flexible than full verify)
 verify-staging: terraform-init lint-terraform security-scan cost-estimate-optional sbom terraform-plan-staging
