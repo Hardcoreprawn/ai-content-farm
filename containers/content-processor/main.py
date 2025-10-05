@@ -120,14 +120,10 @@ async def lifespan(app: FastAPI):
     # Initialize lifecycle manager
     lifecycle_manager = create_lifecycle_manager("content-processor")
 
-    # Message handler for background poller (takes message_data dict)
-    async def message_handler_wrapper(message_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Wrapper to convert message_data to QueueMessageModel for router."""
-        from libs.queue_client import QueueMessageModel
-
+    # Message handler for background poller (accepts queue_message, message from process_queue_messages)
+    async def message_handler_wrapper(queue_message, message) -> Dict[str, Any]:
+        """Wrapper for background polling - uses same signature as process_queue_messages handler."""
         try:
-            # Convert dict to QueueMessageModel
-            queue_message = QueueMessageModel(**message_data)
             router_instance = get_storage_queue_router()
             result = await router_instance.process_storage_queue_message(queue_message)
 

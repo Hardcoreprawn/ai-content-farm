@@ -118,14 +118,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from libs.storage_queue_poller import StorageQueuePoller
 
     # Create message handler for the poller
-    async def message_handler_wrapper(message_data: Dict[str, Any]) -> Dict[str, Any]:
+    async def message_handler_wrapper(queue_message, message) -> Dict[str, Any]:
         """Wrapper to adapt our message processing to the poller interface."""
         try:
-            # Create QueueMessageModel from message data
-            from libs.queue_client import QueueMessageModel
-
-            queue_message = QueueMessageModel(**message_data)
-
             # Process using our existing logic
             result = await process_storage_queue_message(queue_message)
             return result

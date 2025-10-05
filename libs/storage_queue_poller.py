@@ -42,9 +42,7 @@ class StorageQueuePoller:
     def __init__(
         self,
         queue_name: str,
-        message_handler: Callable[
-            [Dict[str, Any]], Coroutine[Any, Any, Dict[str, Any]]
-        ],
+        message_handler: Callable[[Any, Any], Coroutine[Any, Any, Dict[str, Any]]],
         poll_interval: float = 5.0,
         max_messages_per_batch: int = 10,
         max_empty_polls: int = 3,
@@ -56,7 +54,7 @@ class StorageQueuePoller:
 
         Args:
             queue_name: Name of the Azure Storage Queue to poll
-            message_handler: Async function to process each message
+            message_handler: Async function to process each message (queue_message, message)
             poll_interval: Seconds between polls when queue has messages
             max_messages_per_batch: Maximum messages to process in each batch
             max_empty_polls: Maximum consecutive empty polls before longer sleep
