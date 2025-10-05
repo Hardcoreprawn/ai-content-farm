@@ -89,12 +89,15 @@ jobs:
           check_interval=30
 
           while [ $wait_time -lt $max_wait ]; do
-            # Get all check runs for this PR (state field only)
+            # Get all check runs for this PR, excluding this workflow itself
             checks=$(gh pr checks ${{ github.event.pull_request.number }} --json state,name)
 
-            # Count pending/in-progress checks
-            pending=$(echo "$checks" | jq '[.[] | select(.state == "PENDING" or .state == "IN_PROGRESS" or .state == "QUEUED")] | length')
-            failed=$(echo "$checks" | jq '[.[] | select(.state == "FAILURE" or .state == "ERROR")] | length')
+            # Exclude this workflow's own checks to avoid circular dependency
+            filtered_checks=$(echo "$checks" | jq '[.[] | select(.name != "dependabot-checks")]')
+
+            # Count pending/in-progress checks (excluding ourselves)
+            pending=$(echo "$filtered_checks" | jq '[.[] | select(.state == "PENDING" or .state == "IN_PROGRESS" or .state == "QUEUED")] | length')
+            failed=$(echo "$filtered_checks" | jq '[.[] | select(.state == "FAILURE" or .state == "ERROR")] | length')
 
             if [ "$failed" -gt 0 ]; then
               echo "[FAIL] One or more CI checks failed"
