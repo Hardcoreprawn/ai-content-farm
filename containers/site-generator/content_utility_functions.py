@@ -291,28 +291,27 @@ async def create_complete_site(
 
     # Generate individual article pages
     for article in processed_articles:
-        # Clean title before using it (remove URLs and artifacts)
-        article["title"] = clean_title(article.get("title", "untitled"))
-
-        # Determine article ID and generate filename
-        # Priority: topic_id (from content-processor) > id (legacy/test) > slug (from markdown filename)
+        # Create enriched article with cleaned title and computed fields (functional - no mutation)
         article_id = (
             article.get("topic_id")
             or article.get("id")
             or article.get("slug", "article")
         )
-        safe_title = create_safe_filename(article["title"])
+        cleaned_title = clean_title(article.get("title", "untitled"))
+        safe_title = create_safe_filename(cleaned_title)
         filename = f"articles/{article_id}-{safe_title}.html"
 
-        # Set slug for template compatibility (just the filename without path/extension)
-        article["slug"] = f"{article_id}-{safe_title}"
-
-        # Update article URL to match actual storage location
-        article["url"] = f"/{filename}"
+        # Create new article dict with enriched fields (pure functional approach)
+        enriched_article = {
+            **article,
+            "title": cleaned_title,
+            "slug": f"{article_id}-{safe_title}",
+            "url": f"/{filename}",
+        }
 
         # Generate HTML using pure function
         html_content = generate_article_page(
-            article=article,
+            article=enriched_article,
             config=config,
         )
 

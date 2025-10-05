@@ -91,8 +91,8 @@ def generate_article_page(
         if missing_fields:
             raise ValueError(f"Missing required article fields: {missing_fields}")
 
-        # Extract and clean article data
-        title = clean_title(article["title"])  # Remove URLs and artifacts
+        # Extract and clean article data (idempotent - safe to call multiple times)
+        title = clean_title(article["title"])
         content = article["content"]
         url = article["url"]
         published_date = article["published_date"]

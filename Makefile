@@ -710,7 +710,6 @@ clean:
 	@echo "🧹 All build artifacts and scan results cleaned"
 
 # Environment-specific deployment targets
-# NOTE: All deployments via CI/CD to main branch only
 
 # Staging-specific verification (more flexible than full verify)
 verify-staging: terraform-init lint-terraform security-scan cost-estimate-optional sbom terraform-plan-staging

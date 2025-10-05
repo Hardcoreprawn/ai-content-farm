@@ -11,6 +11,7 @@ import pytest
 from content_utility_functions import create_markdown_content
 from html_page_generation import generate_article_page
 from rss_generation import generate_rss_feed
+from text_processing import clean_title
 
 
 @pytest.fixture
@@ -194,8 +195,6 @@ class TestEndToEndTitleCleaning:
                 "OpenAI announces",
             ),
         ]
-
-        from text_processing import clean_title
 
         for original, expected in test_titles:
             cleaned = clean_title(original)
