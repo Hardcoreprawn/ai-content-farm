@@ -198,7 +198,7 @@ def load_configuration(
             # Generation settings
             ARTICLES_PER_PAGE=int(
                 startup_config.get(
-                    "ARTICLES_PER_PAGE", os.getenv("ARTICLES_PER_PAGE", "10")
+                    "ARTICLES_PER_PAGE", os.getenv("ARTICLES_PER_PAGE", "30")
                 )
             ),
             MAX_ARTICLES_TOTAL=int(

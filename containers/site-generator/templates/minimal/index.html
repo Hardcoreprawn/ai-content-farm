@@ -67,10 +67,54 @@
 </div>
 {% endif %}
 
-<!-- Pagination would go here if needed -->
-<div class="pagination">
-    <!-- Future: Add pagination controls -->
+<!-- Pagination Controls -->
+{% if pagination and pagination.total_pages > 1 %}
+<nav class="pagination" role="navigation" aria-label="Pagination">
+    <!-- Previous Page -->
+    {% if pagination.has_prev %}
+    <a href="{% if pagination.prev_page == 1 %}/index.html{% else %}/page-{{ pagination.prev_page }}.html{% endif %}"
+       class="pagination-link"
+       aria-label="Previous page">
+        ← Previous
+    </a>
+    {% else %}
+    <span class="pagination-link disabled" aria-label="Previous page (disabled)">← Previous</span>
+    {% endif %}
+
+    <!-- Page Numbers -->
+    {% for page_num in range(1, pagination.total_pages + 1) %}
+        {% if page_num == pagination.current_page %}
+            <span class="pagination-current" aria-current="page" aria-label="Page {{ page_num }}">{{ page_num }}</span>
+        {% elif page_num == 1 or page_num == pagination.total_pages or (page_num >= pagination.current_page - 2 and page_num <= pagination.current_page + 2) %}
+            <a href="{% if page_num == 1 %}/index.html{% else %}/page-{{ page_num }}.html{% endif %}"
+               class="pagination-link"
+               aria-label="Go to page {{ page_num }}">
+                {{ page_num }}
+            </a>
+        {% elif page_num == pagination.current_page - 3 or page_num == pagination.current_page + 3 %}
+            <span class="pagination-ellipsis" aria-hidden="true">…</span>
+        {% endif %}
+    {% endfor %}
+
+    <!-- Next Page -->
+    {% if pagination.has_next %}
+    <a href="/page-{{ pagination.next_page }}.html"
+       class="pagination-link"
+       aria-label="Next page">
+        Next →
+    </a>
+    {% else %}
+    <span class="pagination-link disabled" aria-label="Next page (disabled)">Next →</span>
+    {% endif %}
+</nav>
+
+<!-- Pagination Info -->
+<div class="pagination-info">
+    Showing {{ ((pagination.current_page - 1) * pagination.articles_per_page) + 1 }}
+    to {{ [pagination.current_page * pagination.articles_per_page, pagination.total_articles] | min }}
+    of {{ pagination.total_articles }} articles
 </div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

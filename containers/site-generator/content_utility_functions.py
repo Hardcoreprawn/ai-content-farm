@@ -320,21 +320,39 @@ async def create_complete_site(
         )
         generated_files.append(filename)
 
-    # Generate index page with processed articles
-    html_content = generate_index_page(
-        articles=processed_articles,
-        config=config,
+    # Generate paginated index pages
+    articles_per_page = config.get("ARTICLES_PER_PAGE", 30)
+    total_articles = len(processed_articles)
+    total_pages = (total_articles + articles_per_page - 1) // articles_per_page
+
+    logger.info(
+        f"Generating {total_pages} index pages "
+        f"({articles_per_page} articles per page)"
     )
 
-    # Upload to blob storage
-    index_filename = "index.html"
-    await blob_client.upload_text(
-        container=config["STATIC_SITES_CONTAINER"],
-        blob_name=index_filename,
-        text=html_content,
-        overwrite=True,
-    )
-    generated_files.append(index_filename)
+    for page_num in range(1, total_pages + 1):
+        # Generate HTML for this page
+        html_content = generate_index_page(
+            articles=processed_articles,
+            config=config,
+            page_number=page_num,
+        )
+
+        # First page is index.html, others are page-N.html
+        if page_num == 1:
+            index_filename = "index.html"
+        else:
+            index_filename = f"page-{page_num}.html"
+
+        # Upload to blob storage
+        await blob_client.upload_text(
+            container=config["STATIC_SITES_CONTAINER"],
+            blob_name=index_filename,
+            text=html_content,
+            overwrite=True,
+        )
+        generated_files.append(index_filename)
+        logger.debug(f"Generated page {page_num}/{total_pages}: {index_filename}")
 
     # Generate RSS feed with processed articles
     rss_content = generate_rss_feed(

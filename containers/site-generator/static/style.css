@@ -68,14 +68,21 @@ body {
 
 /* Container */
 .container {
-    max-width: 1200px;
+    max-width: 1280px;
     margin: 0 auto;
     padding: 0 var(--space-md);
+    width: 100%;
 }
 
 @media (min-width: 768px) {
     .container {
         padding: 0 var(--space-xl);
+    }
+}
+
+@media (min-width: 1400px) {
+    .container {
+        padding: 0 var(--space-2xl);
     }
 }
 
@@ -144,6 +151,8 @@ a:hover {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-md);
 }
 
 .site-logo h1 {
@@ -162,6 +171,11 @@ a:hover {
     font-weight: 500;
     color: var(--text-secondary);
     transition: color 0.2s ease;
+    padding: var(--space-sm) var(--space-md);
+    display: inline-block;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
 }
 
 .nav-link:hover {
@@ -182,7 +196,7 @@ a:hover {
 }
 
 .hero-title {
-    font-size: 3rem;
+    font-size: clamp(2rem, 5vw, 3rem);
     font-weight: 700;
     margin-bottom: var(--space-sm);
     background: linear-gradient(135deg, var(--primary-color), var(--accent-color));
@@ -192,7 +206,7 @@ a:hover {
 }
 
 .hero-subtitle {
-    font-size: 1.25rem;
+    font-size: clamp(1rem, 2.5vw, 1.25rem);
     color: var(--text-secondary);
     margin-bottom: var(--space-lg);
 }
@@ -214,16 +228,13 @@ a:hover {
 .articles-grid {
     display: grid;
     gap: var(--space-lg);
-    grid-template-columns: 1fr;
+    /* Use auto-fit with minmax for even column distribution */
+    /* Cards will be minimum 280px, maximum 1fr (equal width) */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
-@media (min-width: 768px) {
-    .articles-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (min-width: 1024px) {
+/* Ensure maximum 3 columns on very wide screens */
+@media (min-width: 1400px) {
     .articles-grid {
         grid-template-columns: repeat(3, 1fr);
     }
@@ -539,14 +550,75 @@ a:hover {
     color: var(--primary-color);
 }
 
+/* Pagination Controls */
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-top: var(--space-2xl);
+    flex-wrap: wrap;
+}
+
+.pagination-link,
+.pagination-current {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: 8px;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+.pagination-link {
+    color: var(--text-color);
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+}
+
+.pagination-link:hover {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+.pagination-link:disabled,
+.pagination-link.disabled {
+    opacity: 0.5;
+    pointer-events: none;
+    cursor: not-allowed;
+}
+
+.pagination-current {
+    background: var(--primary-color);
+    color: white;
+    border: 1px solid var(--primary-color);
+}
+
+.pagination-ellipsis {
+    color: var(--text-secondary);
+    padding: var(--space-sm);
+}
+
+.pagination-info {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-top: var(--space-md);
+    text-align: center;
+}
+
 /* Responsive Design */
 @media (max-width: 768px) {
     .hero-title {
-        font-size: 2rem;
+        font-size: 1.75rem;
     }
 
     .article-title {
-        font-size: 2rem;
+        font-size: 1.25rem;
     }
 
     .article-content {
@@ -564,6 +636,24 @@ a:hover {
     .btn {
         text-align: center;
         justify-content: center;
+        width: 100%;
+    }
+
+    .nav-links {
+        width: 100%;
+        justify-content: flex-end;
+    }
+
+    .site-logo h1 {
+        font-size: 1.25rem;
+    }
+
+    .articles-grid {
+        gap: var(--space-md);
+    }
+
+    .article-card {
+        padding: var(--space-md);
     }
 }
 
