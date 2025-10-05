@@ -37,7 +37,7 @@
 ## 🏗️ Current Clean Architecture
 
 **Before (Complex)**: 4 containers with Service Bus authentication conflicts  
-**After (Clean)**: 3 containers with Storage Queues, KEDA cron scheduling, and managed identity  
+ **After (Clean)**: 3 containers with Storage Queues, KEDA cron scheduling, and managed identity  
 **Status**: ✅ **COMPLETE** - Full automation working with 8-hour collection cycles
 
 ```
