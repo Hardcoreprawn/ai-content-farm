@@ -66,17 +66,35 @@ body {
     -moz-osx-font-smoothing: grayscale;
 }
 
-/* Container */
+/* Container - For article content pages (readable width) */
 .container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 var(--space-md);
+    padding: 0 var(--space-lg);
+    width: 100%;
+}
+
+/* Wide container - For homepage grid (full width with padding) */
+.container-wide {
+    max-width: none;
+    margin: 0 auto;
+    padding: 0 var(--space-lg);
     width: 100%;
 }
 
 @media (min-width: 768px) {
     .container {
         padding: 0 var(--space-xl);
+    }
+
+    .container-wide {
+        padding: 0 var(--space-xl);
+    }
+}
+
+@media (min-width: 1024px) {
+    .container-wide {
+        padding: 0 var(--space-2xl);
     }
 }
 
@@ -139,7 +157,6 @@ a:hover {
     top: 0;
     z-index: 100;
     backdrop-filter: blur(10px);
-    width: 100%;
 }
 
 .site-nav {
@@ -148,8 +165,6 @@ a:hover {
     align-items: center;
     flex-wrap: wrap;
     gap: var(--space-md);
-    width: 100%;
-    max-width: 100%;
 }
 
 .site-logo h1 {
@@ -190,8 +205,6 @@ a:hover {
     text-align: center;
     margin-bottom: var(--space-2xl);
     padding: var(--space-xl) 0;
-    width: 100%;
-    max-width: 100%;
 }
 
 .hero-title {
@@ -223,25 +236,63 @@ a:hover {
     font-weight: 500;
 }
 
-/* Articles Grid */
+/* Articles Grid - Responsive grid that works at all sizes */
 .articles-grid {
     display: grid;
     gap: var(--space-lg);
-    /* Use auto-fit with minmax for even column distribution */
-    /* Use minmax(0, 1fr) to prevent overflow */
-    grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
-    width: 100%;
-    max-width: 100%;
+    /* Mobile: 1 column */
+    grid-template-columns: 1fr;
 }
 
-/* Ensure maximum 3 columns on very wide screens */
-@media (min-width: 1200px) {
+/* Tablet: 2 columns */
+@media (min-width: 640px) {
+    .articles-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Desktop: 3 columns */
+@media (min-width: 1024px) {
     .articles-grid {
         grid-template-columns: repeat(3, 1fr);
     }
 }
 
-/* Article Cards */
+/* Large desktop: 4 columns */
+@media (min-width: 1440px) {
+    .articles-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* Extra large: 5 columns */
+@media (min-width: 1920px) {
+    .articles-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+/* Ultra-wide: 6 columns for 2560px+ */
+@media (min-width: 2560px) {
+    .articles-grid {
+        grid-template-columns: repeat(6, 1fr);
+    }
+}
+
+/* Massive displays: 7-8 columns for 3440px+ */
+@media (min-width: 3200px) {
+    .articles-grid {
+        grid-template-columns: repeat(7, 1fr);
+    }
+}
+
+@media (min-width: 3840px) {
+    .articles-grid {
+        grid-template-columns: repeat(8, 1fr);
+    }
+}
+
+/* Article Cards - Simple, consistent sizing */
 .article-card {
     background: var(--surface-color);
     border: 1px solid var(--border-color);
@@ -250,9 +301,6 @@ a:hover {
     transition: all 0.2s ease;
     display: flex;
     flex-direction: column;
-    height: 100%;
-    width: 100%;
-    box-sizing: border-box;
 }
 
 .article-card:hover {

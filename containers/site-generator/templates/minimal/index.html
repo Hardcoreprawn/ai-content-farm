@@ -6,6 +6,7 @@
 {% block body_class %}home{% endblock %}
 
 {% block content %}
+<!-- Hero stays in narrow container for readability -->
 <div class="hero-section">
     <h2 class="hero-title">Latest Tech News</h2>
     <p class="hero-subtitle">AI-curated articles from leading technology sources</p>
@@ -16,8 +17,11 @@
         {% endif %}
     </div>
 </div>
+</div>
 
-<div class="articles-grid">
+<!-- Grid uses full width outside the container -->
+<div class="container-wide">
+    <div class="articles-grid">
     {% for article in articles %}
     <article class="article-card">
         <div class="article-header">
@@ -112,6 +116,8 @@
     of {{ pagination.total_articles }} articles
 </div>
 {% endif %}
+</div>
+<!-- Close container-wide -->
 {% endblock %}
 
 {% block scripts %}
