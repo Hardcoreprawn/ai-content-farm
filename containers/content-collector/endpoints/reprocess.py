@@ -149,16 +149,14 @@ async def reprocess_collections(
 
             try:
                 # Read the collection file metadata (don't need full content)
-                collection_data = await blob_client.read_blob(
-                    container_name=BlobContainers.COLLECTED_CONTENT,
+                collection = await blob_client.download_json(
+                    container=BlobContainers.COLLECTED_CONTENT,
                     blob_name=blob_name,
                 )
 
-                if not collection_data:
+                if not collection:
                     skipped_count += 1
                     continue
-
-                collection = json.loads(collection_data)
 
                 # Create queue message payload (only if not dry run)
                 if not dry_run and queue_client:
@@ -288,7 +286,7 @@ async def reprocess_status(
 
         # Count collected items
         blobs = await blob_client.list_blobs(
-            container_name=BlobContainers.COLLECTED_CONTENT,
+            container=BlobContainers.COLLECTED_CONTENT,
             prefix="collections/",
         )
         collected_count = sum(
@@ -297,7 +295,7 @@ async def reprocess_status(
 
         # Count processed items
         processed_blobs = await blob_client.list_blobs(
-            container_name=BlobContainers.PROCESSED_CONTENT,
+            container=BlobContainers.PROCESSED_CONTENT,
             prefix="",
         )
         processed_count = sum(
