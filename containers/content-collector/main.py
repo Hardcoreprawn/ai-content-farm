@@ -20,6 +20,7 @@ from endpoints import (
     collections_router,
     diagnostics_router,
     discoveries_router,
+    reprocess_router,
     sources_router,
     storage_queue_router,
     templates_router,
@@ -246,6 +247,7 @@ app.include_router(collections_router)  # /collections endpoints
 app.include_router(discoveries_router)  # /discoveries endpoints
 app.include_router(sources_router)  # /sources endpoints
 app.include_router(templates_router)  # /templates endpoints
+app.include_router(reprocess_router)  # /reprocess endpoints
 # Storage Queue endpoints for KEDA integration
 app.include_router(storage_queue_router)
 
