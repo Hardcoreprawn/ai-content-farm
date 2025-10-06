@@ -291,37 +291,49 @@ async def create_complete_site(
 
     # Generate individual article pages
     for article in processed_articles:
-        # Create enriched article with cleaned title and computed fields (functional - no mutation)
-        article_id = article.get("topic_id") or article.get("id") or article.get("slug")
+        # Phase 3: Use processor-provided metadata (filename, slug, url)
+        # The processor now generates perfect filenames via AI metadata generation
+        # Format: articles/YYYY-MM-DD-slug.html
 
-        # Skip articles without proper identifiers - likely malformed data
-        if not article_id:
-            logger.warning(
-                f"Skipping article without ID/slug: {article.get('title', 'unknown')}"
+        # Get processor-provided filename (should always be present for new articles)
+        filename = article.get("filename")
+
+        if not filename:
+            # Fallback for old articles without processor metadata
+            # Try to construct from available fields
+            article_id = (
+                article.get("topic_id") or article.get("id") or article.get("slug")
             )
-            continue
+            if not article_id:
+                logger.warning(
+                    f"Skipping article without filename or ID: {article.get('title', 'unknown')}"
+                )
+                continue
 
-        cleaned_title = clean_title(article.get("title", "untitled"))
-        safe_title = create_safe_filename(cleaned_title)
+            cleaned_title = clean_title(article.get("title", "untitled"))
+            safe_title = create_safe_filename(cleaned_title)
 
-        # Use the article_id as-is if it already looks like a slug, otherwise combine with safe_title
-        # This prevents "article-article-title" duplicates and keeps existing good slugs
-        if "-" in str(article_id) and len(str(article_id)) > 10:
-            # ID already looks like a slug (e.g., "12345-some-title" or "httpswwwexamplecom...")
-            article_slug = str(article_id)
+            # Legacy format for backwards compatibility
+            if "-" in str(article_id) and len(str(article_id)) > 10:
+                article_slug = str(article_id)
+            else:
+                article_slug = f"{article_id}-{safe_title}"
+
+            filename = f"articles/{article_slug}.html"
+            logger.info(f"Using legacy filename format: {filename}")
         else:
-            # ID is just a number or short code, combine with title
-            article_slug = f"{article_id}-{safe_title}"
+            # Ensure filename has correct path prefix
+            if not filename.startswith("articles/"):
+                filename = f"articles/{filename}"
 
-        filename = f"articles/{article_slug}.html"
-
-        # Create new article dict with enriched fields (pure functional approach)
-        # Using centralized get_article_url for consistency
+        # Use processor-provided fields (or fallback to legacy)
         enriched_article = {
             **article,
-            "title": cleaned_title,
-            "slug": article_slug,
-            "url": article_slug,  # Store just the slug; full URL built by get_article_url()
+            "filename": filename,
+            "slug": article.get("slug", article.get("topic_id", "unknown")),
+            "url": article.get(
+                "url", f"/articles/{article.get('slug', 'unknown')}.html"
+            ),
         }
 
         # Generate HTML using pure function
