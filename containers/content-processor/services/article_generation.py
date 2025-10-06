@@ -3,12 +3,14 @@ Article Generation Service
 
 Handles OpenAI integration and article creation logic.
 Extracted from ContentProcessor to improve maintainability.
+Includes SEO metadata generation for clean URLs and titles.
 """
 
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
+from metadata_generator import MetadataGenerator
 from models import TopicMetadata
 from openai_client import OpenAIClient
 
@@ -19,7 +21,15 @@ class ArticleGenerationService:
     """Service for generating articles from topics using OpenAI."""
 
     def __init__(self, openai_client: Optional[OpenAIClient] = None):
+        """
+        Initialize the Article Generation Service.
+
+        Args:
+            openai_client: Optional OpenAI client. If not provided, creates default.
+        """
         self.openai_client = openai_client or OpenAIClient()
+        self.metadata_generator = MetadataGenerator(self.openai_client)
+        logger.info("ArticleGenerationService initialized with metadata generation")
 
     async def generate_article_from_topic(
         self, topic_metadata: TopicMetadata, processor_id: str, session_id: str
@@ -57,15 +67,62 @@ class ArticleGenerationService:
             word_count = len(article_content.split())
             quality_score = self._calculate_quality_score(article_content, word_count)
 
+            # Generate SEO metadata (title translation, slug, filename, URL)
+            logger.info(f"Generating SEO metadata for: {topic_metadata.title}")
+
+            # Extract date from topic (prefer collected_at, fallback to current date)
+            published_date = getattr(topic_metadata, "collected_at", start_time)
+            if isinstance(published_date, str):
+                published_date_str = published_date
+            elif isinstance(published_date, datetime):
+                published_date_str = published_date.isoformat()
+            else:
+                published_date_str = start_time.isoformat()
+
+            # Get first 500 chars of article for metadata context
+            content_preview = article_content[:500] if article_content else ""
+
+            # Generate metadata with AI translation and slug creation
+            metadata = await self.metadata_generator.generate_metadata(
+                title=topic_metadata.title,
+                content_preview=content_preview,
+                published_date=published_date_str,
+            )
+
+            # Extract metadata fields
+            original_title = metadata["original_title"]
+            seo_title = metadata["title"]  # AI-translated and optimized
+            slug = metadata["slug"]
+            filename = metadata["filename"]
+            url = metadata["url"]
+            metadata_cost = metadata["cost_usd"]
+            metadata_tokens = metadata["tokens_used"]
+
+            # Calculate total cost
+            total_cost_usd = cost_usd + metadata_cost
+
+            logger.info(
+                f"Metadata generated: slug='{slug}', cost=${metadata_cost:.6f}, "
+                f"tokens={metadata_tokens}, total_cost=${total_cost_usd:.6f}"
+            )
+
             # Prepare enhanced article result with provenance tracking
             article_result = {
                 "topic_id": topic_metadata.topic_id,
-                "title": topic_metadata.title,
+                # Original (possibly non-English)
+                "original_title": original_title,
+                "title": seo_title,  # AI-translated and SEO-optimized
+                "slug": slug,  # URL-safe slug (kebab-case)
+                "filename": filename,  # YYYY-MM-DD-slug.html
+                "url": url,  # /articles/YYYY-MM-DD-slug.html
                 "article_content": article_content,
                 "word_count": word_count,
                 "quality_score": quality_score,
-                "cost": cost_usd,
-                "tokens_used": tokens_used,
+                "cost": cost_usd,  # Article generation cost only
+                "metadata_cost": metadata_cost,  # Metadata generation cost
+                "total_cost": total_cost_usd,  # Combined cost
+                "tokens_used": tokens_used,  # Article tokens only
+                "metadata_tokens": metadata_tokens,  # Metadata tokens
                 "processing_time": processing_time,
                 "source_priority": topic_metadata.priority_score,
                 "source": topic_metadata.source,
@@ -122,15 +179,9 @@ class ArticleGenerationService:
                     for p in previous_provenance
                 ]
                 article_result["provenance_chain"] = {
-                    "previous_steps": len(previous_provenance),
+                    "previous_steps": len(previous_provenance_dicts),
                     "total_previous_cost": sum(
-                        (
-                            p.get("cost_usd", 0)
-                            if isinstance(p, dict)
-                            else (p.cost_usd or 0)
-                        )
-                        for p in previous_provenance
-                        if p
+                        p.get("cost_usd", 0) for p in previous_provenance_dicts if p
                     ),
                     "current_step": {
                         "stage": "processing",
@@ -145,10 +196,25 @@ class ArticleGenerationService:
                         "processing_time_ms": int(processing_time * 1000),
                         "timestamp": start_time.isoformat(),
                     },
+                    "metadata_generation": {
+                        "stage": "processing",
+                        "service_name": "content-processor",
+                        "operation": "metadata_generation",
+                        "ai_model": getattr(
+                            self.openai_client, "model_name", "unknown"
+                        ),
+                        "cost_usd": metadata_cost,
+                        "tokens_used": metadata_tokens,
+                        "original_title": original_title,
+                        "translated_title": seo_title,
+                        "slug": slug,
+                        "filename": filename,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    },
                 }
 
                 logger.info(
-                    f"📋 PROVENANCE: Added article generation provenance for {topic_metadata.topic_id}"
+                    f"📋 PROVENANCE: Added article generation + metadata provenance for {topic_metadata.topic_id}"
                 )
             else:
                 logger.info(
@@ -157,7 +223,8 @@ class ArticleGenerationService:
 
             logger.info(
                 f"Article generated successfully: {word_count} words, "
-                f"${cost_usd:.4f} cost, {processing_time:.2f}s processing time"
+                f"${total_cost_usd:.4f} total cost (article: ${cost_usd:.4f}, metadata: ${metadata_cost:.6f}), "
+                f"{processing_time:.2f}s processing time"
             )
 
             return {
@@ -165,7 +232,7 @@ class ArticleGenerationService:
                 "article_content": article_content,
                 "word_count": word_count,
                 "quality_score": quality_score,
-                "cost": cost_usd,
+                "cost": total_cost_usd,  # Return combined cost
             }
 
         except Exception as e:
