@@ -292,14 +292,27 @@ async def create_complete_site(
     # Generate individual article pages
     for article in processed_articles:
         # Create enriched article with cleaned title and computed fields (functional - no mutation)
-        article_id = (
-            article.get("topic_id")
-            or article.get("id")
-            or article.get("slug", "article")
-        )
+        article_id = article.get("topic_id") or article.get("id") or article.get("slug")
+
+        # Skip articles without proper identifiers - likely malformed data
+        if not article_id:
+            logger.warning(
+                f"Skipping article without ID/slug: {article.get('title', 'unknown')}"
+            )
+            continue
+
         cleaned_title = clean_title(article.get("title", "untitled"))
         safe_title = create_safe_filename(cleaned_title)
-        article_slug = f"{article_id}-{safe_title}"
+
+        # Use the article_id as-is if it already looks like a slug, otherwise combine with safe_title
+        # This prevents "article-article-title" duplicates and keeps existing good slugs
+        if "-" in str(article_id) and len(str(article_id)) > 10:
+            # ID already looks like a slug (e.g., "12345-some-title" or "httpswwwexamplecom...")
+            article_slug = str(article_id)
+        else:
+            # ID is just a number or short code, combine with title
+            article_slug = f"{article_id}-{safe_title}"
+
         filename = f"articles/{article_slug}.html"
 
         # Create new article dict with enriched fields (pure functional approach)
