@@ -12,6 +12,7 @@ from typing import Any, Dict, List
 from urllib.parse import urljoin
 
 from text_processing import clean_title
+from url_utils import get_article_url
 
 from libs import SecureErrorHandler
 
@@ -105,7 +106,8 @@ def _generate_rss_item(
     pub_date_str = _format_publication_date(article["published_date"], build_date)
 
     # Create RSS item
-    item_url = urljoin(site_url, f"/articles/{article['url']}/")
+    # Use centralized URL helper for consistency
+    item_url = get_article_url(article["url"], base_url=site_url)
     description = _extract_description(article)
 
     # Clean title for RSS feed

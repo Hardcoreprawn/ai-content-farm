@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
-from article_processing import calculate_last_updated, prepare_articles_for_display
+from article_processing import prepare_articles_for_display
 from html_page_generation import generate_article_page, generate_index_page
 from models import GenerationResponse
 from rss_generation import generate_rss_feed
@@ -299,14 +299,16 @@ async def create_complete_site(
         )
         cleaned_title = clean_title(article.get("title", "untitled"))
         safe_title = create_safe_filename(cleaned_title)
-        filename = f"articles/{article_id}-{safe_title}.html"
+        article_slug = f"{article_id}-{safe_title}"
+        filename = f"articles/{article_slug}.html"
 
         # Create new article dict with enriched fields (pure functional approach)
+        # Using centralized get_article_url for consistency
         enriched_article = {
             **article,
             "title": cleaned_title,
-            "slug": f"{article_id}-{safe_title}",
-            "url": f"/{filename}",
+            "slug": article_slug,
+            "url": article_slug,  # Store just the slug; full URL built by get_article_url()
         }
 
         # Generate HTML using pure function
@@ -548,7 +550,7 @@ def parse_markdown_frontmatter(filename: str, content: str) -> Optional[Dict[str
             "source": frontmatter.get("source", "unknown"),
             "generated_at": generated_at,
             "published_date": generated_at,  # Use generated_at as published_date
-            "url": f"/articles/{slug}.html",  # Generate URL from slug
+            "url": slug,  # Store just the slug; full URL built by get_article_url()
             "content": parts[2].strip(),
         }
 

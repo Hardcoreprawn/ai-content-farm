@@ -10,11 +10,11 @@ import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-from urllib.parse import urljoin
 
 from article_processing import calculate_last_updated
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound, select_autoescape
 from text_processing import clean_title, register_jinja_filters
+from url_utils import get_article_url
 
 from libs import SecureErrorHandler
 
@@ -94,7 +94,7 @@ def generate_article_page(
         # Extract and clean article data (idempotent - safe to call multiple times)
         title = clean_title(article["title"])
         content = article["content"]
-        url = article["url"]
+        url = article["url"]  # This is just the slug
         published_date = article["published_date"]
         author = article.get("author", "AI Content Team")
         description = article.get("description", "")
@@ -115,7 +115,8 @@ def generate_article_page(
             "article": {
                 "title": title,
                 "content": content,
-                "url": url,
+                "url": url,  # Slug for URL construction
+                "slug": url,  # Alias for templates that use article.slug
                 "published_date": published_date,
                 "author": author,
                 "description": description,
@@ -139,7 +140,8 @@ def generate_article_page(
             "page": {
                 "title": f"{title} | {config.get('SITE_TITLE', 'JabLab')}",
                 "description": description,
-                "url": urljoin(config.get("SITE_URL", ""), f"/articles/{url}/"),
+                # Use centralized URL helper
+                "url": get_article_url(url, base_url=config.get("SITE_URL", "")),
                 "type": "article",
             },
         }

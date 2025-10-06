@@ -8,7 +8,8 @@ Extracted from html_feed_generation.py for better maintainability.
 import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, List
-from urllib.parse import urljoin
+
+from url_utils import get_article_url
 
 from libs import SecureErrorHandler
 
@@ -83,7 +84,8 @@ def _generate_article_urls(
             continue
 
         lastmod = _format_article_date(article.get("published_date"), fallback_date)
-        article_url = urljoin(site_url, f"/articles/{article['url']}/")
+        # Use centralized URL helper for consistency
+        article_url = get_article_url(article["url"], base_url=site_url)
 
         url_entry = f"""  <url>
     <loc>{article_url}</loc>
