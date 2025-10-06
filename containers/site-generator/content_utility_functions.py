@@ -224,8 +224,12 @@ async def generate_article_markdown(
     """
     Generate markdown file for a single article.
 
+    Uses the filename provided by the processor for consistency.
+    The processor generates filenames in format: articles/YYYY-MM-DD-slug.html
+    We convert this to .md for markdown storage.
+
     Args:
-        article_data: Article data dictionary
+        article_data: Article data dictionary (must include 'filename' from processor)
         blob_client: Blob storage client
         container_name: Container name for markdown output
         force_regenerate: Whether to overwrite existing files
@@ -233,9 +237,24 @@ async def generate_article_markdown(
     Returns:
         Generated markdown filename
     """
-    # Create safe filename
-    filename = create_safe_filename(article_data.get("title", "untitled"))
-    markdown_filename = f"{filename}.md"
+    # Use processor-provided filename (single source of truth)
+    processor_filename = article_data.get("filename")
+
+    if processor_filename:
+        # Convert HTML filename to markdown: articles/YYYY-MM-DD-slug.html -> articles/YYYY-MM-DD-slug.md
+        if processor_filename.endswith(".html"):
+            markdown_filename = (
+                processor_filename[:-5] + ".md"
+            )  # Replace .html with .md
+        else:
+            markdown_filename = f"{processor_filename}.md"
+    else:
+        # Fallback for legacy articles without processor metadata
+        logger.warning(
+            f"Article missing 'filename' field, using title fallback: {article_data.get('title')}"
+        )
+        safe_filename = create_safe_filename(article_data.get("title", "untitled"))
+        markdown_filename = f"articles/{safe_filename}.md"
 
     # Check if file already exists and skip if not forcing regeneration
     if not force_regenerate:
