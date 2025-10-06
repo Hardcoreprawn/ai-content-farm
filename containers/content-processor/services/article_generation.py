@@ -95,8 +95,8 @@ class ArticleGenerationService:
             slug = metadata["slug"]
             filename = metadata["filename"]
             url = metadata["url"]
-            metadata_cost = metadata["cost_usd"]
-            metadata_tokens = metadata["tokens_used"]
+            metadata_cost = metadata.get("cost_usd", 0.0)  # Optional cost tracking
+            metadata_tokens = metadata.get("tokens_used", 0)  # Optional token tracking
 
             # Calculate total cost
             total_cost_usd = cost_usd + metadata_cost

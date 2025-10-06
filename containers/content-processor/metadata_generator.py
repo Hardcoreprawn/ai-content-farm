@@ -14,7 +14,7 @@ import json
 import logging
 import re
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 from openai_client import OpenAIClient
 
@@ -42,7 +42,7 @@ class MetadataGenerator:
         content_preview: str,
         published_date: str,
         original_url: Optional[str] = None,
-    ) -> Dict[str, any]:
+    ) -> Dict[str, Any]:
         """
         Generate complete metadata for an article.
 
@@ -99,8 +99,8 @@ class MetadataGenerator:
             title, content_preview, needs_translation
         )
 
-        # Generate URL slug from AI title
-        slug = self._generate_slug(ai_metadata["title"])
+        # Generate URL slug from AI title (title is always string)
+        slug = self._generate_slug(str(ai_metadata["title"]))
 
         # Parse date for filename
         date_slug = self._parse_date_slug(published_date)
@@ -219,7 +219,7 @@ class MetadataGenerator:
 
     async def _call_openai_for_metadata(
         self, title: str, content_preview: str, needs_translation: bool
-    ) -> Dict[str, str]:
+    ) -> Dict[str, Union[str, float, int]]:
         """
         Call OpenAI to generate optimized metadata.
 
@@ -229,7 +229,7 @@ class MetadataGenerator:
             needs_translation: Whether translation is needed
 
         Returns:
-            Dict with title, description, language, cost_usd, tokens_used
+            Dict with title, description, language, cost_usd (float), tokens_used (int)
 
         Examples:
             >>> result = await _call_openai_for_metadata(
@@ -310,13 +310,19 @@ Return ONLY valid JSON:
                     0
                 ]
 
-            # Add cost tracking from OpenAI response
+            # Add cost tracking from OpenAI response (optional)
             metadata["cost_usd"] = response.get("cost_usd", 0.0)
             metadata["tokens_used"] = response.get("tokens_used", 0)
 
+            # Log with optional cost tracking
+            cost_msg = (
+                f"cost: ${metadata['cost_usd']:.6f}"
+                if metadata["cost_usd"] > 0
+                else "cost: N/A"
+            )
             logger.info(
                 f"Generated metadata: {metadata['title']} "
-                f"(cost: ${metadata['cost_usd']:.6f}, tokens: {metadata['tokens_used']})"
+                f"({cost_msg}, tokens: {metadata['tokens_used']})"
             )
             return metadata
 
