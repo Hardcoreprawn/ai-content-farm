@@ -341,9 +341,9 @@ async def create_complete_site(
             filename = f"articles/{article_slug}.html"
             logger.info(f"Using legacy filename format: {filename}")
         else:
-            # Ensure filename has correct path prefix
-            if not filename.startswith("articles/"):
-                filename = f"articles/{filename}"
+            # Processor provides complete filename (already includes articles/ prefix)
+            # Do NOT add another prefix - use as-is
+            logger.debug(f"Using processor-provided filename: {filename}")
 
         # Use processor-provided fields (or fallback to legacy)
         enriched_article = {
