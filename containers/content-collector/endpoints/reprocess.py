@@ -115,7 +115,7 @@ async def reprocess_collections(
 
         # List all blobs in collected-content container
         blobs = await blob_client.list_blobs(
-            container_name=BlobContainers.COLLECTED_CONTENT,
+            container=BlobContainers.COLLECTED_CONTENT,
             prefix="collections/",
         )
 
