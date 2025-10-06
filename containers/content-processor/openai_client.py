@@ -10,7 +10,6 @@ import logging
 import os
 from typing import Any, Dict, Optional, Tuple
 
-import openai
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from openai import AsyncAzureOpenAI
 from pricing_service import PricingService
@@ -65,7 +64,7 @@ class OpenAIClient:
 
         try:
             # Simple test completion
-            response = await self.client.chat.completions.create(
+            await self.client.chat.completions.create(
                 model=self.model_name,
                 messages=[{"role": "user", "content": "Test"}],
                 max_tokens=10,
@@ -113,7 +112,10 @@ class OpenAIClient:
                 messages=[
                     {
                         "role": "system",
-                        "content": "You are an expert writer creating trustworthy, unbiased articles for a personal content curation platform.",
+                        "content": (
+                            "You are an expert writer creating trustworthy, "
+                            "unbiased articles for a personal content curation platform."
+                        ),
                     },
                     {"role": "user", "content": prompt},
                 ],
@@ -126,8 +128,11 @@ class OpenAIClient:
             article_content = response.choices[0].message.content
             tokens_used = response.usage.total_tokens if response.usage else 0
             prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+            content_length = len(article_content) if article_content else 0
+            completion_tokens = tokens_used - prompt_tokens
             logger.info(
-                f"📊 OPENAI: Generated article with {len(article_content)} characters, {tokens_used} tokens used ({prompt_tokens} prompt + {tokens_used - prompt_tokens} completion)"
+                f"📊 OPENAI: Generated article with {content_length} characters, "
+                f"{tokens_used} tokens ({prompt_tokens} prompt + {completion_tokens} completion)"
             )
 
             cost_usd = await self._calculate_cost(tokens_used, prompt_tokens)
@@ -214,15 +219,18 @@ class OpenAIClient:
         return f"""
 # {topic_title}
 
-This is a mock article generated for testing purposes when Azure OpenAI is not available.
+This is a mock article generated for testing purposes when Azure OpenAI is not
+available.
 
 ## Introduction
 
-The topic of {topic_title} is an important area that deserves comprehensive coverage. This article provides an overview of the key aspects and considerations.
+The topic of {topic_title} is an important area that deserves comprehensive
+coverage. This article provides an overview of the key aspects and considerations.
 
 ## Main Content
 
-In this section, we would normally provide detailed analysis and research-based content about {topic_title}.
+In this section, we would normally provide detailed analysis and research-based
+content about {topic_title}.
 
 ### Key Points
 
@@ -233,16 +241,88 @@ In this section, we would normally provide detailed analysis and research-based 
 
 ## Analysis
 
-Real articles would include deeper analysis and insights based on current information and expert perspectives.
+Real articles would include deeper analysis and insights based on current
+information and expert perspectives.
 
 ## Conclusion
 
-This mock article demonstrates the structure and approach that would be used for real content generation.
+This mock article demonstrates the structure and approach that would be used for
+real content generation.
 
 ---
 
 *This is a test article generated when Azure OpenAI services are not available.*
         """.strip()
+
+    async def generate_completion(
+        self,
+        prompt: str,
+        max_tokens: int = 200,
+        temperature: float = 0.3,
+    ) -> Dict[str, Any]:
+        """
+        Generate a simple completion for metadata/utility tasks.
+
+        Lightweight method for non-article generation tasks like
+        metadata generation, title translation, etc.
+
+        Args:
+            prompt: The prompt text
+            max_tokens: Maximum tokens to generate (default: 200)
+            temperature: Sampling temperature (default: 0.3 for consistency)
+
+        Returns:
+            Dict with 'content', 'tokens_used', 'cost_usd'
+
+        Examples:
+            >>> response = await client.generate_completion(
+            ...     prompt="Translate to English: 米政権内の対中強硬派",
+            ...     max_tokens=50
+            ... )
+            >>> response['content']
+            'US China hawks in the administration'
+        """
+        if not self.client:
+            logger.warning("OpenAI client not available - returning mock response")
+            return {
+                "content": (
+                    '{"title": "Mock Title", "description": "Mock description", '
+                    '"language": "en"}'
+                ),
+                "tokens_used": 0,
+                "cost_usd": 0.0,
+            }
+
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+
+            content = response.choices[0].message.content
+            tokens_used = response.usage.total_tokens if response.usage else 0
+            prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+
+            cost_usd = await self._calculate_cost(tokens_used, prompt_tokens)
+
+            return {
+                "content": content,
+                "tokens_used": tokens_used,
+                "cost_usd": cost_usd,
+            }
+
+        except Exception as e:
+            logger.error(f"Completion generation failed: {e}")
+            return {
+                "content": (
+                    '{"title": "Error", "description": "Failed to generate", '
+                    '"language": "en"}'
+                ),
+                "tokens_used": 0,
+                "cost_usd": 0.0,
+            }
 
     async def close(self):
         """Close the async OpenAI client properly."""
