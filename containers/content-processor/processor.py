@@ -27,6 +27,7 @@ from services import (
     ArticleGenerationService,
     LeaseCoordinator,
     ProcessorStorageService,
+    TopicConversionService,
     TopicDiscoveryService,
 )
 
@@ -61,6 +62,7 @@ class ContentProcessor:
 
         # Initialize service dependencies - will load container config from blob storage
         self.topic_discovery = TopicDiscoveryService(self.blob_client)
+        self.topic_conversion = TopicConversionService()
         self.article_generation = ArticleGenerationService(self.openai_client)
         self.lease_coordinator = LeaseCoordinator(self.processor_id)
         self.storage = ProcessorStorageService(self.blob_client)
@@ -312,6 +314,144 @@ class ContentProcessor:
                 error_messages=[str(e)],
             )
 
+    async def process_collection_file(
+        self,
+        blob_path: str,
+        collection_id: Optional[str] = None,
+    ) -> ProcessingResult:
+        """
+        Process a specific collection file from queue message.
+
+        Simplified approach: Load blob and process items directly.
+        No discovery - collector already did that work.
+
+        Args:
+            blob_path: Path to collection JSON in collected-content container
+            collection_id: Optional collection ID for tracking
+
+        Returns:
+            ProcessingResult with processing statistics
+        """
+        start_time = datetime.now(timezone.utc)
+        processed_topics = []
+        failed_topics = []
+        total_cost = 0.0
+
+        try:
+            logger.info(f"Processing collection: {blob_path}")
+
+            # Load collection from collected-content container
+            collection_data = await self.blob_client.download_json(
+                container="collected-content",
+                blob_name=blob_path,
+            )
+
+            if not collection_data:
+                error_msg = f"Collection file not found: {blob_path}"
+                logger.warning(error_msg)
+                return ProcessingResult(
+                    success=False,
+                    topics_processed=0,
+                    articles_generated=0,
+                    total_cost=0.0,
+                    processing_time=0.0,
+                    error_messages=[error_msg],
+                )
+
+            # Extract items from collection
+            items = collection_data.get("items", [])
+            if not items:
+                logger.info(f"No items in collection: {blob_path}")
+                return ProcessingResult(
+                    success=True,
+                    topics_processed=0,
+                    articles_generated=0,
+                    total_cost=0.0,
+                    processing_time=(
+                        datetime.now(timezone.utc) - start_time
+                    ).total_seconds(),
+                )
+
+            logger.info(f"Found {len(items)} items in {blob_path}")
+
+            # Process each item directly
+            for item in items:
+                try:
+                    # Convert to TopicMetadata
+                    topic_metadata = (
+                        self.topic_conversion.collection_item_to_topic_metadata(
+                            item, blob_path, collection_data
+                        )
+                    )
+                    if not topic_metadata:
+                        continue
+
+                    # Try to acquire lease
+                    if not await self.lease_coordinator.acquire_topic_lease(
+                        topic_metadata.topic_id
+                    ):
+                        logger.debug(
+                            f"Could not acquire lease for {topic_metadata.topic_id}"
+                        )
+                        continue
+
+                    try:
+                        # Process the topic
+                        result = await self._process_single_topic(topic_metadata)
+
+                        if result:
+                            processed_topics.append(topic_metadata.topic_id)
+                            total_cost += result.get("cost", 0.0)
+                        else:
+                            failed_topics.append(topic_metadata.topic_id)
+
+                    finally:
+                        await self.lease_coordinator.release_topic_lease(
+                            topic_metadata.topic_id
+                        )
+
+                except Exception as e:
+                    logger.error(f"Error processing item: {e}")
+                    # Only append to failed if we have a topic_id
+                    if "topic_metadata" in locals() and topic_metadata:
+                        failed_topics.append(topic_metadata.topic_id)
+
+            # Update session metrics
+            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+            self.session_topics_processed += len(processed_topics)
+            self.session_cost += total_cost
+            self.session_processing_time += processing_time
+
+            logger.info(
+                f"Completed {blob_path}: {len(processed_topics)} processed, "
+                f"{len(failed_topics)} failed, ${total_cost:.4f}, {processing_time:.2f}s"
+            )
+
+            return ProcessingResult(
+                success=True,
+                topics_processed=len(processed_topics),
+                articles_generated=len(processed_topics),
+                total_cost=total_cost,
+                processing_time=processing_time,
+                completed_topics=processed_topics,
+                failed_topics=failed_topics,
+            )
+
+        except Exception as e:
+            logger.error(
+                f"Failed to process collection {blob_path}: {e}", exc_info=True
+            )
+            processing_time = (datetime.now(timezone.utc) - start_time).total_seconds()
+            return ProcessingResult(
+                success=False,
+                topics_processed=0,
+                articles_generated=0,
+                total_cost=total_cost,
+                processing_time=processing_time,
+                failed_topics=failed_topics,
+                error_messages=[str(e)],
+            )
+
     async def process_specific_topics(
         self,
         topic_ids: List[str],
@@ -332,100 +472,6 @@ class ContentProcessor:
             failed_topics=topic_ids,  # Mark as failed until implemented
             error_messages=["Manual processing not yet implemented"],
         )
-
-    # Private helper methods (functional)
-
-    def _collection_item_to_topic_metadata(
-        self, item: Dict[str, Any], blob_name: str, collection_data: Dict[str, Any]
-    ) -> Optional[TopicMetadata]:
-        """Convert a collection item to TopicMetadata."""
-        try:
-            # Debug: log the actual item type and content
-            logger.info(f"🔍 ITEM-DEBUG: Processing item type: {type(item)}")
-            logger.info(f"🔍 ITEM-DEBUG: Item content: {item}")
-
-            # Validate that item is a dictionary
-            if not isinstance(item, dict):
-                logger.error(f"❌ ITEM-ERROR: Expected dict, got {type(item)}: {item}")
-                return None
-
-            # Extract basic information
-            topic_id = item.get("id", f"unknown_{blob_name}")
-            title = item.get("title", "Untitled Topic")
-            source = item.get("source", "unknown")
-
-            # Parse collected_at timestamp
-            collected_at_str = item.get("collected_at") or collection_data.get(
-                "metadata", {}
-            ).get("timestamp")
-            if collected_at_str:
-                collected_at = datetime.fromisoformat(
-                    collected_at_str.replace("Z", "+00:00")
-                )
-            else:
-                collected_at = datetime.now(timezone.utc)
-
-            # Calculate priority score based on content characteristics
-            priority_score = self._calculate_priority_score(item)
-
-            return TopicMetadata(
-                topic_id=topic_id,
-                title=title,
-                source=source,
-                collected_at=collected_at,
-                priority_score=priority_score,
-                subreddit=item.get("subreddit"),  # Optional field
-                url=item.get("url"),
-                upvotes=item.get("ups") or item.get("upvotes"),
-                comments=item.get("num_comments") or item.get("comments"),
-            )
-
-        except Exception as e:
-            logger.warning(f"Error converting item to TopicMetadata: {e}")
-            return None
-
-    def _calculate_priority_score(self, item: Dict[str, Any]) -> float:
-        """Calculate priority score for a topic based on engagement and freshness."""
-        try:
-            score = 0.0
-
-            # Base score from upvotes/score
-            item_score = item.get("score", 0)
-            if item_score > 0:
-                score += min(
-                    item_score / 100.0, 1.0
-                )  # Normalize to 0-1, cap at 100 upvotes
-
-            # Bonus for comments (engagement)
-            num_comments = item.get("num_comments", 0)
-            if num_comments > 0:
-                score += min(
-                    num_comments / 50.0, 0.5
-                )  # Up to 0.5 bonus, cap at 50 comments
-
-            # Freshness bonus (items collected more recently get higher priority)
-            collected_at_str = item.get("collected_at")
-            if collected_at_str:
-                try:
-                    collected_at = datetime.fromisoformat(
-                        collected_at_str.replace("Z", "+00:00")
-                    )
-                    hours_ago = (
-                        datetime.now(timezone.utc) - collected_at
-                    ).total_seconds() / 3600
-                    # Freshness bonus decreases over 24 hours
-                    if hours_ago < 24:
-                        freshness_bonus = (24 - hours_ago) / 24 * 0.3  # Up to 0.3 bonus
-                        score += freshness_bonus
-                except Exception:
-                    pass  # Skip freshness bonus if timestamp parsing fails
-
-            # Ensure score is between 0 and 1
-            return max(0.0, min(score, 1.0))
-
-        except Exception as e:
-            logger.warning(f"Error calculating priority score: {e}")
-            return 0.5  # Default score
 
     async def _process_single_topic(
         self, topic_metadata: TopicMetadata

@@ -52,8 +52,8 @@ async def trigger_next_stage(
         No exceptions raised - errors are returned in the result dict
     """
     try:
-        # Build base payload
-        payload = {
+        # Build base payload with explicit Any type for values
+        payload: Dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "correlation_id": correlation_id
             or f"{service_name}_{datetime.now(timezone.utc).timestamp()}",
@@ -169,7 +169,7 @@ async def trigger_markdown_generation(
     Trigger markdown generation after content processing.
 
     Args:
-        processed_files: List of processed article files
+        processed_files: List of processed article files (JSON format)
         queue_name: Site generation queue name
         correlation_id: Optional correlation ID
 
@@ -180,7 +180,7 @@ async def trigger_markdown_generation(
         queue_name=queue_name,
         service_name="content-processor",
         operation="wake_up",
-        content_type="processed",
+        content_type="json",  # Site-generator expects "json" for processed articles
         files=processed_files,
         correlation_id=correlation_id,
     )

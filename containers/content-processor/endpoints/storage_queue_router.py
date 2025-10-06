@@ -121,16 +121,27 @@ class ContentProcessorStorageQueueRouter:
                 return response
 
             elif message.operation == "process":
-                # Handle specific processing request - use the available work processor
+                # Process specific collection file from queue message
                 processor = self.get_processor()
                 payload = message.payload
-                batch_size = payload.get("batch_size", 10)
-                priority_threshold = payload.get("priority_threshold", 0.5)
 
-                result = await processor.process_available_work(
-                    batch_size=batch_size,
-                    priority_threshold=priority_threshold,
-                    options=payload.get("processing_options", {}),
+                # Extract blob_path (required for queue-driven processing)
+                blob_path = payload.get("blob_path")
+                if not blob_path:
+                    logger.error("No blob_path in queue message payload")
+                    return {
+                        "status": "error",
+                        "error": "Missing required field: blob_path",
+                        "message": "Queue messages must include blob_path for targeted processing",
+                    }
+
+                # Process the specific collection
+                logger.info(f"Processing collection from queue: {blob_path}")
+                collection_id = payload.get("collection_id")
+
+                result = await processor.process_collection_file(
+                    blob_path=blob_path,
+                    collection_id=collection_id,
                 )
 
                 return {
