@@ -117,15 +117,15 @@ output "content_processor_name" {
   value       = azurerm_container_app.content_processor.name
 }
 
-# Site Generator Container App outputs
-output "site_generator_url" {
-  description = "URL of the Site Generator Container App"
-  value       = "https://${azurerm_container_app.site_generator.ingress[0].fqdn}"
+# Markdown Generator Container App outputs
+output "markdown_generator_url" {
+  description = "URL of the Markdown Generator Container App"
+  value       = "https://${azurerm_container_app.markdown_generator.ingress[0].fqdn}"
 }
 
-output "site_generator_name" {
-  description = "Name of the Site Generator Container App"
-  value       = azurerm_container_app.site_generator.name
+output "markdown_generator_name" {
+  description = "Name of the Markdown Generator Container App"
+  value       = azurerm_container_app.markdown_generator.name
 }
 
 # Collection Templates

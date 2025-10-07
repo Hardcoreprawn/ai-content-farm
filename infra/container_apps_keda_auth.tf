@@ -66,47 +66,6 @@ resource "null_resource" "configure_processor_keda_auth" {
   ]
 }
 
-# Configure KEDA managed identity authentication for site-generator
-resource "null_resource" "configure_site_generator_keda_auth" {
-  triggers = {
-    container_app_id = azurerm_container_app.site_generator.id
-    scale_rule_name  = "storage-queue-scaler"
-    queue_name       = azurerm_storage_queue.site_generation_requests.name
-    identity_id      = azurerm_user_assigned_identity.containers.client_id
-  }
-
-  provisioner "local-exec" {
-    command = <<-EOT
-      echo "Configuring KEDA authentication for site-generator..."
-      az containerapp update \
-        --name ${azurerm_container_app.site_generator.name} \
-        --resource-group ${azurerm_resource_group.main.name} \
-        --scale-rule-name storage-queue-scaler \
-        --scale-rule-type azure-queue \
-        --scale-rule-metadata \
-          accountName=${azurerm_storage_account.main.name} \
-          queueName=${azurerm_storage_queue.site_generation_requests.name} \
-          queueLength=1 \
-          cloud=AzurePublicCloud \
-        --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
-        --output none || {
-          echo "WARNING: KEDA auth configuration failed for site-generator"
-          echo "This may cause scaling issues. Run scripts/configure-keda-auth.sh manually."
-          exit 0  # Don't fail Terraform apply
-        }
-      echo "✓ KEDA authentication configured for site-generator"
-    EOT
-
-    interpreter = ["bash", "-c"]
-  }
-
-  depends_on = [
-    azurerm_container_app.site_generator,
-    azurerm_role_assignment.containers_storage_queue_data_contributor,
-    azurerm_storage_queue.site_generation_requests
-  ]
-}
-
 # Configure KEDA managed identity authentication for markdown-generator
 resource "null_resource" "configure_markdown_generator_keda_auth" {
   triggers = {

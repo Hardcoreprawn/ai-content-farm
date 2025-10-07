@@ -198,17 +198,6 @@ resource "azurerm_storage_queue" "content_processing_requests" {
   }
 }
 
-resource "azurerm_storage_queue" "site_generation_requests" {
-  name               = "site-generation-requests"
-  storage_account_id = azurerm_storage_account.main.id
-
-  lifecycle {
-    # Prevent recreation when changing from storage_account_name to storage_account_id
-    # The queue name is the stable identifier, not the account reference
-    create_before_destroy = true
-  }
-}
-
 resource "azurerm_storage_queue" "markdown_generation_requests" {
   name               = "markdown-generation-requests"
   storage_account_id = azurerm_storage_account.main.id
