@@ -1,0 +1,59 @@
+---
+title: "{{ metadata.title }}"
+url: {{ metadata.url }}
+source: {{ metadata.source }}
+{%- if metadata.author %}
+author: "{{ metadata.author }}"
+{%- endif %}
+{%- if metadata.published_date %}
+published_date: {{ metadata.published_date.isoformat() }}
+{%- endif %}
+{%- if metadata.category %}
+category: {{ metadata.category }}
+{%- endif %}
+{%- if metadata.tags %}
+tags: [{{ metadata.tags|join(', ') }}]
+{%- endif %}
+generated_date: {{ generated_date }}
+---
+
+# {{ metadata.title }}
+
+## Table of Contents
+
+{%- if article_data.summary %}
+- [Summary](#summary)
+{%- endif %}
+{%- if article_data.content %}
+- [Content](#content)
+{%- endif %}
+{%- if article_data.key_points %}
+- [Key Points](#key-points)
+{%- endif %}
+
+{%- if article_data.summary %}
+
+## Summary
+
+{{ article_data.summary }}
+{%- endif %}
+
+{%- if article_data.content %}
+
+## Content
+
+{{ article_data.content }}
+{%- endif %}
+
+{%- if article_data.key_points %}
+
+## Key Points
+
+{%- for point in article_data.key_points %}
+- {{ point }}
+{%- endfor %}
+{%- endif %}
+
+---
+
+**Source:** [{{ metadata.url }}]({{ metadata.url }})

@@ -1,0 +1,22 @@
+---
+title: "{{ metadata.title }}"
+url: {{ metadata.url }}
+source: {{ metadata.source }}
+generated_date: {{ generated_date }}
+---
+
+# {{ metadata.title }}
+
+{%- if article_data.summary %}
+
+{{ article_data.summary }}
+{%- endif %}
+
+{%- if article_data.content %}
+
+{{ article_data.content }}
+{%- endif %}
+
+---
+
+[Source]({{ metadata.url }})

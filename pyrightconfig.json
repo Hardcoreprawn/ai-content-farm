@@ -48,6 +48,14 @@
                 "../..",
                 "../../libs"
             ]
+        },
+        {
+            "root": "containers/markdown-generator",
+            "pythonVersion": "3.11",
+            "extraPaths": [
+                "../..",
+                "../../libs"
+            ]
         }
     ],
     "typeCheckingMode": "basic",

@@ -334,6 +334,7 @@ class ContentProcessor:
         """
         start_time = datetime.now(timezone.utc)
         processed_topics = []
+        processed_blobs = []  # Track created blob names for triggering site-generator
         failed_topics = []
         total_cost = 0.0
 

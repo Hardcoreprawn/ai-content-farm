@@ -198,13 +198,16 @@ resource "azurerm_storage_queue" "content_processing_requests" {
   }
 }
 
-resource "azurerm_storage_queue" "site_generation_requests" {
-  name               = "site-generation-requests"
+resource "azurerm_storage_queue" "markdown_generation_requests" {
+  name               = "markdown-generation-requests"
   storage_account_id = azurerm_storage_account.main.id
 
+  metadata = {
+    purpose     = "markdown-generator-keda-scaling"
+    description = "Triggers markdown-generator to convert processed JSON to markdown"
+  }
+
   lifecycle {
-    # Prevent recreation when changing from storage_account_name to storage_account_id
-    # The queue name is the stable identifier, not the account reference
     create_before_destroy = true
   }
 }
