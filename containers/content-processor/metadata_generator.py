@@ -105,10 +105,10 @@ class MetadataGenerator:
         # Parse date for filename
         date_slug = self._parse_date_slug(published_date)
 
-        # Validate slug length
+        # Validate slug length (truncate cleanly without "..." which breaks URLs)
         if len(slug) > 60:
             logger.warning(f"Slug too long ({len(slug)} chars), truncating: {slug}")
-            slug = slug[:57] + "..."  # Keep it under 60
+            slug = slug[:60]  # Truncate to exactly 60 chars
 
         # Generate final filename
         filename = f"articles/{date_slug}-{slug}.html"
