@@ -335,13 +335,15 @@ class TestUtilityFunctionsCoverage:
         """
         from content_utility_functions import create_complete_site
 
-        # Two articles with IDENTICAL titles but different IDs
+        # Two articles with IDENTICAL titles but processor-provided unique filenames
         articles = [
             {
                 "id": "article-001",
                 "title": "Breaking News Today",
                 "content": "First article content",
                 "url": "https://example.com/1",
+                "filename": "articles/2024-10-01-breaking-news-today-001.html",
+                "slug": "breaking-news-today-001",
                 "created_utc": 1696118400,
                 "published_date": "2024-10-01T10:00:00Z",
             },
@@ -350,6 +352,8 @@ class TestUtilityFunctionsCoverage:
                 "title": "Breaking News Today",  # SAME TITLE
                 "content": "Second article content",
                 "url": "https://example.com/2",
+                "filename": "articles/2024-10-01-breaking-news-today-002.html",
+                "slug": "breaking-news-today-002",
                 "created_utc": 1696118500,
                 "published_date": "2024-10-01T10:05:00Z",
             },
@@ -406,18 +410,20 @@ class TestUtilityFunctionsCoverage:
             len(article_files) == 2
         ), f"Expected 2 article files, got {len(article_files)}"
 
-        # 2. Filenames should be DIFFERENT (not both "breaking-news-today.html")
+        # 2. Filenames should be DIFFERENT (processor ensures uniqueness)
         assert (
             article_files[0] != article_files[1]
         ), f"Duplicate titles created identical filenames: {article_files[0]}"
 
-        # 3. Each filename should contain the article ID for uniqueness
+        # 3. Filenames should match processor-provided names
         assert (
-            "article-001" in article_files[0] or "article-002" in article_files[0]
-        ), f"First filename missing article ID: {article_files[0]}"
+            "breaking-news-today-001" in article_files[0]
+            or "breaking-news-today-002" in article_files[0]
+        ), f"First filename doesn't match expected: {article_files[0]}"
         assert (
-            "article-001" in article_files[1] or "article-002" in article_files[1]
-        ), f"Second filename missing article ID: {article_files[1]}"
+            "breaking-news-today-001" in article_files[1]
+            or "breaking-news-today-002" in article_files[1]
+        ), f"Second filename doesn't match expected: {article_files[1]}"
 
         # 4. Verify each article's content is preserved (no overwrites)
         first_content = next(
