@@ -1,7 +1,7 @@
 # Multi-stage build for markdown-generator container
 
 # Stage 1: Builder
-FROM python:3.11-slim as builder
+FROM python:3.11-slim AS builder
 
 WORKDIR /app
 
@@ -14,8 +14,8 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
-# Stage 2: Runtime
-FROM python:3.11-slim
+# Stage 2: Production Runtime
+FROM python:3.11-slim AS production
 
 WORKDIR /app
 
