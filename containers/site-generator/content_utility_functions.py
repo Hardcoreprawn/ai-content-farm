@@ -310,54 +310,23 @@ async def create_complete_site(
 
     # Generate individual article pages
     for article in processed_articles:
-        # Phase 3: Use processor-provided metadata (filename, slug, url)
-        # The processor now generates perfect filenames via AI metadata generation
-        # Format: articles/YYYY-MM-DD-slug.html
-
-        # Get processor-provided filename (should always be present for new articles)
+        # SIMPLE: Processor provides filename, we use it directly. No fallbacks, no complexity.
         filename = article.get("filename")
 
-        # DEBUG: Log what we're seeing
-        logger.info(
-            f"Article '{article.get('title', 'unknown')[:50]}': filename='{filename}', topic_id='{article.get('topic_id')}'"
-        )
-
         if not filename:
-            # Fallback for old articles without processor metadata
-            # Try to construct from available fields
-            article_id = (
-                article.get("topic_id") or article.get("id") or article.get("slug")
+            logger.warning(
+                f"Skipping article without filename: {article.get('title', 'unknown')[:50]}"
             )
-            if not article_id:
-                logger.warning(
-                    f"Skipping article without filename or ID: {article.get('title', 'unknown')}"
-                )
-                continue
+            continue
 
-            cleaned_title = clean_title(article.get("title", "untitled"))
-            safe_title = create_safe_filename(cleaned_title)
+        logger.debug(f"Generating HTML for: {filename}")
 
-            # Legacy format for backwards compatibility
-            if "-" in str(article_id) and len(str(article_id)) > 10:
-                article_slug = str(article_id)
-            else:
-                article_slug = f"{article_id}-{safe_title}"
-
-            filename = f"articles/{article_slug}.html"
-            logger.info(f"Using legacy filename format: {filename}")
-        else:
-            # Processor provides complete filename (already includes articles/ prefix)
-            # Do NOT add another prefix - use as-is
-            logger.debug(f"Using processor-provided filename: {filename}")
-
-        # Use processor-provided fields (or fallback to legacy)
+        # Processor provides all metadata we need - use it directly
         enriched_article = {
             **article,
             "filename": filename,
-            "slug": article.get("slug", article.get("topic_id", "unknown")),
-            "url": article.get(
-                "url", f"/articles/{article.get('slug', 'unknown')}.html"
-            ),
+            "slug": article.get("slug", "unknown"),
+            "url": article.get("url", f"/{filename}"),
         }
 
         # Generate HTML using pure function
