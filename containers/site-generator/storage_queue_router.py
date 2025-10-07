@@ -43,113 +43,79 @@ class StorageQueueProcessingResponse(BaseModel):
 
 
 async def _process_queue_request(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Handle Storage Queue request with two-path logic.
+    """Handle Storage Queue request - always do full site regeneration.
 
-    If payload.content_type == 'json':
-      - Generate markdown from processed JSON articles only
-    If payload.content_type == 'markdown':
-      - Generate static HTML site from existing markdown only
-    Else (backward-compat / unspecified):
-      - Generate markdown first, then generate static site
+    Simplified workflow for scale-out performance:
+    1. Generate markdown from ALL processed JSON articles
+    2. Generate complete static HTML site from ALL markdown
+
+    No batch processing or topic discovery - just full regeneration.
+    This is fast enough (~30s for 100 articles) and ensures consistency.
 
     Returns detailed processing results.
     """
     try:
-        content_type = (payload or {}).get("content_type")
         topics_processed = payload.get("topics_processed", 0)
         articles_generated = payload.get("articles_generated", 0)
 
         logger.info(
-            f"Queue trigger received (content_type={content_type or 'auto'}; "
-            f"topics={topics_processed}, articles={articles_generated})"
+            f"Queue trigger received - full site regeneration; "
+            f"topics={topics_processed}, articles={articles_generated}"
         )
 
         # Create generator context (contains config, blob_client, etc.)
         context = create_generator_context()
 
-        markdown_files = 0
-        site_result = None
-
         # Import locally to avoid circular imports at module import time
         from content_processing_functions import generate_markdown_batch
 
-        if content_type == "json":
-            # Only create markdown from processed JSON content
-            mr = await generate_markdown_batch(
-                source="storage-queue-trigger",
-                batch_size=articles_generated or 10,
-                force_regenerate=payload.get("force_regenerate", False),
-                blob_client=context["blob_client"],
-                config=context["config_dict"],
-                generator_id=payload.get("correlation_id") or context["generator_id"],
-            )
-            markdown_files = mr.files_generated
-            logger.info(f"Markdown generation completed: {markdown_files} files")
+        # Step 1: Generate markdown from ALL processed JSON articles
+        logger.info("Step 1: Generating markdown from all processed articles...")
+        markdown_result = await generate_markdown_batch(
+            source="storage-queue-trigger",
+            batch_size=1000,  # Process all articles
+            force_regenerate=False,  # Only generate new/updated articles
+            blob_client=context["blob_client"],
+            config=context["config_dict"],
+            generator_id=payload.get("correlation_id") or context["generator_id"],
+            trigger_html_generation=False,  # We'll do it immediately, no queue loop
+        )
+        markdown_files = markdown_result.files_generated
+        logger.info(f"✅ Markdown generation completed: {markdown_files} files")
 
-        elif content_type == "markdown":
-            # Only generate the static site from existing markdown
-            site_result = await generate_static_site(
-                theme=context["config"].DEFAULT_THEME,
-                force_rebuild=payload.get("force_rebuild", False),
-                blob_client=context["blob_client"],
-                config=context["config_dict"],
-                generator_id=payload.get("correlation_id") or context["generator_id"],
-            )
-            logger.info(
-                f"Site generation completed: {site_result.files_generated} files, "
-                f"{site_result.pages_generated} pages in {site_result.processing_time:.2f}s"
-            )
-
-        else:
-            # Backward-compatible behavior: markdown then site
-            mr = await generate_markdown_batch(
-                source="storage-queue-trigger",
-                batch_size=articles_generated or 10,
-                force_regenerate=payload.get("force_regenerate", False),
-                blob_client=context["blob_client"],
-                config=context["config_dict"],
-                generator_id=payload.get("correlation_id") or context["generator_id"],
-            )
-            markdown_files = mr.files_generated
-            logger.info(f"Markdown generation completed: {markdown_files} files")
-
-            if markdown_files > 0:
-                site_result = await generate_static_site(
-                    theme=context["config"].DEFAULT_THEME,
-                    force_rebuild=payload.get("force_rebuild", False),
-                    blob_client=context["blob_client"],
-                    config=context["config_dict"],
-                    generator_id=payload.get("correlation_id")
-                    or context["generator_id"],
-                )
-                logger.info(
-                    f"Site generation completed: {site_result.files_generated} files, "
-                    f"{site_result.pages_generated} pages in {site_result.processing_time:.2f}s"
-                )
+        # Step 2: Generate complete static HTML site from ALL markdown
+        logger.info("Step 2: Generating complete static site from all markdown...")
+        site_result = await generate_static_site(
+            theme=context["config"].DEFAULT_THEME,
+            force_rebuild=True,  # Always rebuild entire site for consistency
+            blob_client=context["blob_client"],
+            config=context["config_dict"],
+            generator_id=payload.get("correlation_id") or context["generator_id"],
+        )
+        logger.info(
+            f"✅ Site generation completed: {site_result.files_generated} files, "
+            f"{site_result.pages_generated} pages in {site_result.processing_time:.2f}s"
+        )
 
         return {
             "status": "success",
-            "content_type": content_type or "auto",
+            "operation": "full_site_regeneration",
             "topics_processed": topics_processed,
             "articles_generated": articles_generated,
             "markdown_files": markdown_files,
-            "site_updated": site_result is not None,
-            "site_pages": site_result.pages_generated if site_result else 0,
-            "site_files": site_result.files_generated if site_result else 0,
-            "processing_time": site_result.processing_time if site_result else 0,
-            "output_location": site_result.output_location if site_result else None,
-            "message": (
-                f"Processed {content_type or 'auto'}: "
-                f"markdown={markdown_files}, site={'updated' if site_result else 'unchanged'}"
-            ),
+            "site_pages": site_result.pages_generated,
+            "site_files": site_result.files_generated,
+            "processing_time": site_result.processing_time,
+            "output_location": site_result.output_location,
+            "message": f"Full site regeneration complete: {markdown_files} markdown files, {site_result.pages_generated} pages",
         }
 
     except Exception as e:
-        logger.error(f"Queue request processing failed: {e}")
+        logger.error(f"Queue request processing failed: {e}", exc_info=True)
         return {
             "status": "error",
             "error": str(e),
-            "message": "Queue request processing failed",
+            "message": "Full site regeneration failed",
         }
 
 

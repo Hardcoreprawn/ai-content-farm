@@ -107,13 +107,55 @@ resource "null_resource" "configure_site_generator_keda_auth" {
   ]
 }
 
+# Configure KEDA managed identity authentication for markdown-generator
+resource "null_resource" "configure_markdown_generator_keda_auth" {
+  triggers = {
+    container_app_id = azurerm_container_app.markdown_generator.id
+    scale_rule_name  = "markdown-queue-scaler"
+    queue_name       = azurerm_storage_queue.markdown_generation_requests.name
+    identity_id      = azurerm_user_assigned_identity.containers.client_id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "Configuring KEDA authentication for markdown-generator..."
+      az containerapp update \
+        --name ${azurerm_container_app.markdown_generator.name} \
+        --resource-group ${azurerm_resource_group.main.name} \
+        --scale-rule-name markdown-queue-scaler \
+        --scale-rule-type azure-queue \
+        --scale-rule-metadata \
+          accountName=${azurerm_storage_account.main.name} \
+          queueName=${azurerm_storage_queue.markdown_generation_requests.name} \
+          queueLength=1 \
+          cloud=AzurePublicCloud \
+        --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
+        --output none || {
+          echo "WARNING: KEDA auth configuration failed for markdown-generator"
+          echo "This may cause scaling issues. Run scripts/configure-keda-auth.sh manually."
+          exit 0  # Don't fail Terraform apply
+        }
+      echo "✓ KEDA authentication configured for markdown-generator"
+    EOT
+
+    interpreter = ["bash", "-c"]
+  }
+
+  depends_on = [
+    azurerm_container_app.markdown_generator,
+    azurerm_role_assignment.containers_storage_queue_data_contributor,
+    azurerm_storage_queue.markdown_generation_requests
+  ]
+}
+
 # Output to verify KEDA auth configuration
 output "keda_auth_configured" {
   description = "KEDA managed identity authentication has been configured via Azure CLI"
   value = {
-    processor_identity      = azurerm_user_assigned_identity.containers.client_id
-    site_generator_identity = azurerm_user_assigned_identity.containers.client_id
-    note                    = "KEDA auth configured via null_resource local-exec provisioner"
-    manual_script           = "scripts/configure-keda-auth.sh can be run manually if needed"
+    processor_identity          = azurerm_user_assigned_identity.containers.client_id
+    site_generator_identity     = azurerm_user_assigned_identity.containers.client_id
+    markdown_generator_identity = azurerm_user_assigned_identity.containers.client_id
+    note                        = "KEDA auth configured via null_resource local-exec provisioner"
+    manual_script               = "scripts/configure-keda-auth.sh can be run manually if needed"
   }
 }

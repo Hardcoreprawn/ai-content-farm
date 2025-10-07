@@ -209,6 +209,20 @@ resource "azurerm_storage_queue" "site_generation_requests" {
   }
 }
 
+resource "azurerm_storage_queue" "markdown_generation_requests" {
+  name               = "markdown-generation-requests"
+  storage_account_id = azurerm_storage_account.main.id
+
+  metadata = {
+    purpose     = "markdown-generator-keda-scaling"
+    description = "Triggers markdown-generator to convert processed JSON to markdown"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 # Container services now handle the content processing pipeline
 
 # Azure OpenAI Cognitive Services Account
