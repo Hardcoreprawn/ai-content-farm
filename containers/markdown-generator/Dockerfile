@@ -10,8 +10,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install
-COPY requirements.txt .
+# Copy requirements and install (from repository root context)
+COPY containers/markdown-generator/requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
 
 # Stage 2: Production Runtime
@@ -25,8 +25,8 @@ RUN useradd --create-home --shell /bin/bash app
 # Copy installed packages from builder
 COPY --from=builder /root/.local /home/app/.local
 
-# Copy application code
-COPY --chown=app:app . .
+# Copy application code (from repository root context)
+COPY --chown=app:app containers/markdown-generator/ .
 
 # Set PATH for user packages
 ENV PATH=/home/app/.local/bin:$PATH
