@@ -317,6 +317,11 @@ async def create_complete_site(
         # Get processor-provided filename (should always be present for new articles)
         filename = article.get("filename")
 
+        # DEBUG: Log what we're seeing
+        logger.info(
+            f"Article '{article.get('title', 'unknown')[:50]}': filename='{filename}', topic_id='{article.get('topic_id')}'"
+        )
+
         if not filename:
             # Fallback for old articles without processor metadata
             # Try to construct from available fields
