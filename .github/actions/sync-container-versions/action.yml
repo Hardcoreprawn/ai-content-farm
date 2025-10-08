@@ -39,20 +39,6 @@ runs:
         REPOSITORY="$REPOSITORY_INPUT"
         TARGET_CONTAINER="$TARGET_CONTAINER_INPUT"
 
-        # Determine environment prefix from resource group (safely quoted)
-        if [[ "$RESOURCE_GROUP" == *"prod"* ]]; then
-          ENV_PREFIX="prod"
-        else
-          ENV_PREFIX="dev"
-        fi
-
-        # Container Apps mapping with dynamic environment prefix
-        declare -A containers=(
-          ["ai-content-${ENV_PREFIX}-collector"]="content-collector"
-          ["ai-content-${ENV_PREFIX}-processor"]="content-processor"
-          ["ai-content-${ENV_PREFIX}-site-generator"]="site-generator"
-        )
-
         echo "[INFO] Syncing container version:"
         echo "  Registry: $REGISTRY"
         echo "  Repository: $REPOSITORY"
@@ -61,12 +47,34 @@ runs:
         echo "  Target Container: $TARGET_CONTAINER"
         echo
 
-        # Find the Azure Container App name for this container
+        # Dynamically discover container apps and their container names from Azure
+        echo "[DISCOVER] Finding Azure Container Apps in resource group..."
+
+        # Get all container apps with their container names
+        mapfile -t app_data < <(az containerapp list \
+          --resource-group "$RESOURCE_GROUP" \
+          --query "[].{name:name, container:properties.template.containers[0].name}" \
+          --output tsv 2>/dev/null)
+
+        if [[ ${#app_data[@]} -eq 0 ]]; then
+          echo "[ERROR] No container apps found in resource group: $RESOURCE_GROUP"
+          exit 1
+        fi
+
+        # Build dynamic mapping and find our target
+        declare -A containers=()
         app_name=""
-        for container_app in "${!containers[@]}"; do
-          if [[ "${containers[$container_app]}" == "$TARGET_CONTAINER" ]]; then
-            app_name="$container_app"
-            break
+
+        echo "[DISCOVER] Found container apps:"
+        for line in "${app_data[@]}"; do
+          # Each line is: "app-name\tcontainer-name"
+          IFS=$'\t' read -r azure_app_name container_name <<< "$line"
+          containers["$azure_app_name"]="$container_name"
+          echo "  - $azure_app_name → $container_name"
+
+          # Check if this is our target
+          if [[ "$container_name" == "$TARGET_CONTAINER" ]]; then
+            app_name="$azure_app_name"
           fi
         done
 
@@ -75,6 +83,9 @@ runs:
           echo "Available containers: ${containers[@]}"
           exit 1
         fi
+
+        echo "[MATCH] Found Azure Container App: $app_name"
+        echo
 
         echo "[SCAN] Checking $app_name ($TARGET_CONTAINER)..."
 
