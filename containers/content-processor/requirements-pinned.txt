@@ -7,7 +7,7 @@
 # ============================================================================
 fastapi==0.115.6  # Pinned: Web framework, compatible with httpx 0.28.x
 httpx==0.28.1  # Pinned: HTTP client with HTTP/2 support
-starlette==0.41.3  # Pinned: ASGI framework (FastAPI dependency)
+starlette==0.47.2  # Pinned: ASGI framework (FastAPI dependency)
 uvicorn==0.34.0  # Pinned: ASGI server for FastAPI
 python-multipart==0.0.20  # Pinned: Form/file upload support
 
