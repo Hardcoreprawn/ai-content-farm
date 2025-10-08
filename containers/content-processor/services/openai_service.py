@@ -8,7 +8,6 @@ and intelligent model selection based on content complexity.
 This replaces the mock processing with real AI-powered content generation.
 """
 
-import asyncio
 import logging
 import time
 from enum import Enum
@@ -23,9 +22,12 @@ from tenacity import (
     wait_exponential,
 )
 
-from config import settings
+from config import ContentProcessorSettings
 
 logger = logging.getLogger(__name__)
+
+# Module-level settings instance
+settings = ContentProcessorSettings()
 
 
 class ProcessingType(Enum):
@@ -133,8 +135,9 @@ class ContentProcessor:
     def _select_model_for_processing(
         self, processing_type: ProcessingType, content_length: int
     ) -> str:
-        """Intelligently select AI model based on processing type and content complexity."""
-
+        """
+        Intelligently select AI model based on processing type and complexity.
+        """
         # Content complexity assessment
         is_complex = content_length > 1000 or processing_type in [
             ProcessingType.ARTICLE_GENERATION,
@@ -269,11 +272,27 @@ class ContentProcessor:
         """Create appropriate prompt based on processing type."""
 
         system_prompts = {
-            ProcessingType.GENERAL: "You are a helpful AI assistant that improves and analyzes content while maintaining its original intent.",
-            ProcessingType.ARTICLE_GENERATION: "You are a professional content writer who creates engaging, well-structured articles based on provided topics and guidelines.",
-            ProcessingType.CONTENT_ANALYSIS: "You are a content analyst who provides detailed insights about text quality, readability, and effectiveness.",
-            ProcessingType.TOPIC_EXPANSION: "You are a research assistant who expands topics into comprehensive, detailed content with multiple perspectives.",
-            ProcessingType.QUALITY_ASSESSMENT: "You are a quality assessor who evaluates content on multiple dimensions and provides actionable feedback.",
+            ProcessingType.GENERAL: (
+                "You are a helpful AI assistant that improves and analyzes "
+                "content while maintaining its original intent."
+            ),
+            ProcessingType.ARTICLE_GENERATION: (
+                "You are a professional content writer who creates engaging, "
+                "well-structured articles based on provided topics and "
+                "guidelines."
+            ),
+            ProcessingType.CONTENT_ANALYSIS: (
+                "You are a content analyst who provides detailed insights "
+                "about text quality, readability, and effectiveness."
+            ),
+            ProcessingType.TOPIC_EXPANSION: (
+                "You are a research assistant who expands topics into "
+                "comprehensive, detailed content with multiple perspectives."
+            ),
+            ProcessingType.QUALITY_ASSESSMENT: (
+                "You are a quality assessor who evaluates content on "
+                "multiple dimensions and provides actionable feedback."
+            ),
         }
 
         # Get writing voice/style from options
@@ -387,7 +406,7 @@ Please improve and refine this content while maintaining its original intent:
         self,
         content: str,
         processing_type: str = "general",
-        options: Dict[str, Any] = None,
+        options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, float, Dict[str, Any]]:
         """
         Main content processing method with real OpenAI integration.

@@ -10,6 +10,14 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Union
 
+from collection_storage_utils import (
+    create_enhanced_collection,
+    generate_collection_id,
+    get_collection_by_id,
+    get_recent_collections,
+    get_storage_path,
+    list_collection_files,
+)
 from content_processing_simple import collect_content_batch, deduplicate_content
 
 from libs import BlobContainers
@@ -72,46 +80,81 @@ class ContentCollectorService:
         }
 
     async def _send_processing_request(self, collection_result: Dict[str, Any]) -> bool:
-        """Send wake-up message to Storage Queue to trigger content processing.
+        """Send individual topic messages to Storage Queue for processing.
 
-        Uses shared library trigger_processing function to maintain consistency
-        across all containers in the pipeline.
+        Implements fanout pattern: N items → N queue messages for true horizontal scaling.
+        Uses pure functions from topic_fanout module to create individual topic messages.
         """
         import logging
 
         logger = logging.getLogger(__name__)
 
         try:
-            from libs.queue_triggers import trigger_processing
+            from topic_fanout import (
+                count_topic_messages_by_source,
+                create_topic_messages_batch,
+            )
+
+            from libs.storage_queue_client import StorageQueueClient
 
             collection_id = collection_result.get("collection_id")
             storage_location = collection_result.get("storage_location")
-            total_items = len(collection_result.get("collected_items", []))
+            items = collection_result.get("collected_items", [])
+
+            # Validate required fields
+            if not collection_id or not storage_location:
+                logger.error(
+                    "Missing collection_id or storage_location in collection_result"
+                )
+                return False
+
+            if not items:
+                logger.warning(f"No items to send for collection {collection_id}")
+                return False
 
             logger.info(
-                f"Sending processing trigger for collection {collection_id} ({total_items} items collected)"
+                f"Creating topic messages for collection {collection_id} ({len(items)} items collected)"
             )
 
-            # Trigger processing using shared library function
-            # Pass the actual blob path that was saved
-            result = await trigger_processing(
-                collected_files=[storage_location] if storage_location else [],
-                correlation_id=collection_id,
+            # Create individual topic messages (pure function - no side effects)
+            messages = create_topic_messages_batch(
+                items, collection_id, storage_location
             )
 
-            if result["status"] == "success":
+            # Log statistics by source
+            source_counts = count_topic_messages_by_source(messages)
+            logger.info(f"Topic fanout breakdown: {source_counts}")
+
+            # Send each message individually to queue
+            queue_client = StorageQueueClient(queue_name="content-processing-requests")
+            await queue_client.connect()
+
+            sent_count = 0
+            failed_count = 0
+
+            for message in messages:
+                try:
+                    await queue_client.send_message(message)
+                    sent_count += 1
+                except Exception as e:
+                    topic_id = message.get("payload", {}).get("topic_id", "unknown")
+                    logger.error(f"Failed to send topic message {topic_id}: {e}")
+                    failed_count += 1
+
+            # Log final results
+            if sent_count > 0:
                 logger.info(
-                    f"✅ Processing trigger sent for {collection_id}, message_id: {result.get('message_id')}"
+                    f"✅ Topic fanout complete: {sent_count} messages sent, {failed_count} failed"
                 )
                 return True
             else:
                 logger.error(
-                    f"❌ Failed to send processing trigger: {result.get('error')}"
+                    f"❌ Topic fanout failed: 0 messages sent, {failed_count} failed"
                 )
                 return False
 
         except Exception as e:
-            logger.error(f"Failed to send processing trigger: {e}")
+            logger.error(f"Failed to send topic messages: {e}")
             return False
 
     async def collect_and_store_content(
@@ -296,8 +339,8 @@ class ContentCollectorService:
             enhanced_enabled = True  # Default to enhanced contracts
 
         if enhanced_enabled:
-            # Create enhanced format collection
-            enhanced_result = self._create_enhanced_collection(
+            # Create enhanced format collection using utility
+            enhanced_result = create_enhanced_collection(
                 collection_id, collected_items, metadata
             )
             content_json = enhanced_result.model_dump_json(indent=2)
@@ -321,233 +364,22 @@ class ContentCollectorService:
 
         return f"{container_name}/{blob_name}"
 
-    def _create_enhanced_collection(
-        self,
-        collection_id: str,
-        collected_items: List[Dict[str, Any]],
-        metadata: Dict[str, Any],
-    ) -> ExtendedCollectionResult:
-        """Create enhanced format collection with rich metadata and provenance."""
-        enhanced_items = []
-
-        for idx, item in enumerate(collected_items):
-            try:
-                if not isinstance(item, dict):
-                    continue
-
-                # Create source metadata based on source type
-                source_type = item.get("source", "web").lower()
-
-                if source_type == "reddit":
-                    source_metadata = SourceMetadata(
-                        source_type="reddit",
-                        source_identifier=f"r/{item.get('subreddit', 'unknown')}",
-                        collected_at=datetime.now(timezone.utc),
-                        upvotes=item.get("ups") or item.get("upvotes"),
-                        comments=item.get("num_comments") or item.get("comments"),
-                        reddit_data={
-                            "subreddit": item.get("subreddit"),
-                            "flair": item.get("link_flair_text"),
-                            "author": item.get("author"),
-                            "score": item.get("score"),
-                        },
-                    )
-                elif source_type == "rss":
-                    source_metadata = SourceMetadata(
-                        source_type="rss",
-                        source_identifier=item.get("feed_url", "unknown"),
-                        collected_at=datetime.now(timezone.utc),
-                        rss_data={
-                            "feed_title": item.get("feed_title"),
-                            "category": item.get("category"),
-                            "published": item.get("published"),
-                            "author": item.get("author"),
-                        },
-                    )
-                else:
-                    # Generic web or other source
-                    source_metadata = SourceMetadata(
-                        source_type=source_type,
-                        source_identifier=item.get("url", "unknown"),
-                        collected_at=datetime.now(timezone.utc),
-                        custom_fields=item.get("source_specific_data", {}),
-                    )
-
-                # Create enhanced content item
-                content_item = ContentItem(
-                    id=item.get("id", f"{collection_id}_item_{idx}"),
-                    title=item.get("title", "Untitled"),
-                    url=item.get("url"),
-                    content=item.get("content"),
-                    summary=item.get("summary"),
-                    source=source_metadata,
-                )
-
-                # Add collection provenance
-                collection_provenance = ProvenanceEntry(
-                    stage=ProcessingStage.COLLECTION,
-                    service_name="content-collector",
-                    service_version=metadata.get("collector_version", "2.0.0"),
-                    operation=f"{source_type}_collection",
-                    processing_time_ms=item.get("processing_time_ms", 0),
-                    parameters={
-                        "collection_method": "adaptive",
-                        "source_config": item.get("source_config", {}),
-                    },
-                )
-                content_item.add_provenance(collection_provenance)
-                enhanced_items.append(content_item)
-
-            except Exception as e:
-                # Skip invalid items
-                continue
-
-        # Create enhanced metadata
-        enhanced_metadata = EnhancedCollectionMetadata(
-            timestamp=datetime.now(timezone.utc),
-            collection_id=collection_id,
-            total_items=len(enhanced_items),
-            sources_processed=metadata.get("sources_processed", 1),
-            processing_time_ms=metadata.get("processing_time_ms", 0),
-            collector_version=metadata.get("collector_version", "2.0.0"),
-            collection_strategy="adaptive",
-            collection_template=metadata.get("template_name", "default"),
-        )
-
-        # Create enhanced collection result
-        enhanced_result = ExtendedCollectionResult(
-            metadata=enhanced_metadata, items=enhanced_items, schema_version="3.0"
-        )
-
-        # Calculate aggregate metrics
-        enhanced_result.calculate_aggregate_metrics()
-
-        return enhanced_result
-
     def get_service_stats(self) -> Dict[str, Any]:
         """Get current service statistics."""
         return self.stats.copy()
 
     async def get_recent_collections(self, limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        Get list of recent collections from blob storage.
-
-        Args:
-            limit: Maximum number of collections to return
-
-        Returns:
-            List of recent collection metadata
-        """
-        try:
-            # List recent collection files
-            container_name = BlobContainers.COLLECTED_CONTENT
-            blobs = await self.storage.list_blobs(
-                container_name=container_name, prefix="collections/"
-            )
-
-            # Sort by name (which includes timestamp) and take most recent
-            sorted_blobs = sorted([blob["name"] for blob in blobs], reverse=True)[
-                :limit
-            ]
-
-            collections = []
-            for blob_name in sorted_blobs:
-                try:
-                    # Extract collection info from blob name
-                    collection_id = blob_name.split("/")[-1].replace(".json", "")
-                    path_parts = blob_name.split("/")
-                    if (
-                        len(path_parts) >= 4
-                    ):  # collections/YYYY/MM/DD/collection_id.json
-                        date_str = f"{path_parts[1]}-{path_parts[2]}-{path_parts[3]}"
-                        collections.append(
-                            {
-                                "collection_id": collection_id,
-                                "date": date_str,
-                                "storage_path": f"{container_name}/{blob_name}",
-                            }
-                        )
-                except Exception:
-                    continue  # Skip malformed blob names
-
-            return collections
-
-        except Exception as e:
-            # If we can't access storage, return empty list
-            return []
+        """Get list of recent collections from blob storage - delegates to utility."""
+        return await get_recent_collections(self.storage, limit)
 
     async def get_collection_by_id(
         self, collection_id: str
     ) -> Optional[Dict[str, Any]]:
-        """
-        Get collection data by ID.
-
-        Args:
-            collection_id: The collection identifier
-
-        Returns:
-            Collection data or None if not found
-        """
-        try:
-            # Search for the collection file
-            container_name = "raw-content"
-            blobs = await self.storage.list_blobs(
-                container_name=container_name, prefix="collections/"
-            )
-
-            # Find the blob with matching collection ID
-            target_blob = None
-            for blob in blobs:
-                blob_name = blob["name"]
-                if collection_id in blob_name and blob_name.endswith(".json"):
-                    target_blob = blob_name
-                    break
-
-            if not target_blob:
-                return None
-
-            # Load the collection data
-            content = await self.storage.download_text(
-                container=container_name, blob_name=target_blob
-            )
-
-            return json.loads(content)
-
-        except Exception:
-            return None
-
-    def _generate_collection_id(self) -> str:
-        """Generate a unique collection ID with timestamp."""
-        timestamp = datetime.now(timezone.utc)
-        return f"content_collection_{timestamp.strftime('%Y%m%d_%H%M%S')}"
-
-    def _get_storage_path(self, collection_id: str) -> str:
-        """Generate storage path for a collection."""
-        # Extract date from collection ID - look for YYYYMMDD_HHMMSS pattern
-        import re
-
-        # Look for 8-digit date followed by underscore and 6-digit time
-        date_match = re.search(r"(\d{8})_(\d{6})", collection_id)
-
-        if date_match:
-            date_part = date_match.group(1)  # YYYYMMDD
-            # Format as YYYY/MM/DD
-            year = date_part[:4]
-            month = date_part[4:6]
-            day = date_part[6:8]
-        else:
-            # Fallback to current date if pattern not found
-            now = datetime.now(timezone.utc)
-            year = now.strftime("%Y")
-            month = now.strftime("%m")
-            day = now.strftime("%d")
-
-        return f"{BlobContainers.COLLECTED_CONTENT}/collections/{year}/{month}/{day}/{collection_id}.json"
+        """Get collection data by ID - delegates to utility."""
+        return await get_collection_by_id(self.storage, collection_id)
 
     async def _list_collection_files(
         self, prefix: str = "collections/"
     ) -> List[Dict[str, Any]]:
-        """List collection files from storage."""
-        return await self.storage.list_blobs(
-            container_name=BlobContainers.COLLECTED_CONTENT, prefix=prefix
-        )
+        """List collection files from storage - delegates to utility."""
+        return await list_collection_files(self.storage, prefix)

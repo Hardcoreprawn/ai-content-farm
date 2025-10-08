@@ -12,11 +12,9 @@ import asyncio
 import logging
 import random
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from services.openai_service import ModelTier, ProcessingType
-
-from config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -249,7 +247,7 @@ The comprehensive analysis of "{content.strip()}" reveals significant potential 
         self,
         content: str,
         processing_type: str = "general",
-        options: Dict[str, Any] = None,
+        options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, float, Dict[str, Any]]:
         """
         Mock content processing with realistic simulation.

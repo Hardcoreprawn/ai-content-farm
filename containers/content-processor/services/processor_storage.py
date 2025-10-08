@@ -9,8 +9,6 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
-from libs.simplified_blob_client import SimplifiedBlobClient
-
 logger = logging.getLogger(__name__)
 
 
@@ -125,7 +123,7 @@ class ProcessorStorageService:
             return []
 
     def generate_article_blob_name(
-        self, topic_id: str, custom_prefix: str = None
+        self, topic_id: str, custom_prefix: Optional[str] = None
     ) -> str:
         """
         Generate standardized blob name for articles.

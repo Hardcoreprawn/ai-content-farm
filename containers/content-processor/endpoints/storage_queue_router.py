@@ -122,10 +122,9 @@ class ContentProcessorStorageQueueRouter:
 
             elif message.operation == "process":
                 # Process specific collection file from queue message
-                processor = self.get_processor()
                 payload = message.payload
 
-                # Extract blob_path (required for queue-driven processing)
+                # Validate blob_path BEFORE creating processor
                 blob_path = payload.get("blob_path")
                 if not blob_path:
                     logger.error("No blob_path in queue message payload")
@@ -134,6 +133,9 @@ class ContentProcessorStorageQueueRouter:
                         "error": "Missing required field: blob_path",
                         "message": "Queue messages must include blob_path for targeted processing",
                     }
+
+                # Now get processor after validation passes
+                processor = self.get_processor()
 
                 # Process the specific collection
                 logger.info(f"Processing collection from queue: {blob_path}")
@@ -152,6 +154,68 @@ class ContentProcessorStorageQueueRouter:
                         "articles_generated": result.articles_generated,
                         "total_cost": result.total_cost,
                         "processing_time": result.processing_time,
+                    },
+                    "message_id": message.message_id,
+                }
+
+            elif message.operation == "process_topic":
+                # Process individual topic message (new fanout pattern)
+                payload = message.payload
+
+                # Validate required fields BEFORE creating processor
+                topic_id = payload.get("topic_id")
+                title = payload.get("title")
+                source = payload.get("source")
+
+                if not topic_id or not title or not source:
+                    logger.error(f"Missing required fields in topic payload: {payload}")
+                    return {
+                        "status": "error",
+                        "error": "Missing required fields: topic_id, title, or source",
+                        "message_id": message.message_id,
+                    }
+
+                # Now get processor after validation passes
+                processor = self.get_processor()
+
+                logger.info(
+                    f"Processing single topic from queue: {topic_id} - {title[:50]}"
+                )
+
+                # Convert payload to TopicMetadata object
+                from models import TopicMetadata
+
+                # Parse collected_at timestamp safely
+                collected_at_str = payload.get("collected_at")
+                collected_at = (
+                    datetime.fromisoformat(collected_at_str)
+                    if collected_at_str
+                    else datetime.now(timezone.utc)
+                )
+
+                topic = TopicMetadata(
+                    topic_id=topic_id,
+                    title=title,
+                    source=source,
+                    subreddit=payload.get("subreddit"),
+                    url=payload.get("url"),
+                    upvotes=payload.get("upvotes"),
+                    comments=payload.get("comments"),
+                    collected_at=collected_at,
+                    priority_score=payload.get("priority_score", 0.5),
+                )
+
+                # Process the topic directly (no wrapper!)
+                success, cost = await processor._process_topic_with_lease(topic)
+
+                return {
+                    "status": "success" if success else "error",
+                    "operation": "topic_processed",
+                    "result": {
+                        "topic_id": topic_id,
+                        "title": title,
+                        "success": success,
+                        "cost_usd": cost,
                     },
                     "message_id": message.message_id,
                 }
