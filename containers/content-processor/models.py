@@ -35,6 +35,36 @@ class WakeUpRequest(BaseModel):
     )
 
 
+class ProcessTopicRequest(BaseModel):
+    """Request model for single-topic processing from queue message."""
+
+    # Required topic data (sent by collector)
+    topic_id: str = Field(..., description="Unique topic identifier")
+    title: str = Field(..., description="Topic title")
+    source: str = Field(..., description="Source (e.g., reddit, rss)")
+
+    # Optional topic metadata
+    subreddit: Optional[str] = Field(None, description="Reddit subreddit")
+    url: Optional[str] = Field(None, description="Topic URL")
+    upvotes: Optional[int] = Field(None, description="Upvote/score count")
+    comments: Optional[int] = Field(None, description="Comment count")
+    collected_at: Optional[str] = Field(
+        None, description="ISO timestamp when collected"
+    )
+    priority_score: Optional[float] = Field(0.5, description="Priority score 0-1")
+
+    # Provenance (for audit trail)
+    collection_id: Optional[str] = Field(None, description="Source collection ID")
+    collection_blob: Optional[str] = Field(
+        None, description="Source collection blob path"
+    )
+
+    # Enhanced metadata (optional)
+    enhanced_metadata: Optional[Dict[str, Any]] = Field(
+        None, description="Additional metadata"
+    )
+
+
 class ProcessBatchRequest(BaseModel):
     """Request model for manual batch processing."""
 
@@ -123,6 +153,28 @@ class ProcessingResult(BaseModel):
     completed_topics: List[str] = Field(default_factory=list)
     failed_topics: List[str] = Field(default_factory=list)
     error_messages: List[str] = Field(default_factory=list)
+
+
+class TopicProcessingResult(BaseModel):
+    """Result of processing a single topic."""
+
+    success: bool
+    topic_id: str
+    cost_usd: float
+    processing_time_seconds: float
+
+    # Article details (if successful)
+    article_blob: Optional[str] = None  # Where article was saved
+    word_count: Optional[int] = None
+    quality_score: Optional[float] = None
+
+    # Downstream trigger
+    markdown_triggered: bool = False
+    markdown_message_id: Optional[str] = None
+
+    # Error details (if failed)
+    error_message: Optional[str] = None
+    retry_recommended: bool = False
 
 
 class ProcessorStatus(BaseModel):

@@ -1,5 +1,10 @@
 # Content Processor - Specific Dependencies
 
+# Web Framework & HTTP
+fastapi~=0.115.6  # Latest stable version compatible with httpx 0.28.x
+httpx~=0.28.1  # Latest stable with HTTP/2 support
+starlette~=0.41.3  # Latest stable, compatible with httpx 0.28.x
+
 # HTTP & Data Processing (not in shared libs)
 python-multipart~=0.0.20
 python-dateutil~=2.9.0.post0

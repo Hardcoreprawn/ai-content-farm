@@ -8,10 +8,14 @@ import pytest
 from fastapi.testclient import TestClient
 from main import app
 
-client = TestClient(app)
+
+@pytest.fixture
+def client():
+    """Create a test client for the FastAPI app."""
+    return TestClient(app)
 
 
-def test_root_endpoint():
+def test_root_endpoint(client):
     """Test root endpoint returns service information."""
     response = client.get("/")
 
@@ -25,7 +29,7 @@ def test_root_endpoint():
     assert data["data"]["version"] == "1.0.0"
 
 
-def test_health_endpoint():
+def test_health_endpoint(client):
     """Test health check endpoint."""
     response = client.get("/health")
 
@@ -44,7 +48,7 @@ def test_health_endpoint():
     assert "dependencies" in health_data
 
 
-def test_status_endpoint():
+def test_status_endpoint(client):
     """Test status endpoint format using standard library test."""
     from libs.standard_tests import StandardAPITestSuite
 
@@ -52,7 +56,7 @@ def test_status_endpoint():
     test_suite.test_status_endpoint_standard_format()
 
 
-def test_docs_endpoint():
+def test_docs_endpoint(client):
     """Test API documentation endpoint."""
     response = client.get("/docs")
 
@@ -61,7 +65,7 @@ def test_docs_endpoint():
     assert "text/html" in response.headers.get("content-type", "")
 
 
-def test_openapi_json():
+def test_openapi_json(client):
     """Test OpenAPI JSON schema endpoint."""
     response = client.get("/openapi.json")
 
@@ -74,7 +78,7 @@ def test_openapi_json():
     assert "paths" in data
 
 
-def test_process_endpoint_post():
+def test_process_endpoint_post(client):
     """Test main processing endpoint."""
     test_data = {
         "topic_id": "test-topic-123",
@@ -92,7 +96,7 @@ def test_process_endpoint_post():
     assert "data" in data
 
 
-def test_process_types_endpoint():
+def test_process_types_endpoint(client):
     """Test processing types information endpoint."""
     response = client.get("/process/types")
 
@@ -105,7 +109,7 @@ def test_process_types_endpoint():
     assert "available_types" in data["data"]
 
 
-def test_process_status_endpoint():
+def test_process_status_endpoint(client):
     """Test processing status endpoint."""
     response = client.get("/process/status")
 
@@ -116,7 +120,7 @@ def test_process_status_endpoint():
     assert "data" in data
 
 
-def test_error_handling():
+def test_error_handling(client):
     """Test error handling with invalid request."""
     # Test invalid JSON to main process endpoint
     response = client.post("/process", json={"invalid": "data"})
@@ -134,7 +138,7 @@ def test_error_handling():
     assert len(data["errors"]) > 0
 
 
-def test_nonexistent_endpoint():
+def test_nonexistent_endpoint(client):
     """Test that nonexistent endpoints return 404."""
     response = client.get("/nonexistent")
 
