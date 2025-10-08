@@ -344,23 +344,6 @@ containers/content-processor/tests/test_storage_queue_router.py::test_wake_up_me
 - ✅ Updated: Docstring explaining architecture changes
 
 **Result**: No import errors, clean module initialization
-        priority_score=payload.get("priority_score", 0.5),
-    )
-    
-    # Process the topic directly (no wrapper!)
-    success, cost = await processor._process_topic_with_lease(topic)
-    
-    return {
-        "status": "success" if success else "error",
-        "operation": "topic_processed",
-        "result": {
-            "topic_id": topic_id,
-            "title": title,
-            "success": success,
-            "cost_usd": cost,
-        },
-    }
-```
 
 **Integration Points**:
 - ✅ Handles `operation: "process_topic"` messages

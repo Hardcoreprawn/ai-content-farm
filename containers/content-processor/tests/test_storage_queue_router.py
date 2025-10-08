@@ -22,8 +22,11 @@ class TestProcessTopicHandler:
 
     @pytest.fixture
     def router(self):
-        """Create router instance for testing."""
-        return ContentProcessorStorageQueueRouter()
+        """Create router instance for testing with mocked dependencies."""
+        mock_processor = Mock()
+        router = ContentProcessorStorageQueueRouter()
+        router.processor = mock_processor
+        return router
 
     @pytest.fixture
     def valid_topic_message(self):

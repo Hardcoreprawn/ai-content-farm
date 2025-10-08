@@ -176,6 +176,7 @@ See these documents for complete details:
 **Ready to Continue**: Collection operations module and tests are ready to run!
 
 ```bash
+# The previous test command referenced a deleted file. Please run the updated tests as follows:
 cd /workspaces/ai-content-farm/containers/content-processor
-PYTHONPATH=/workspaces/ai-content-farm python -m pytest tests/test_collection_operations.py -v
+PYTHONPATH=/workspaces/ai-content-farm python -m pytest tests/ -v
 ```
