@@ -94,7 +94,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             logger.info(f"Queue: Processing markdown generation for {blob_name}")
 
             # Use the processor to generate markdown
-            result = await app.state.processor.process_file(blob_name)
+            result = await app.state.processor.process_article(blob_name)
 
             if result.status == ProcessingStatus.COMPLETED:
                 logger.info(
