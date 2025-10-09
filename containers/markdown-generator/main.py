@@ -79,12 +79,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     async def message_handler(queue_message, message) -> Dict[str, Any]:
         """Process a single markdown generation request from the queue."""
         try:
-            # Extract the processed file path from the message
-            payload = message.get("payload", {})
+            # Extract the processed file path from the queue_message (QueueMessageModel)
+            payload = queue_message.payload
             files = payload.get("files", [])
 
             if not files:
-                logger.warning(f"No files in message {queue_message.message_id}")
+                logger.warning(
+                    f"No files in message {queue_message.message_id}, payload: {payload}"
+                )
                 return {"status": "error", "error": "No files in message"}
 
             # Process the first file (we expect one file per message)
@@ -110,7 +112,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 return {"status": "error", "error": result.error_message}
 
         except Exception as e:
-            logger.error(f"Queue: Error processing message: {e}")
+            logger.error(f"Queue: Error processing message: {e}", exc_info=True)
             app_state["total_failed"] += 1
             return {"status": "error", "error": str(e)}
 
