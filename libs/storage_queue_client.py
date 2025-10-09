@@ -244,13 +244,14 @@ class StorageQueueClient:
                 f"Message sent to queue '{self.config.queue_name}': {message_id}"
             )
 
-            # SendMessageResult only has id, pop_receipt, insertion_time, expiration_time
-            # (time_next_visible is only on received messages, not sent ones)
+            # Azure SDK returns QueueMessage with attributes:
+            # id, pop_receipt, inserted_on, expires_on, next_visible_on
             return {
                 "message_id": response.id,
                 "pop_receipt": response.pop_receipt,
-                "insertion_time": response.insertion_time,
-                "expiration_time": response.expiration_time,
+                "inserted_on": response.inserted_on,
+                "expires_on": response.expires_on,
+                "next_visible_on": response.next_visible_on,
             }
 
         except Exception as e:
