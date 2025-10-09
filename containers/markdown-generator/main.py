@@ -71,10 +71,84 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.error(f"Failed to initialize Azure clients: {e}")
         raise
 
+    # Start background queue processing
+    from libs.queue_client import process_queue_messages
+    from libs.storage_queue_poller import StorageQueuePoller
+
+    # Message handler for queue polling
+    async def message_handler(queue_message, message) -> Dict[str, Any]:
+        """Process a single markdown generation request from the queue."""
+        try:
+            # Extract the processed file path from the message
+            payload = message.get("payload", {})
+            files = payload.get("files", [])
+
+            if not files:
+                logger.warning(f"No files in message {queue_message.message_id}")
+                return {"status": "error", "error": "No files in message"}
+
+            # Process the first file (we expect one file per message)
+            blob_name = files[0]
+            logger.info(f"Queue: Processing markdown generation for {blob_name}")
+
+            # Use the processor to generate markdown
+            result = await app.state.processor.process_file(blob_name)
+
+            if result.status == ProcessingStatus.COMPLETED:
+                logger.info(
+                    f"Queue: Successfully generated markdown: {result.markdown_blob_name}"
+                )
+                app_state["total_processed"] += 1
+                if result.processing_time_ms:
+                    app_state["processing_times"].append(result.processing_time_ms)
+                return {"status": "success", "result": result.model_dump()}
+            else:
+                logger.warning(
+                    f"Queue: Markdown generation failed: {result.error_message}"
+                )
+                app_state["total_failed"] += 1
+                return {"status": "error", "error": result.error_message}
+
+        except Exception as e:
+            logger.error(f"Queue: Error processing message: {e}")
+            app_state["total_failed"] += 1
+            return {"status": "error", "error": str(e)}
+
+    # Initialize background poller
+    background_poller = StorageQueuePoller(
+        queue_name=settings.queue_name,
+        message_handler=message_handler,
+        poll_interval=float(settings.queue_polling_interval_seconds),
+        max_messages_per_batch=settings.max_batch_size,
+        max_empty_polls=3,
+        empty_queue_sleep=30.0,
+        process_queue_messages_func=process_queue_messages,
+    )
+
+    async def startup_queue_processor():
+        """Process any existing queue messages on startup."""
+        logger.info(f"Starting queue polling for {settings.queue_name}")
+
+        # Process any existing messages first
+        await process_queue_messages(
+            queue_name=settings.queue_name,
+            message_handler=message_handler,
+            max_messages=10,
+        )
+
+        # Start continuous background polling
+        await background_poller.start()
+        logger.info("Background queue polling started")
+
+    # Start the background task
+    asyncio.create_task(startup_queue_processor())
+
     yield
 
     # Cleanup
     logger.info("Shutting down markdown-generator container")
+    await background_poller.stop()
+    logger.info("Background queue polling stopped")
 
 
 # Create FastAPI app
