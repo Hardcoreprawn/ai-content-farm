@@ -4,10 +4,8 @@
 FastAPI application for AI-powered content processing.
 Implements standardized health endpoints and API patterns.
 
-Version: 1.0.2 - Full deployment pipeline test
-Pipeline Fix Test: Testing Issue #421 container versioning
-Matrix Test: Full container matrix validation (Sep 15, 2025)
-Security Test: Triggering security pipeline validation (Sep 19, 2025)
+Version: 1.0.3 - Queue configuration environment variable fix
+Queue Fix: Use MARKDOWN_QUEUE_NAME env var (Oct 9, 2025)
 """
 
 import asyncio

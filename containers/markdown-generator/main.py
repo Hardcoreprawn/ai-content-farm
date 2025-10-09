@@ -2,6 +2,10 @@
 FastAPI application for markdown-generator container.
 
 This module provides HTTP endpoints for markdown generation and monitoring.
+
+Version: 1.0.4 - Force rebuild with processor queue fix
+Queue Configuration: Watching markdown-generation-requests (Oct 9, 2025)
+Architecture: Per-message KEDA scaling from processor
 """
 
 import asyncio

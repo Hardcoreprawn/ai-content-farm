@@ -4,9 +4,9 @@ Content Womble - Main FastAPI Application
 A humble content collection service for gathering and analyzing digital content.
 Updated with standardized tests and security improvements.
 
-Version: 1.1.2 - Full deployment pipeline test
-Pipeline Fix Test: Testing Issue #421 fix deployment
-Matrix Test: Full container matrix validation (Sep 15, 2025)
+Version: 1.1.4 - Force rebuild with processor queue fix
+Queue Configuration: Environment variable refactor (Oct 9, 2025)
+Type Safety: Comprehensive Pylance error fixes
 """
 
 import asyncio
