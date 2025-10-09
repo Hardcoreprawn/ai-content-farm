@@ -9,6 +9,7 @@ Functional processor implementing wake-up work queue pattern with:
 """
 
 import logging
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
@@ -44,16 +45,29 @@ class ContentProcessor:
         self.openai_client = OpenAIClient()
         self.processing_config = ProcessingConfigManager(self.blob_client)
 
+        # Get queue configuration from environment
+        markdown_queue_name = os.getenv(
+            "MARKDOWN_QUEUE_NAME", "markdown-generation-requests"
+        )
+        storage_account_name = os.getenv("AZURE_STORAGE_ACCOUNT_NAME", "")
+
         # Initialize services
         # NOTE: TopicDiscoveryService removed - topics now sent individually via queue
         self.topic_conversion = TopicConversionService()
         self.article_generation = ArticleGenerationService(self.openai_client)
         self.lease_coordinator = LeaseCoordinator(self.processor_id)
         self.storage = ProcessorStorageService(self.blob_client)
-        self.queue_coordinator = QueueCoordinator(self.session_id)
+        self.queue_coordinator = QueueCoordinator(
+            markdown_queue_name=markdown_queue_name,
+            storage_account_name=storage_account_name,
+            correlation_id=self.session_id,
+        )
         self.session_tracker = SessionTracker(self.processor_id)
 
-        logger.info(f"Content processor initialized: {self.processor_id}")
+        logger.info(
+            f"Content processor initialized: {self.processor_id} "
+            f"(markdown_queue={markdown_queue_name}, storage_account={storage_account_name})"
+        )
 
     async def initialize_config(self):
         """Initialize configuration from blob storage."""

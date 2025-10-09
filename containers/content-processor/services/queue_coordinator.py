@@ -30,13 +30,22 @@ class QueueCoordinator:
     - Implement backoff/retry logic (future)
     """
 
-    def __init__(self, correlation_id: Optional[str] = None):
+    def __init__(
+        self,
+        markdown_queue_name: str,
+        storage_account_name: str,
+        correlation_id: Optional[str] = None,
+    ):
         """
         Initialize queue coordinator.
 
         Args:
+            markdown_queue_name: Name of the queue for markdown generation requests
+            storage_account_name: Azure Storage account name for queue operations
             correlation_id: Optional correlation ID for tracking related operations
         """
+        self.markdown_queue_name = markdown_queue_name
+        self.storage_account_name = storage_account_name
         self.correlation_id = correlation_id or str(uuid4())
         self.messages_sent = 0
         self.messages_failed = 0
@@ -78,6 +87,8 @@ class QueueCoordinator:
             # Trigger markdown generation
             result = await trigger_markdown_generation(
                 processed_files=[blob_name],
+                queue_name=self.markdown_queue_name,
+                storage_account_name=self.storage_account_name,
                 correlation_id=self.correlation_id,
             )
 
@@ -142,6 +153,8 @@ class QueueCoordinator:
             try:
                 result = await trigger_markdown_generation(
                     processed_files=batch,
+                    queue_name=self.markdown_queue_name,
+                    storage_account_name=self.storage_account_name,
                     correlation_id=self.correlation_id,
                 )
 

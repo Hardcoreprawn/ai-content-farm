@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 async def trigger_next_stage(
     queue_name: str,
+    storage_account_name: str,
     service_name: str,
     operation: str = "wake_up",
     content_type: Optional[str] = None,
@@ -31,6 +32,7 @@ async def trigger_next_stage(
 
     Args:
         queue_name: Name of the target queue
+        storage_account_name: Azure Storage account name
         service_name: Name of the service sending the message
         operation: Operation type (default: "wake_up")
         content_type: Type of content that was produced (e.g., "json", "markdown")
@@ -77,11 +79,11 @@ async def trigger_next_stage(
 
         # Send message to queue
         logger.info(
-            f"Triggering next stage: queue={queue_name}, service={service_name}, "
-            f"operation={operation}, content_type={content_type}"
+            f"Triggering next stage: queue={queue_name}, storage_account={storage_account_name}, "
+            f"service={service_name}, operation={operation}, content_type={content_type}"
         )
 
-        async with get_queue_client(queue_name) as queue_client:
+        async with get_queue_client(queue_name, storage_account_name) as queue_client:
             result = await queue_client.send_message(message)
 
         logger.info(
@@ -136,7 +138,8 @@ async def should_trigger_next_stage(
 
 async def trigger_processing(
     collected_files: List[str],
-    queue_name: str = "content-processing-requests",
+    queue_name: str,
+    storage_account_name: str,
     correlation_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -145,6 +148,7 @@ async def trigger_processing(
     Args:
         collected_files: List of collected content files
         queue_name: Processing queue name
+        storage_account_name: Azure Storage account name
         correlation_id: Optional correlation ID
 
     Returns:
@@ -152,6 +156,7 @@ async def trigger_processing(
     """
     return await trigger_next_stage(
         queue_name=queue_name,
+        storage_account_name=storage_account_name,
         service_name="content-collector",
         operation="wake_up",
         content_type="json",
@@ -162,7 +167,8 @@ async def trigger_processing(
 
 async def trigger_markdown_generation(
     processed_files: List[str],
-    queue_name: str = "site-generation-requests",
+    queue_name: str,
+    storage_account_name: str,
     correlation_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -170,7 +176,8 @@ async def trigger_markdown_generation(
 
     Args:
         processed_files: List of processed article files (JSON format)
-        queue_name: Site generation queue name
+        queue_name: Markdown generation queue name
+        storage_account_name: Azure Storage account name
         correlation_id: Optional correlation ID
 
     Returns:
@@ -178,6 +185,7 @@ async def trigger_markdown_generation(
     """
     return await trigger_next_stage(
         queue_name=queue_name,
+        storage_account_name=storage_account_name,
         service_name="content-processor",
         operation="wake_up",
         content_type="json",  # Site-generator expects "json" for processed articles
@@ -188,7 +196,8 @@ async def trigger_markdown_generation(
 
 async def trigger_html_generation(
     markdown_files: List[str],
-    queue_name: str = "site-generation-requests",
+    queue_name: str,
+    storage_account_name: str,
     correlation_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -197,6 +206,7 @@ async def trigger_html_generation(
     Args:
         markdown_files: List of markdown files created
         queue_name: Site generation queue name
+        storage_account_name: Azure Storage account name
         correlation_id: Optional correlation ID
 
     Returns:
@@ -204,6 +214,7 @@ async def trigger_html_generation(
     """
     return await trigger_next_stage(
         queue_name=queue_name,
+        storage_account_name=storage_account_name,
         service_name="site-generator",
         operation="wake_up",
         content_type="markdown",
