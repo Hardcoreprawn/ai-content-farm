@@ -17,31 +17,19 @@ echo "Container Image: $CONTAINER_IMAGE"
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
 
-# Run Semgrep with consistent configuration
-echo "📊 Scanning with Semgrep..."
+# Run Semgrep once with both JSON and SARIF output formats in a single scan
+echo "📊 Scanning with Semgrep (JSON + SARIF)..."
 docker run --rm \
   -v "$WORKSPACE_PATH":/src \
   "$CONTAINER_IMAGE" \
   semgrep \
   --config=auto \
   --json \
-  --output=/src/"$OUTPUT_DIR"/semgrep-results.json \
+  --json-output=/src/"$OUTPUT_DIR"/semgrep-results.json \
+  --sarif-output=/src/"$OUTPUT_DIR"/semgrep.sarif \
   /src || {
     echo "⚠️  Semgrep scan completed with findings"
     exit_code=$?
-  }
-
-# Also generate SARIF format for GitHub integration
-echo "📊 Generating SARIF format..."
-docker run --rm \
-  -v "$WORKSPACE_PATH":/src \
-  "$CONTAINER_IMAGE" \
-  semgrep \
-  --config=auto \
-  --sarif \
-  --output=/src/"$OUTPUT_DIR"/semgrep.sarif \
-  /src || {
-    echo "⚠️  Semgrep SARIF scan completed with findings"
   }
 
 # Count findings
