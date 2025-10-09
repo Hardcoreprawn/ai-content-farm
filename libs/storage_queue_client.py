@@ -244,10 +244,11 @@ class StorageQueueClient:
                 f"Message sent to queue '{self.config.queue_name}': {message_id}"
             )
 
+            # SendMessageResult only has id, pop_receipt, insertion_time, expiration_time
+            # (time_next_visible is only on received messages, not sent ones)
             return {
                 "message_id": response.id,
                 "pop_receipt": response.pop_receipt,
-                "time_next_visible": response.time_next_visible,
                 "insertion_time": response.insertion_time,
                 "expiration_time": response.expiration_time,
             }
