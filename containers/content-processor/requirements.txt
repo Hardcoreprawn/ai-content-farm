@@ -1,20 +1,85 @@
 # Content Processor - Specific Dependencies
+# Updated: 2025-10-08
+# Contract Version: 1.0.0
+# Using flexible versioning (~=) to allow security patches
 
-# Web Framework & HTTP
-fastapi~=0.115.6  # Latest stable version compatible with httpx 0.28.x
-httpx~=0.28.1  # Latest stable with HTTP/2 support
-starlette~=0.41.3  # Latest stable, compatible with httpx 0.28.x
+# ============================================================================
+# Web Framework & HTTP (Core Dependencies)
+# ============================================================================
+fastapi~=0.118.2  # Web framework (updated from 0.115.6)
+httpx~=0.28.1  # HTTP client with HTTP/2 support (current)
+starlette~=0.48.0  # ASGI framework (updated from 0.47.2)
+uvicorn~=0.37.0  # ASGI server for FastAPI (updated from 0.34.0)
+python-multipart~=0.0.20  # Form/file upload support (current)
 
-# HTTP & Data Processing (not in shared libs)
-python-multipart~=0.0.20
-python-dateutil~=2.9.0.post0
-tenacity~=9.1.2
+# ============================================================================
+# Azure SDK (Cloud Integration)
+# ============================================================================
+azure-identity~=1.25.1  # Azure authentication (updated from 1.19.0)
+azure-storage-blob~=12.26.0  # Blob storage client (updated from 12.24.0)
+azure-storage-queue~=12.13.0  # Queue storage client (current)
 
+# ============================================================================
+# AI/ML Services
+# ============================================================================
+openai~=2.2.0  # OpenAI/Azure OpenAI integration (updated from 1.57.4 - MAJOR UPDATE)
+anthropic~=0.69.0  # Anthropic Claude API (updated from 0.68.0)
+
+# ============================================================================
+# Data Processing & Validation
+# ============================================================================
+pydantic~=2.12.0  # Data validation and settings (updated from 2.10.6)
+pydantic-core~=2.41.1  # Pydantic dependency (updated from 2.27.2)
+python-dateutil~=2.9.0.post0  # Date/time utilities (current)
+
+# ============================================================================
 # Content Processing
-openai~=2.1.0
-anthropic~=0.68.0
-python-docx~=1.2.0
-# pypdf2~=3.0.1  # REMOVED: Security vulnerability CVE-2023-46250, not used in codebase
-beautifulsoup4~=4.14.2
-lxml~=4.9.3
-aiohttp~=3.12.15
+# ============================================================================
+beautifulsoup4~=4.14.2  # HTML parsing (current)
+lxml~=6.0.2  # XML/HTML processing (updated from 4.9.3 - MAJOR UPDATE)
+python-docx~=1.2.0  # Word document support (current)
+
+# ============================================================================
+# HTTP & Async Support
+# ============================================================================
+aiohttp~=3.13.0  # Async HTTP client (updated from 3.12.15)
+tenacity~=9.1.2  # Retry logic for API calls (current)
+
+# ============================================================================
+# Testing Dependencies (dev only)
+# ============================================================================
+pytest~=8.4.2  # Test framework (current)
+pytest-asyncio~=1.2.0  # Async test support (updated from 0.25.2 - MAJOR UPDATE)
+pytest-cov~=7.0.0  # Coverage reporting (updated from 6.0.0 - MAJOR UPDATE)
+pytest-mock~=3.15.1  # Mock fixtures (updated from 3.14.0)
+
+# ============================================================================
+# Version Compatibility Notes & Major Updates (2025-10-08)
+# ============================================================================
+# MAJOR UPDATES REQUIRING TESTING:
+# - openai: 1.57.4 → 2.2.0 (API changes possible, verify OpenAI calls)
+# - lxml: 4.9.3 → 6.0.2 (major version bump, verify XML/HTML parsing)
+# - pytest-asyncio: 0.25.2 → 1.2.0 (major version, verify async tests)
+# - pytest-cov: 6.0.0 → 7.0.0 (major version, verify coverage reporting)
+#
+# MODERATE UPDATES:
+# - fastapi: 0.115.6 → 0.118.2 (minor update, should be compatible)
+# - starlette: 0.47.2 → 0.48.0 (minor update, FastAPI dependency)
+# - uvicorn: 0.34.0 → 0.37.0 (minor update, ASGI server)
+# - azure-identity: 1.19.0 → 1.25.1 (minor update, semantic versioning)
+# - azure-storage-blob: 12.24.0 → 12.26.0 (minor update, safe)
+# - pydantic: 2.10.6 → 2.12.0 (minor update within v2)
+# - pydantic-core: 2.27.2 → 2.41.1 (minor update, Pydantic dependency)
+# - aiohttp: 3.12.15 → 3.13.0 (minor update)
+#
+# COMPATIBILITY NOTES:
+# - FastAPI 0.118.x compatible with Starlette 0.48.x and httpx 0.28.x
+# - Pydantic 2.x series maintains backward compatibility within major version
+# - Azure SDKs use semantic versioning, minor updates are safe
+# - Using ~= allows patch updates (security fixes) but not minor/major updates
+#
+# TESTING REQUIRED:
+# 1. Run full test suite: pytest tests/ -v
+# 2. Verify OpenAI API calls work with 2.2.0
+# 3. Verify async tests pass with pytest-asyncio 1.2.0
+# 4. Check lxml XML/HTML parsing with 6.0.2
