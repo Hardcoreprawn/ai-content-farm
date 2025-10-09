@@ -7,7 +7,7 @@ markdown format with proper frontmatter and structure using Jinja2 templates.
 
 import json
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -67,7 +67,7 @@ class MarkdownProcessor:
         Returns:
             MarkdownGenerationResult: Processing result
         """
-        start_time = datetime.utcnow()
+        start_time = datetime.now(UTC)
 
         try:
             # Read JSON from input container
@@ -86,7 +86,7 @@ class MarkdownProcessor:
                 blob_name, markdown_content, overwrite
             )
 
-            processing_time = (datetime.utcnow() - start_time).total_seconds() * 1000
+            processing_time = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
             logger.info(
                 f"Successfully processed article: {blob_name} -> "
@@ -218,7 +218,7 @@ class MarkdownProcessor:
         markdown_content = template.render(
             metadata=metadata,
             article_data=article_data,
-            generated_date=f"{datetime.utcnow().isoformat()}Z",
+            generated_date=f"{datetime.now(UTC).isoformat()}Z",
         )
 
         return markdown_content
