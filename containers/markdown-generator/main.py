@@ -54,9 +54,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     try:
         credential = DefaultAzureCredential()
+        account_url = f"https://{settings.storage_account_name}.blob.core.windows.net"
+        logger.info(
+            f"Initializing blob client with URL: {account_url} "
+            f"(storage_account_name={settings.storage_account_name})"
+        )
         blob_service_client = BlobServiceClient(
-            account_url=f"https://{settings.storage_account_name}"
-            f".blob.core.windows.net",
+            account_url=account_url,
             credential=credential,
         )
 
