@@ -7,6 +7,7 @@ These tests focus on verifiable outcomes rather than implementation details.
 import json
 from typing import Any
 
+import pytest
 from azure.core.exceptions import ResourceNotFoundError
 from markdown_processor import MarkdownProcessor
 from models import ProcessingStatus
@@ -15,7 +16,8 @@ from models import ProcessingStatus
 class TestMarkdownGenerationOutcomes:
     """Test observable outcomes of markdown generation."""
 
-    def test_successful_processing_produces_markdown_blob(
+    @pytest.mark.asyncio
+    async def test_successful_processing_produces_markdown_blob(
         self, markdown_processor: MarkdownProcessor
     ) -> None:
         """
@@ -27,7 +29,7 @@ class TestMarkdownGenerationOutcomes:
         blob_name = "test-article.json"
 
         # Act
-        result = markdown_processor.process_article(blob_name)
+        result = await markdown_processor.process_article(blob_name)
 
         # Assert - Verify outcome
         assert result.status == ProcessingStatus.COMPLETED
@@ -35,7 +37,8 @@ class TestMarkdownGenerationOutcomes:
         assert result.processing_time_ms is not None
         assert result.error_message is None
 
-    def test_markdown_contains_frontmatter_with_metadata(
+    @pytest.mark.asyncio
+    async def test_markdown_contains_frontmatter_with_metadata(
         self,
         markdown_processor: MarkdownProcessor,
         mock_blob_service_client: Any,
@@ -49,7 +52,7 @@ class TestMarkdownGenerationOutcomes:
         blob_name = "test-article.json"
 
         # Act
-        markdown_processor.process_article(blob_name)
+        await markdown_processor.process_article(blob_name)
 
         # Assert - Check what was written
         container_client = mock_blob_service_client.get_container_client("test-output")
@@ -70,7 +73,8 @@ class TestMarkdownGenerationOutcomes:
         assert "tags:" in markdown_content
         assert "generated_date:" in markdown_content
 
-    def test_markdown_contains_structured_content(
+    @pytest.mark.asyncio
+    async def test_markdown_contains_structured_content(
         self,
         markdown_processor: MarkdownProcessor,
         mock_blob_service_client: Any,
@@ -84,7 +88,7 @@ class TestMarkdownGenerationOutcomes:
         blob_name = "test-article.json"
 
         # Act
-        markdown_processor.process_article(blob_name)
+        await markdown_processor.process_article(blob_name)
 
         # Assert - Check content structure
         container_client = mock_blob_service_client.get_container_client("test-output")
@@ -102,7 +106,8 @@ class TestMarkdownGenerationOutcomes:
         assert key_points_pos > content_pos
         assert "**Source:**" in markdown_content
 
-    def test_missing_blob_returns_failed_status(
+    @pytest.mark.asyncio
+    async def test_missing_blob_returns_failed_status(
         self,
         markdown_processor: MarkdownProcessor,
         mock_blob_service_client: Any,
@@ -120,7 +125,7 @@ class TestMarkdownGenerationOutcomes:
         blob_name = "nonexistent.json"
 
         # Act
-        result = markdown_processor.process_article(blob_name)
+        result = await markdown_processor.process_article(blob_name)
 
         # Assert - Verify failure outcome
         assert result.status == ProcessingStatus.FAILED
@@ -128,7 +133,8 @@ class TestMarkdownGenerationOutcomes:
         assert result.error_message is not None
         assert "not found" in result.error_message.lower()
 
-    def test_existing_markdown_prevents_overwrite_by_default(
+    @pytest.mark.asyncio
+    async def test_existing_markdown_prevents_overwrite_by_default(
         self,
         markdown_processor: MarkdownProcessor,
         mock_blob_service_client: Any,
@@ -146,14 +152,15 @@ class TestMarkdownGenerationOutcomes:
         blob_name = "existing-article.json"
 
         # Act
-        result = markdown_processor.process_article(blob_name, overwrite=False)
+        result = await markdown_processor.process_article(blob_name, overwrite=False)
 
         # Assert - Verify overwrite protection
         assert result.status == ProcessingStatus.FAILED
         assert result.error_message is not None
         assert "already exists" in result.error_message.lower()
 
-    def test_overwrite_flag_allows_replacing_existing_markdown(
+    @pytest.mark.asyncio
+    async def test_overwrite_flag_allows_replacing_existing_markdown(
         self,
         markdown_processor: MarkdownProcessor,
         mock_blob_service_client: Any,
@@ -171,7 +178,7 @@ class TestMarkdownGenerationOutcomes:
         blob_name = "existing-article.json"
 
         # Act
-        result = markdown_processor.process_article(blob_name, overwrite=True)
+        result = await markdown_processor.process_article(blob_name, overwrite=True)
 
         # Assert - Verify successful overwrite
         assert result.status == ProcessingStatus.COMPLETED
@@ -184,7 +191,8 @@ class TestMarkdownGenerationOutcomes:
         assert len(upload_calls) > 0
         assert upload_calls[0][1]["overwrite"] is True
 
-    def test_processing_time_is_reasonable(
+    @pytest.mark.asyncio
+    async def test_processing_time_is_reasonable(
         self, markdown_processor: MarkdownProcessor
     ) -> None:
         """
@@ -196,14 +204,15 @@ class TestMarkdownGenerationOutcomes:
         blob_name = "test-article.json"
 
         # Act
-        result = markdown_processor.process_article(blob_name)
+        result = await markdown_processor.process_article(blob_name)
 
         # Assert - Verify performance outcome
         assert result.status == ProcessingStatus.COMPLETED
         assert result.processing_time_ms is not None
         assert result.processing_time_ms < 5000  # Should be <5 seconds
 
-    def test_malformed_json_returns_failed_status(
+    @pytest.mark.asyncio
+    async def test_malformed_json_returns_failed_status(
         self,
         markdown_processor: MarkdownProcessor,
         mock_blob_service_client: Any,
@@ -223,13 +232,14 @@ class TestMarkdownGenerationOutcomes:
         blob_name = "malformed.json"
 
         # Act
-        result = markdown_processor.process_article(blob_name)
+        result = await markdown_processor.process_article(blob_name)
 
         # Assert - Verify error handling
         assert result.status == ProcessingStatus.FAILED
         assert result.error_message is not None
 
-    def test_minimal_article_data_still_produces_valid_markdown(
+    @pytest.mark.asyncio
+    async def test_minimal_article_data_still_produces_valid_markdown(
         self,
         markdown_processor: MarkdownProcessor,
         mock_blob_service_client: Any,
@@ -254,7 +264,7 @@ class TestMarkdownGenerationOutcomes:
         blob_name = "minimal.json"
 
         # Act
-        result = markdown_processor.process_article(blob_name)
+        result = await markdown_processor.process_article(blob_name)
 
         # Assert - Verify graceful handling
         assert result.status == ProcessingStatus.COMPLETED
