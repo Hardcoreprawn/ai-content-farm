@@ -5,30 +5,30 @@
 # ============================================================================
 # Web Framework & HTTP (Core Dependencies)
 # ============================================================================
-fastapi==0.115.6  # Pinned: Web framework, compatible with httpx 0.28.x
+fastapi==0.118.2  # Pinned: Web framework, compatible with httpx 0.28.x
 httpx==0.28.1  # Pinned: HTTP client with HTTP/2 support
-starlette==0.41.3  # Pinned: ASGI framework (FastAPI dependency)
-uvicorn==0.34.0  # Pinned: ASGI server for FastAPI
+starlette==0.48.0  # Pinned: ASGI framework (FastAPI dependency)
+uvicorn==0.37.0  # Pinned: ASGI server for FastAPI
 python-multipart==0.0.20  # Pinned: Form/file upload support
 
 # ============================================================================
 # Azure SDK (Cloud Integration)
 # ============================================================================
-azure-identity==1.19.0  # Pinned: Azure authentication
-azure-storage-blob==12.24.0  # Pinned: Blob storage client
+azure-identity==1.25.1  # Pinned: Azure authentication
+azure-storage-blob==12.26.0  # Pinned: Blob storage client
 azure-storage-queue==12.13.0  # Pinned: Queue storage client
 
 # ============================================================================
 # AI/ML Services
 # ============================================================================
 openai==1.57.4  # Pinned: Azure OpenAI integration
-anthropic==0.68.0  # Pinned: Anthropic Claude API (if used)
+anthropic==0.69.0  # Pinned: Anthropic Claude API (if used)
 
 # ============================================================================
 # Data Processing & Validation
 # ============================================================================
-pydantic==2.10.6  # Pinned: Data validation and settings
-pydantic-core==2.27.2  # Pinned: Pydantic dependency
+pydantic==2.12.0  # Pinned: Data validation and settings
+pydantic-core==2.41.1  # Pinned: Pydantic dependency
 python-dateutil==2.9.0.post0  # Pinned: Date/time utilities
 
 # ============================================================================
@@ -41,7 +41,7 @@ python-docx==1.2.0  # Pinned: Word document support (if needed)
 # ============================================================================
 # HTTP & Async Support
 # ============================================================================
-aiohttp==3.12.15  # Pinned: Async HTTP client
+aiohttp==3.13.0  # Pinned: Async HTTP client
 tenacity==9.1.2  # Pinned: Retry logic for API calls
 
 # ============================================================================
@@ -50,7 +50,7 @@ tenacity==9.1.2  # Pinned: Retry logic for API calls
 pytest==8.4.2  # Pinned: Test framework
 pytest-asyncio==0.25.2  # Pinned: Async test support
 pytest-cov==6.0.0  # Pinned: Coverage reporting
-pytest-mock==3.14.0  # Pinned: Mock fixtures
+pytest-mock==3.15.1  # Pinned: Mock fixtures
 httpx==0.28.1  # Already listed above (test client)
 
 # ============================================================================
