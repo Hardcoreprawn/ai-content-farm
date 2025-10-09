@@ -6,6 +6,7 @@ Uses unified queue interface and existing processor functionality.
 """
 
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
@@ -19,6 +20,9 @@ from libs.queue_client import (
     process_queue_messages,
     send_wake_up_message,
 )
+
+# Configuration from environment variables
+MARKDOWN_QUEUE_NAME = os.getenv("MARKDOWN_QUEUE_NAME", "markdown-generation-requests")
 
 logger = logging.getLogger(__name__)
 
@@ -357,9 +361,9 @@ async def send_wake_up_endpoint() -> Dict[str, Any]:
         Send result
     """
     try:
-        # Use our unified send_wake_up_message function to trigger site generation
+        # Use our unified send_wake_up_message function to trigger markdown generation
         result = await send_wake_up_message(
-            queue_name="site-generation-requests",
+            queue_name=MARKDOWN_QUEUE_NAME,
             service_name="content-processor",
             payload={
                 "trigger": "content_processed",
@@ -369,8 +373,8 @@ async def send_wake_up_endpoint() -> Dict[str, Any]:
 
         return {
             "status": "success",
-            "message": "Wake-up message sent to site generator",
-            "queue_name": "site-generation-requests",
+            "message": "Wake-up message sent to markdown generator",
+            "queue_name": MARKDOWN_QUEUE_NAME,
             "message_id": result["message_id"],
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }

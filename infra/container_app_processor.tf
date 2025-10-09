@@ -100,6 +100,12 @@ resource "azurerm_container_app" "content_processor" {
         value = azurerm_storage_queue.content_processing_requests.name
       }
 
+      # Output queue for triggering markdown generation
+      env {
+        name  = "MARKDOWN_QUEUE_NAME"
+        value = azurerm_storage_queue.markdown_generation_requests.name
+      }
+
       # Enable auto-shutdown for production efficiency (KEDA will restart on new messages)
       env {
         name  = "DISABLE_AUTO_SHUTDOWN"

@@ -199,7 +199,7 @@ resource "azurerm_storage_queue" "content_processing_requests" {
 }
 
 resource "azurerm_storage_queue" "markdown_generation_requests" {
-  name               = "site-generation-requests"
+  name               = "markdown-generation-requests"
   storage_account_id = azurerm_storage_account.main.id
 
   metadata = {

@@ -4,6 +4,7 @@ Processing Endpoints - Content Processing Operations
 RESTful endpoints for content processing operations.
 """
 
+import os
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from uuid import uuid4
@@ -14,6 +15,9 @@ from pydantic import BaseModel, Field
 
 from libs.queue_client import send_wake_up_message
 from libs.shared_models import ErrorCodes, StandardResponse, create_service_dependency
+
+# Configuration from environment variables
+MARKDOWN_QUEUE_NAME = os.getenv("MARKDOWN_QUEUE_NAME", "markdown-generation-requests")
 
 # Create router for processing
 router = APIRouter(prefix="/process", tags=["processing"])
@@ -253,11 +257,11 @@ async def _process_collection_async(job_id: str, request: WakeUpRequest):
             _processing_jobs[job_id]["articles_generated"] = articles_generated
             _processing_jobs[job_id]["topics_processed"] = articles_generated
 
-        # Trigger site-generator if we processed articles
+        # Trigger markdown-generator if we processed articles
         if articles_generated > 0:
             try:
                 await send_wake_up_message(
-                    queue_name="site-generation-requests",
+                    queue_name=MARKDOWN_QUEUE_NAME,
                     service_name="content-processor",
                     payload={
                         "trigger": "content_processed",

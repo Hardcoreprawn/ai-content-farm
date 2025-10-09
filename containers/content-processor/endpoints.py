@@ -25,8 +25,6 @@ from content_generation import (
 from fastapi import APIRouter, HTTPException
 from models import (
     ProcessBatchRequest,
-    ProcessingResult,
-    ProcessorStatus,
     WakeUpRequest,
     WakeUpResponse,
 )
@@ -36,13 +34,16 @@ from pydantic import BaseModel, Field
 from libs.queue_client import send_wake_up_message
 from libs.shared_models import ErrorCodes, StandardResponse
 
+# Configuration from environment variables
+MARKDOWN_QUEUE_NAME = os.getenv("MARKDOWN_QUEUE_NAME", "markdown-generation-requests")
+
 logger = logging.getLogger(__name__)
 
 # Create API router
 router = APIRouter()
 
 # Global processor instance (initialized once per container)
-_processor_instance: ContentProcessor = None
+_processor_instance: Optional[ContentProcessor] = None
 
 
 def get_processor() -> ContentProcessor:
@@ -95,6 +96,7 @@ async def root_endpoint(metadata: Dict[str, Any]) -> StandardResponse:
                 "health_monitoring",
             ],
         },
+        errors=None,
         metadata=metadata,
     )
 
@@ -127,6 +129,7 @@ async def health_endpoint(metadata: Dict[str, Any]) -> StandardResponse:
                 "blob_storage_available": health_status.blob_storage_available,
                 "last_health_check": health_status.last_health_check.isoformat(),
             },
+            errors=None,
             metadata=metadata,
         )
 
@@ -136,6 +139,7 @@ async def health_endpoint(metadata: Dict[str, Any]) -> StandardResponse:
         return StandardResponse(
             status="error",
             message="Health check failed",
+            data=None,
             errors=["Health validation error"],
             metadata=metadata,
         )
@@ -158,7 +162,7 @@ async def wake_up_endpoint(
             batch_size=request.batch_size,
             priority_threshold=request.priority_threshold,
             options=request.processing_options,
-            debug_bypass=request.debug_bypass,
+            debug_bypass=request.debug_bypass or False,
         )
 
         response_data = WakeUpResponse(
@@ -178,11 +182,11 @@ async def wake_up_endpoint(
             processing_time_seconds=result.processing_time,
         )
 
-        # If we successfully processed content, notify site-generator to generate site
+        # If we successfully processed content, notify markdown-generator
         if result.topics_processed > 0:
             try:
                 await send_wake_up_message(
-                    queue_name="site-generation-requests",
+                    queue_name=MARKDOWN_QUEUE_NAME,
                     service_name="content-processor",
                     payload={
                         "trigger": "content_processed",
@@ -204,6 +208,7 @@ async def wake_up_endpoint(
             status="success",
             message=message,
             data=response_data.model_dump(),
+            errors=None,
             metadata=metadata,
         )
 
@@ -212,6 +217,7 @@ async def wake_up_endpoint(
         return StandardResponse(
             status="error",
             message=error.message,
+            data=None,
             errors=[error.message],
             metadata=metadata,
         )
@@ -229,15 +235,15 @@ async def process_batch_endpoint(
         processor = get_processor()
         result = await processor.process_specific_topics(
             topic_ids=request.topic_ids,
-            force_reprocess=request.force_reprocess,
+            force_reprocess=request.force_reprocess or False,
             options=request.processing_options,
         )
 
-        # If we successfully processed content, notify site-generator to generate site
+        # If we successfully processed content, notify markdown-generator
         if result.topics_processed > 0:
             try:
                 await send_wake_up_message(
-                    queue_name="site-generation-requests",
+                    queue_name=MARKDOWN_QUEUE_NAME,
                     service_name="content-processor",
                     payload={
                         "trigger": "batch_processed",
@@ -247,7 +253,7 @@ async def process_batch_endpoint(
                     },
                 )
                 logger.info(
-                    f"Sent wake-up message to site-generator for batch processing of {result.topics_processed} topics"
+                    f"Sent wake-up message to markdown-generator for batch processing of {result.topics_processed} topics"
                 )
             except Exception as e:
                 logger.warning(f"Failed to send wake-up message to site-generator: {e}")
@@ -264,6 +270,7 @@ async def process_batch_endpoint(
                 "completed_topics": result.completed_topics,
                 "failed_topics": result.failed_topics,
             },
+            errors=None,
             metadata=metadata,
         )
 
@@ -272,6 +279,7 @@ async def process_batch_endpoint(
         return StandardResponse(
             status="error",
             message=error.message,
+            data=None,
             errors=[error.message],
             metadata=metadata,
         )
@@ -300,6 +308,7 @@ async def status_endpoint(metadata: Dict[str, Any]) -> StandardResponse:
                     "blob_storage_available": status.blob_storage_available,
                 },
             },
+            errors=None,
             metadata=metadata,
         )
 
@@ -308,6 +317,7 @@ async def status_endpoint(metadata: Dict[str, Any]) -> StandardResponse:
         return StandardResponse(
             status="error",
             message=error.message,
+            data=None,
             errors=[error.message],
             metadata=metadata,
         )
@@ -347,6 +357,7 @@ async def docs_endpoint(metadata: Dict[str, Any]) -> StandardResponse:
             "cost_target": "$3-8/month",
             "architecture": "Functional processing with Azure OpenAI integration",
         },
+        errors=None,
         metadata=metadata,
     )
 
@@ -402,6 +413,7 @@ async def process(request: ProcessRequest):
                 "processing_type": request.processing_type,
                 "options_used": request.options,
             },
+            errors=None,
             metadata=metadata,
         )
     except Exception as e:
@@ -409,6 +421,7 @@ async def process(request: ProcessRequest):
         return StandardResponse(
             status="error",
             message=error.message,
+            data=None,
             errors=[error.message],
             metadata=metadata,
         )
@@ -430,6 +443,7 @@ async def process_types():
             ],
             "description": "Supported content processing types",
         },
+        errors=None,
         metadata=metadata,
     )
 
@@ -447,6 +461,7 @@ async def process_status():
             "last_processed": None,
             "processing_enabled": True,
         },
+        errors=None,
         metadata=metadata,
     )
 
@@ -583,5 +598,6 @@ async def generation_docs():
                 "sources": [{"title": "Source 1", "summary": "Summary text"}],
             },
         },
+        errors=None,
         metadata=metadata,
     )
