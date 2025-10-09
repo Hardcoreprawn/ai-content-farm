@@ -36,11 +36,13 @@ custom_scale_rule {
   metadata = {
     timezone        = "UTC"
     start           = "0 0,8,16 * * *"  # ✅ Scale to 1 replica at scheduled times
+    end             = "30 0,8,16 * * *" # ✅ Max 30-min window (Azure requires this param)
     desiredReplicas = "1"
-    # ✅ No 'end' parameter - let container finish naturally
   }
 }
 ```
+
+**Note**: Azure Container Apps requires the `end` parameter for KEDA cron scalers. However, with `DISABLE_AUTO_SHUTDOWN=false`, the container will shut down as soon as it completes (typically 2-5 minutes), well before the 30-minute window ends.
 
 ## 🔄 New Behavior
 
@@ -69,8 +71,9 @@ custom_scale_rule {
 
 ### Timing
 - **Previously**: Forced 10-minute window (could interrupt work)
-- **Now**: Variable duration based on actual work (typically 2-5 minutes for normal collections)
+- **Now**: 30-minute maximum window (container auto-exits when done, typically 2-5 minutes)
 - **Idle time**: Still scales to 0 between scheduled runs (cost efficient)
+- **Auto-shutdown**: Container exits via `DISABLE_AUTO_SHUTDOWN=false` when collection completes
 
 ## 📊 Comparison with Other Containers
 

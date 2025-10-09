@@ -224,8 +224,8 @@ curl -X GET "https://ai-content-prod-collector.whitecliff-6844954b.uksouth.azure
 - ✅ **container_apps.tf** - KEDA cron scaler and workload identity configuration
 - ✅ **container_apps_keda_auth.tf** - KEDA managed identity authentication setup
 - ✅ **Cron Expression**: `0 0,8,16 * * *` (every 8 hours at 00:00, 08:00, 16:00 UTC)
-- ✅ **Execution Model**: Container runs until collection completes, then auto-shuts down
-- ✅ **Zero-Replica Scaling**: Container scales to 0 after work completion (no forced time limit)
+- ✅ **Execution Model**: 30-minute max window (container auto-shuts down when done, typically 2-5 min)
+- ✅ **Zero-Replica Scaling**: Container scales to 0 after auto-shutdown (cost efficient)
 
 ### Active Issues
 - 🔄 **Issue #580** - Template-based collection security (prevent arbitrary URL collection)

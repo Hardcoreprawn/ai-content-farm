@@ -107,15 +107,15 @@ resource "azurerm_container_app" "content_collector" {
 
     # KEDA cron scaler for regular content collection
     # Triggers collection 3 times per day to reduce API load while maintaining fresh content
-    # Container auto-shuts down when collection completes (no forced end time)
+    # Note: 'end' is required by Azure Container Apps but container will auto-shutdown earlier via DISABLE_AUTO_SHUTDOWN=false
     custom_scale_rule {
       name             = "cron-scaler"
       custom_rule_type = "cron"
       metadata = {
         timezone        = "UTC"
-        start           = "0 0,8,16 * * *" # Every 8 hours: 00:00, 08:00, 16:00 UTC
+        start           = "0 0,8,16 * * *"  # Every 8 hours: 00:00, 08:00, 16:00 UTC
+        end             = "30 0,8,16 * * *" # Maximum 30 minutes window (container auto-shuts down when done, typically 2-5 min)
         desiredReplicas = "1"
-        # No 'end' parameter - container runs until work completes, then auto-shuts down
       }
     }
   }
