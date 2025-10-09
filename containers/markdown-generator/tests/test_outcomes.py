@@ -98,12 +98,14 @@ class TestMarkdownGenerationOutcomes:
 
         # Verify sections exist and are in order
         summary_pos = markdown_content.find("## Summary")
-        content_pos = markdown_content.find("## Content")
         key_points_pos = markdown_content.find("## Key Points")
+        article_content_pos = markdown_content.find("This is the main content")
 
         assert summary_pos > 0
-        assert content_pos > summary_pos
-        assert key_points_pos > content_pos
+        assert (
+            article_content_pos > summary_pos
+        )  # Article content appears after summary
+        assert key_points_pos > article_content_pos  # Key points after article content
         assert "**Source:**" in markdown_content
 
     @pytest.mark.asyncio

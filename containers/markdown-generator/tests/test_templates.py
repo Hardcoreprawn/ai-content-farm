@@ -4,11 +4,8 @@ Tests for Jinja2 template functionality.
 Tests template selection, rendering, and error handling.
 """
 
-from typing import cast
-
 import pytest
 from models import ArticleMetadata
-from pydantic import HttpUrl
 
 
 class TestTemplateRendering:
@@ -44,7 +41,7 @@ class TestTemplateRendering:
         # Arrange
         metadata = ArticleMetadata(
             title="Test Article",
-            url=cast(HttpUrl, "https://example.com/test"),
+            url="https://example.com/test",
             source="test-source",
             author="Test Author",
             published_date=None,
@@ -62,7 +59,7 @@ class TestTemplateRendering:
         assert "title:" in markdown
         assert "Test Article" in markdown
         assert "## Summary" in markdown
-        assert "## Content" in markdown
+        assert "This is the main content" in markdown  # article_content rendered
         assert "## Key Points" in markdown
         assert "**Source:**" in markdown
 
@@ -77,7 +74,7 @@ class TestTemplateRendering:
         # Arrange
         metadata = ArticleMetadata(
             title="Minimal Article",
-            url=cast(HttpUrl, "https://example.com/minimal"),
+            url="https://example.com/minimal",
             source="test-source",
             author=None,
             published_date=None,
@@ -108,7 +105,7 @@ class TestTemplateRendering:
         # Arrange
         metadata = ArticleMetadata(
             title="Article with TOC",
-            url=cast(HttpUrl, "https://example.com/toc"),
+            url="https://example.com/toc",
             source="test-source",
             author=None,
             published_date=None,
@@ -123,8 +120,8 @@ class TestTemplateRendering:
         # Assert
         assert "## Table of Contents" in markdown
         assert "[Summary](#summary)" in markdown
-        assert "[Content](#content)" in markdown
         assert "[Key Points](#key-points)" in markdown
+        # Note: Content heading removed - article_content includes its own structure
 
     def test_invalid_template_raises_value_error(
         self, markdown_processor, sample_article_data
@@ -137,7 +134,7 @@ class TestTemplateRendering:
         # Arrange
         metadata = ArticleMetadata(
             title="Test",
-            url=cast(HttpUrl, "https://example.com"),
+            url="https://example.com",
             source="test",
             author=None,
             published_date=None,
@@ -159,7 +156,7 @@ class TestTemplateRendering:
         # Arrange
         metadata = ArticleMetadata(
             title="Minimal Data",
-            url=cast(HttpUrl, "https://example.com"),
+            url="https://example.com",
             source="test",
             author=None,
             published_date=None,

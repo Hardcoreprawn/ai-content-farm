@@ -39,7 +39,7 @@ def sample_article_data() -> Dict[str, Any]:
         "category": "technology",
         "tags": ["test", "article"],
         "summary": "This is a test summary.",
-        "content": "This is the main content of the test article.",
+        "article_content": "This is the main content of the test article.",
         "key_points": [
             "First key point",
             "Second key point",
