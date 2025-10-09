@@ -10,6 +10,10 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends gcc && \
     rm -rf /var/lib/apt/lists/*
 
+# Copy shared libraries first and install
+COPY libs/ ./libs/
+RUN pip install --no-cache-dir --user -e ./libs/
+
 # Copy requirements and install (from repository root context)
 COPY containers/markdown-generator/requirements.txt .
 RUN pip install --no-cache-dir --user -r requirements.txt
@@ -25,11 +29,15 @@ RUN useradd --create-home --shell /bin/bash app
 # Copy installed packages from builder
 COPY --from=builder /root/.local /home/app/.local
 
+# Copy shared libraries (from repository root context)
+COPY --chown=app:app libs/ ./libs/
+
 # Copy application code (from repository root context)
 COPY --chown=app:app containers/markdown-generator/ .
 
-# Set PATH for user packages
+# Set PATH for user packages and PYTHONPATH for libs
 ENV PATH=/home/app/.local/bin:$PATH
+ENV PYTHONPATH=/app
 
 # Switch to non-root user
 USER app
