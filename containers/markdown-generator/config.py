@@ -32,8 +32,9 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", description="Logging level")
 
     # Azure Storage settings
-    storage_account_name: str = Field(
-        default="", description="Azure Storage account name"
+    azure_storage_account_name: str = Field(
+        default="",
+        description="Azure Storage account name",
     )
     storage_connection_string: Optional[str] = Field(
         None, description="Storage connection string (optional)"
@@ -94,15 +95,15 @@ class Settings(BaseSettings):
             return self.storage_connection_string
 
         # Construct from account name (uses managed identity)
-        if self.storage_account_name:
+        if self.azure_storage_account_name:
             return (
                 f"DefaultEndpointsProtocol=https;"
-                f"AccountName={self.storage_account_name};"
+                f"AccountName={self.azure_storage_account_name};"
                 f"EndpointSuffix=core.windows.net"
             )
 
         raise ValueError(
-            "Either storage_connection_string or storage_account_name "
+            "Either storage_connection_string or azure_storage_account_name "
             "must be provided"
         )
 

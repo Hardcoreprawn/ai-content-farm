@@ -17,7 +17,7 @@ from config import Settings
 def mock_settings() -> Settings:
     """Create mock settings for testing."""
     return Settings(
-        storage_account_name="teststorage",
+        azure_storage_account_name="teststorage",
         storage_connection_string="DefaultEndpointsProtocol=https;"
         "AccountName=teststorage;EndpointSuffix=core.windows.net",
         input_container="test-input",

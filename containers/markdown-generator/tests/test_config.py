@@ -21,10 +21,10 @@ class TestSettings:
         THEN default values are applied correctly
         """
         # Arrange & Act
-        settings = Settings(storage_account_name="test-account")
+        settings = Settings(azure_storage_account_name="test-account")
 
         # Assert
-        assert settings.storage_account_name == "test-account"
+        assert settings.azure_storage_account_name == "test-account"
         assert settings.app_name == "markdown-generator"
         assert settings.version == "1.0.0"
         # Environment can be "production" (default) or "testing" (from CI/CD)
@@ -44,7 +44,7 @@ class TestSettings:
         """
         # Arrange & Act
         settings = Settings(
-            storage_account_name="custom-account",
+            azure_storage_account_name="custom-account",
             app_name="custom-app",
             environment="development",
             log_level="DEBUG",
@@ -52,7 +52,7 @@ class TestSettings:
         )
 
         # Assert
-        assert settings.storage_account_name == "custom-account"
+        assert settings.azure_storage_account_name == "custom-account"
         assert settings.app_name == "custom-app"
         assert settings.environment == "development"
         assert settings.log_level == "DEBUG"
@@ -73,7 +73,7 @@ class TestSettings:
             "EndpointSuffix=core.windows.net"
         )
         settings = Settings(
-            storage_account_name="account",
+            azure_storage_account_name="account",
             storage_connection_string=explicit_conn_str,
         )
 
@@ -92,7 +92,7 @@ class TestSettings:
         THEN connection string is constructed with managed identity pattern
         """
         # Arrange
-        settings = Settings(storage_account_name="testaccount")
+        settings = Settings(azure_storage_account_name="testaccount")
 
         # Act
         result = settings.get_storage_connection_string()
@@ -113,7 +113,7 @@ class TestSettings:
         """
         # Arrange
         settings = Settings(
-            storage_account_name="",  # Empty string (no account name)
+            azure_storage_account_name="",  # Empty string (no account name)
             storage_connection_string=None,
         )
 
@@ -121,7 +121,7 @@ class TestSettings:
         with pytest.raises(ValueError) as exc_info:
             settings.get_storage_connection_string()
 
-        assert "storage_connection_string or storage_account_name" in str(
+        assert "storage_connection_string or azure_storage_account_name" in str(
             exc_info.value
         )
 
@@ -140,7 +140,7 @@ class TestGetSettings:
 
         # Assert
         assert isinstance(settings, Settings)
-        assert hasattr(settings, "storage_account_name")
+        assert hasattr(settings, "azure_storage_account_name")
 
     def test_get_settings_is_cached(self) -> None:
         """
@@ -168,7 +168,7 @@ class TestConfigureLogging:
         THEN Azure and urllib3 loggers are suppressed to WARNING
         """
         # Arrange
-        settings = Settings(storage_account_name="test", log_level="DEBUG")
+        settings = Settings(azure_storage_account_name="test", log_level="DEBUG")
 
         # Act
         configure_logging(settings)
@@ -201,7 +201,7 @@ class TestConfigureLogging:
         THEN they are set to WARNING level (to reduce noise)
         """
         # Arrange
-        settings = Settings(storage_account_name="test", log_level="DEBUG")
+        settings = Settings(azure_storage_account_name="test", log_level="DEBUG")
 
         # Act
         configure_logging(settings)
