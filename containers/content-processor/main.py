@@ -359,12 +359,15 @@ app.include_router(storage_queue_router)
 
 
 if __name__ == "__main__":
+    import os
+
     import uvicorn
 
+    port = int(os.getenv("PORT", str(settings.port)))
     uvicorn.run(
         "main:app",
         host=settings.host,
-        port=settings.port,
+        port=port,
         log_level=settings.log_level.lower(),
         reload=settings.environment == "development",
     )

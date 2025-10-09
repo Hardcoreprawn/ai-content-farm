@@ -54,6 +54,10 @@ resource "azurerm_container_app" "content_collector" {
       memory = "1Gi"
 
       env {
+        name  = "PORT"
+        value = "8000"
+      }
+      env {
         name  = "AZURE_CLIENT_ID"
         value = azurerm_user_assigned_identity.containers.client_id
       }

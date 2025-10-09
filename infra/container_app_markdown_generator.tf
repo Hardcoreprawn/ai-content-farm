@@ -46,6 +46,10 @@ resource "azurerm_container_app" "markdown_generator" {
       memory = "0.5Gi"
 
       env {
+        name  = "PORT"
+        value = "8000"
+      }
+      env {
         name  = "AZURE_CLIENT_ID"
         value = azurerm_user_assigned_identity.containers.client_id
       }
