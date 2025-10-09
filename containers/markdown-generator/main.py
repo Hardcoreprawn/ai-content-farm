@@ -28,7 +28,7 @@ from models import (
     ProcessingStatus,
 )
 
-from config import configure_logging, get_settings
+from config import configure_logging, get_settings  # type: ignore[import]
 
 # Initialize logging
 configure_logging()
@@ -93,7 +93,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             blob_name = files[0]
             logger.info(f"Queue: Processing markdown generation for {blob_name}")
 
-            # Use the processor to generate markdown
+            # Use the processor to generate markdown (async)
             result = await app.state.processor.process_article(blob_name)
 
             if result.status == ProcessingStatus.COMPLETED:
@@ -239,8 +239,8 @@ async def generate_markdown(
     try:
         processor: MarkdownProcessor = app.state.processor
 
-        result = await asyncio.to_thread(
-            processor.process_article,
+        # Call async processor directly
+        result = await processor.process_article(
             request.blob_name,
             request.overwrite,
             request.template_name,
@@ -348,10 +348,9 @@ async def generate_markdown_batch(
     try:
         processor: MarkdownProcessor = app.state.processor
 
-        # Process articles concurrently
+        # Process articles concurrently (async function - no need for to_thread)
         tasks = [
-            asyncio.to_thread(
-                processor.process_article,
+            processor.process_article(
                 blob_name,
                 request.overwrite,
                 request.template_name,

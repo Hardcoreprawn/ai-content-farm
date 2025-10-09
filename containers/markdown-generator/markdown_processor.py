@@ -13,12 +13,12 @@ from typing import Any, Dict, Optional
 
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import BlobServiceClient
-
-__all__ = ["MarkdownProcessor"]
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
 from models import ArticleMetadata, MarkdownGenerationResult, ProcessingStatus
 
-from config import Settings
+from config import Settings  # type: ignore[import]
+
+__all__ = ["MarkdownProcessor"]
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +50,7 @@ class MarkdownProcessor:
         )
         logger.info(f"Initialized Jinja2 templates from: {template_dir}")
 
-    def process_article(
+    async def process_article(
         self,
         blob_name: str,
         overwrite: bool = False,
