@@ -158,6 +158,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     await background_poller.stop()
     logger.info("Background queue polling stopped")
 
+    # Close Azure clients
+    if hasattr(app.state, "blob_service_client") and app.state.blob_service_client:
+        await app.state.blob_service_client.close()
+        logger.info("Blob service client closed")
+
+    if hasattr(credential, "close"):
+        await credential.close()
+        logger.info("Credential closed")
+
 
 # Create FastAPI app
 app = FastAPI(

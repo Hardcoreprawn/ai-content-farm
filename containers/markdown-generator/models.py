@@ -9,7 +9,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field, HttpUrl, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 __all__ = [
     "ProcessingStatus",
@@ -36,7 +36,9 @@ class ArticleMetadata(BaseModel):
     """Metadata extracted from processed article JSON."""
 
     title: str = Field(..., description="Article title")
-    url: HttpUrl = Field(..., description="Original article URL")
+    url: str = Field(
+        ..., description="Original article URL"
+    )  # Changed from HttpUrl to str for lenient validation
     source: str = Field(..., description="Content source (reddit, rss, etc)")
     author: Optional[str] = Field(None, description="Article author")
     published_date: Optional[datetime] = Field(None, description="Publication date")
