@@ -357,23 +357,33 @@ async def check_and_signal_completion(queue_client, logger):
 **Completed**: October 10, 2025  
 **Status**: ✅ Ready for Phase 8 (Deployment)
 
-## Phase 8: Deployment & Validation (Week 3)
+## Phase 8: Deployment & Validation (Week 3) 🚀 IN PROGRESS
 
-### Pre-Deployment
-- [ ] Run full test suite locally
-- [ ] Run security scans
-- [ ] Build container image
-- [ ] Test container locally
-- [ ] Review Terraform plan
+### Pre-Deployment ✅
+- [x] Run full test suite locally (58/58 passing, 86% coverage)
+- [x] Run security scans (Phase 7 complete - all passed)
+- [x] Review Terraform plan (Phase 5 - 4 resources to add)
+- [x] Fixed Copilot PR review comments (3 items)
+- [x] Fixed Pydantic deprecation warning (migrated to v2 API)
+- [x] Fixed test warnings (reduced from 3 to 1 benign)
+- [ ] Build container image - Will be done by CI/CD
+- [ ] Test container locally - Optional, will test in Azure
 
-### CI/CD Pipeline
-- [ ] Push to feature branch
-- [ ] Create PR to main
-- [ ] Wait for CI/CD checks
-  - [ ] Tests pass
-  - [ ] Security scans pass
-  - [ ] Terraform plan looks correct
-- [ ] Get PR approval
+### CI/CD Pipeline 🔄
+- [x] Push to feature branch (feature/site-publisher-infrastructure)
+- [x] Create PR to main (#605 - open)
+- [x] Wait for CI/CD checks
+  - [x] Tests pass (14/14 checks green)
+  - [x] Security scans pass
+  - [x] Terraform plan looks correct
+- [ ] Address review comments - **IN PROGRESS**
+  - [x] Fixed URL placeholder (example.com)
+  - [x] Updated Hugo version (0.151.0)
+  - [x] Added hugo_config_path property
+  - [x] Fixed Pydantic deprecation
+  - [ ] Commit and push fixes
+  - [ ] Resolve GitHub review conversations
+- [ ] Get final PR approval
 - [ ] Merge to main
 - [ ] Watch deployment
 

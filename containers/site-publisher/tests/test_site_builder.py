@@ -61,6 +61,7 @@ async def test_build_and_deploy_site_success(
     mock_config.markdown_container = "markdown-content"
     mock_config.hugo_base_url = "https://test.example.com"
     mock_config.hugo_config_path = "/tmp/config.toml"
+    mock_config.build_timeout_seconds = 300
 
     # Execute
     result = await build_and_deploy_site(
@@ -163,6 +164,7 @@ async def test_build_and_deploy_site_build_failure(
     mock_config.markdown_container = "markdown-content"
     mock_config.hugo_base_url = "https://test.example.com"
     mock_config.hugo_config_path = "/tmp/config.toml"
+    mock_config.build_timeout_seconds = 300
 
     # Execute
     result = await build_and_deploy_site(
@@ -236,6 +238,7 @@ async def test_build_and_deploy_site_automatic_rollback(
     mock_config.markdown_container = "markdown-content"
     mock_config.hugo_base_url = "https://test.example.com"
     mock_config.hugo_config_path = "/tmp/config.toml"
+    mock_config.build_timeout_seconds = 300
 
     # Execute
     result = await build_and_deploy_site(
@@ -306,6 +309,7 @@ async def test_build_and_deploy_site_backup_failure_continues(
     mock_config.markdown_container = "markdown-content"
     mock_config.hugo_base_url = "https://test.example.com"
     mock_config.hugo_config_path = "/tmp/config.toml"
+    mock_config.build_timeout_seconds = 300
 
     # Execute
     result = await build_and_deploy_site(

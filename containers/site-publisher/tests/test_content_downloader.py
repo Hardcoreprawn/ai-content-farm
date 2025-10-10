@@ -91,14 +91,15 @@ async def test_download_markdown_files_exceeds_file_limit(mock_blob_client, temp
         mock_blob.size = 100
         mock_blobs.append(mock_blob)
 
-    mock_container = AsyncMock()
+    mock_container = Mock()
 
     async def blob_iterator():
         for blob in mock_blobs:
             yield blob
 
+    # list_blobs() is called and returns an async iterator
     mock_container.list_blobs = Mock(return_value=blob_iterator())
-    mock_blob_client.get_container_client = Mock(return_value=mock_container)
+    mock_blob_client.get_container_client.return_value = mock_container
 
     # Execute with low max_files
     result = await download_markdown_files(

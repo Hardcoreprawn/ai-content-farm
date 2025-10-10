@@ -7,7 +7,7 @@ Uses Pydantic Settings for environment-based configuration.
 from functools import lru_cache
 from typing import TYPE_CHECKING
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 if TYPE_CHECKING:
     # For type checkers only - not executed at runtime
@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     queue_polling_interval_seconds: int = 30
 
     # Hugo Configuration
-    hugo_version: str = "0.138.0"
+    hugo_version: str = "0.151.0"
     hugo_theme: str = "PaperMod"
     hugo_base_url: str = ""  # Set to static website URL
 
@@ -40,12 +40,20 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
 
-    class Config:
-        """Pydantic configuration."""
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+    )
 
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    @property
+    def hugo_config_path(self) -> str:
+        """
+        Get the Hugo configuration file path.
+
+        Returns path based on container environment for better configurability.
+        """
+        return "/app/hugo-config/config.toml"
 
 
 @lru_cache()
