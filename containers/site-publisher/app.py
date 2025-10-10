@@ -1,7 +1,16 @@
 """
 FastAPI REST API for site-publisher container.
 
-Provides monitoring, control, and manual triggering endpoints.
+Provides monitoring, control, and manual                 # Call the publish endpoint logic
+                from site_builder import build_and_deploy_site
+
+                result = await build_and_deploy_site(
+                    blob_client=blob_service_client,
+                    markdown_container="markdown-articles",
+                    output_container="web-output",
+                    backup_container=settings.backup_container_name,
+                    source_blob_path=blob_path,
+                ) endpoints.
 Pure functional core with thin API layer.
 """
 
@@ -71,9 +80,93 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             f"Initialized with storage account: {settings.azure_storage_account_name}"
         )
 
+        # Initialize background queue polling for debugging
+        import asyncio
+
+        from libs.queue_client import process_queue_messages
+        from libs.storage_queue_poller import StorageQueuePoller
+
+        # Message handler for queue polling
+        async def message_handler(queue_message, message) -> dict[str, Any]:
+            """Process a single site publishing request from the queue."""
+            try:
+                logger.info(
+                    f"Background: Processing queue message {queue_message.message_id}"
+                )
+
+                # Call the build and deploy function
+                from site_builder import build_and_deploy_site
+
+                result = await build_and_deploy_site(
+                    blob_client=blob_service_client,
+                    config=settings,
+                )
+
+                if len(result.errors) == 0:
+                    app_metrics["successful_builds"] += 1
+                    app_metrics["last_build_time"] = datetime.now(
+                        timezone.utc
+                    ).isoformat()
+                    app_metrics["last_build_duration"] = result.duration_seconds
+                    logger.info(
+                        f"Background: Successfully built site ({result.files_uploaded} files)"
+                    )
+                    return {
+                        "status": "success",
+                        "files_uploaded": result.files_uploaded,
+                        "duration": result.duration_seconds,
+                    }
+                else:
+                    app_metrics["failed_builds"] += 1
+                    logger.warning(f"Background: Build had errors: {result.errors}")
+                    return {
+                        "status": "error",
+                        "errors": result.errors,
+                        "files_uploaded": result.files_uploaded,
+                    }
+
+            except Exception as e:
+                logger.error(
+                    f"Background: Error processing message: {e}", exc_info=True
+                )
+                app_metrics["failed_builds"] += 1
+                return {"status": "error", "error": str(e)}
+
+        # Initialize background poller
+        background_poller = StorageQueuePoller(
+            queue_name=settings.queue_name,
+            message_handler=message_handler,
+            poll_interval=float(settings.queue_polling_interval_seconds),
+            max_messages_per_batch=1,  # One build at a time
+            max_empty_polls=3,
+            empty_queue_sleep=60.0,
+            process_queue_messages_func=process_queue_messages,
+        )
+
+        async def startup_queue_processor():
+            """Process any existing queue messages on startup."""
+            logger.info(f"Starting queue polling for {settings.queue_name}")
+
+            # Process any existing messages first
+            await process_queue_messages(
+                queue_name=settings.queue_name,
+                message_handler=message_handler,
+                max_messages=1,
+            )
+
+            # Start continuous background polling
+            await background_poller.start()
+            logger.info("Background queue polling started")
+
+        # Start the background task
+        asyncio.create_task(startup_queue_processor())
+
         yield
 
         # Cleanup
+        logger.info("Shutting down site-publisher container")
+        await background_poller.stop()
+        logger.info("Background queue polling stopped")
         await blob_service_client.close()
         await credential.close()
         logger.info("Site-publisher shutdown complete")
