@@ -4,15 +4,11 @@ Unit tests for site_builder.py
 Tests end-to-end site building and deployment orchestration.
 """
 
-import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from site_builder import build_and_deploy_site
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 @pytest.mark.asyncio

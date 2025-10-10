@@ -5,7 +5,6 @@ Tests Hugo build, deployment, backup, and rollback operations.
 """
 
 import asyncio
-import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -17,9 +16,6 @@ from hugo_builder import (
     get_content_type,
     rollback_deployment,
 )
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 def test_get_content_type_html():

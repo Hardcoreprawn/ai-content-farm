@@ -4,15 +4,11 @@ Unit tests for content_downloader.py
 Tests download and organization of markdown content.
 """
 
-import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from content_downloader import download_markdown_files, organize_content_for_hugo
-
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 @pytest.mark.asyncio
