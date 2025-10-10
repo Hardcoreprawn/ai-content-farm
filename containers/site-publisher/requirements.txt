@@ -1,0 +1,28 @@
+# Core FastAPI/web dependencies
+fastapi~=0.116.1
+uvicorn[standard]~=0.35.0
+pydantic~=2.11.7
+pydantic-settings~=2.10.1
+
+# Azure SDK
+azure-identity~=1.24.0
+azure-storage-blob~=12.26.0
+azure-storage-queue~=12.11.0
+azure-core~=1.35.0
+
+# Shared libraries
+# Note: libs/ installed via PYTHONPATH in Dockerfile
+# - libs.secure_error_handler
+# - libs.blob_storage (future use)
+# - libs.storage_queue_poller (future use)
+
+# Testing (development only)
+pytest~=8.4.1
+pytest-asyncio~=1.1.0
+pytest-cov~=4.1.0
+pytest-mock~=3.14.0
+
+# Code quality (development only)
+black~=25.1.0
+ruff~=0.8.4
+mypy~=1.17.1
