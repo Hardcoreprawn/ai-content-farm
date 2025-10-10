@@ -110,10 +110,10 @@ resource "azurerm_container_app" "content_processor" {
         value = azurerm_storage_queue.markdown_generation_requests.name
       }
 
-      # Enable auto-shutdown for production efficiency (KEDA will restart on new messages)
+      # Disable auto-shutdown for debugging/validation (set to "false" once proven working)
       env {
         name  = "DISABLE_AUTO_SHUTDOWN"
-        value = "false"
+        value = "true"
       }
     }
 
