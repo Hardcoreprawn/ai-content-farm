@@ -93,7 +93,7 @@ locals {
   container_ports = {
     collector          = 8000
     processor          = 8000
-    markdown_generator = 8080
+    markdown_generator = 8000
     site_publisher     = 8000
   }
 
