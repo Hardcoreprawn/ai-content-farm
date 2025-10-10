@@ -14,30 +14,27 @@ import pytest
 
 
 def setup_pytest_paths():
-    """Configure pytest with proper module paths."""
+    """Configure pytest with proper module paths.
+
+    Only adds project root and libs to sys.path.
+    Individual containers manage their own imports via their conftest.py files.
+    This prevents namespace collisions when multiple containers have same module names.
+    """
     # Add project root and container paths to sys.path
     project_root = Path(__file__).parent
 
-    # Add project root
+    # Add project root (for workspace-level imports)
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
 
-    # Add libs directory
+    # Add libs directory (shared libraries available to all containers)
     libs_path = project_root / "libs"
     if libs_path.exists() and str(libs_path) not in sys.path:
         sys.path.insert(0, str(libs_path))
 
-    # Add containers directory
-    containers_path = project_root / "containers"
-    if containers_path.exists() and str(containers_path) not in sys.path:
-        sys.path.insert(0, str(containers_path))
-
-    # Add each container to path
-    if containers_path.exists():
-        for container_dir in containers_path.iterdir():
-            if container_dir.is_dir() and not container_dir.name.startswith("."):
-                if str(container_dir) not in sys.path:
-                    sys.path.insert(0, str(container_dir))
+    # NOTE: We do NOT add individual containers to sys.path here.
+    # Each container's conftest.py adds its own directory to sys.path.
+    # This prevents namespace collisions (e.g., multiple "models.py" files)
 
 
 def pytest_configure(config):

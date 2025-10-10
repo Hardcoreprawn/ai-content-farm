@@ -107,6 +107,47 @@ resource "null_resource" "configure_markdown_generator_keda_auth" {
   ]
 }
 
+# Configure KEDA managed identity authentication for site-publisher
+resource "null_resource" "configure_site_publisher_keda_auth" {
+  triggers = {
+    container_app_id = azurerm_container_app.site_publisher.id
+    scale_rule_name  = "site-publish-queue-scaler"
+    queue_name       = azurerm_storage_queue.site_publishing_requests.name
+    identity_id      = azurerm_user_assigned_identity.containers.client_id
+  }
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "Configuring KEDA authentication for site-publisher..."
+      az containerapp update \
+        --name ${azurerm_container_app.site_publisher.name} \
+        --resource-group ${azurerm_resource_group.main.name} \
+        --scale-rule-name site-publish-queue-scaler \
+        --scale-rule-type azure-queue \
+        --scale-rule-metadata \
+          accountName=${azurerm_storage_account.main.name} \
+          queueName=${azurerm_storage_queue.site_publishing_requests.name} \
+          queueLength=1 \
+          cloud=AzurePublicCloud \
+        --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
+        --output none || {
+          echo "WARNING: KEDA auth configuration failed for site-publisher"
+          echo "This may cause scaling issues. Run scripts/configure-keda-auth.sh manually."
+          exit 0  # Don't fail Terraform apply
+        }
+      echo "✓ KEDA authentication configured for site-publisher"
+    EOT
+
+    interpreter = ["bash", "-c"]
+  }
+
+  depends_on = [
+    azurerm_container_app.site_publisher,
+    azurerm_role_assignment.containers_storage_queue_data_contributor,
+    azurerm_storage_queue.site_publishing_requests
+  ]
+}
+
 # Output to verify KEDA auth configuration
 output "keda_auth_configured" {
   description = "KEDA managed identity authentication has been configured via Azure CLI"
@@ -114,6 +155,7 @@ output "keda_auth_configured" {
     processor_identity          = azurerm_user_assigned_identity.containers.client_id
     site_generator_identity     = azurerm_user_assigned_identity.containers.client_id
     markdown_generator_identity = azurerm_user_assigned_identity.containers.client_id
+    site_publisher_identity     = azurerm_user_assigned_identity.containers.client_id
     note                        = "KEDA auth configured via null_resource local-exec provisioner"
     manual_script               = "scripts/configure-keda-auth.sh can be run manually if needed"
   }

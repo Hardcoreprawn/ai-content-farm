@@ -1,0 +1,70 @@
+# Hugo Configuration for AI Content Farm
+# Theme: PaperMod (https://github.com/adityatelange/hugo-PaperMod)
+
+baseURL = "https://example.com/"  # Override via environment variable
+languageCode = "en-us"
+title = "AI Content Farm"
+theme = "PaperMod"
+
+# Build configuration
+buildDrafts = false
+buildFuture = false
+buildExpired = false
+
+# Output formats
+[outputs]
+  home = ["HTML", "RSS", "JSON"]
+
+# Taxonomies
+[taxonomies]
+  tag = "tags"
+  category = "categories"
+
+# Menu
+[[menu.main]]
+  identifier = "home"
+  name = "Home"
+  url = "/"
+  weight = 10
+
+[[menu.main]]
+  identifier = "posts"
+  name = "Posts"
+  url = "/posts/"
+  weight = 20
+
+[[menu.main]]
+  identifier = "tags"
+  name = "Tags"
+  url = "/tags/"
+  weight = 30
+
+# PaperMod theme parameters
+[params]
+  env = "production"
+  description = "AI-curated content from across the web"
+  author = "AI Content Farm"
+
+  # Show breadcrumbs
+  ShowBreadCrumbs = true
+  ShowPostNavLinks = true
+  ShowCodeCopyButtons = true
+  ShowRssButtonInSectionTermList = true
+
+  # Search
+  ShowSearchPage = true
+
+  # Home page
+  [[params.socialIcons]]
+    name = "rss"
+    url = "/index.xml"
+
+# Markup configuration
+[markup]
+  [markup.highlight]
+    style = "monokai"
+    lineNos = true
+    lineNumbersInTable = true
+  [markup.goldmark]
+    [markup.goldmark.renderer]
+      unsafe = false  # Security: Don't allow raw HTML in markdown

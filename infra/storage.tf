@@ -174,6 +174,23 @@ resource "azurerm_storage_container" "pipeline_logs" {
   container_access_type = "private"
 }
 
+# Container for static website backups - rollback capability
+resource "azurerm_storage_container" "web_backup" {
+  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
+  name                  = "web-backup"
+  storage_account_id    = azurerm_storage_account.main.id
+  container_access_type = "private"
+
+  metadata = {
+    purpose     = "static-site-backup"
+    description = "Previous versions of static website for rollback capability"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
 # Storage Queues for container service communication (replaces Service Bus)
 # Using Storage Queues to resolve Container Apps managed identity vs Service Bus connection string conflicts
 resource "azurerm_storage_queue" "content_collection_requests" {
@@ -205,6 +222,20 @@ resource "azurerm_storage_queue" "markdown_generation_requests" {
   metadata = {
     purpose     = "markdown-generator-keda-scaling"
     description = "Triggers markdown-generator to convert processed JSON to markdown"
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+resource "azurerm_storage_queue" "site_publishing_requests" {
+  name               = "site-publishing-requests"
+  storage_account_id = azurerm_storage_account.main.id
+
+  metadata = {
+    purpose     = "site-publisher-keda-scaling"
+    description = "Triggers site-publisher to build Hugo site from markdown content"
   }
 
   lifecycle {
