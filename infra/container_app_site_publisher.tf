@@ -22,7 +22,7 @@ resource "azurerm_container_app" "site_publisher" {
 
   ingress {
     external_enabled = true
-    target_port      = 8000
+    target_port      = local.container_ports.site_publisher
     transport        = "http"
 
     # IP restrictions for secure access
@@ -47,7 +47,7 @@ resource "azurerm_container_app" "site_publisher" {
 
       env {
         name  = "PORT"
-        value = "8000"
+        value = tostring(local.container_ports.site_publisher)
       }
 
       env {

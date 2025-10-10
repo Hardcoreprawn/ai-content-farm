@@ -89,6 +89,14 @@ locals {
   # Clean prefix for resources that don't allow hyphens (Key Vault, Storage Account)
   clean_prefix = replace(local.resource_prefix, "-", "")
 
+  # Container port configuration
+  container_ports = {
+    collector          = 8000
+    processor          = 8000
+    markdown_generator = 8080
+    site_publisher     = 8000
+  }
+
   # Tags for all resources
   common_tags = {
     Environment = local.effective_environment

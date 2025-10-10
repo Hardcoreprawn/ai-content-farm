@@ -34,7 +34,7 @@ resource "azurerm_container_app" "content_collector" {
 
   ingress {
     external_enabled = true
-    target_port      = 8000
+    target_port      = local.container_ports.collector
     transport        = "http"
 
     # No IP restrictions - allowing Azure Logic Apps to access
@@ -55,7 +55,7 @@ resource "azurerm_container_app" "content_collector" {
 
       env {
         name  = "PORT"
-        value = "8000"
+        value = tostring(local.container_ports.collector)
       }
       env {
         name  = "AZURE_CLIENT_ID"
