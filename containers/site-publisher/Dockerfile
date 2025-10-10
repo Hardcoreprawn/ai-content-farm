@@ -5,7 +5,7 @@
 # =============================================================================
 # Stage 1: Hugo Builder (Go)
 # =============================================================================
-FROM golang:1.23-alpine AS hugo-builder
+FROM golang:1.24-alpine AS hugo-builder
 
 # Hugo version (pinned for security)
 ARG HUGO_VERSION=0.151.0
@@ -46,16 +46,15 @@ RUN useradd --create-home --shell /bin/bash app
 WORKDIR /app
 
 # Copy requirements and install Python dependencies
-COPY requirements.txt .
+COPY containers/site-publisher/requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy shared libraries from monorepo
-# Note: In production, this is handled by CI/CD build context
-COPY --chown=app:app ../../libs /app/libs
+COPY --chown=app:app libs /app/libs
 
 # Copy application code
-COPY --chown=app:app . .
+COPY --chown=app:app containers/site-publisher/. .
 
 # Ensure Hugo config is accessible
 RUN chmod -R 755 /app/hugo-config
