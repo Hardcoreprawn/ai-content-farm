@@ -152,11 +152,19 @@ async def lifespan(app: FastAPI):
             )
 
             if messages_processed == 0:
-                # Queue is empty - initiate container shutdown
-                logger.info(
-                    f"✅ Queue empty after processing {total_processed} messages. "
-                    "Initiating container shutdown in 10 seconds..."
-                )
+                # Queue is empty
+                if total_processed > 0:
+                    # We processed messages - shutdown after completion
+                    logger.info(
+                        f"✅ Queue empty after processing {total_processed} messages. "
+                        "Initiating container shutdown in 10 seconds..."
+                    )
+                else:
+                    # Queue empty on startup - shutdown to avoid idle costs
+                    logger.info(
+                        "✅ Queue empty on startup. "
+                        "Initiating container shutdown in 10 seconds..."
+                    )
 
                 # Brief delay to allow final logs to flush
                 await asyncio.sleep(10)

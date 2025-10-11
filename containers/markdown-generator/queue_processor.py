@@ -144,8 +144,9 @@ async def startup_queue_processor(
         )
 
         if messages_processed == 0:
-            # Queue is empty - signal site-publisher if we processed any messages
+            # Queue is empty
             if total_processed > 0:
+                # We processed messages - signal site-publisher and shutdown
                 logger.info(
                     f"✅ Markdown queue empty after processing {total_processed} messages - "
                     "signaling site-publisher to build static site"
@@ -157,24 +158,22 @@ async def startup_queue_processor(
                     f"✅ All processing complete ({total_processed} messages). "
                     "Initiating container shutdown in 10 seconds..."
                 )
-
-                # Brief delay to allow final logs to flush
-                await asyncio.sleep(10)
-
-                logger.info(
-                    "🛑 Shutting down container. KEDA will start fresh instance when new messages arrive."
-                )
-
-                # Force container termination (exit code 0 = successful completion)
-                os._exit(0)
-
             else:
-                # Queue empty but no messages processed
+                # Queue empty on startup - shutdown to avoid idle costs
                 logger.info(
-                    "✅ Queue empty with no messages processed. "
-                    "Staying alive for HTTP requests."
+                    "✅ Queue empty on startup. "
+                    "Initiating container shutdown in 10 seconds..."
                 )
-                break
+
+            # Brief delay to allow final logs to flush
+            await asyncio.sleep(10)
+
+            logger.info(
+                "🛑 Shutting down container. KEDA will start fresh instance when new messages arrive."
+            )
+
+            # Force container termination (exit code 0 = successful completion)
+            os._exit(0)
 
         total_processed += messages_processed
         logger.info(
