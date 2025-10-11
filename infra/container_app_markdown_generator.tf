@@ -106,10 +106,11 @@ resource "azurerm_container_app" "markdown_generator" {
       name             = "markdown-queue-scaler"
       custom_rule_type = "azure-queue"
       metadata = {
-        queueName   = azurerm_storage_queue.markdown_generation_requests.name
-        accountName = azurerm_storage_account.main.name
-        queueLength = "1" # Scale immediately when individual items arrive
-        cloud       = "AzurePublicCloud"
+        queueName             = azurerm_storage_queue.markdown_generation_requests.name
+        accountName           = azurerm_storage_account.main.name
+        queueLength           = "1" # Scale immediately when individual items arrive
+        activationQueueLength = "1" # Required for proper 0->1 and 1->0 scaling transitions
+        cloud                 = "AzurePublicCloud"
       }
       # Managed identity authentication configured via null_resource (see container_apps_keda_auth.tf)
     }

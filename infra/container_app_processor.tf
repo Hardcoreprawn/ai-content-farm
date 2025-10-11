@@ -122,10 +122,11 @@ resource "azurerm_container_app" "content_processor" {
       name             = "storage-queue-scaler"
       custom_rule_type = "azure-queue"
       metadata = {
-        queueName   = azurerm_storage_queue.content_processing_requests.name
-        accountName = azurerm_storage_account.main.name
-        queueLength = "1" # Scale immediately when individual items arrive
-        cloud       = "AzurePublicCloud"
+        queueName             = azurerm_storage_queue.content_processing_requests.name
+        accountName           = azurerm_storage_account.main.name
+        queueLength           = "80" # Target messages per replica (80 messages = 1 replica, 160 = 2 replicas, etc.)
+        activationQueueLength = "1"  # Minimum queue length to activate scaling (0->1 transition)
+        cloud                 = "AzurePublicCloud"
       }
       # Managed identity authentication configured via null_resource (see container_apps_keda_auth.tf)
     }
