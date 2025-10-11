@@ -190,17 +190,93 @@ site-publisher:  1 replica (Running) ⚠️ - Should scale to 0
 
 ### ⚠️ Issues Discovered
 
-**Issue #6: KEDA Scaling Not Aggressive Enough**
-- **Status**: ⚠️ **PERFORMANCE** - Not a blocker but suboptimal
-- **Container**: `processor` (and potentially markdown-gen)
-- **Observed**: Processor stayed at 1 replica despite 267 messages
-- **Config**: `max_replicas = 3`, `queueLength = "1"`, `pollingInterval = 30s`
-- **Root Cause**: KEDA polls every 30s, container processes messages faster than scale-up  
-- **Impact**: Longer processing time but more cost-efficient (1 replica vs 3)
-- **Recommendation**: 
-  - If speed priority: Increase `max_replicas = 10`, set `queueLength = "5"` (scale up for every 5 messages)
-  - If cost priority: Keep current settings (worked fine, just slower)
-- **Priority**: Low (working as designed)
+**Issue #6: KEDA Scaling Not Aggressive Enough - Processor Bottleneck**
+- **Status**: ⚠️ **PERFORMANCE PRIORITY** - Impacts pipeline elasticity
+- **Container**: `processor` (and potentially markdown-gen, site-publisher)
+- **Observed**: Processor stayed at 1 replica for entire 267-message workload
+- **Current Config**:
+  ```terraform
+  max_replicas = 3
+  min_replicas = 0
+  pollingInterval = 30  # KEDA checks queue every 30s
+  cooldownPeriod = 300  # 5 minutes before scale down
+  
+  custom_scale_rule {
+    metadata = {
+      queueLength = "1"  # Scale up for every 1 message
+    }
+  }
+  ```
+- **Root Cause Analysis**:
+  - KEDA polling interval (30s) too slow vs message processing speed
+  - Container processes messages faster than KEDA can detect queue depth
+  - By the time KEDA polls, queue has already been drained by single replica
+  - Result: No scale-up trigger despite large batch
+  
+- **Impact**:
+  - ✅ **Cost**: Single replica = cost-efficient (~$0.10/hour vs ~$0.30/hour for 3 replicas)
+  - ❌ **Speed**: 267 messages took ~13 minutes (slower than desired)
+  - ❌ **Elasticity**: Not demonstrating horizontal scaling capability
+  - ❌ **Future Concerns**: Different AI models will have varying processing times
+    - GPT-4 calls: 2-5s per message
+    - Claude calls: 1-3s per message  
+    - Future multi-modal: 10-30s per message
+    - Need elastic scaling to handle mixed workloads efficiently
+
+- **Proposed Solutions** (in order of preference):
+
+  **Option A: Aggressive Scaling (Recommended for Development)**
+  ```terraform
+  max_replicas = 10
+  pollingInterval = 15  # Check every 15s instead of 30s
+  
+  custom_scale_rule {
+    metadata = {
+      queueLength = "5"  # Scale up for every 5 messages (1 replica per 5 messages)
+      activationQueueLength = "1"  # Wake up from 0 at 1 message
+    }
+  }
+  ```
+  - **Pros**: Demonstrates scaling, faster processing, handles varying model speeds
+  - **Cons**: Higher cost during peak (~$1/hour for 10 replicas), more complex
+  
+  **Option B: Balanced Scaling**
+  ```terraform
+  max_replicas = 5
+  pollingInterval = 20
+  
+  custom_scale_rule {
+    metadata = {
+      queueLength = "10"  # Scale up for every 10 messages
+      activationQueueLength = "1"
+    }
+  }
+  ```
+  - **Pros**: Balance between cost and speed
+  - **Cons**: Still might not scale aggressively for burst workloads
+  
+  **Option C: Keep Current (Production Cost-Efficient)**
+  - No changes, accept slower processing
+  - Best for stable, low-volume production workloads
+  - Not suitable for development/demo or variable model performance
+
+- **Recommendation**: Implement **Option A** for processor and markdown-gen
+  - Needed to demonstrate platform capability
+  - Essential for handling different AI model performance characteristics
+  - Can tune back to Option B/C after validating scaling works
+  
+- **Testing Plan**:
+  1. Apply Option A config to processor
+  2. Trigger collection with ~100 messages
+  3. Monitor KEDA metrics: `kubectl get hpa` equivalent for Container Apps
+  4. Verify multiple replicas spin up (expect 2-5 replicas for 100 messages)
+  5. Verify scale-down to 0 after queue empty
+  6. Measure processing time improvement (expect 50-70% faster)
+
+- **Priority**: **Medium-High** - Not blocking but important for:
+  - Platform capability demonstration
+  - Handling variable AI model performance
+  - Future-proofing for multi-modal content
 
 **Issue #7: Site-Publisher - Double HTTPS in baseURL**
 - **Status**: 🔴 **CRITICAL - BLOCKING SITE DEPLOYMENT**
@@ -213,19 +289,80 @@ site-publisher:  1 replica (Running) ⚠️ - Should scale to 0
   - ✅ Applied manually via `az containerapp update --set-env-vars`
 - **Status**: Fixed in Terraform, needs deployment
 
-**Issue #8: Hugo Build Failing with Empty Error Message**
-- **Status**: 🔴 **CRITICAL - BLOCKING SITE DEPLOYMENT**
+**Issue #8: Hugo Build Failing - Missing PaperMod Theme**
+- **Status**: 🔴 **CRITICAL - BLOCKING SITE DEPLOYMENT - ROOT CAUSE IDENTIFIED**
 - **Container**: `site-publisher`
-- **Error**: Hugo exits with code 1 but stderr is empty
-- **Logs**: `"Hugo build failed: "` (no error details)
-- **Root Cause**: Unknown - Hugo is failing silently
-- **Impact**: Cannot diagnose Hugo build issue
-- **Investigation Needed**:
-  - Check Hugo version compatibility
-  - Verify Hugo config.toml validity
-  - Check if Hugo output is on stdout instead of stderr
-  - Test Hugo build locally with same markdown files
-- **Status**: BLOCKING - needs investigation
+- **Error**: Hugo exits with code 1, stderr empty (silent failure)
+- **Logs**: `"Hugo build failed: "` (no error details captured)
+- **Root Cause**: **Hugo theme "PaperMod" not installed in Docker image**
+  - `hugo-config/config.toml` specifies `theme = "PaperMod"`
+  - Dockerfile builds Hugo v0.151.0 but doesn't install any themes
+  - Hugo silently fails when theme directory doesn't exist
+  - Theme should be at `/app/themes/PaperMod/` but directory doesn't exist
+
+- **Evidence**:
+  ```toml
+  # hugo-config/config.toml line 6
+  theme = "PaperMod"  # ❌ Theme not present in container
+  ```
+  
+  ```dockerfile
+  # Dockerfile - No theme installation!
+  COPY --from=hugo-builder /go/bin/hugo /usr/local/bin/hugo
+  # Missing: Theme installation step
+  ```
+
+- **Impact**: 
+  - Cannot build static site (Hugo fails immediately)
+  - 4212 markdown files ready but cannot be published
+  - Blocks end-to-end pipeline completion
+
+- **Proposed Solutions**:
+
+  **Option A: Install PaperMod Theme from Git (Recommended)**
+  ```dockerfile
+  # After line 40 in Dockerfile (after hugo version check)
+  RUN apk add --no-cache git && \
+      mkdir -p /app/themes && \
+      git clone --depth 1 https://github.com/adityatelange/hugo-PaperMod.git /app/themes/PaperMod && \
+      apk del git
+  ```
+  - **Pros**: Official theme, maintained, feature-rich
+  - **Cons**: Adds ~10MB to image, requires git in build
+
+  **Option B: Use Hugo Built-in Theme**
+  ```toml
+  # Change config.toml
+  theme = ""  # Remove theme requirement
+  # Or use: theme = "blank"
+  ```
+  - **Pros**: No external dependency, smaller image
+  - **Cons**: Minimal styling, would need custom CSS
+
+  **Option C: Bundle Pre-downloaded Theme**
+  ```dockerfile
+  # In Dockerfile
+  COPY themes/PaperMod /app/themes/PaperMod
+  ```
+  - **Pros**: No runtime download, faster builds
+  - **Cons**: Need to manually update theme, larger repo
+
+- **Recommendation**: **Option A** - Install PaperMod from Git
+  - Clean, maintainable solution
+  - Official theme with good SEO optimization
+  - Small image size increase acceptable for functionality
+  - Can pin to specific commit/tag for reproducibility
+
+- **Implementation Plan**:
+  1. Update `containers/site-publisher/Dockerfile` to install PaperMod
+  2. Test locally: `docker build` and verify theme exists
+  3. Test Hugo build with theme: `hugo --source /tmp/test`
+  4. Commit and push to trigger CI/CD
+  5. Manual test after deployment: POST to `/publish` endpoint
+  6. Verify static site deployed to `$web` container
+  7. Check site URL: `https://aicontentprodstkwakpx.z33.web.core.windows.net/`
+
+- **Priority**: **CRITICAL** - Blocking Phase 8 completion
 
 **Issue #9: No Automatic Site-Publisher Trigger**
 - **Status**: ⚠️ **EXPECTED - PHASE 6 ENHANCEMENT**

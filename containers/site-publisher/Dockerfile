@@ -59,6 +59,13 @@ COPY --chown=app:app containers/site-publisher/. .
 # Ensure Hugo config is accessible
 RUN chmod -R 755 /app/hugo-config
 
+# Install Hugo PaperMod theme (required by config.toml)
+# Using specific commit for reproducibility (latest stable as of 2025-10)
+RUN mkdir -p /app/themes && \
+    git clone --depth 1 --branch v7.0 https://github.com/adityatelange/hugo-PaperMod.git /app/themes/PaperMod && \
+    chown -R app:app /app/themes && \
+    chmod -R 755 /app/themes
+
 # Switch to non-root user (SECURITY REQUIREMENT)
 USER app
 
