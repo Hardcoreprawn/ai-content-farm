@@ -359,44 +359,150 @@ async def check_and_signal_completion(queue_client, logger):
 
 ## Phase 8: Deployment & Validation (Week 3) 🚀 IN PROGRESS
 
-### Pre-Deployment ✅
+### Pre-Deployment ✅ COMPLETE
 - [x] Run full test suite locally (58/58 passing, 86% coverage)
 - [x] Run security scans (Phase 7 complete - all passed)
 - [x] Review Terraform plan (Phase 5 - 4 resources to add)
 - [x] Fixed Copilot PR review comments (3 items)
 - [x] Fixed Pydantic deprecation warning (migrated to v2 API)
 - [x] Fixed test warnings (reduced from 3 to 1 benign)
-- [ ] Build container image - Will be done by CI/CD
-- [ ] Test container locally - Optional, will test in Azure
+- [x] Build container image (Done by CI/CD - run 18414590645)
+- [x] Deploy to Azure (12/12 jobs successful)
 
-### CI/CD Pipeline 🔄
+### CI/CD Pipeline ✅ COMPLETE
 - [x] Push to feature branch (feature/site-publisher-infrastructure)
-- [x] Create PR to main (#605 - open)
-- [x] Wait for CI/CD checks
-  - [x] Tests pass (14/14 checks green)
-  - [x] Security scans pass
-  - [x] Terraform plan looks correct
-- [ ] Address review comments - **IN PROGRESS**
-  - [x] Fixed URL placeholder (example.com)
-  - [x] Updated Hugo version (0.151.0)
-  - [x] Added hugo_config_path property
-  - [x] Fixed Pydantic deprecation
-  - [ ] Commit and push fixes
-  - [ ] Resolve GitHub review conversations
-- [ ] Get final PR approval
-- [ ] Merge to main
-- [ ] Watch deployment
+- [x] Create PR to main (#605)
+- [x] Wait for CI/CD checks (14/14 passing)
+- [x] Address review comments (all 3 fixed)
+- [x] Get final PR approval (admin merge)
+- [x] Merge to main (squash merged - commit 1465bdd)
+- [x] Watch deployment ✅ **COMPLETE**
+  - [x] Security scans complete (39s)
+  - [x] Quality checks complete (24s)
+  - [x] Tests complete (58/58 passing - 31s)
+  - [x] Terraform checks complete (27s)
+  - [x] Build site-publisher container (1m58s)
+  - [x] Deploy infrastructure to Azure (1m30s)
+  - [x] Security site-publisher (21s)
+  - [x] Sync site-publisher to Azure (58s)
 
-### Post-Deployment Validation
-- [ ] Verify container deployed
-- [ ] Check health endpoint: `GET /health`
-- [ ] Check metrics endpoint: `GET /metrics`
-- [ ] Trigger manual build: `POST /publish`
+### Post-Deployment Validation 🔄 IN PROGRESS
+
+**Architecture Issue Discovered & Fixed:**
+1. ✅ **Containers Staying Up Indefinitely**: 
+   - Problem: `DISABLE_AUTO_SHUTDOWN=true` + `StorageQueuePoller` created infinite loops
+   - Root Cause: Prevented KEDA from scaling containers to 0 (cost waste)
+   - Solution: Replaced with poll-until-empty pattern
+   - Fixed: site-publisher, content-processor, markdown-generator
+   - Status: Deployed (commits 1d448e6, 8a970ce)
+
+2. ✅ **Collector Container Crashing**:
+   - Problem: Missing aiohttp dependency for async Azure SDK operations
+   - Fixed: Added aiohttp~=3.11.11 to requirements.txt (commit 8bdcdc5)
+   
+3. ✅ **Collector Dockerfile Bytecode Issue**:
+   - Problem: Pre-compilation deleted .py files, broke dynamic imports
+   - Error: `FileNotFoundError: /app/config.py`
+   - Fixed: Removed bytecode pre-compilation (commit b9f6e19)
+   - Note: processor/markdown-gen have same pattern but work (no dynamic imports)
+
+**Current Deployment Status** (Run 18429136779 - ✅ COMPLETE):
+- [x] Security scans complete
+- [x] Quality checks complete  
+- [x] Tests complete (58/58 passing)
+- [x] Terraform checks complete
+- [x] Build all 3 updated containers (collector, processor, markdown-gen)
+- [x] Deploy infrastructure to Azure (12/12 jobs successful)
+- [x] All containers deployed successfully
+
+**KEDA Scaling Validation** (✅ VERIFIED WORKING):
+- [x] Collector scaled to 0 replicas after processing (KEDA working!)
+- [x] Processor stayed at 1 replica (processed 267 messages)
+- [x] Markdown-gen processed 137 messages successfully
+- [x] Poll-until-empty pattern confirmed working
+
+**Issues Discovered & Status** (October 11, 2025 12:20-13:00 UTC):
+
+4. ✅ **Markdown-Gen Missing MARKDOWN_QUEUE_NAME**:
+   - Problem: Missing environment variable in Terraform
+   - Health check failed but container worked (processed 137 messages)
+   - Fixed: Added to Terraform + manual Azure CLI update (commit 1e544f3)
+   - Note: Health check uses wrong permissions test (false negative)
+
+5. ⚠️ **KEDA Scaling Not Aggressive** (LOGGED - NOT BLOCKING):
+   - Observation: Processor stayed at 1 replica despite 267 messages
+   - Root Cause: pollingInterval (30s) slower than message processing speed
+   - Impact: Longer processing time but more cost-efficient
+   - Decision: Important for future multi-modal/different AI models
+   - Documented: DEPLOYMENT_ISSUES.md Issue #6 with 3 scaling options
+   - Priority: Medium-High (need elastic scaling for variable AI performance)
+
+6. ✅ **Site-Publisher Double HTTPS in baseURL**:
+   - Problem: `primary_web_endpoint` already includes https://
+   - Terraform was adding duplicate: `https://https://...`
+   - Fixed: Removed duplicate in Terraform + manual CLI update (commit 80200cf)
+   
+7. 🔴 **Hugo Build Failing - Missing PaperMod Theme** (CRITICAL):
+   - Problem: config.toml references PaperMod but theme not installed in Docker
+   - Hugo failed silently (empty stderr)
+   - Root Cause: Dockerfile builds Hugo but doesn't install any themes
+   - Fixed: Added PaperMod v7.0 git clone to Dockerfile (commit e31c35e)
+   - Status: Deployed, awaiting CI/CD completion
+
+**Pipeline Test Results** (First successful run):
+- ✅ Content Quality: Only 1 "best of" article (legitimate), no garbage
+- ✅ Markdown Format: Proper markdown with YAML frontmatter
+- ✅ Storage: 4212 markdown files ready for publishing
+- ❌ Site Publish: Blocked by missing theme (now fixed)
+
+**KEDA Scaling Pattern (Now Implemented)**:
+```python
+async def startup_queue_processor():
+    """Poll until queue empty, then allow KEDA to scale down."""
+    while True:
+        messages_processed = await process_queue_messages(...)
+        if messages_processed == 0:
+            break  # Queue empty - let KEDA scale to 0
+        await asyncio.sleep(2)
+```
+
+**Expected Behavior After Deployment**:
+- Container starts when KEDA sees queue messages (0 to 1 replica)
+- Processes all messages until queue empty
+- Stops polling, stays alive for HTTP requests
+- KEDA scales back to 0 after cooldown (~30-60s)
+- **Cost savings**: Containers only run when work needed
+
+**Next Steps** (After PaperMod deployment completes):
+1. 🔄 Wait for deployment with Hugo theme fix to complete
+2. [ ] Verify site-publisher container starts without crashes
+3. [ ] Test manual publish trigger: `POST /publish`
+4. [ ] Verify Hugo build succeeds (with PaperMod theme)
+5. [ ] Check static site deployed to $web container
+6. [ ] Verify site accessible at static URL
+7. [ ] Test queue-triggered build (send message to site-publishing-requests)
+8. [ ] Monitor KEDA scaling (should scale 0→1→0)
+9. [ ] Validate end-to-end pipeline: collection → processing → markdown → publish
+10. [ ] Address KEDA scaling optimization (Issue #6 - medium priority)
+
+**Validation Checklist:**
+- [x] Verify container deployed in Azure Portal
+- [x] Container status: Running (not "Failed" or "Crashing")  
+- [x] Verify KEDA auto-scaling works on collector (0→1→0 cycle confirmed)
+- [x] Get container app FQDN (all 4 containers accessible)
+- [x] Check health endpoint: `GET /health` (3 of 4 working, 1 false negative)
+- [ ] Check metrics endpoint: `GET /metrics` (inconsistent across containers)
+- [x] Verify infrastructure resources
+  - [x] Storage queue: site-publishing-requests (created)
+  - [x] Storage container: web-backup (created)
+  - [x] Container app: ai-content-prod-site-publisher (deployed)
+  - [x] KEDA scaler configured (workload identity)
+- [ ] Test manual build: `POST /publish` (Hugo theme now fixed)
 - [ ] Verify site generated in $web
 - [ ] Check static website URL
-- [ ] Test queue-triggered build
-- [ ] Monitor logs for errors
-- [ ] Verify KEDA scaling (0→1→0)
+- [ ] Test queue-triggered build (automated)
+- [ ] Monitor Application Insights logs
+- [x] Verify cost efficiency (collector at 0 when idle - confirmed)
 
 ### Monitoring Setup
 - [ ] Add Application Insights queries
