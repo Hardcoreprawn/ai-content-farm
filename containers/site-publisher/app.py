@@ -140,29 +140,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                 )
 
                 if messages_processed == 0:
-                    # Queue is empty
+                    # Queue is empty - let KEDA handle scaling to zero
                     if total_processed > 0:
-                        # We processed messages - shutdown after completion
                         logger.info(
                             f"✅ Queue empty after processing {total_processed} messages. "
-                            "Initiating container shutdown in 10 seconds..."
+                            "Container will remain alive. KEDA will scale to 0 after cooldown period."
                         )
                     else:
-                        # Queue empty on startup - shutdown after brief delay
                         logger.info(
                             "✅ Queue empty on startup. "
-                            "Initiating container shutdown in 10 seconds..."
+                            "Container will remain alive. KEDA will scale to 0 after cooldown period."
                         )
-
-                    # Brief delay to allow final logs to flush
-                    await asyncio.sleep(10)
-
-                    logger.info(
-                        "🛑 Shutting down container. KEDA will start fresh instance when new messages arrive."
-                    )
-
-                    # Force container termination (exit code 0 = successful completion)
-                    os._exit(0)
+                    break
 
                 total_processed += messages_processed
                 logger.info(

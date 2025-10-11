@@ -13,7 +13,6 @@ from typing import Any, Callable, Dict
 from models import ProcessingStatus
 
 from libs.queue_client import (
-    QueueMessageModel,
     get_queue_client,
     process_queue_messages,
 )
@@ -88,17 +87,17 @@ async def signal_site_publisher(total_processed: int, output_container: str) -> 
     try:
         # Create publish request message
         batch_id = f"collection-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
-        publish_message = QueueMessageModel(
-            service_name="markdown-generator",
-            operation="site_publish_request",
-            payload={
+        publish_message = {
+            "service_name": "markdown-generator",
+            "operation": "site_publish_request",
+            "payload": {
                 "batch_id": batch_id,
                 "markdown_count": total_processed,
                 "markdown_container": output_container,
                 "trigger": "queue_empty",
                 "timestamp": datetime.utcnow().isoformat(),
             },
-        )
+        }
 
         # Send to site-publisher queue
         async with get_queue_client("site-publishing-requests") as queue_client:
@@ -144,36 +143,24 @@ async def startup_queue_processor(
         )
 
         if messages_processed == 0:
-            # Queue is empty
+            # Queue is empty - let KEDA handle scaling to zero
             if total_processed > 0:
-                # We processed messages - signal site-publisher and shutdown
                 logger.info(
                     f"✅ Markdown queue empty after processing {total_processed} messages - "
                     "signaling site-publisher to build static site"
                 )
                 await signal_site_publisher(total_processed, output_container)
 
-                # Initiate container shutdown after completion
                 logger.info(
-                    f"✅ All processing complete ({total_processed} messages). "
-                    "Initiating container shutdown in 10 seconds..."
+                    f"✅ Processing complete ({total_processed} messages). "
+                    "Container will remain alive. KEDA will scale to 0 after cooldown period."
                 )
             else:
-                # Queue empty on startup - shutdown to avoid idle costs
                 logger.info(
                     "✅ Queue empty on startup. "
-                    "Initiating container shutdown in 10 seconds..."
+                    "Container will remain alive. KEDA will scale to 0 after cooldown period."
                 )
-
-            # Brief delay to allow final logs to flush
-            await asyncio.sleep(10)
-
-            logger.info(
-                "🛑 Shutting down container. KEDA will start fresh instance when new messages arrive."
-            )
-
-            # Force container termination (exit code 0 = successful completion)
-            os._exit(0)
+            break
 
         total_processed += messages_processed
         logger.info(
