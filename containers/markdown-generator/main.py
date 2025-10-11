@@ -3,9 +3,10 @@ FastAPI application for markdown-generator container.
 
 This module provides HTTP endpoints for markdown generation and monitoring.
 
-Version: 1.0.4 - Force rebuild with processor queue fix
+Version: 1.0.5 - Added site-publisher completion signal (Phase 6)
 Queue Configuration: Watching markdown-generation-requests (Oct 9, 2025)
 Architecture: Per-message KEDA scaling from processor
+Site-Publisher: Signals when queue empty to trigger static site build (Oct 11, 2025)
 """
 
 import asyncio
@@ -29,6 +30,7 @@ from models import (
 )
 
 from config import configure_logging, get_settings  # type: ignore[import]
+from libs.queue_client import QueueMessageModel, get_queue_client
 
 # Initialize logging
 configure_logging()
@@ -120,7 +122,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             return {"status": "error", "error": str(e)}
 
     async def startup_queue_processor():
-        """Process queue messages until empty, then allow KEDA to manage scaling."""
+        """Process queue messages until empty, then signal site-publisher and scale down."""
         logger.info(f"🔍 Checking queue: {settings.queue_name}")
 
         total_processed = 0
@@ -133,12 +135,54 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             )
 
             if messages_processed == 0:
-                # Queue is empty - stop polling and let KEDA scale down
-                logger.info(
-                    f"✅ Queue empty after processing {total_processed} messages. "
-                    "Container will stay alive for HTTP requests. "
-                    "KEDA will scale to 0 when queue remains empty."
-                )
+                # Queue is empty - signal site-publisher if we processed any messages
+                if total_processed > 0:
+                    logger.info(
+                        f"✅ Markdown queue empty after processing {total_processed} messages - "
+                        "signaling site-publisher to build static site"
+                    )
+
+                    try:
+                        # Create publish request message
+                        batch_id = (
+                            f"collection-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
+                        )
+                        publish_message = QueueMessageModel(
+                            service_name="markdown-generator",
+                            operation="site_publish_request",
+                            payload={
+                                "batch_id": batch_id,
+                                "markdown_count": total_processed,
+                                "markdown_container": settings.output_container,
+                                "trigger": "queue_empty",
+                                "timestamp": datetime.utcnow().isoformat(),
+                            },
+                        )
+
+                        # Send to site-publisher queue
+                        async with get_queue_client(
+                            "site-publishing-requests"
+                        ) as queue_client:
+                            result = await queue_client.send_message(publish_message)
+                            logger.info(
+                                f"📤 Sent publish request to site-publisher "
+                                f"(batch_id={batch_id}, message_id={result.get('message_id', 'unknown')})"
+                            )
+
+                    except Exception as e:
+                        logger.error(
+                            f"Failed to send completion signal to site-publisher queue: {e}",
+                            exc_info=True,
+                        )
+                        # Don't fail the container - this is not critical
+                        # Site can be published manually if needed
+                else:
+                    logger.info(
+                        "✅ Queue empty with no messages processed. "
+                        "Container will stay alive for HTTP requests. "
+                        "KEDA will scale to 0 when queue remains empty."
+                    )
+
                 break
 
             total_processed += messages_processed
