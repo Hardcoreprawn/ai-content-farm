@@ -107,98 +107,75 @@ async def lifespan(app: FastAPI):
             if os.getenv("STRICT_STARTUP_DIAGNOSTICS", "false").lower() == "true":
                 raise SystemExit(1)
 
-    # Start background queue processing on startup
+    # Process queue messages on startup until empty (KEDA scaling pattern)
     import asyncio
 
     from endpoints.storage_queue_router import get_storage_queue_router
 
     from libs.queue_client import process_queue_messages
-    from libs.storage_queue_poller import StorageQueuePoller
 
     # Initialize lifecycle manager
     lifecycle_manager = create_lifecycle_manager("content-processor")
 
-    # Message handler for background poller (accepts queue_message, message from process_queue_messages)
-    async def message_handler_wrapper(queue_message, message) -> Dict[str, Any]:
-        """Wrapper for background polling - uses same signature as process_queue_messages handler."""
+    # Message handler for queue processing
+    async def message_handler(queue_message, message) -> Dict[str, Any]:
+        """Process a single content processing request from the queue."""
         try:
             router_instance = get_storage_queue_router()
             result = await router_instance.process_storage_queue_message(queue_message)
 
             if result["status"] == "success":
                 logger.info(
-                    f"Background: Successfully processed message {queue_message.message_id}"
+                    f"Successfully processed message {queue_message.message_id}"
                 )
             else:
                 logger.warning(
-                    f"Background: Message processing failed: {result.get('error', 'Unknown error')}"
+                    f"Message processing failed: {result.get('error', 'Unknown error')}"
                 )
 
             return result
         except Exception as e:
-            logger.error(f"Background: Error processing message: {e}")
+            logger.error(f"Error processing message: {e}")
             return {"status": "error", "error": str(e)}
-
-    # Process message handler for startup (legacy signature with queue_message, message)
-    async def process_message(queue_message, message) -> Dict[str, Any]:
-        """Process a single message on startup."""
-        try:
-            router_instance = get_storage_queue_router()
-            result = await router_instance.process_storage_queue_message(queue_message)
-
-            if result["status"] == "success":
-                logger.info(
-                    f"Startup: Successfully processed message {queue_message.message_id}"
-                )
-            else:
-                logger.warning(
-                    f"Startup: Message processing failed: {result.get('error', 'Unknown error')}"
-                )
-
-            return result
-        except Exception as e:
-            logger.error(f"Startup: Error processing message: {e}")
-            return {"status": "error", "error": str(e)}
-
-    # Initialize background poller
-    background_poller = StorageQueuePoller(
-        queue_name="content-processing-requests",
-        message_handler=message_handler_wrapper,
-        poll_interval=float(os.getenv("QUEUE_POLL_INTERVAL", "5.0")),
-        max_messages_per_batch=10,
-        max_empty_polls=3,
-        empty_queue_sleep=30.0,
-        process_queue_messages_func=process_queue_messages,
-    )
 
     async def startup_queue_processor():
-        """Process any existing queue messages on startup using lifecycle manager."""
+        """Process queue messages until empty, then allow KEDA to manage scaling."""
+        logger.info("🔍 Checking queue: content-processing-requests")
 
-        # Use lifecycle manager for queue processing
-        async def process_messages_wrapper(queue_name: str, max_messages: int):
-            return await process_queue_messages(
-                queue_name=queue_name,
-                message_handler=process_message,
-                max_messages=max_messages,
+        total_processed = 0
+        while True:
+            # Process batch of messages (AI processing can handle concurrency)
+            messages_processed = await process_queue_messages(
+                queue_name="content-processing-requests",
+                message_handler=message_handler,
+                max_messages=10,
             )
 
-        await lifecycle_manager.handle_startup_queue_processing(
-            process_messages_wrapper, "content-processing-requests", max_messages=32
-        )
+            if messages_processed == 0:
+                # Queue is empty - stop polling and let KEDA scale down
+                logger.info(
+                    f"✅ Queue empty after processing {total_processed} messages. "
+                    "Container will stay alive for HTTP requests. "
+                    "KEDA will scale to 0 when queue remains empty."
+                )
+                break
 
-        # Start continuous background polling if enabled
-        await background_poller.start()
+            total_processed += messages_processed
+            logger.info(
+                f"📦 Processed {messages_processed} messages (total: {total_processed}). "
+                "Checking for more..."
+            )
 
-    # Start the background task
+            # Brief pause before checking for next batch
+            await asyncio.sleep(2)
+
+    # Start the queue processing task
     asyncio.create_task(startup_queue_processor())
 
     try:
         yield
     finally:
         logger.info("Shutting down Content Processor service")
-
-        # Stop background poller
-        await background_poller.stop()
 
         try:
             # Close API client to prevent unclosed session warnings

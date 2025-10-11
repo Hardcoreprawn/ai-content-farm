@@ -77,9 +77,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.error(f"Failed to initialize Azure clients: {e}")
         raise
 
-    # Start background queue processing
+    # Process queue messages on startup until empty (KEDA scaling pattern)
     from libs.queue_client import process_queue_messages
-    from libs.storage_queue_poller import StorageQueuePoller
 
     # Message handler for queue polling
     async def message_handler(queue_message, message) -> Dict[str, Any]:
@@ -97,75 +96,86 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
             # Process the first file (we expect one file per message)
             blob_name = files[0]
-            logger.info(f"Queue: Processing markdown generation for {blob_name}")
+            logger.info(f"Processing markdown generation for {blob_name}")
 
             # Use the processor to generate markdown (async)
             result = await app.state.processor.process_article(blob_name)
 
             if result.status == ProcessingStatus.COMPLETED:
                 logger.info(
-                    f"Queue: Successfully generated markdown: {result.markdown_blob_name}"
+                    f"Successfully generated markdown: {result.markdown_blob_name}"
                 )
                 app_state["total_processed"] += 1
                 if result.processing_time_ms:
                     app_state["processing_times"].append(result.processing_time_ms)
                 return {"status": "success", "result": result.model_dump()}
             else:
-                logger.warning(
-                    f"Queue: Markdown generation failed: {result.error_message}"
-                )
+                logger.warning(f"Markdown generation failed: {result.error_message}")
                 app_state["total_failed"] += 1
                 return {"status": "error", "error": result.error_message}
 
         except Exception as e:
-            logger.error(f"Queue: Error processing message: {e}", exc_info=True)
+            logger.error(f"Error processing message: {e}", exc_info=True)
             app_state["total_failed"] += 1
             return {"status": "error", "error": str(e)}
 
-    # Initialize background poller
-    background_poller = StorageQueuePoller(
-        queue_name=settings.queue_name,
-        message_handler=message_handler,
-        poll_interval=float(settings.queue_polling_interval_seconds),
-        max_messages_per_batch=settings.max_batch_size,
-        max_empty_polls=3,
-        empty_queue_sleep=30.0,
-        process_queue_messages_func=process_queue_messages,
-    )
-
     async def startup_queue_processor():
-        """Process any existing queue messages on startup."""
-        logger.info(f"Starting queue polling for {settings.queue_name}")
+        """Process queue messages until empty, then allow KEDA to manage scaling."""
+        logger.info(f"🔍 Checking queue: {settings.queue_name}")
 
-        # Process any existing messages first
-        await process_queue_messages(
-            queue_name=settings.queue_name,
-            message_handler=message_handler,
-            max_messages=10,
-        )
+        total_processed = 0
+        while True:
+            # Process batch of messages (markdown generation is lightweight)
+            messages_processed = await process_queue_messages(
+                queue_name=settings.queue_name,
+                message_handler=message_handler,
+                max_messages=settings.max_batch_size,
+            )
 
-        # Start continuous background polling
-        await background_poller.start()
-        logger.info("Background queue polling started")
+            if messages_processed == 0:
+                # Queue is empty - stop polling and let KEDA scale down
+                logger.info(
+                    f"✅ Queue empty after processing {total_processed} messages. "
+                    "Container will stay alive for HTTP requests. "
+                    "KEDA will scale to 0 when queue remains empty."
+                )
+                break
 
-    # Start the background task
+            total_processed += messages_processed
+            logger.info(
+                f"📦 Processed {messages_processed} messages (total: {total_processed}). "
+                "Checking for more..."
+            )
+
+            # Brief pause before checking for next batch
+            await asyncio.sleep(2)
+
+    # Start the queue processing task
     asyncio.create_task(startup_queue_processor())
 
     yield
 
     # Cleanup
     logger.info("Shutting down markdown-generator container")
-    await background_poller.stop()
-    logger.info("Background queue polling stopped")
 
     # Close Azure clients
-    if hasattr(app.state, "blob_service_client") and app.state.blob_service_client:
-        await app.state.blob_service_client.close()
-        logger.info("Blob service client closed")
+    try:
+        if hasattr(app.state, "blob_service_client") and app.state.blob_service_client:
+            result = app.state.blob_service_client.close()
+            if asyncio.iscoroutine(result):
+                await result  # type: ignore[misc]
+            logger.info("Blob service client closed")
+    except Exception as e:
+        logger.warning(f"Error closing blob service client: {e}")
 
-    if hasattr(credential, "close"):
-        await credential.close()
-        logger.info("Credential closed")
+    try:
+        if hasattr(credential, "close") and callable(credential.close):
+            result = credential.close()
+            if asyncio.iscoroutine(result):
+                await result  # type: ignore[misc]
+            logger.info("Credential closed")
+    except Exception as e:
+        logger.warning(f"Error closing credential: {e}")
 
 
 # Create FastAPI app
