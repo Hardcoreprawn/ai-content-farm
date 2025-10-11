@@ -70,6 +70,7 @@ async def build_site_with_hugo(
             )
 
         # Run Hugo build
+        # Note: Theme installed at /app/themes/PaperMod during container build
         cmd = [
             "hugo",
             "--source",
@@ -80,6 +81,8 @@ async def build_site_with_hugo(
             base_url,
             "--destination",
             str(hugo_dir / "public"),
+            "--themesDir",
+            "/app/themes",
             "--cleanDestinationDir",
         ]
 
@@ -110,16 +113,31 @@ async def build_site_with_hugo(
 
         duration = (datetime.now() - start_time).total_seconds()
 
+        # Decode outputs
+        stdout_text = stdout.decode("utf-8", errors="replace")
+        stderr_text = stderr.decode("utf-8", errors="replace")
+
+        # Always log Hugo output for debugging
+        if stdout_text:
+            logger.debug(f"Hugo STDOUT: {stdout_text}")
+        if stderr_text:
+            logger.info(f"Hugo STDERR: {stderr_text}")
+
         # Check for errors
         if process.returncode != 0:
-            stderr_text = stderr.decode("utf-8", errors="replace")
-            logger.error(f"Hugo build failed: {stderr_text}")
+            # Hugo writes errors to stderr per official documentation
+            error_output = stderr_text or stdout_text or "(no error output captured)"
+
+            logger.error(
+                f"Hugo build failed with exit code {process.returncode}: {error_output[:1000]}"
+            )
+
             return BuildResult(
                 success=False,
                 output_files=0,
                 duration_seconds=duration,
                 errors=[
-                    f"Hugo build failed (exit {process.returncode}): {stderr_text[:500]}"
+                    f"Hugo build failed (exit {process.returncode}): {error_output[:500]}"
                 ],
             )
 
