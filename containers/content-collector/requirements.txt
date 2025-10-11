@@ -3,6 +3,7 @@
 # HTTP & Data Processing (not in shared libs)
 python-multipart~=0.0.20
 python-dateutil~=2.9.0.post0
+aiohttp~=3.11.11  # Required for async Azure operations with background polling
 
 # Content Sources
 praw~=7.8.1
