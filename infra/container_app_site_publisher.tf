@@ -117,10 +117,11 @@ resource "azurerm_container_app" "site_publisher" {
       name             = "site-publish-queue-scaler"
       custom_rule_type = "azure-queue"
       metadata = {
-        queueName   = azurerm_storage_queue.site_publishing_requests.name
-        accountName = azurerm_storage_account.main.name
-        queueLength = "1" # Build immediately when triggered
-        cloud       = "AzurePublicCloud"
+        queueName             = azurerm_storage_queue.site_publishing_requests.name
+        accountName           = azurerm_storage_account.main.name
+        queueLength           = "1" # Build immediately when triggered
+        activationQueueLength = "1" # Required for proper 0->1 and 1->0 scaling transitions
+        cloud                 = "AzurePublicCloud"
       }
       # Managed identity authentication configured via null_resource (see container_apps_keda_auth.tf)
     }
