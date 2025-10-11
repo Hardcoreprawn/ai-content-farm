@@ -102,7 +102,7 @@ resource "azurerm_container_app" "site_publisher" {
 
       env {
         name  = "HUGO_BASE_URL"
-        value = azurerm_storage_account_static_website.main.index_document != null ? "https://${azurerm_storage_account.main.primary_web_endpoint}" : "https://example.com"
+        value = azurerm_storage_account_static_website.main.index_document != null ? azurerm_storage_account.main.primary_web_endpoint : "https://example.com"
       }
     }
 

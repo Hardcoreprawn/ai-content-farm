@@ -178,7 +178,66 @@ site-publisher:  1 replica (Running) ⚠️ - Should scale to 0
 
 ---
 
-## 🔍 Monitoring Commands
+## � Pipeline Test Results (October 11, 2025 12:20-12:56 UTC)
+
+### ✅ Successful Components
+- **Collector**: ✅ Processed startup collection, scaled to 0 replicas (KEDA working!)
+- **Processor**: ✅ Processed 267 messages successfully
+- **Markdown-Gen**: ✅ Processed 137 messages successfully, generated proper markdown
+- **Content Quality**: ✅ Only 1 "best of" article (legitimate WIRED review), no garbage listicles
+- **Markdown Format**: ✅ Proper markdown with YAML frontmatter, correct `contentType: "text/markdown"`
+- **Storage**: ✅ 4212 markdown files ready for publishing
+
+### ⚠️ Issues Discovered
+
+**Issue #6: KEDA Scaling Not Aggressive Enough**
+- **Status**: ⚠️ **PERFORMANCE** - Not a blocker but suboptimal
+- **Container**: `processor` (and potentially markdown-gen)
+- **Observed**: Processor stayed at 1 replica despite 267 messages
+- **Config**: `max_replicas = 3`, `queueLength = "1"`, `pollingInterval = 30s`
+- **Root Cause**: KEDA polls every 30s, container processes messages faster than scale-up  
+- **Impact**: Longer processing time but more cost-efficient (1 replica vs 3)
+- **Recommendation**: 
+  - If speed priority: Increase `max_replicas = 10`, set `queueLength = "5"` (scale up for every 5 messages)
+  - If cost priority: Keep current settings (worked fine, just slower)
+- **Priority**: Low (working as designed)
+
+**Issue #7: Site-Publisher - Double HTTPS in baseURL**
+- **Status**: 🔴 **CRITICAL - BLOCKING SITE DEPLOYMENT**
+- **Container**: `site-publisher`
+- **Error**: Hugo build fails with `--baseURL https://https://aicontentprodstkwakpx.z33.web.core.windows.net/`
+- **Root Cause**: Terraform uses `"https://${azurerm_storage_account.main.primary_web_endpoint}"` but `primary_web_endpoint` already includes `https://`
+- **Impact**: Cannot publish site, Hugo build fails immediately
+- **Fix Applied**:
+  - ✅ Updated Terraform to use `azurerm_storage_account.main.primary_web_endpoint` directly (removed duplicate `https://`)
+  - ✅ Applied manually via `az containerapp update --set-env-vars`
+- **Status**: Fixed in Terraform, needs deployment
+
+**Issue #8: Hugo Build Failing with Empty Error Message**
+- **Status**: 🔴 **CRITICAL - BLOCKING SITE DEPLOYMENT**
+- **Container**: `site-publisher`
+- **Error**: Hugo exits with code 1 but stderr is empty
+- **Logs**: `"Hugo build failed: "` (no error details)
+- **Root Cause**: Unknown - Hugo is failing silently
+- **Impact**: Cannot diagnose Hugo build issue
+- **Investigation Needed**:
+  - Check Hugo version compatibility
+  - Verify Hugo config.toml validity
+  - Check if Hugo output is on stdout instead of stderr
+  - Test Hugo build locally with same markdown files
+- **Status**: BLOCKING - needs investigation
+
+**Issue #9: No Automatic Site-Publisher Trigger**
+- **Status**: ⚠️ **EXPECTED - PHASE 6 ENHANCEMENT**
+- **Impact**: Must manually trigger site-publisher after markdown-gen completes
+- **Root Cause**: Markdown-generator doesn't send completion message to `site-publishing-requests` queue
+- **Workaround**: Manual curl to `/publish` endpoint
+- **Recommendation**: Implement in Phase 6 (queue completion signaling)
+- **Priority**: Medium (planned enhancement)
+
+---
+
+## �🔍 Monitoring Commands
 
 ```bash
 # Check container status
@@ -204,4 +263,4 @@ done
 ---
 
 **Created**: October 11, 2025 12:15 UTC  
-**Next Update**: After markdown-gen fix deployment
+**Last Updated**: October 11, 2025 12:57 UTC (Added pipeline test results + new issues #6-9)
