@@ -330,8 +330,10 @@ async def organize_content_for_hugo(
             )
 
         # Return success even with quarantined files - this is expected behavior
-        # Only fail if we couldn't organize ANY files
-        return ValidationResult(is_valid=valid_count > 0, errors=errors)
+        # Empty directories are valid (no files to organize)
+        # Only fail if we had files but couldn't organize ANY of them
+        is_valid = len(md_files) == 0 or valid_count > 0
+        return ValidationResult(is_valid=is_valid, errors=errors)
 
     except Exception as e:
         error_info = handle_error(e, error_type="organize")

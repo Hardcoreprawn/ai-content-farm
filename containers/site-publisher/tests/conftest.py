@@ -51,9 +51,11 @@ def mock_settings():
 
 @pytest.fixture
 def sample_markdown_content():
-    """Provide sample markdown content for testing."""
+    """Provide sample markdown content for testing with valid YAML frontmatter."""
     return """---
 title: "Test Article"
+url: "https://example.com/test-article"
+source: "test"
 date: 2025-10-10
 tags: ["test", "sample"]
 ---
