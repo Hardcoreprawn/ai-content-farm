@@ -30,6 +30,7 @@ from models import (
 )
 
 from config import configure_logging, get_settings  # type: ignore[import]
+from libs.queue_client import QueueMessageModel, get_queue_client
 
 # Initialize logging
 configure_logging()
@@ -142,12 +143,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     )
 
                     try:
-                        # Import here to avoid circular dependencies
-                        from libs.queue_client import (
-                            QueueMessageModel,
-                            get_queue_client,
-                        )
-
                         # Create publish request message
                         batch_id = (
                             f"collection-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
@@ -176,7 +171,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
                     except Exception as e:
                         logger.error(
-                            f"Failed to send site-publisher signal: {e}", exc_info=True
+                            f"Failed to send completion signal to site-publisher queue: {e}",
+                            exc_info=True,
                         )
                         # Don't fail the container - this is not critical
                         # Site can be published manually if needed
