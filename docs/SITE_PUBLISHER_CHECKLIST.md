@@ -287,13 +287,20 @@ Plan: 4 to add, 0 to change, 0 to destroy.
 
 **Next**: Phase 6 (Markdown-Generator Enhancement) or Phase 8 (Deployment)
 
-## Phase 6: Markdown-Generator Enhancement (Week 3)
+## Phase 6: Markdown-Generator Enhancement (Week 3) 🔴 REQUIRED - NOT IMPLEMENTED
 
-### Queue Completion Signaling
+### Queue Completion Signaling ❌ MISSING
 - [ ] Add queue depth checking to markdown-generator
 - [ ] Implement completion message sending
 - [ ] Test queue message format
 - [ ] Test KEDA scaling trigger
+
+**Current Status (October 11, 2025 13:25 UTC)**:
+- ❌ Markdown-generator processes queue but **does NOT signal site-publisher**
+- ✅ 4212 markdown files created in `markdown-content` container
+- ❌ 0 messages in `site-publishing-requests` queue
+- ❌ Site-publisher never triggered (stayed at 0 messages processed)
+- 🚨 **BLOCKING**: Site won't auto-publish without this signal
 
 **Code to Add**:
 ```python
@@ -449,11 +456,14 @@ async def check_and_signal_completion(queue_client, logger):
    - Fixed: Added PaperMod v7.0 git clone to Dockerfile (commit e31c35e)
    - Status: Deployed, awaiting CI/CD completion
 
-**Pipeline Test Results** (First successful run):
+**Pipeline Test Results** (First successful run - October 11, 2025):
 - ✅ Content Quality: Only 1 "best of" article (legitimate), no garbage
 - ✅ Markdown Format: Proper markdown with YAML frontmatter
-- ✅ Storage: 4212 markdown files ready for publishing
-- ❌ Site Publish: Blocked by missing theme (now fixed)
+- ✅ Storage: **4212 markdown files** ready in `markdown-content` container
+- ❌ **Site Publish: BLOCKED - markdown-generator not sending completion signal**
+  - Queue `site-publishing-requests`: 0 messages (expected 1)
+  - Site-publisher: Never triggered (processed 0 messages)
+  - Root cause: Phase 6 not implemented (queue completion signaling)
 
 **KEDA Scaling Pattern (Now Implemented)**:
 ```python
@@ -474,15 +484,17 @@ async def startup_queue_processor():
 - **Cost savings**: Containers only run when work needed
 
 **Next Steps** (After PaperMod deployment completes):
-1. 🔄 Wait for deployment with Hugo theme fix to complete
-2. [ ] Verify site-publisher container starts without crashes
-3. [ ] Test manual publish trigger: `POST /publish`
-4. [ ] Verify Hugo build succeeds (with PaperMod theme)
-5. [ ] Check static site deployed to $web container
-6. [ ] Verify site accessible at static URL
-7. [ ] Test queue-triggered build (send message to site-publishing-requests)
-8. [ ] Monitor KEDA scaling (should scale 0→1→0)
-9. [ ] Validate end-to-end pipeline: collection → processing → markdown → publish
+1. ✅ Wait for deployment with Hugo theme fix to complete
+2. ✅ Verify site-publisher container starts without crashes
+3. 🚨 **IMPLEMENT Phase 6**: Add completion signal to markdown-generator
+   - Send message to `site-publishing-requests` queue when markdown queue empty
+   - Message format: `{"service_name": "markdown-generator", "operation": "site_publish_request", "payload": {...}}`
+4. [ ] Test automated end-to-end: collection → processing → markdown → **queue signal** → publish
+5. [ ] Test manual publish trigger: `POST /publish` (bypass queue)
+6. [ ] Verify Hugo build succeeds (with PaperMod theme)
+7. [ ] Check static site deployed to $web container
+8. [ ] Verify site accessible at static URL
+9. [ ] Monitor KEDA scaling (should scale 0→1→0)
 10. [ ] Address KEDA scaling optimization (Issue #6 - medium priority)
 
 **Validation Checklist:**
