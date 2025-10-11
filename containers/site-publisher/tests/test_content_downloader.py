@@ -8,7 +8,11 @@ from pathlib import Path
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from content_downloader import download_markdown_files, organize_content_for_hugo
+from content_downloader import (
+    download_markdown_files,
+    organize_content_for_hugo,
+    validate_markdown_frontmatter,
+)
 
 
 @pytest.mark.asyncio
@@ -256,3 +260,162 @@ async def test_organize_content_for_hugo_empty_directory(temp_dir):
     # Assert - empty is valid, just no files organized
     assert result.is_valid
     assert len(result.errors) == 0
+
+
+def test_validate_markdown_frontmatter_valid():
+    """Test validation of valid YAML frontmatter."""
+    import tempfile
+
+    # Create temp file with valid frontmatter
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+        f.write(
+            """---
+title: "Test Article"
+url: "https://example.com/test"
+source: "reddit"
+---
+
+# Test Article
+
+Content here.
+"""
+        )
+        temp_path = Path(f.name)
+
+    try:
+        is_valid, errors = validate_markdown_frontmatter(temp_path)
+        assert is_valid
+        assert len(errors) == 0
+    finally:
+        temp_path.unlink()
+
+
+def test_validate_markdown_frontmatter_missing_delimiter():
+    """Test validation fails for missing frontmatter delimiter."""
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+        f.write(
+            """# Test Article
+
+Content without frontmatter.
+"""
+        )
+        temp_path = Path(f.name)
+
+    try:
+        is_valid, errors = validate_markdown_frontmatter(temp_path)
+        assert not is_valid
+        assert any("opening delimiter" in error for error in errors)
+    finally:
+        temp_path.unlink()
+
+
+def test_validate_markdown_frontmatter_invalid_yaml():
+    """Test validation fails for invalid YAML syntax."""
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+        # Malformed YAML - missing closing quote
+        f.write(
+            """---
+title: "Test Article
+url: "https://example.com/test"
+source: "reddit"
+---
+
+# Test Article
+"""
+        )
+        temp_path = Path(f.name)
+
+    try:
+        is_valid, errors = validate_markdown_frontmatter(temp_path)
+        assert not is_valid
+        assert any(
+            "YAML syntax" in error or "yaml" in error.lower() for error in errors
+        )
+    finally:
+        temp_path.unlink()
+
+
+def test_validate_markdown_frontmatter_missing_required_fields():
+    """Test validation fails for missing required fields."""
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
+        f.write(
+            """---
+title: "Test Article"
+---
+
+# Test Article
+"""
+        )
+        temp_path = Path(f.name)
+
+    try:
+        is_valid, errors = validate_markdown_frontmatter(temp_path)
+        assert not is_valid
+        assert any("url" in error.lower() for error in errors)
+        assert any("source" in error.lower() for error in errors)
+    finally:
+        temp_path.unlink()
+
+
+@pytest.mark.asyncio
+async def test_organize_content_quarantines_malformed_files(temp_dir):
+    """Test that malformed files are quarantined instead of causing build failure."""
+    # Setup content directory with good and bad files
+    content_dir = temp_dir / "content"
+    content_dir.mkdir()
+
+    # Good file with valid frontmatter
+    good_file = content_dir / "good-article.md"
+    good_file.write_text(
+        """---
+title: "Good Article"
+url: "https://example.com/good"
+source: "reddit"
+---
+
+# Good Article
+
+Content here.
+"""
+    )
+
+    # Bad file with invalid YAML (unquoted URL)
+    bad_file = content_dir / "bad-article.md"
+    bad_file.write_text(
+        """---
+title: "Bad Article"
+url: https://example.com/bad
+source: reddit
+---
+
+# Bad Article
+"""
+    )
+
+    # Setup Hugo content directory
+    hugo_content_dir = temp_dir / "hugo" / "content"
+
+    # Execute
+    result = await organize_content_for_hugo(
+        content_dir=content_dir,
+        hugo_content_dir=hugo_content_dir,
+    )
+
+    # Assert - should succeed with 1 valid file
+    assert result.is_valid
+    assert (hugo_content_dir / "good-article.md").exists()
+    assert not (hugo_content_dir / "bad-article.md").exists()
+
+    # Check quarantine directory
+    quarantine_dir = temp_dir / "quarantined"
+    assert quarantine_dir.exists()
+    assert (quarantine_dir / "bad-article.md").exists()
+
+    # Check errors mention quarantine
+    assert any("quarantined" in error.lower() for error in result.errors)

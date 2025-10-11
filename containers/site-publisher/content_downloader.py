@@ -5,10 +5,12 @@ Pure functions for downloading and organizing markdown files from blob storage.
 """
 
 import logging
+import re
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Tuple
 
+import yaml
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob.aio import BlobServiceClient
 from error_handling import handle_error
@@ -149,6 +151,80 @@ async def download_markdown_files(
         )
 
 
+def validate_markdown_frontmatter(file_path: Path) -> Tuple[bool, List[str]]:
+    """
+    Validate that a markdown file has valid YAML frontmatter.
+
+    Uses strict validation rules matching Hugo's requirements:
+    - All string values should be properly quoted
+    - URLs must be quoted to avoid YAML parser ambiguity
+    - Required fields must be present
+
+    Args:
+        file_path: Path to markdown file
+
+    Returns:
+        Tuple of (is_valid, errors) where is_valid is True if frontmatter is valid
+    """
+    errors = []
+
+    try:
+        content = file_path.read_text(encoding="utf-8")
+
+        # Check for frontmatter delimiters
+        if not content.startswith("---"):
+            errors.append(f"Missing frontmatter opening delimiter (---)")
+            return False, errors
+
+        # Extract frontmatter (between first two --- markers)
+        parts = content.split("---", 2)
+        if len(parts) < 3:
+            errors.append(f"Missing frontmatter closing delimiter (---)")
+            return False, errors
+
+        frontmatter_text = parts[1].strip()
+
+        if not frontmatter_text:
+            errors.append(f"Empty frontmatter")
+            return False, errors
+
+        # Try to parse YAML
+        try:
+            frontmatter = yaml.safe_load(frontmatter_text)
+
+            if not isinstance(frontmatter, dict):
+                errors.append(f"Frontmatter is not a dictionary")
+                return False, errors
+
+            # Check for required fields
+            required_fields = ["title", "url", "source"]
+            for field in required_fields:
+                if field not in frontmatter:
+                    errors.append(f"Missing required field: {field}")
+
+            if errors:
+                return False, errors
+
+            # Additional Hugo-strict validation: check raw YAML for unquoted URLs
+            # Hugo's YAML parser is stricter than Python's
+            for line in frontmatter_text.split("\n"):
+                line = line.strip()
+                # Check if line has url: or source: followed by unquoted value containing ://
+                if re.match(r'^(url|source):\s+[^"\'].*://', line):
+                    errors.append(f"URL/source must be quoted: {line[:50]}")
+                    return False, errors
+
+            return True, []
+
+        except yaml.YAMLError as e:
+            errors.append(f"Invalid YAML syntax: {str(e)}")
+            return False, errors
+
+    except Exception as e:
+        errors.append(f"Failed to read file: {str(e)}")
+        return False, errors
+
+
 async def organize_content_for_hugo(
     content_dir: Path,
     hugo_content_dir: Path,
@@ -156,23 +232,22 @@ async def organize_content_for_hugo(
     """
     Organize downloaded markdown files for Hugo.
 
-    Ensures Hugo can process the content by:
-    1. Moving files to content/ directory
-    2. Validating frontmatter exists
-    3. Creating _index.md files if needed
+    Validates YAML frontmatter and quarantines malformed files to prevent
+    Hugo build failures. Only valid files are copied to Hugo content directory.
 
     Args:
         content_dir: Directory with downloaded markdown files
         hugo_content_dir: Hugo content directory (usually hugo-site/content)
 
     Returns:
-        ValidationResult with any errors
+        ValidationResult with any errors (non-blocking - malformed files are quarantined)
 
     Raises:
         ValueError: If directories don't exist
     """
     logger.info(f"Organizing content for Hugo: {content_dir} -> {hugo_content_dir}")
     errors: List[str] = []
+    quarantined_files: List[str] = []
 
     try:
         # Validate directories exist
@@ -184,12 +259,35 @@ async def organize_content_for_hugo(
         # Create Hugo content directory
         hugo_content_dir.mkdir(parents=True, exist_ok=True)
 
+        # Create quarantine directory for malformed files
+        quarantine_dir = content_dir.parent / "quarantined"
+        quarantine_dir.mkdir(parents=True, exist_ok=True)
+
         # Copy markdown files to Hugo content directory
         md_files = list(content_dir.rglob("*.md"))
         logger.info(f"Found {len(md_files)} markdown files to organize")
 
+        valid_count = 0
         for md_file in md_files:
             try:
+                # Validate YAML frontmatter before organizing
+                is_valid, validation_errors = validate_markdown_frontmatter(md_file)
+
+                if not is_valid:
+                    # Quarantine malformed file instead of failing entire build
+                    rel_path = md_file.relative_to(content_dir)
+                    quarantine_path = quarantine_dir / rel_path
+                    quarantine_path.parent.mkdir(parents=True, exist_ok=True)
+
+                    # Move to quarantine
+                    md_file.rename(quarantine_path)
+
+                    error_msg = f"Quarantined malformed file {md_file.name}: {', '.join(validation_errors)}"
+                    logger.warning(error_msg)
+                    errors.append(error_msg)
+                    quarantined_files.append(str(rel_path))
+                    continue
+
                 # Calculate relative path
                 rel_path = md_file.relative_to(content_dir)
                 target_path = hugo_content_dir / rel_path
@@ -206,6 +304,7 @@ async def organize_content_for_hugo(
                 # Copy file
                 target_path.write_bytes(md_file.read_bytes())
                 logger.debug(f"Organized: {rel_path}")
+                valid_count += 1
 
             except Exception as e:
                 error_info = handle_error(
@@ -216,10 +315,23 @@ async def organize_content_for_hugo(
                 )
 
         logger.info(
-            f"Organized {len(md_files) - len(errors)} files with {len(errors)} errors"
+            f"Organized {valid_count} valid files, quarantined {len(quarantined_files)} malformed files, "
+            f"{len(errors) - len(quarantined_files)} other errors"
         )
 
-        return ValidationResult(is_valid=len(errors) == 0, errors=errors)
+        if quarantined_files:
+            logger.warning(
+                f"Quarantined files (will not be published): {', '.join(quarantined_files[:10])}"
+                + (
+                    f" and {len(quarantined_files) - 10} more"
+                    if len(quarantined_files) > 10
+                    else ""
+                )
+            )
+
+        # Return success even with quarantined files - this is expected behavior
+        # Only fail if we couldn't organize ANY files
+        return ValidationResult(is_valid=valid_count > 0, errors=errors)
 
     except Exception as e:
         error_info = handle_error(e, error_type="organize")

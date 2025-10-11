@@ -5,6 +5,7 @@ Tests template selection, rendering, and error handling.
 """
 
 import pytest
+import yaml
 from models import ArticleMetadata
 
 
@@ -181,3 +182,53 @@ class TestTemplateRendering:
         assert "## Summary" not in markdown
         assert "## Content" not in markdown
         assert "## Key Points" not in markdown
+
+    @pytest.mark.parametrize(
+        "template_name",
+        ["default.md.j2", "minimal.md.j2", "with-toc.md.j2"],
+    )
+    def test_templates_generate_valid_yaml_frontmatter(
+        self, markdown_processor, sample_article_data, template_name
+    ) -> None:
+        """
+        GIVEN article data with URLs containing special YAML characters
+        WHEN generating markdown with any template
+        THEN YAML frontmatter is valid and parseable
+        """
+        # Arrange - Use URL with colons and other special chars
+        metadata = ArticleMetadata(
+            title="Test Article: A Deep Dive",
+            url="https://example.com/article?param=value&test=true",
+            source="reddit",
+            author="John Doe",
+            published_date=None,
+            category="technology",
+            tags=["ai", "machine learning", "deep-tech"],
+        )
+
+        # Act
+        markdown = markdown_processor._generate_markdown(
+            sample_article_data, metadata, template_name
+        )
+
+        # Extract frontmatter (between first two --- markers)
+        parts = markdown.split("---")
+        assert len(parts) >= 3, "Markdown should have frontmatter delimiters"
+        frontmatter_text = parts[1].strip()
+
+        # Assert - YAML should parse without errors
+        try:
+            frontmatter = yaml.safe_load(frontmatter_text)
+            assert isinstance(frontmatter, dict), "Frontmatter should be a dict"
+            assert "title" in frontmatter
+            assert "url" in frontmatter
+            assert "source" in frontmatter
+            # Verify special characters preserved correctly
+            assert (
+                frontmatter["url"]
+                == "https://example.com/article?param=value&test=true"
+            )
+            # Colon in title should be preserved
+            assert ":" in frontmatter["title"]
+        except yaml.YAMLError as e:
+            pytest.fail(f"YAML frontmatter parsing failed for {template_name}: {e}")
