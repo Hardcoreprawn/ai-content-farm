@@ -3,7 +3,7 @@ FastAPI application for markdown-generator container.
 
 This module provides HTTP endpoints for markdown generation and monitoring.
 
-Version: 1.0.5 - Added site-publisher completion signal (Phase 6)
+Version: 1.0.6 - Refactored queue processing into separate module
 Queue Configuration: Watching markdown-generation-requests (Oct 9, 2025)
 Architecture: Per-message KEDA scaling from processor
 Site-Publisher: Signals when queue empty to trigger static site build (Oct 11, 2025)
@@ -28,9 +28,9 @@ from models import (
     MetricsResponse,
     ProcessingStatus,
 )
+from queue_processor import create_message_handler, startup_queue_processor
 
 from config import configure_logging, get_settings  # type: ignore[import]
-from libs.queue_client import QueueMessageModel, get_queue_client
 
 # Initialize logging
 configure_logging()
@@ -80,122 +80,17 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         raise
 
     # Process queue messages on startup until empty (KEDA scaling pattern)
-    from libs.queue_client import process_queue_messages
-
-    # Message handler for queue polling
-    async def message_handler(queue_message, message) -> Dict[str, Any]:
-        """Process a single markdown generation request from the queue."""
-        try:
-            # Extract the processed file path from the queue_message (QueueMessageModel)
-            payload = queue_message.payload
-            files = payload.get("files", [])
-
-            if not files:
-                logger.warning(
-                    f"No files in message {queue_message.message_id}, payload: {payload}"
-                )
-                return {"status": "error", "error": "No files in message"}
-
-            # Process the first file (we expect one file per message)
-            blob_name = files[0]
-            logger.info(f"Processing markdown generation for {blob_name}")
-
-            # Use the processor to generate markdown (async)
-            result = await app.state.processor.process_article(blob_name)
-
-            if result.status == ProcessingStatus.COMPLETED:
-                logger.info(
-                    f"Successfully generated markdown: {result.markdown_blob_name}"
-                )
-                app_state["total_processed"] += 1
-                if result.processing_time_ms:
-                    app_state["processing_times"].append(result.processing_time_ms)
-                return {"status": "success", "result": result.model_dump()}
-            else:
-                logger.warning(f"Markdown generation failed: {result.error_message}")
-                app_state["total_failed"] += 1
-                return {"status": "error", "error": result.error_message}
-
-        except Exception as e:
-            logger.error(f"Error processing message: {e}", exc_info=True)
-            app_state["total_failed"] += 1
-            return {"status": "error", "error": str(e)}
-
-    async def startup_queue_processor():
-        """Process queue messages until empty, then signal site-publisher and scale down."""
-        logger.info(f"🔍 Checking queue: {settings.queue_name}")
-
-        total_processed = 0
-        while True:
-            # Process batch of messages (markdown generation is lightweight)
-            messages_processed = await process_queue_messages(
-                queue_name=settings.queue_name,
-                message_handler=message_handler,
-                max_messages=settings.max_batch_size,
-            )
-
-            if messages_processed == 0:
-                # Queue is empty - signal site-publisher if we processed any messages
-                if total_processed > 0:
-                    logger.info(
-                        f"✅ Markdown queue empty after processing {total_processed} messages - "
-                        "signaling site-publisher to build static site"
-                    )
-
-                    try:
-                        # Create publish request message
-                        batch_id = (
-                            f"collection-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
-                        )
-                        publish_message = QueueMessageModel(
-                            service_name="markdown-generator",
-                            operation="site_publish_request",
-                            payload={
-                                "batch_id": batch_id,
-                                "markdown_count": total_processed,
-                                "markdown_container": settings.output_container,
-                                "trigger": "queue_empty",
-                                "timestamp": datetime.utcnow().isoformat(),
-                            },
-                        )
-
-                        # Send to site-publisher queue
-                        async with get_queue_client(
-                            "site-publishing-requests"
-                        ) as queue_client:
-                            result = await queue_client.send_message(publish_message)
-                            logger.info(
-                                f"📤 Sent publish request to site-publisher "
-                                f"(batch_id={batch_id}, message_id={result.get('message_id', 'unknown')})"
-                            )
-
-                    except Exception as e:
-                        logger.error(
-                            f"Failed to send completion signal to site-publisher queue: {e}",
-                            exc_info=True,
-                        )
-                        # Don't fail the container - this is not critical
-                        # Site can be published manually if needed
-                else:
-                    logger.info(
-                        "✅ Queue empty with no messages processed. "
-                        "Container will stay alive for HTTP requests. "
-                        "KEDA will scale to 0 when queue remains empty."
-                    )
-
-                break
-
-            total_processed += messages_processed
-            logger.info(
-                f"📦 Processed {messages_processed} messages (total: {total_processed}). "
-                "Checking for more..."
-            )
-
-            # Brief pause before checking for next batch
-            await asyncio.sleep(2)
+    message_handler = await create_message_handler(app.state.processor, app_state)
 
     # Start the queue processing task
-    asyncio.create_task(startup_queue_processor())
+    asyncio.create_task(
+        startup_queue_processor(
+            queue_name=settings.queue_name,
+            message_handler=message_handler,
+            max_batch_size=settings.max_batch_size,
+            output_container=settings.output_container,
+        )
+    )
 
     yield
 
