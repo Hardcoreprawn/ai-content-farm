@@ -88,6 +88,11 @@ resource "azurerm_container_app" "markdown_generator" {
         name  = "OUTPUT_CONTAINER"
         value = "markdown-content"
       }
+
+      env {
+        name  = "MARKDOWN_QUEUE_NAME"
+        value = azurerm_storage_queue.markdown_generation_requests.name
+      }
     }
 
     # Scale to zero when queue is empty
