@@ -23,6 +23,9 @@ from security import (
 
 logger = logging.getLogger(__name__)
 
+# Constants
+MAX_ERROR_OUTPUT_LENGTH = 1000  # Maximum characters to log from Hugo error output
+
 
 async def build_site_with_hugo(
     hugo_dir: Path,
@@ -129,7 +132,8 @@ async def build_site_with_hugo(
             error_output = stderr_text or stdout_text or "(no error output captured)"
 
             logger.error(
-                f"Hugo build failed with exit code {process.returncode}: {error_output[:1000]}"
+                f"Hugo build failed with exit code {process.returncode}: "
+                f"{error_output[:MAX_ERROR_OUTPUT_LENGTH]}"
             )
 
             return BuildResult(
@@ -137,7 +141,8 @@ async def build_site_with_hugo(
                 output_files=0,
                 duration_seconds=duration,
                 errors=[
-                    f"Hugo build failed (exit {process.returncode}): {error_output[:500]}"
+                    f"Hugo build failed (exit {process.returncode}): "
+                    f"{error_output[:MAX_ERROR_OUTPUT_LENGTH // 2]}"
                 ],
             )
 

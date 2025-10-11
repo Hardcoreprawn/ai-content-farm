@@ -122,9 +122,24 @@ resource "azurerm_container_app" "content_processor" {
       name             = "storage-queue-scaler"
       custom_rule_type = "azure-queue"
       metadata = {
-        queueName             = azurerm_storage_queue.content_processing_requests.name
-        accountName           = azurerm_storage_account.main.name
-        queueLength           = "80"  # Target messages per replica (80 messages = 1 replica, 160 = 2 replicas, etc.)
+        queueName   = azurerm_storage_queue.content_processing_requests.name
+        accountName = azurerm_storage_account.main.name
+
+        # SCALING BEHAVIOR CHANGE: queueLength increased from '1' to '80'
+        #
+        # This is the target messages-per-replica for scaling calculations:
+        # - With queueLength='1': 100 messages → 100 replicas (very aggressive)
+        # - With queueLength='80': 100 messages → 2 replicas (cost-efficient)
+        #
+        # Trade-offs:
+        # - ✅ Lower costs: Fewer replicas for high message volumes
+        # - ✅ Better batching: Each replica processes more messages per lifecycle
+        # - ⚠️ Higher latency: Messages may wait longer before processing starts
+        #
+        # This value is independent of activationQueueLength (which controls 0→1 scaling).
+        # See KEDA docs: https://keda.sh/docs/latest/scalers/azure-storage-queue/
+        queueLength = "80"
+
         queueLengthStrategy   = "all" # Count both visible and invisible messages (not limited to 32 peek limit)
         activationQueueLength = "1"   # Minimum queue length to activate scaling (0->1 transition)
         cloud                 = "AzurePublicCloud"
