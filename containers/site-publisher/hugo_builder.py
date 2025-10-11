@@ -32,6 +32,7 @@ async def build_site_with_hugo(
     config_file: Path,
     base_url: str,
     timeout_seconds: int = 300,
+    themes_dir: Path = None,
 ) -> BuildResult:
     """
     Build static site with Hugo (async).
@@ -44,6 +45,7 @@ async def build_site_with_hugo(
         config_file: Path to Hugo config.toml
         base_url: Base URL for the site
         timeout_seconds: Maximum build time (DOS prevention)
+        themes_dir: Optional custom themes directory (defaults to /app/themes)
 
     Returns:
         BuildResult with output file count and any errors
@@ -53,6 +55,10 @@ async def build_site_with_hugo(
     """
     start_time = datetime.now()
     logger.info(f"Building site with Hugo: {hugo_dir}")
+
+    # Default to container's themes directory if not specified
+    if themes_dir is None:
+        themes_dir = Path("/app/themes")
 
     try:
         # Validate paths exist
@@ -73,7 +79,8 @@ async def build_site_with_hugo(
             )
 
         # Run Hugo build
-        # Note: Theme installed at /app/themes/PaperMod during container build
+        # Note: Theme can be installed at /app/themes/PaperMod during container build
+        # or use custom themes_dir for testing
         cmd = [
             "hugo",
             "--source",
@@ -85,7 +92,7 @@ async def build_site_with_hugo(
             "--destination",
             str(hugo_dir / "public"),
             "--themesDir",
-            "/app/themes",
+            str(themes_dir),
             "--cleanDestinationDir",
         ]
 

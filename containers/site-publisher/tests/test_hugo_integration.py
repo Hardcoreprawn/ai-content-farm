@@ -193,11 +193,13 @@ theme = "minimal"
     )
 
     # Execute Hugo build
+    # Note: Use the test's local themes directory instead of /app/themes
     result = await build_site_with_hugo(
         hugo_dir=hugo_dir,
         config_file=config_file,
         base_url="https://test.example.com/",
         timeout_seconds=30,
+        themes_dir=hugo_dir / "themes",  # Use local themes directory for testing
     )
 
     # Assert build succeeded
@@ -370,3 +372,42 @@ Content for post {i}.
     assert (
         len(generated_files) >= 1
     ), f"Should have at least 1 generated file, found {len(generated_files)}"
+
+
+@pytest.mark.integration
+def test_papermod_theme_installed():
+    """
+    Test that PaperMod theme is installed in the container at /app/themes.
+
+    This verifies the Dockerfile correctly clones and installs the theme.
+    Only runs in containerized environment (skips in local dev).
+    """
+    themes_dir = Path("/app/themes/PaperMod")
+
+    # Skip if not running in container
+    if not themes_dir.exists():
+        pytest.skip("Skipping - not running in containerized environment")
+
+    # Verify theme structure
+    assert themes_dir.is_dir(), "PaperMod should be a directory"
+
+    # Check for essential theme files
+    theme_toml = themes_dir / "theme.toml"
+    assert theme_toml.exists(), "theme.toml should exist"
+
+    # Check for layouts directory
+    layouts_dir = themes_dir / "layouts"
+    assert layouts_dir.exists(), "layouts directory should exist"
+    assert layouts_dir.is_dir(), "layouts should be a directory"
+
+    # Check for essential layouts
+    baseof = layouts_dir / "_default" / "baseof.html"
+    assert baseof.exists(), "baseof.html layout should exist"
+
+    # Verify permissions are correct (readable by app user)
+    import os
+
+    assert os.access(themes_dir, os.R_OK), "Theme directory should be readable"
+    assert os.access(theme_toml, os.R_OK), "theme.toml should be readable"
+
+    print(f"✅ PaperMod theme correctly installed at {themes_dir}")
