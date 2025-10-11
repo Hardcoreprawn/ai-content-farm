@@ -80,23 +80,18 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             f"Initialized with storage account: {settings.azure_storage_account_name}"
         )
 
-        # Initialize background queue polling for debugging
+        # Process queue messages on startup until empty (KEDA scaling pattern)
         import asyncio
 
         from libs.queue_client import process_queue_messages
-        from libs.storage_queue_poller import StorageQueuePoller
 
         # Message handler for queue polling
         async def message_handler(queue_message, message) -> dict[str, Any]:
             """Process a single site publishing request from the queue."""
             try:
-                logger.info(
-                    f"Background: Processing queue message {queue_message.message_id}"
-                )
+                logger.info(f"Processing queue message {queue_message.message_id}")
 
                 # Call the build and deploy function
-                from site_builder import build_and_deploy_site
-
                 result = await build_and_deploy_site(
                     blob_client=blob_service_client,
                     config=settings,
@@ -109,7 +104,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     ).isoformat()
                     app_metrics["last_build_duration"] = result.duration_seconds
                     logger.info(
-                        f"Background: Successfully built site ({result.files_uploaded} files)"
+                        f"Successfully built site ({result.files_uploaded} files)"
                     )
                     return {
                         "status": "success",
@@ -118,7 +113,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     }
                 else:
                     app_metrics["failed_builds"] += 1
-                    logger.warning(f"Background: Build had errors: {result.errors}")
+                    logger.warning(f"Build had errors: {result.errors}")
                     return {
                         "status": "error",
                         "errors": result.errors,
@@ -126,47 +121,48 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     }
 
             except Exception as e:
-                logger.error(
-                    f"Background: Error processing message: {e}", exc_info=True
-                )
+                logger.error(f"Error processing message: {e}", exc_info=True)
                 app_metrics["failed_builds"] += 1
                 return {"status": "error", "error": str(e)}
 
-        # Initialize background poller
-        background_poller = StorageQueuePoller(
-            queue_name=settings.queue_name,
-            message_handler=message_handler,
-            poll_interval=float(settings.queue_polling_interval_seconds),
-            max_messages_per_batch=1,  # One build at a time
-            max_empty_polls=3,
-            empty_queue_sleep=60.0,
-            process_queue_messages_func=process_queue_messages,
-        )
-
         async def startup_queue_processor():
-            """Process any existing queue messages on startup."""
-            logger.info(f"Starting queue polling for {settings.queue_name}")
+            """Process queue messages until empty, then allow KEDA to manage scaling."""
+            logger.info(f"🔍 Checking queue: {settings.queue_name}")
 
-            # Process any existing messages first
-            await process_queue_messages(
-                queue_name=settings.queue_name,
-                message_handler=message_handler,
-                max_messages=1,
-            )
+            total_processed = 0
+            while True:
+                # Process one message at a time (Hugo builds are resource-intensive)
+                messages_processed = await process_queue_messages(
+                    queue_name=settings.queue_name,
+                    message_handler=message_handler,
+                    max_messages=1,
+                )
 
-            # Start continuous background polling
-            await background_poller.start()
-            logger.info("Background queue polling started")
+                if messages_processed == 0:
+                    # Queue is empty - stop polling and let KEDA scale down
+                    logger.info(
+                        f"✅ Queue empty after processing {total_processed} messages. "
+                        "Container will stay alive for HTTP requests. "
+                        "KEDA will scale to 0 when queue remains empty."
+                    )
+                    break
 
-        # Start the background task
+                total_processed += messages_processed
+                logger.info(
+                    f"📦 Processed {messages_processed} messages (total: {total_processed}). "
+                    "Checking for more..."
+                )
+
+                # Brief pause before checking for next message
+                await asyncio.sleep(2)
+
+        # Start the queue processing task
         asyncio.create_task(startup_queue_processor())
 
         yield
 
         # Cleanup
         logger.info("Shutting down site-publisher container")
-        await background_poller.stop()
-        logger.info("Background queue polling stopped")
         await blob_service_client.close()
         await credential.close()
         logger.info("Site-publisher shutdown complete")

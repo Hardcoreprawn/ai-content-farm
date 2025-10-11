@@ -98,12 +98,6 @@ resource "azurerm_container_app" "content_collector" {
         name  = "KEDA_CRON_TRIGGER"
         value = "true"
       }
-
-      # Disable auto-shutdown for debugging/validation (set to "false" once proven working)
-      env {
-        name  = "DISABLE_AUTO_SHUTDOWN"
-        value = "true"
-      }
     }
 
     min_replicas = 0
@@ -111,7 +105,6 @@ resource "azurerm_container_app" "content_collector" {
 
     # KEDA cron scaler for regular content collection
     # Triggers collection 3 times per day to reduce API load while maintaining fresh content
-    # Note: 'end' is required by Azure Container Apps but container will stay alive for 300s cooldown via DISABLE_AUTO_SHUTDOWN=true
     custom_scale_rule {
       name             = "cron-scaler"
       custom_rule_type = "cron"

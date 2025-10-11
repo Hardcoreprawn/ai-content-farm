@@ -88,12 +88,6 @@ resource "azurerm_container_app" "markdown_generator" {
         name  = "OUTPUT_CONTAINER"
         value = "markdown-content"
       }
-
-      # Disable auto-shutdown for debugging/validation (set to "false" once proven working)
-      env {
-        name  = "DISABLE_AUTO_SHUTDOWN"
-        value = "true"
-      }
     }
 
     # Scale to zero when queue is empty

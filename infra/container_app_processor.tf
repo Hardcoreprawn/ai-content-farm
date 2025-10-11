@@ -109,12 +109,6 @@ resource "azurerm_container_app" "content_processor" {
         name  = "MARKDOWN_QUEUE_NAME"
         value = azurerm_storage_queue.markdown_generation_requests.name
       }
-
-      # Disable auto-shutdown for debugging/validation (set to "false" once proven working)
-      env {
-        name  = "DISABLE_AUTO_SHUTDOWN"
-        value = "true"
-      }
     }
 
     # Scale to zero when queue is empty
