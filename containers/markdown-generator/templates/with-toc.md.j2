@@ -4,16 +4,16 @@ url: "{{ metadata.url }}"
 source: "{{ metadata.source }}"
 {% if metadata.author -%}
 author: "{{ metadata.author }}"
-{% endif -%}
+{% endif %}
 {% if metadata.published_date -%}
 published_date: "{{ metadata.published_date.isoformat() }}"
-{% endif -%}
+{% endif %}
 {% if metadata.category -%}
 category: "{{ metadata.category }}"
-{% endif -%}
+{% endif %}
 {% if metadata.tags -%}
 tags: [{{ metadata.tags|map('tojson')|join(', ') }}]
-{% endif -%}
+{% endif %}
 generated_date: "{{ generated_date }}"
 ---
 

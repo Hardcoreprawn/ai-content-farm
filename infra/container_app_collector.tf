@@ -100,8 +100,10 @@ resource "azurerm_container_app" "content_collector" {
       }
     }
 
+    # Scale based on CRON schedule (0->1 at start time, 1->0 after end time)
+    # NOTE: cooldownPeriod=45s configured via Azure CLI (not supported by azurerm provider)
     min_replicas = 0
-    max_replicas = 2
+    max_replicas = 1 # Single collection run sufficient
 
     # KEDA cron scaler for regular content collection
     # Triggers collection 3 times per day to reduce API load while maintaining fresh content

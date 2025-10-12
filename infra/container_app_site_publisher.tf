@@ -108,8 +108,9 @@ resource "azurerm_container_app" "site_publisher" {
 
     # Scale to zero when queue is empty
     # KEDA authentication configured via null_resource in container_apps_keda_auth.tf
+    # NOTE: cooldownPeriod=300s configured via Azure CLI (not supported by azurerm provider)
     min_replicas = 0
-    max_replicas = 2 # Hugo builds are CPU/memory intensive, limit concurrency
+    max_replicas = 1 # Hugo builds must be sequential: multiple replicas cause file conflicts and corrupt builds
 
     # KEDA scaling rules for Storage Queue with managed identity
     # Build site when markdown generation completes

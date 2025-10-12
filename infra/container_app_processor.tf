@@ -113,8 +113,9 @@ resource "azurerm_container_app" "content_processor" {
 
     # Scale to zero when queue is empty
     # KEDA authentication configured via null_resource in container_apps_keda_auth.tf
+    # NOTE: cooldownPeriod=60s configured via Azure CLI (not supported by azurerm provider)
     min_replicas = 0
-    max_replicas = 3
+    max_replicas = 6 # Increased from 3: Testing showed 5 replicas hit OpenAI rate limits, 6 allows spike handling
 
     # KEDA scaling rules for Storage Queue messages with managed identity
     # Updated for individual item processing (responsive scaling)

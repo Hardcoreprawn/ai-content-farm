@@ -97,8 +97,9 @@ resource "azurerm_container_app" "markdown_generator" {
 
     # Scale to zero when queue is empty
     # KEDA authentication configured via null_resource in container_apps_keda_auth.tf
+    # NOTE: cooldownPeriod=45s configured via Azure CLI (not supported by azurerm provider)
     min_replicas = 0
-    max_replicas = 5
+    max_replicas = 1 # Single replica sufficient: processes 35+ articles/sec, prevents duplicate site-publish triggers
 
     # KEDA scaling rules for Storage Queue with managed identity
     # Responsive scaling - process individual items immediately
@@ -108,7 +109,7 @@ resource "azurerm_container_app" "markdown_generator" {
       metadata = {
         queueName             = azurerm_storage_queue.markdown_generation_requests.name
         accountName           = azurerm_storage_account.main.name
-        queueLength           = "1"   # Scale immediately when individual items arrive
+        queueLength           = "160" # Increased from 1: Prevents over-scaling (1 replica can handle 160 msgs in ~5s at 35/sec)
         queueLengthStrategy   = "all" # Count both visible and invisible messages
         activationQueueLength = "1"   # Required for proper 0->1 and 1->0 scaling transitions
         cloud                 = "AzurePublicCloud"
