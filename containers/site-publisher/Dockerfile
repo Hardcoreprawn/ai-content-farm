@@ -60,9 +60,9 @@ COPY --chown=app:app containers/site-publisher/. .
 RUN chmod -R 755 /app/hugo-config
 
 # Install Hugo PaperMod theme (required by config.toml)
-# Using specific commit for reproducibility (latest stable as of 2025-10)
+# Using v8.0 for Hugo v0.151.0 compatibility (.Site.Social deprecated fix)
 RUN mkdir -p /app/themes && \
-    git clone --depth 1 --branch v7.0 https://github.com/adityatelange/hugo-PaperMod.git /app/themes/PaperMod && \
+    git clone --depth 1 --branch v8.0 https://github.com/adityatelange/hugo-PaperMod.git /app/themes/PaperMod && \
     chown -R app:app /app/themes && \
     chmod -R 755 /app/themes
 
