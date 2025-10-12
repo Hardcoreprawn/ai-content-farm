@@ -1,5 +1,6 @@
 # Multi-stage build for markdown-generator container
 # Optimized with UV package manager and BuildKit cache mounts
+# Fixed YAML frontmatter generation (removed trailing dash from endif blocks)
 
 # Stage 1: Builder
 FROM python:3.11-slim AS builder
