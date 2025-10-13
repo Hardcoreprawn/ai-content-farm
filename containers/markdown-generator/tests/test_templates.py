@@ -177,7 +177,8 @@ class TestTemplateRendering:
         # Assert
         assert "---" in markdown
         assert "title:" in markdown
-        assert "# Minimal Data" in markdown
+        # H1 removed from templates - Hugo theme provides it from frontmatter
+        assert "# Minimal Data" not in markdown
         # Optional sections should not appear
         assert "## Summary" not in markdown
         assert "## Content" not in markdown
