@@ -123,9 +123,10 @@ async def startup_queue_processor(
     output_container: str,
 ) -> None:
     """
-    Process queue messages continuously, allowing KEDA to manage scaling.
+    Process queue messages continuously with graceful self-termination.
 
     Signals site-publisher after first batch completes, then continues polling.
+    Implements graceful self-termination after MAX_IDLE_TIME as backup to KEDA.
 
     Args:
         queue_name: Name of the queue to process
@@ -133,7 +134,14 @@ async def startup_queue_processor(
         max_batch_size: Maximum messages to process per batch
         output_container: Container name for markdown output
     """
+    import os
+    from datetime import datetime, timezone
+
     logger.info(f"🔍 Checking queue: {queue_name}")
+
+    # Graceful termination settings
+    MAX_IDLE_TIME = int(os.getenv("MAX_IDLE_TIME_SECONDS", "180"))  # 3 minutes default
+    last_activity_time = datetime.now(timezone.utc)
 
     total_processed = 0
     signaled_site_publisher = False
@@ -163,16 +171,30 @@ async def startup_queue_processor(
                     "Continuing to poll. KEDA will scale to 0 after cooldown period."
                 )
 
+            # Check if we should gracefully terminate
+            idle_seconds = (
+                datetime.now(timezone.utc) - last_activity_time
+            ).total_seconds()
+            if idle_seconds >= MAX_IDLE_TIME:
+                logger.info(
+                    f"🛑 Graceful shutdown: No messages for {int(idle_seconds)}s "
+                    f"(max: {MAX_IDLE_TIME}s). Processed {total_processed} messages total."
+                )
+                break  # Exit loop, trigger cleanup and container shutdown
+
             # Log every 10th empty check to avoid log spam
             if empty_checks % 10 == 1 and empty_checks > 1:
                 logger.info(
-                    f"✅ Queue still empty (processed {total_processed} total). "
+                    f"✅ Queue still empty (processed {total_processed} total, "
+                    f"idle: {int(idle_seconds)}s/{MAX_IDLE_TIME}s). "
                     "Continuing to poll. KEDA will scale to 0 after cooldown period."
                 )
 
             # Wait longer when queue is empty to reduce polling load
             await asyncio.sleep(10)
         else:
+            # Reset idle timer when we process messages
+            last_activity_time = datetime.now(timezone.utc)
             empty_checks = 0  # Reset counter when message processed
             total_processed += messages_processed
             logger.info(
