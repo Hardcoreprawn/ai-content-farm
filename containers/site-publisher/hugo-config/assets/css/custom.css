@@ -1,0 +1,40 @@
+/* Custom CSS overrides for AI Content Farm */
+
+/* Limit cover image height on list/index pages to prevent excessive vertical space */
+.post-entry .entry-cover {
+    max-height: 200px;
+    overflow: hidden;
+}
+
+.post-entry .entry-cover img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* First entry on homepage can be slightly taller */
+.first-entry .entry-cover {
+    max-height: 250px;
+    overflow: hidden;
+}
+
+.first-entry .entry-cover img {
+    width: 100%;
+    height: 250px;
+    object-fit: cover;
+    object-position: center;
+}
+
+/* Single article pages - keep full-width hero images with natural aspect ratio */
+.post-single .entry-cover {
+    max-height: none;
+}
+
+.post-single .entry-cover img {
+    width: 100%;
+    height: auto;
+    max-height: 500px;
+    object-fit: cover;
+    object-position: center;
+}

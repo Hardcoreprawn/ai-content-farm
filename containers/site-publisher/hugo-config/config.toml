@@ -45,6 +45,10 @@ buildExpired = false
   description = "AI-curated content from across the web"
   author = "AI Content Farm"
 
+  # Custom CSS for image sizing and layout
+  [params.assets]
+    customCSS = ["css/custom.css"]
+
   # Homepage configuration - provides H1 heading for SEO
   [params.homeInfoParams]
     Title = "AI Content Farm"
