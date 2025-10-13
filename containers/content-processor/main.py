@@ -139,10 +139,11 @@ async def lifespan(app: FastAPI):
             return {"status": "error", "error": str(e)}
 
     async def startup_queue_processor():
-        """Process queue messages until empty, then allow KEDA to manage scaling."""
+        """Process queue messages continuously, allowing KEDA to manage scaling."""
         logger.info("🔍 Checking queue: content-processing-requests")
 
         total_processed = 0
+        empty_checks = 0
         while True:
             # Process batch of messages (AI processing can handle concurrency)
             messages_processed = await process_queue_messages(
@@ -152,27 +153,30 @@ async def lifespan(app: FastAPI):
             )
 
             if messages_processed == 0:
-                # Queue is empty - let KEDA handle scaling to zero
-                if total_processed > 0:
-                    logger.info(
-                        f"✅ Queue empty after processing {total_processed} messages. "
-                        "Container will remain alive. KEDA will scale to 0 after cooldown period."
-                    )
-                else:
-                    logger.info(
-                        "✅ Queue empty on startup. "
-                        "Container will remain alive. KEDA will scale to 0 after cooldown period."
-                    )
-                break
-
-            total_processed += messages_processed
-            logger.info(
-                f"📦 Processed {messages_processed} messages (total: {total_processed}). "
-                "Checking for more..."
-            )
-
-            # Brief pause before checking for next batch
-            await asyncio.sleep(2)
+                empty_checks += 1
+                # Log every 10th empty check to avoid log spam
+                if empty_checks % 10 == 1:
+                    if total_processed > 0:
+                        logger.info(
+                            f"✅ Queue empty after processing {total_processed} messages. "
+                            "Continuing to poll. KEDA will scale to 0 after cooldown period."
+                        )
+                    else:
+                        logger.info(
+                            "✅ Queue empty on startup. "
+                            "Continuing to poll. KEDA will scale to 0 after cooldown period."
+                        )
+                # Wait longer when queue is empty to reduce polling load
+                await asyncio.sleep(10)
+            else:
+                empty_checks = 0  # Reset counter when message processed
+                total_processed += messages_processed
+                logger.info(
+                    f"📦 Processed {messages_processed} messages (total: {total_processed}). "
+                    "Checking for more..."
+                )
+                # Brief pause before checking for next batch
+                await asyncio.sleep(2)
 
     # Start the queue processing task
     asyncio.create_task(startup_queue_processor())
