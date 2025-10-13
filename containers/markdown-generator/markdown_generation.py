@@ -26,6 +26,9 @@ def generate_hugo_frontmatter(
     draft: bool = False,
     description: Optional[str] = None,
     keywords: Optional[list[str]] = None,
+    cover_image: Optional[str] = None,
+    cover_alt: Optional[str] = None,
+    cover_caption: Optional[str] = None,
     **custom_params: Any,
 ) -> str:
     """
@@ -37,6 +40,9 @@ def generate_hugo_frontmatter(
         draft: Whether article is a draft (default: False)
         description: Meta description for SEO
         keywords: List of keywords/tags
+        cover_image: Cover/hero image URL (PaperMod theme)
+        cover_alt: Cover image alt text (PaperMod theme)
+        cover_caption: Cover image caption/credit (PaperMod theme)
         **custom_params: Any custom parameters (will be placed under 'params' key)
 
     Returns:
@@ -49,6 +55,9 @@ def generate_hugo_frontmatter(
         ...     draft=False,
         ...     description="An interesting article",
         ...     keywords=["python", "hugo"],
+        ...     cover_image="https://images.unsplash.com/photo-xyz",
+        ...     cover_alt="Quantum computer visualization",
+        ...     cover_caption="Photo by John Doe on Unsplash",
         ...     author="John Doe",  # Custom param
         ...     source="example.com",  # Custom param
         ... )
@@ -69,6 +78,16 @@ def generate_hugo_frontmatter(
     if keywords:
         # Hugo expects arrays of strings for taxonomy fields
         frontmatter["keywords"] = keywords
+
+    # PaperMod theme cover image (top-level, not in params)
+    if cover_image:
+        frontmatter["cover"] = {
+            "image": cover_image,
+            "alt": cover_alt or title,
+            "relative": False,  # Absolute URLs from Unsplash
+        }
+        if cover_caption:
+            frontmatter["cover"]["caption"] = cover_caption
 
     # All custom parameters must go under 'params' key
     if custom_params:
@@ -342,18 +361,9 @@ def _prepare_hugo_frontmatter(
     if category:
         custom_params["category"] = category
 
-    # Add image metadata if available
-    if hero_image:
-        custom_params["hero_image"] = hero_image
-
+    # Keep thumbnail and image_color in params (custom fields)
     if thumbnail:
         custom_params["thumbnail"] = thumbnail
-
-    if image_alt:
-        custom_params["image_alt"] = image_alt
-
-    if image_credit:
-        custom_params["image_credit"] = image_credit
 
     if image_color:
         custom_params["image_color"] = image_color
@@ -361,12 +371,15 @@ def _prepare_hugo_frontmatter(
     # Add any additional custom parameters
     custom_params.update(additional_params)
 
-    # Use generate_hugo_frontmatter with custom params
+    # Use generate_hugo_frontmatter with PaperMod cover structure
     return generate_hugo_frontmatter(
         title=title,
         date=date,
         draft=False,  # Published articles are not drafts
         description=None,  # Can be added later if needed
         keywords=tags or [],
+        cover_image=hero_image,  # PaperMod expects this at top level
+        cover_alt=image_alt,
+        cover_caption=image_credit,
         **custom_params,
     )
