@@ -62,16 +62,15 @@ class TestMarkdownGenerationOutcomes:
 
         markdown_content = write_calls[0][0][0]  # First positional arg
 
-        # Verify frontmatter structure
+        # Verify frontmatter structure (Hugo compliant)
         assert markdown_content.startswith("---")
         assert "title:" in markdown_content
-        assert "url:" in markdown_content
+        assert "date:" in markdown_content  # Hugo required field
+        assert "draft:" in markdown_content  # Hugo required field
+        assert "params:" in markdown_content  # Custom fields under params
+        # Custom fields now under params:
+        assert "original_url:" in markdown_content
         assert "source:" in markdown_content
-        assert "author:" in markdown_content
-        assert "published_date:" in markdown_content
-        assert "category:" in markdown_content
-        assert "tags:" in markdown_content
-        assert "generated_date:" in markdown_content
 
     @pytest.mark.asyncio
     async def test_markdown_contains_structured_content(

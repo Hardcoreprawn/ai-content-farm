@@ -14,6 +14,7 @@ from typing import Any, Dict, Optional
 from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob import BlobServiceClient
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound
+from markdown_generation import prepare_frontmatter
 from models import ArticleMetadata, MarkdownGenerationResult, ProcessingStatus
 
 from config import Settings  # type: ignore[import]
@@ -214,11 +215,26 @@ class MarkdownProcessor:
             logger.error(f"Template not found: {template_name}")
             raise ValueError(f"Template not found: {template_name}")
 
-        # Render template with data
+        # Generate Hugo-compliant frontmatter
+        frontmatter = prepare_frontmatter(
+            title=metadata.title,
+            source=metadata.source,
+            original_url=metadata.url,
+            generated_at=article_data.get(
+                "generated_at", f"{datetime.now(UTC).isoformat()}Z"
+            ),
+            format="hugo",
+            author=metadata.author,
+            published_date=metadata.published_date,
+            category=metadata.category,
+            tags=metadata.tags,
+        )
+
+        # Render template with data and pre-generated frontmatter
         markdown_content = template.render(
+            frontmatter=frontmatter,
             metadata=metadata,
             article_data=article_data,
-            generated_date=f"{datetime.now(UTC).isoformat()}Z",
         )
 
         return markdown_content
