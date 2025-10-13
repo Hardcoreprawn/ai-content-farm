@@ -196,23 +196,34 @@ def validate_markdown_frontmatter(file_path: Path) -> Tuple[bool, List[str]]:
                 errors.append(f"Frontmatter is not a dictionary")
                 return False, errors
 
-            # Check for required fields
-            required_fields = ["title", "url", "source"]
-            for field in required_fields:
-                if field not in frontmatter:
-                    errors.append(f"Missing required field: {field}")
+            # Check for Hugo required fields (per Hugo specification)
+            # Hugo requires: title, date (can have default)
+            # Custom fields like url/source should be under params
+            if "title" not in frontmatter:
+                errors.append(f"Missing required field: title")
+
+            if "date" not in frontmatter:
+                errors.append(f"Missing required field: date")
+
+            # Validate title type
+            if "title" in frontmatter and not isinstance(frontmatter["title"], str):
+                errors.append(f"Field 'title' must be string")
+
+            # Validate date type (should be string in ISO8601 format)
+            if "date" in frontmatter and not isinstance(frontmatter["date"], str):
+                errors.append(f"Field 'date' must be string (ISO8601)")
+
+            # Validate params structure if present (Hugo custom fields)
+            if "params" in frontmatter:
+                if not isinstance(frontmatter["params"], dict):
+                    errors.append(f"Field 'params' must be dictionary")
+                # Optionally check for expected params (url, source)
+                elif "original_url" not in frontmatter["params"]:
+                    # Note: This is a warning-level issue, not critical
+                    logger.debug(f"Params missing 'original_url' field (non-critical)")
 
             if errors:
                 return False, errors
-
-            # Additional Hugo-strict validation: check raw YAML for unquoted URLs
-            # Hugo's YAML parser is stricter than Python's
-            for line in frontmatter_text.split("\n"):
-                line = line.strip()
-                # Check if line has url: or source: followed by unquoted value containing ://
-                if re.match(r'^(url|source):\s+[^"\'].*://', line):
-                    errors.append(f"URL/source must be quoted: {line[:50]}")
-                    return False, errors
 
             return True, []
 
