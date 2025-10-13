@@ -123,7 +123,9 @@ async def startup_queue_processor(
     output_container: str,
 ) -> None:
     """
-    Process queue messages until empty, then signal site-publisher and scale down.
+    Process queue messages continuously, allowing KEDA to manage scaling.
+
+    Signals site-publisher after first batch completes, then continues polling.
 
     Args:
         queue_name: Name of the queue to process
@@ -134,6 +136,9 @@ async def startup_queue_processor(
     logger.info(f"🔍 Checking queue: {queue_name}")
 
     total_processed = 0
+    signaled_site_publisher = False
+    empty_checks = 0
+
     while True:
         # Process batch of messages (markdown generation is lightweight)
         messages_processed = await process_queue_messages(
@@ -143,30 +148,37 @@ async def startup_queue_processor(
         )
 
         if messages_processed == 0:
-            # Queue is empty - let KEDA handle scaling to zero
-            if total_processed > 0:
+            empty_checks += 1
+
+            # Signal site-publisher once after first batch completes
+            if total_processed > 0 and not signaled_site_publisher:
                 logger.info(
                     f"✅ Markdown queue empty after processing {total_processed} messages - "
                     "signaling site-publisher to build static site"
                 )
                 await signal_site_publisher(total_processed, output_container)
-
+                signaled_site_publisher = True
                 logger.info(
                     f"✅ Processing complete ({total_processed} messages). "
-                    "Container will remain alive. KEDA will scale to 0 after cooldown period."
+                    "Continuing to poll. KEDA will scale to 0 after cooldown period."
                 )
-            else:
+
+            # Log every 10th empty check to avoid log spam
+            if empty_checks % 10 == 1 and empty_checks > 1:
                 logger.info(
-                    "✅ Queue empty on startup. "
-                    "Container will remain alive. KEDA will scale to 0 after cooldown period."
+                    f"✅ Queue still empty (processed {total_processed} total). "
+                    "Continuing to poll. KEDA will scale to 0 after cooldown period."
                 )
-            break
 
-        total_processed += messages_processed
-        logger.info(
-            f"📦 Processed {messages_processed} messages (total: {total_processed}). "
-            "Checking for more..."
-        )
+            # Wait longer when queue is empty to reduce polling load
+            await asyncio.sleep(10)
+        else:
+            empty_checks = 0  # Reset counter when message processed
+            total_processed += messages_processed
+            logger.info(
+                f"📦 Processed {messages_processed} messages (total: {total_processed}). "
+                "Checking for more..."
+            )
 
-        # Brief pause before checking for next batch
-        await asyncio.sleep(2)
+            # Brief pause before checking for next batch
+            await asyncio.sleep(2)
