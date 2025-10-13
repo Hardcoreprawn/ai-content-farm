@@ -263,16 +263,19 @@ async def test_organize_content_for_hugo_empty_directory(temp_dir):
 
 
 def test_validate_markdown_frontmatter_valid():
-    """Test validation of valid YAML frontmatter."""
+    """Test validation of valid Hugo-compliant YAML frontmatter."""
     import tempfile
 
-    # Create temp file with valid frontmatter
+    # Create temp file with valid Hugo-compliant frontmatter
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
         f.write(
             """---
 title: "Test Article"
-url: "https://example.com/test"
-source: "reddit"
+date: "2025-10-10T00:00:00Z"
+draft: false
+params:
+  original_url: "https://example.com/test"
+  source: "reddit"
 ---
 
 # Test Article
@@ -340,7 +343,7 @@ source: "reddit"
 
 
 def test_validate_markdown_frontmatter_missing_required_fields():
-    """Test validation fails for missing required fields."""
+    """Test validation fails for missing required fields (Hugo spec: title and date)."""
     import tempfile
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False) as f:
@@ -357,8 +360,8 @@ title: "Test Article"
     try:
         is_valid, errors = validate_markdown_frontmatter(temp_path)
         assert not is_valid
-        assert any("url" in error.lower() for error in errors)
-        assert any("source" in error.lower() for error in errors)
+        # Hugo requires 'date' field
+        assert any("date" in error.lower() for error in errors)
     finally:
         temp_path.unlink()
 
@@ -370,13 +373,16 @@ async def test_organize_content_quarantines_malformed_files(temp_dir):
     content_dir = temp_dir / "content"
     content_dir.mkdir()
 
-    # Good file with valid frontmatter
+    # Good file with valid Hugo-compliant frontmatter
     good_file = content_dir / "good-article.md"
     good_file.write_text(
         """---
 title: "Good Article"
-url: "https://example.com/good"
-source: "reddit"
+date: "2025-10-10T00:00:00Z"
+draft: false
+params:
+  original_url: "https://example.com/good"
+  source: "reddit"
 ---
 
 # Good Article
@@ -385,13 +391,14 @@ Content here.
 """
     )
 
-    # Bad file with invalid YAML (unquoted URL)
+    # Bad file with missing required date field
     bad_file = content_dir / "bad-article.md"
     bad_file.write_text(
         """---
 title: "Bad Article"
-url: https://example.com/bad
-source: reddit
+params:
+  original_url: "https://example.com/bad"
+  source: "reddit"
 ---
 
 # Bad Article

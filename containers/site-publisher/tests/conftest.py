@@ -51,13 +51,17 @@ def mock_settings():
 
 @pytest.fixture
 def sample_markdown_content():
-    """Provide sample markdown content for testing with valid YAML frontmatter."""
+    """Provide sample markdown content for testing with Hugo-compliant YAML frontmatter."""
     return """---
 title: "Test Article"
-url: "https://example.com/test-article"
-source: "test"
-date: 2025-10-10
-tags: ["test", "sample"]
+date: "2025-10-10T00:00:00Z"
+draft: false
+keywords:
+  - test
+  - sample
+params:
+  original_url: "https://example.com/test-article"
+  source: "test"
 ---
 
 # Test Article
