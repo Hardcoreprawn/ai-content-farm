@@ -109,6 +109,11 @@ resource "azurerm_container_app" "content_processor" {
         name  = "MARKDOWN_QUEUE_NAME"
         value = azurerm_storage_queue.markdown_generation_requests.name
       }
+
+      env {
+        name  = "MAX_IDLE_TIME_SECONDS"
+        value = "180" # 3 minutes - provides safety margin beyond 60s KEDA cooldown
+      }
     }
 
     # Scale to zero when queue is empty

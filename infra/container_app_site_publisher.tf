@@ -104,6 +104,11 @@ resource "azurerm_container_app" "site_publisher" {
         name  = "HUGO_BASE_URL"
         value = azurerm_storage_account_static_website.main.index_document != null ? azurerm_storage_account.main.primary_web_endpoint : "https://example.com"
       }
+
+      env {
+        name  = "MAX_IDLE_TIME_SECONDS"
+        value = "300" # 5 minutes - matches KEDA cooldown period
+      }
     }
 
     # Scale to zero when queue is empty
