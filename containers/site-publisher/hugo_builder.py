@@ -11,8 +11,9 @@ import mimetypes
 import subprocess
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
+from azure.storage.blob import ContentSettings
 from azure.storage.blob.aio import BlobServiceClient
 from error_handling import handle_error
 from models import BuildResult, DeploymentResult
@@ -32,7 +33,7 @@ async def build_site_with_hugo(
     config_file: Path,
     base_url: str,
     timeout_seconds: int = 300,
-    themes_dir: Path = None,
+    themes_dir: Optional[Path] = None,
 ) -> BuildResult:
     """
     Build static site with Hugo (async).
@@ -277,7 +278,7 @@ async def deploy_to_web_container(
                     await blob_client_obj.upload_blob(
                         data,
                         overwrite=True,
-                        content_settings={"content_type": content_type},
+                        content_settings=ContentSettings(content_type=content_type),
                     )
 
                 uploaded_files += 1
