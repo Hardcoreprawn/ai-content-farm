@@ -179,15 +179,17 @@ async def lifespan(app: FastAPI):
 
                 # Log every 10th empty check to avoid log spam
                 if empty_checks % 10 == 1:
+                    current_time = datetime.utcnow().strftime("%H:%M:%S")
                     if total_processed > 0:
                         logger.info(
                             f"✅ Queue empty after processing {total_processed} messages "
-                            f"(idle: {int(idle_seconds)}s/{MAX_IDLE_TIME}s). "
+                            f"(idle: {int(idle_seconds)}s/{MAX_IDLE_TIME}s, last checked @ {current_time}). "
                             "Continuing to poll. KEDA will scale to 0 after cooldown period."
                         )
                     else:
                         logger.info(
-                            f"✅ Queue empty on startup (idle: {int(idle_seconds)}s/{MAX_IDLE_TIME}s). "
+                            f"✅ Queue empty on startup (idle: {int(idle_seconds)}s/{MAX_IDLE_TIME}s, "
+                            f"last checked @ {current_time}). "
                             "Continuing to poll. KEDA will scale to 0 after cooldown period."
                         )
 

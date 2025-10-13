@@ -140,7 +140,8 @@ async def startup_queue_processor(
     logger.info(f"🔍 Checking queue: {queue_name}")
 
     # Graceful termination settings
-    MAX_IDLE_TIME = int(os.getenv("MAX_IDLE_TIME_SECONDS", "180"))  # 3 minutes default
+    # 3 minutes default
+    MAX_IDLE_TIME = int(os.getenv("MAX_IDLE_TIME_SECONDS", "180"))
     last_activity_time = datetime.now(timezone.utc)
 
     total_processed = 0
@@ -184,9 +185,10 @@ async def startup_queue_processor(
 
             # Log every 10th empty check to avoid log spam
             if empty_checks % 10 == 1 and empty_checks > 1:
+                current_time = datetime.now(timezone.utc).strftime("%H:%M:%S")
                 logger.info(
                     f"✅ Queue still empty (processed {total_processed} total, "
-                    f"idle: {int(idle_seconds)}s/{MAX_IDLE_TIME}s). "
+                    f"idle: {int(idle_seconds)}s/{MAX_IDLE_TIME}s, last checked @ {current_time}). "
                     "Continuing to poll. KEDA will scale to 0 after cooldown period."
                 )
 
