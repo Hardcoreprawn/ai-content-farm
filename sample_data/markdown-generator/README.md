@@ -96,7 +96,7 @@ az login
 
 # List recent processed content
 az storage blob list \
-  --account-name aicontentprodstkwakpx \
+  --account-name YOUR_STORAGE_ACCOUNT \
   --container-name processed-content \
   --auth-mode login \
   --query "[?contains(name, 'processed/2025')].name" \
@@ -104,7 +104,7 @@ az storage blob list \
 
 # Download specific sample
 az storage blob download \
-  --account-name aicontentprodstkwakpx \
+  --account-name YOUR_STORAGE_ACCOUNT \
   --container-name processed-content \
   --name "processed/2025/10/12/20251012_204235_rss_675939.json" \
   --file sample_data/markdown-generator/sample_rss_1.json \
