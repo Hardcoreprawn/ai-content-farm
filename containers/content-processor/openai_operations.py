@@ -286,9 +286,13 @@ def build_article_prompt(
 
     prompt_parts.extend(
         [
-            "Structure the article with:",
+            "Structure the article with markdown headings:",
+            "IMPORTANT: Use H2 (##) for main sections, H3-H6 (###-######) for subsections.",
+            "NEVER use H1 (#) - the page title is already H1.",
+            "Keep all headings concise (under 100 characters).",
+            "",
             "1. Engaging introduction",
-            "2. Main content with clear headings",
+            "2. Main content with clear H2/H3 section headings",
             "3. Key insights and analysis",
             "4. Conclusion with takeaways",
             "",

@@ -45,6 +45,11 @@ buildExpired = false
   description = "AI-curated content from across the web"
   author = "AI Content Farm"
 
+  # Homepage configuration - provides H1 heading for SEO
+  [params.homeInfoParams]
+    Title = "AI Content Farm"
+    Content = "AI-curated tech news and articles from across the web. Discover trending topics with automated fact-checking and research."
+
   # Show breadcrumbs
   ShowBreadCrumbs = true
   ShowPostNavLinks = true
