@@ -1,5 +1,13 @@
 {{ frontmatter }}
 
+{%- if metadata.hero_image %}
+
+![{{ metadata.image_alt or metadata.title }}]({{ metadata.hero_image }})
+{%- if metadata.image_credit %}
+*{{ metadata.image_credit }}*
+{%- endif %}
+{%- endif %}
+
 {%- if article_data.summary %}
 
 {{ article_data.summary }}

@@ -5,11 +5,11 @@ These tests focus on verifiable outcomes rather than implementation details.
 """
 
 import json
-from typing import Any
+from typing import Any, Dict
 
 import pytest
 from azure.core.exceptions import ResourceNotFoundError
-from markdown_processor import MarkdownProcessor
+from markdown_processor import process_article
 from models import ProcessingStatus
 
 
@@ -18,7 +18,7 @@ class TestMarkdownGenerationOutcomes:
 
     @pytest.mark.asyncio
     async def test_successful_processing_produces_markdown_blob(
-        self, markdown_processor: MarkdownProcessor
+        self, markdown_processor_deps: Dict[str, Any]
     ) -> None:
         """
         GIVEN a valid JSON article blob
@@ -28,8 +28,13 @@ class TestMarkdownGenerationOutcomes:
         # Arrange
         blob_name = "test-article.json"
 
-        # Act
-        result = await markdown_processor.process_article(blob_name)
+        # Act - Call functional API directly
+        result = await process_article(
+            blob_name=blob_name,
+            overwrite=False,
+            template_name="default.md.j2",
+            **markdown_processor_deps,
+        )
 
         # Assert - Verify outcome
         assert result.status == ProcessingStatus.COMPLETED
@@ -40,7 +45,7 @@ class TestMarkdownGenerationOutcomes:
     @pytest.mark.asyncio
     async def test_markdown_contains_frontmatter_with_metadata(
         self,
-        markdown_processor: MarkdownProcessor,
+        markdown_processor_deps: Dict[str, Any],
         mock_blob_service_client: Any,
     ) -> None:
         """
@@ -51,8 +56,13 @@ class TestMarkdownGenerationOutcomes:
         # Arrange
         blob_name = "test-article.json"
 
-        # Act
-        await markdown_processor.process_article(blob_name)
+        # Act - Call functional API directly
+        result = await process_article(
+            blob_name=blob_name,
+            overwrite=False,
+            template_name="default.md.j2",
+            **markdown_processor_deps,
+        )
 
         # Assert - Check what was written
         container_client = mock_blob_service_client.get_container_client("test-output")
@@ -75,7 +85,7 @@ class TestMarkdownGenerationOutcomes:
     @pytest.mark.asyncio
     async def test_markdown_contains_structured_content(
         self,
-        markdown_processor: MarkdownProcessor,
+        markdown_processor_deps: Dict[str, Any],
         mock_blob_service_client: Any,
     ) -> None:
         """
@@ -86,8 +96,13 @@ class TestMarkdownGenerationOutcomes:
         # Arrange
         blob_name = "test-article.json"
 
-        # Act
-        await markdown_processor.process_article(blob_name)
+        # Act - Call functional API directly
+        await process_article(
+            blob_name=blob_name,
+            overwrite=False,
+            template_name="default.md.j2",
+            **markdown_processor_deps,
+        )
 
         # Assert - Check content structure
         container_client = mock_blob_service_client.get_container_client("test-output")
@@ -110,7 +125,7 @@ class TestMarkdownGenerationOutcomes:
     @pytest.mark.asyncio
     async def test_missing_blob_returns_failed_status(
         self,
-        markdown_processor: MarkdownProcessor,
+        markdown_processor_deps: Dict[str, Any],
         mock_blob_service_client: Any,
     ) -> None:
         """
@@ -125,8 +140,13 @@ class TestMarkdownGenerationOutcomes:
 
         blob_name = "nonexistent.json"
 
-        # Act
-        result = await markdown_processor.process_article(blob_name)
+        # Act - Call functional API directly
+        result = await process_article(
+            blob_name=blob_name,
+            overwrite=False,
+            template_name="default.md.j2",
+            **markdown_processor_deps,
+        )
 
         # Assert - Verify failure outcome
         assert result.status == ProcessingStatus.FAILED
@@ -137,7 +157,7 @@ class TestMarkdownGenerationOutcomes:
     @pytest.mark.asyncio
     async def test_existing_markdown_prevents_overwrite_by_default(
         self,
-        markdown_processor: MarkdownProcessor,
+        markdown_processor_deps: Dict[str, Any],
         mock_blob_service_client: Any,
     ) -> None:
         """
@@ -152,8 +172,13 @@ class TestMarkdownGenerationOutcomes:
 
         blob_name = "existing-article.json"
 
-        # Act
-        result = await markdown_processor.process_article(blob_name, overwrite=False)
+        # Act - Call functional API directly
+        result = await process_article(
+            blob_name=blob_name,
+            overwrite=False,
+            template_name="default.md.j2",
+            **markdown_processor_deps,
+        )
 
         # Assert - Verify overwrite protection
         assert result.status == ProcessingStatus.FAILED
@@ -163,7 +188,7 @@ class TestMarkdownGenerationOutcomes:
     @pytest.mark.asyncio
     async def test_overwrite_flag_allows_replacing_existing_markdown(
         self,
-        markdown_processor: MarkdownProcessor,
+        markdown_processor_deps: Dict[str, Any],
         mock_blob_service_client: Any,
     ) -> None:
         """
@@ -178,8 +203,13 @@ class TestMarkdownGenerationOutcomes:
 
         blob_name = "existing-article.json"
 
-        # Act
-        result = await markdown_processor.process_article(blob_name, overwrite=True)
+        # Act - Call functional API directly with overwrite=True
+        result = await process_article(
+            blob_name=blob_name,
+            overwrite=True,
+            template_name="default.md.j2",
+            **markdown_processor_deps,
+        )
 
         # Assert - Verify successful overwrite
         assert result.status == ProcessingStatus.COMPLETED
@@ -194,7 +224,7 @@ class TestMarkdownGenerationOutcomes:
 
     @pytest.mark.asyncio
     async def test_processing_time_is_reasonable(
-        self, markdown_processor: MarkdownProcessor
+        self, markdown_processor_deps: Dict[str, Any]
     ) -> None:
         """
         GIVEN a standard article
@@ -204,8 +234,13 @@ class TestMarkdownGenerationOutcomes:
         # Arrange
         blob_name = "test-article.json"
 
-        # Act
-        result = await markdown_processor.process_article(blob_name)
+        # Act - Call functional API directly
+        result = await process_article(
+            blob_name=blob_name,
+            overwrite=False,
+            template_name="default.md.j2",
+            **markdown_processor_deps,
+        )
 
         # Assert - Verify performance outcome
         assert result.status == ProcessingStatus.COMPLETED
@@ -215,7 +250,7 @@ class TestMarkdownGenerationOutcomes:
     @pytest.mark.asyncio
     async def test_malformed_json_returns_failed_status(
         self,
-        markdown_processor: MarkdownProcessor,
+        markdown_processor_deps: Dict[str, Any],
         mock_blob_service_client: Any,
     ) -> None:
         """
@@ -232,8 +267,13 @@ class TestMarkdownGenerationOutcomes:
 
         blob_name = "malformed.json"
 
-        # Act
-        result = await markdown_processor.process_article(blob_name)
+        # Act - Call functional API directly
+        result = await process_article(
+            blob_name=blob_name,
+            overwrite=False,
+            template_name="default.md.j2",
+            **markdown_processor_deps,
+        )
 
         # Assert - Verify error handling
         assert result.status == ProcessingStatus.FAILED
@@ -242,7 +282,7 @@ class TestMarkdownGenerationOutcomes:
     @pytest.mark.asyncio
     async def test_minimal_article_data_still_produces_valid_markdown(
         self,
-        markdown_processor: MarkdownProcessor,
+        markdown_processor_deps: Dict[str, Any],
         mock_blob_service_client: Any,
     ) -> None:
         """
@@ -264,8 +304,13 @@ class TestMarkdownGenerationOutcomes:
 
         blob_name = "minimal.json"
 
-        # Act
-        result = await markdown_processor.process_article(blob_name)
+        # Act - Call functional API directly
+        result = await process_article(
+            blob_name=blob_name,
+            overwrite=False,
+            template_name="default.md.j2",
+            **markdown_processor_deps,
+        )
 
         # Assert - Verify graceful handling
         assert result.status == ProcessingStatus.COMPLETED

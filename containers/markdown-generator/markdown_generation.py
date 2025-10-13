@@ -205,6 +205,11 @@ def prepare_frontmatter(
     published_date: Optional[datetime] = None,
     category: Optional[str] = None,
     tags: Optional[list[str]] = None,
+    hero_image: Optional[str] = None,
+    thumbnail: Optional[str] = None,
+    image_alt: Optional[str] = None,
+    image_credit: Optional[str] = None,
+    image_color: Optional[str] = None,
     **additional_params: Any,
 ) -> str:
     """
@@ -224,6 +229,11 @@ def prepare_frontmatter(
         published_date: Original publication date (optional)
         category: Content category (optional)
         tags: List of content tags (optional)
+        hero_image: Hero/featured image URL (optional, from Unsplash)
+        thumbnail: Thumbnail image URL (optional, from Unsplash)
+        image_alt: Image alt text (optional)
+        image_credit: Image credit/attribution (optional)
+        image_color: Dominant color hex code (optional)
         **additional_params: Any additional custom parameters
 
     Returns:
@@ -240,7 +250,9 @@ def prepare_frontmatter(
         ...     generated_at="2025-10-13T08:00:00Z",
         ...     format="hugo",
         ...     author="John Doe",
-        ...     tags=["tech", "ai"]
+        ...     tags=["tech", "ai"],
+        ...     hero_image="https://images.unsplash.com/photo-xyz?w=1080",
+        ...     image_credit="Photo by Jane Doe on Unsplash"
         ... )
     """
     if format == "hugo":
@@ -253,6 +265,11 @@ def prepare_frontmatter(
             published_date=published_date,
             category=category,
             tags=tags,
+            hero_image=hero_image,
+            thumbnail=thumbnail,
+            image_alt=image_alt,
+            image_credit=image_credit,
+            image_color=image_color,
             **additional_params,
         )
     else:
@@ -270,6 +287,11 @@ def _prepare_hugo_frontmatter(
     published_date: Optional[datetime] = None,
     category: Optional[str] = None,
     tags: Optional[list[str]] = None,
+    hero_image: Optional[str] = None,
+    thumbnail: Optional[str] = None,
+    image_alt: Optional[str] = None,
+    image_credit: Optional[str] = None,
+    image_color: Optional[str] = None,
     **additional_params: Any,
 ) -> str:
     """
@@ -288,6 +310,11 @@ def _prepare_hugo_frontmatter(
         published_date: Original publication date
         category: Content category
         tags: List of tags
+        hero_image: Hero/featured image URL (optional)
+        thumbnail: Thumbnail image URL (optional)
+        image_alt: Image alt text (optional)
+        image_credit: Image credit/attribution (optional)
+        image_color: Dominant color hex code (optional)
         **additional_params: Additional custom parameters
 
     Returns:
@@ -314,6 +341,22 @@ def _prepare_hugo_frontmatter(
 
     if category:
         custom_params["category"] = category
+
+    # Add image metadata if available
+    if hero_image:
+        custom_params["hero_image"] = hero_image
+
+    if thumbnail:
+        custom_params["thumbnail"] = thumbnail
+
+    if image_alt:
+        custom_params["image_alt"] = image_alt
+
+    if image_credit:
+        custom_params["image_credit"] = image_credit
+
+    if image_color:
+        custom_params["image_color"] = image_color
 
     # Add any additional custom parameters
     custom_params.update(additional_params)

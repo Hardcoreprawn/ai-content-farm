@@ -8,9 +8,10 @@ from unittest.mock import Mock
 
 import pytest
 from azure.storage.blob import BlobServiceClient
-from markdown_processor import MarkdownProcessor
+from jinja2 import Environment
+from markdown_processor import create_jinja_environment, process_article
 
-from config import Settings
+from config import Settings  # type: ignore[import]
 
 
 @pytest.fixture
@@ -122,8 +123,27 @@ def mock_blob_service_client(sample_article_data: Dict[str, Any]) -> Mock:
 
 
 @pytest.fixture
-def markdown_processor(
-    mock_blob_service_client: Mock, mock_settings: Settings
-) -> MarkdownProcessor:
-    """Create MarkdownProcessor instance with mocked dependencies."""
-    return MarkdownProcessor(mock_blob_service_client, mock_settings)
+def jinja_env() -> Environment:
+    """Create Jinja2 environment for testing."""
+    return create_jinja_environment()
+
+
+@pytest.fixture
+def markdown_processor_deps(
+    mock_blob_service_client: Mock, mock_settings: Settings, jinja_env: Environment
+) -> Dict[str, Any]:
+    """
+    Provide functional API dependencies for testing.
+
+    Returns dict with all dependencies needed to call process_article():
+    - blob_service_client
+    - settings
+    - jinja_env
+    - unsplash_access_key (None for tests)
+    """
+    return {
+        "blob_service_client": mock_blob_service_client,
+        "settings": mock_settings,
+        "jinja_env": jinja_env,
+        "unsplash_access_key": None,
+    }

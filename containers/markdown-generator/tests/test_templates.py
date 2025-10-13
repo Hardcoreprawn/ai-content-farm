@@ -4,35 +4,41 @@ Tests for Jinja2 template functionality.
 Tests template selection, rendering, and error handling.
 """
 
+from typing import Any, Dict
+
 import pytest
 import yaml
+from markdown_processor import generate_markdown_content
 from models import ArticleMetadata
 
 
 class TestTemplateRendering:
     """Test Jinja2 template rendering."""
 
-    def test_processor_initializes_jinja_environment(self, markdown_processor) -> None:
+    def test_processor_initializes_jinja_environment(
+        self, markdown_processor_deps: Dict[str, Any]
+    ) -> None:
         """
-        GIVEN a MarkdownProcessor instance
+        GIVEN Jinja environment from dependencies
         WHEN initialized
         THEN Jinja2 environment is configured with templates
         """
+        # Arrange
+        jinja_env = markdown_processor_deps["jinja_env"]
+
         # Assert
-        assert markdown_processor.jinja_env is not None
-        assert markdown_processor.jinja_env.loader is not None
+        assert jinja_env is not None
+        assert jinja_env.loader is not None
 
         # Verify templates are available
-        templates = markdown_processor.jinja_env.list_templates(
-            filter_func=lambda x: x.endswith(".md.j2")
-        )
+        templates = jinja_env.list_templates(filter_func=lambda x: x.endswith(".md.j2"))
         assert len(templates) >= 3  # default, with-toc, minimal
         assert "default.md.j2" in templates
         assert "with-toc.md.j2" in templates
         assert "minimal.md.j2" in templates
 
     def test_default_template_renders_successfully(
-        self, markdown_processor, sample_article_data
+        self, markdown_processor_deps: Dict[str, Any], sample_article_data
     ) -> None:
         """
         GIVEN article data and metadata
@@ -40,6 +46,7 @@ class TestTemplateRendering:
         THEN markdown is rendered with all sections
         """
         # Arrange
+        jinja_env = markdown_processor_deps["jinja_env"]
         metadata = ArticleMetadata(
             title="Test Article",
             url="https://example.com/test",
@@ -48,11 +55,16 @@ class TestTemplateRendering:
             published_date=None,
             category="technology",
             tags=["ai", "ml"],
+            hero_image=None,
+            thumbnail=None,
+            image_alt=None,
+            image_credit=None,
+            image_color=None,
         )
 
         # Act
-        markdown = markdown_processor._generate_markdown(
-            sample_article_data, metadata, "default.md.j2"
+        markdown = generate_markdown_content(
+            sample_article_data, metadata, jinja_env, "default.md.j2"
         )
 
         # Assert
@@ -65,7 +77,7 @@ class TestTemplateRendering:
         assert "**Source:**" in markdown
 
     def test_minimal_template_omits_optional_sections(
-        self, markdown_processor, sample_article_data
+        self, markdown_processor_deps: Dict[str, Any], sample_article_data
     ) -> None:
         """
         GIVEN article data
@@ -73,6 +85,7 @@ class TestTemplateRendering:
         THEN only essential frontmatter is included
         """
         # Arrange
+        jinja_env = markdown_processor_deps["jinja_env"]
         metadata = ArticleMetadata(
             title="Minimal Article",
             url="https://example.com/minimal",
@@ -80,11 +93,17 @@ class TestTemplateRendering:
             author=None,
             published_date=None,
             category=None,
+            tags=[],
+            hero_image=None,
+            thumbnail=None,
+            image_alt=None,
+            image_credit=None,
+            image_color=None,
         )
 
         # Act
-        markdown = markdown_processor._generate_markdown(
-            sample_article_data, metadata, "minimal.md.j2"
+        markdown = generate_markdown_content(
+            sample_article_data, metadata, jinja_env, "minimal.md.j2"
         )
 
         # Assert
@@ -96,7 +115,7 @@ class TestTemplateRendering:
         assert "## Key Points" not in markdown
 
     def test_with_toc_template_includes_table_of_contents(
-        self, markdown_processor, sample_article_data
+        self, markdown_processor_deps: Dict[str, Any], sample_article_data
     ) -> None:
         """
         GIVEN article data
@@ -104,6 +123,7 @@ class TestTemplateRendering:
         THEN table of contents is included
         """
         # Arrange
+        jinja_env = markdown_processor_deps["jinja_env"]
         metadata = ArticleMetadata(
             title="Article with TOC",
             url="https://example.com/toc",
@@ -111,11 +131,17 @@ class TestTemplateRendering:
             author=None,
             published_date=None,
             category=None,
+            tags=[],
+            hero_image=None,
+            thumbnail=None,
+            image_alt=None,
+            image_credit=None,
+            image_color=None,
         )
 
         # Act
-        markdown = markdown_processor._generate_markdown(
-            sample_article_data, metadata, "with-toc.md.j2"
+        markdown = generate_markdown_content(
+            sample_article_data, metadata, jinja_env, "with-toc.md.j2"
         )
 
         # Assert
@@ -125,7 +151,7 @@ class TestTemplateRendering:
         # Note: Content heading removed - article_content includes its own structure
 
     def test_invalid_template_raises_value_error(
-        self, markdown_processor, sample_article_data
+        self, markdown_processor_deps: Dict[str, Any], sample_article_data
     ) -> None:
         """
         GIVEN invalid template name
@@ -133,6 +159,7 @@ class TestTemplateRendering:
         THEN ValueError is raised
         """
         # Arrange
+        jinja_env = markdown_processor_deps["jinja_env"]
         metadata = ArticleMetadata(
             title="Test",
             url="https://example.com",
@@ -140,21 +167,30 @@ class TestTemplateRendering:
             author=None,
             published_date=None,
             category=None,
+            tags=[],
+            hero_image=None,
+            thumbnail=None,
+            image_alt=None,
+            image_credit=None,
+            image_color=None,
         )
 
         # Act & Assert
         with pytest.raises(ValueError, match="Template not found"):
-            markdown_processor._generate_markdown(
-                sample_article_data, metadata, "nonexistent.md.j2"
+            generate_markdown_content(
+                sample_article_data, metadata, jinja_env, "nonexistent.md.j2"
             )
 
-    def test_template_handles_missing_optional_fields(self, markdown_processor) -> None:
+    def test_template_handles_missing_optional_fields(
+        self, markdown_processor_deps: Dict[str, Any]
+    ) -> None:
         """
         GIVEN article data with missing optional fields
         WHEN generating markdown
         THEN template renders without errors
         """
         # Arrange
+        jinja_env = markdown_processor_deps["jinja_env"]
         metadata = ArticleMetadata(
             title="Minimal Data",
             url="https://example.com",
@@ -162,6 +198,12 @@ class TestTemplateRendering:
             author=None,
             published_date=None,
             category=None,
+            tags=[],
+            hero_image=None,
+            thumbnail=None,
+            image_alt=None,
+            image_credit=None,
+            image_color=None,
         )
         article_data = {
             "url": "https://example.com",
@@ -170,8 +212,8 @@ class TestTemplateRendering:
         }
 
         # Act
-        markdown = markdown_processor._generate_markdown(
-            article_data, metadata, "default.md.j2"
+        markdown = generate_markdown_content(
+            article_data, metadata, jinja_env, "default.md.j2"
         )
 
         # Assert
@@ -189,7 +231,10 @@ class TestTemplateRendering:
         ["default.md.j2", "minimal.md.j2", "with-toc.md.j2"],
     )
     def test_templates_generate_valid_yaml_frontmatter(
-        self, markdown_processor, sample_article_data, template_name
+        self,
+        markdown_processor_deps: Dict[str, Any],
+        sample_article_data,
+        template_name,
     ) -> None:
         """
         GIVEN article data with URLs containing special YAML characters
@@ -197,6 +242,7 @@ class TestTemplateRendering:
         THEN YAML frontmatter is valid and parseable
         """
         # Arrange - Use URL with colons and other special chars
+        jinja_env = markdown_processor_deps["jinja_env"]
         metadata = ArticleMetadata(
             title="Test Article: A Deep Dive",
             url="https://example.com/article?param=value&test=true",
@@ -205,11 +251,16 @@ class TestTemplateRendering:
             published_date=None,
             category="technology",
             tags=["ai", "machine learning", "deep-tech"],
+            hero_image=None,
+            thumbnail=None,
+            image_alt=None,
+            image_credit=None,
+            image_color=None,
         )
 
         # Act
-        markdown = markdown_processor._generate_markdown(
-            sample_article_data, metadata, template_name
+        markdown = generate_markdown_content(
+            sample_article_data, metadata, jinja_env, template_name
         )
 
         # Extract frontmatter (between first two --- markers)

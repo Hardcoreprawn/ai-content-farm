@@ -14,7 +14,7 @@ from typing import Any, Dict
 import pytest
 import yaml
 from markdown_generation import prepare_frontmatter, validate_frontmatter_fields
-from markdown_processor import MarkdownProcessor
+from markdown_processor import process_article
 from models import ArticleMetadata
 
 # Sample data directory
@@ -197,6 +197,11 @@ class TestRealDataIntegration:
             published_date=None,
             tags=[],
             category=None,
+            hero_image=None,
+            thumbnail=None,
+            image_alt=None,
+            image_credit=None,
+            image_color=None,
         )
 
         frontmatter = prepare_frontmatter(

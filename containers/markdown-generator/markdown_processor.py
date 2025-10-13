@@ -1,276 +1,266 @@
 """
-Core markdown generation logic.
+Core markdown generation orchestration.
 
-This module handles the conversion of processed JSON articles into
-markdown format with proper frontmatter and structure using Jinja2 templates.
+This module coordinates the markdown generation pipeline, importing and
+re-exporting functions from specialized modules:
+- metadata_utils: Pure metadata extraction functions
+- blob_operations: Azure Blob Storage I/O
+- markdown_generator: Jinja2 template rendering
+- services.image_service: Stock image fetching
+
+Main entry point: process_article() - orchestrates the full pipeline.
 """
 
-import json
 import logging
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any, Dict, Optional
 
 from azure.core.exceptions import ResourceNotFoundError
+from azure.identity import DefaultAzureCredential
+from azure.keyvault.secrets import SecretClient
 from azure.storage.blob import BlobServiceClient
-from jinja2 import Environment, FileSystemLoader, TemplateNotFound
-from markdown_generation import prepare_frontmatter
-from models import ArticleMetadata, MarkdownGenerationResult, ProcessingStatus
+from blob_operations import read_json_from_blob, write_markdown_to_blob
+from jinja2 import Environment
+from markdown_generator import (
+    create_jinja_environment,
+    generate_markdown_blob_name,
+    generate_markdown_content,
+)
+
+# Import from specialized modules
+from metadata_utils import extract_metadata_from_article
+from models import MarkdownGenerationResult, ProcessingStatus
+from services.image_service import fetch_image_for_article
 
 from config import Settings  # type: ignore[import]
 
-__all__ = ["MarkdownProcessor"]
-
 logger = logging.getLogger(__name__)
 
+__all__ = [
+    # Re-export pure functions from metadata_utils
+    "extract_metadata_from_article",
+    # Re-export I/O functions
+    "read_json_from_blob",
+    "write_markdown_to_blob",
+    "create_jinja_environment",
+    # Re-export markdown generation
+    "generate_markdown_content",
+    "generate_markdown_blob_name",
+    # Local functions
+    "load_unsplash_key",
+    "fetch_article_image",
+    # Main orchestration
+    "process_article",
+]
 
-class MarkdownProcessor:
-    """Handles conversion of JSON articles to markdown format using Jinja2."""
 
-    def __init__(
-        self, blob_service_client: BlobServiceClient, settings: Settings
-    ) -> None:
-        """
-        Initialize markdown processor.
+# =============================================================================
+# I/O FUNCTIONS (Explicit side effects)
+# =============================================================================
 
-        Args:
-            blob_service_client: Azure Blob Service client
-            settings: Application settings
-        """
-        self.blob_service_client = blob_service_client
-        self.settings = settings
-        self.input_container = settings.input_container
-        self.output_container = settings.output_container
 
-        # Set up Jinja2 environment
-        template_dir = Path(__file__).parent / "templates"
-        self.jinja_env = Environment(
-            loader=FileSystemLoader(str(template_dir)),
-            trim_blocks=True,
-            lstrip_blocks=True,
-        )
-        logger.info(f"Initialized Jinja2 templates from: {template_dir}")
+def load_unsplash_key(
+    settings: Settings, credential: Optional[DefaultAzureCredential] = None
+) -> Optional[str]:
+    """
+    Load Unsplash API key from Key Vault or environment.
 
-    async def process_article(
-        self,
-        blob_name: str,
-        overwrite: bool = False,
-        template_name: str = "default.md.j2",
-    ) -> MarkdownGenerationResult:
-        """
-        Process single article from JSON to markdown.
+    I/O function with explicit side effects (Key Vault read).
 
-        Args:
-            blob_name: Name of JSON blob to process
-            overwrite: Whether to overwrite existing markdown
-            template_name: Jinja2 template to use
+    Args:
+        settings: Application settings
+        credential: Azure credential (created if None)
 
-        Returns:
-            MarkdownGenerationResult: Processing result
-        """
-        start_time = datetime.now(UTC)
+    Returns:
+        Unsplash access key or None if not found/disabled
 
-        try:
-            # Read JSON from input container
-            article_data = self._read_json_blob(blob_name)
+    Examples:
+        >>> # See integration tests
+        >>> pass
+    """
+    try:
+        # Try to get from explicit env var first
+        access_key = settings.unsplash_access_key
 
-            # Extract metadata
-            metadata = self._extract_metadata(article_data)
-
-            # Generate markdown content using template
-            markdown_content = self._generate_markdown(
-                article_data, metadata, template_name
-            )
-
-            # Write markdown to output container
-            markdown_blob_name = self._write_markdown_blob(
-                blob_name, markdown_content, overwrite
-            )
-
-            processing_time = (datetime.now(UTC) - start_time).total_seconds() * 1000
-
+        # If not in env, try Key Vault
+        if not access_key and settings.azure_key_vault_url:
             logger.info(
-                f"Successfully processed article: {blob_name} -> "
-                f"{markdown_blob_name} ({processing_time:.0f}ms) "
-                f"using template: {template_name}"
+                f"Fetching Unsplash key from Key Vault: {settings.azure_key_vault_url}"
             )
+            if credential is None:
+                credential = DefaultAzureCredential()
 
-            return MarkdownGenerationResult(
-                blob_name=blob_name,
-                status=ProcessingStatus.COMPLETED,
-                markdown_blob_name=markdown_blob_name,
-                error_message=None,
-                processing_time_ms=int(processing_time),
+            secret_client = SecretClient(
+                vault_url=settings.azure_key_vault_url,
+                credential=credential,
             )
+            secret = secret_client.get_secret("unsplash-access-key")
+            access_key = secret.value
 
-        except ResourceNotFoundError:
-            error_msg = f"Blob not found: {blob_name}"
-            logger.error(error_msg)
-            return MarkdownGenerationResult(
-                blob_name=blob_name,
-                status=ProcessingStatus.FAILED,
-                markdown_blob_name=None,
-                error_message=error_msg,
-                processing_time_ms=None,
-            )
+        if access_key and access_key != "placeholder-get-from-unsplash-com":
+            logger.info("Stock image service initialized successfully")
+            return access_key
+        else:
+            logger.warning("Unsplash access key not found - stock images disabled")
+            return None
 
-        except Exception as e:
-            error_msg = f"Failed to process {blob_name}: {str(e)}"
-            logger.error(error_msg, exc_info=True)
-            return MarkdownGenerationResult(
-                blob_name=blob_name,
-                status=ProcessingStatus.FAILED,
-                markdown_blob_name=None,
-                error_message=error_msg,
-                processing_time_ms=None,
-            )
-
-    def _read_json_blob(self, blob_name: str) -> Dict[str, Any]:
-        """
-        Read and parse JSON blob from storage.
-
-        Args:
-            blob_name: Name of blob to read
-
-        Returns:
-            Dict containing parsed JSON data
-
-        Raises:
-            ResourceNotFoundError: If blob doesn't exist
-            ValueError: If blob contains invalid JSON
-        """
-        container_client = self.blob_service_client.get_container_client(
-            self.input_container
-        )
-        blob_client = container_client.get_blob_client(blob_name)
-
-        blob_data = blob_client.download_blob().readall()
-        parsed_data: Dict[str, Any] = json.loads(blob_data)
-        return parsed_data
-
-    def _extract_metadata(self, article_data: Dict[str, Any]) -> ArticleMetadata:
-        """
-        Extract structured metadata from article JSON.
-
-        Args:
-            article_data: Raw article data dictionary
-
-        Returns:
-            ArticleMetadata: Validated metadata object
-        """
-        return ArticleMetadata(
-            title=article_data.get("title", "Untitled"),
-            url=article_data.get("url", ""),
-            source=article_data.get("source", "unknown"),
-            author=article_data.get("author"),
-            published_date=self._parse_date(article_data.get("published_date")),
-            tags=article_data.get("tags", []),
-            category=article_data.get("category"),
-        )
-
-    def _parse_date(self, date_value: Any) -> Optional[datetime]:
-        """
-        Parse date from various formats.
-
-        Args:
-            date_value: Date in string or datetime format
-
-        Returns:
-            Parsed datetime or None if invalid
-        """
-        if isinstance(date_value, datetime):
-            return date_value
-
-        if isinstance(date_value, str):
-            try:
-                return datetime.fromisoformat(date_value.replace("Z", "+00:00"))
-            except (ValueError, AttributeError):
-                logger.warning(f"Could not parse date: {date_value}")
-
+    except Exception as e:
+        logger.warning(f"Failed to load Unsplash key: {e}")
+        logger.info("Continuing without stock images")
         return None
 
-    def _generate_markdown(
-        self,
-        article_data: Dict[str, Any],
-        metadata: ArticleMetadata,
-        template_name: str = "default.md.j2",
-    ) -> str:
-        """
-        Generate markdown content with frontmatter using Jinja2 templates.
 
-        Args:
-            article_data: Complete article data
-            metadata: Extracted metadata
-            template_name: Name of template file (default: default.md.j2)
+async def fetch_article_image(
+    article_data: Dict[str, Any], unsplash_access_key: str
+) -> Optional[Dict[str, Any]]:
+    """
+    Fetch stock image for article from Unsplash.
 
-        Returns:
-            Complete markdown document as string
+    Async I/O function - calls external Unsplash API.
 
-        Raises:
-            ValueError: If template not found
-        """
-        try:
-            template = self.jinja_env.get_template(template_name)
-        except TemplateNotFound:
-            logger.error(f"Template not found: {template_name}")
-            raise ValueError(f"Template not found: {template_name}")
+    Args:
+        article_data: Article data with title/tags
+        unsplash_access_key: Unsplash API key
 
-        # Generate Hugo-compliant frontmatter
-        frontmatter = prepare_frontmatter(
-            title=metadata.title,
-            source=metadata.source,
-            original_url=metadata.url,
-            generated_at=article_data.get(
-                "generated_at", f"{datetime.now(UTC).isoformat()}Z"
-            ),
-            format="hugo",
-            author=metadata.author,
-            published_date=metadata.published_date,
-            category=metadata.category,
-            tags=metadata.tags,
+    Returns:
+        Image metadata dict or None if not found
+
+    Examples:
+        >>> # See integration tests with mocked API
+        >>> pass
+    """
+    try:
+        title = article_data.get("title", "")
+        tags = article_data.get("tags", [])
+        content = article_data.get("content", "")[:200]
+
+        # Call functional image service
+        image_data = await fetch_image_for_article(
+            access_key=unsplash_access_key,
+            title=title,
+            content=content,
+            tags=tags,
         )
 
-        # Render template with data and pre-generated frontmatter
-        markdown_content = template.render(
-            frontmatter=frontmatter,
-            metadata=metadata,
-            article_data=article_data,
+        if image_data:
+            logger.info(f"Found stock image by {image_data['photographer']}")
+        else:
+            logger.info(f"No stock image found for article: {title}")
+
+        return image_data
+
+    except Exception as e:
+        logger.warning(f"Failed to fetch stock image: {e}")
+        return None
+
+
+# =============================================================================
+# ORCHESTRATION FUNCTIONS (Compose pure + I/O functions)
+# =============================================================================
+
+
+async def process_article(
+    blob_service_client: BlobServiceClient,
+    settings: Settings,
+    blob_name: str,
+    overwrite: bool = False,
+    template_name: str = "default.md.j2",
+    jinja_env: Optional[Environment] = None,
+    unsplash_access_key: Optional[str] = None,
+) -> MarkdownGenerationResult:
+    """
+    Process single article from JSON to markdown.
+
+    Main orchestration function - composes pure functions and I/O operations.
+    All dependencies passed as arguments (no hidden state).
+
+    Args:
+        blob_service_client: Azure Blob Service client
+        settings: Application settings
+        blob_name: Name of JSON blob to process
+        overwrite: Whether to overwrite existing markdown
+        template_name: Jinja2 template to use
+        jinja_env: Jinja2 environment (created if None)
+        unsplash_access_key: Unsplash API key (loaded if None and enabled)
+
+    Returns:
+        MarkdownGenerationResult: Processing result with status and timing
+
+    Examples:
+        >>> # See integration tests
+        >>> pass
+    """
+    start_time = datetime.now(UTC)
+
+    try:
+        # Create Jinja environment if not provided
+        if jinja_env is None:
+            jinja_env = create_jinja_environment()
+
+        # Read JSON from input container (I/O)
+        article_data = read_json_from_blob(
+            blob_service_client, settings.input_container, blob_name
         )
 
-        return markdown_content
+        # Fetch stock image if enabled (async I/O)
+        image_data = None
+        if settings.enable_stock_images and unsplash_access_key:
+            image_data = await fetch_article_image(article_data, unsplash_access_key)
 
-    def _write_markdown_blob(
-        self, original_blob_name: str, markdown_content: str, overwrite: bool
-    ) -> str:
-        """
-        Write markdown content to output container.
+        # Extract metadata (pure function)
+        metadata = extract_metadata_from_article(article_data, image_data)
 
-        Args:
-            original_blob_name: Original JSON blob name
-            markdown_content: Generated markdown
-            overwrite: Whether to overwrite existing files
-
-        Returns:
-            Name of created markdown blob
-
-        Raises:
-            ValueError: If blob exists and overwrite is False
-        """
-        # Generate markdown blob name
-        markdown_blob_name = original_blob_name.replace(".json", ".md")
-
-        container_client = self.blob_service_client.get_container_client(
-            self.output_container
-        )
-        blob_client = container_client.get_blob_client(markdown_blob_name)
-
-        # Check if exists
-        if not overwrite and blob_client.exists():
-            raise ValueError(f"Markdown file already exists: {markdown_blob_name}")
-
-        # Upload markdown
-        blob_client.upload_blob(
-            markdown_content, overwrite=overwrite, content_type="text/markdown"
+        # Generate markdown content (mostly pure)
+        markdown_content = generate_markdown_content(
+            article_data, metadata, jinja_env, template_name
         )
 
-        return markdown_blob_name
+        # Generate blob name (pure function)
+        markdown_blob_name = generate_markdown_blob_name(blob_name)
+
+        # Write markdown to output container (I/O)
+        write_markdown_to_blob(
+            blob_service_client,
+            settings.output_container,
+            markdown_blob_name,
+            markdown_content,
+            overwrite,
+        )
+
+        processing_time = (datetime.now(UTC) - start_time).total_seconds() * 1000
+
+        logger.info(
+            f"Successfully processed article: {blob_name} -> "
+            f"{markdown_blob_name} ({processing_time:.0f}ms) "
+            f"using template: {template_name}"
+        )
+
+        return MarkdownGenerationResult(
+            blob_name=blob_name,
+            status=ProcessingStatus.COMPLETED,
+            markdown_blob_name=markdown_blob_name,
+            error_message=None,
+            processing_time_ms=int(processing_time),
+        )
+
+    except ResourceNotFoundError:
+        error_msg = f"Blob not found: {blob_name}"
+        logger.error(error_msg)
+        return MarkdownGenerationResult(
+            blob_name=blob_name,
+            status=ProcessingStatus.FAILED,
+            markdown_blob_name=None,
+            error_message=error_msg,
+            processing_time_ms=None,
+        )
+
+    except Exception as e:
+        error_msg = f"Failed to process {blob_name}: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        return MarkdownGenerationResult(
+            blob_name=blob_name,
+            status=ProcessingStatus.FAILED,
+            markdown_blob_name=None,
+            error_message=error_msg,
+            processing_time_ms=None,
+        )

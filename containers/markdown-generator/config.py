@@ -31,6 +31,19 @@ class Settings(BaseSettings):
     environment: str = Field(default="production", description="Environment name")
     log_level: str = Field(default="INFO", description="Logging level")
 
+    # Azure Key Vault settings
+    azure_key_vault_url: Optional[str] = Field(
+        None, description="Azure Key Vault URL for secrets"
+    )
+
+    # Stock Images settings
+    unsplash_access_key: Optional[str] = Field(
+        None, description="Unsplash API access key (from Key Vault or env var)"
+    )
+    enable_stock_images: bool = Field(
+        default=True, description="Enable automatic stock image fetching"
+    )
+
     # Azure Storage settings
     azure_storage_account_name: str = Field(
         default="",

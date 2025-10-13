@@ -158,6 +158,79 @@ resource "azurerm_key_vault_secret" "reddit_user_agent" {
   ]
 }
 
+# Unsplash API credentials for stock images
+resource "azurerm_key_vault_secret" "unsplash_access_key" {
+  # checkov:skip=CKV_AZURE_41: Secret expiration not set as this is an external API credential managed outside Terraform
+  # nosemgrep: terraform.azure.security.keyvault.keyvault-ensure-secret-expires.keyvault-ensure-secret-expires
+  name         = "unsplash-access-key"
+  value        = data.azurerm_key_vault_secret.core_unsplash_access_key.value
+  key_vault_id = azurerm_key_vault.main.id
+  content_type = "text/plain"
+
+  # Automatically sync from core Key Vault - don't ignore value changes
+  lifecycle {
+    ignore_changes = [not_before_date, expiration_date]
+  }
+
+  depends_on = [
+    azurerm_key_vault_access_policy.developer_user,
+    azurerm_key_vault_access_policy.github_actions_user
+  ]
+
+  tags = merge(local.common_tags, {
+    Purpose    = "stock-images"
+    SyncSource = "ai-content-farm-core-kv"
+  })
+}
+
+resource "azurerm_key_vault_secret" "unsplash_application_id" {
+  # checkov:skip=CKV_AZURE_41: Secret expiration not set as this is an external API credential managed outside Terraform
+  # nosemgrep: terraform.azure.security.keyvault.keyvault-ensure-secret-expires.keyvault-ensure-secret-expires
+  name         = "unsplash-application-id"
+  value        = data.azurerm_key_vault_secret.core_unsplash_application_id.value
+  key_vault_id = azurerm_key_vault.main.id
+  content_type = "text/plain"
+
+  # Automatically sync from core Key Vault - don't ignore value changes
+  lifecycle {
+    ignore_changes = [not_before_date, expiration_date]
+  }
+
+  depends_on = [
+    azurerm_key_vault_access_policy.developer_user,
+    azurerm_key_vault_access_policy.github_actions_user
+  ]
+
+  tags = merge(local.common_tags, {
+    Purpose    = "stock-images"
+    SyncSource = "ai-content-farm-core-kv"
+  })
+}
+
+resource "azurerm_key_vault_secret" "unsplash_secret_key" {
+  # checkov:skip=CKV_AZURE_41: Secret expiration not set as this is an external API credential managed outside Terraform
+  # nosemgrep: terraform.azure.security.keyvault.keyvault-ensure-secret-expires.keyvault-ensure-secret-expires
+  name         = "unsplash-secret-key"
+  value        = data.azurerm_key_vault_secret.core_unsplash_secret_key.value
+  key_vault_id = azurerm_key_vault.main.id
+  content_type = "text/plain"
+
+  # Automatically sync from core Key Vault - don't ignore value changes
+  lifecycle {
+    ignore_changes = [not_before_date, expiration_date]
+  }
+
+  depends_on = [
+    azurerm_key_vault_access_policy.developer_user,
+    azurerm_key_vault_access_policy.github_actions_user
+  ]
+
+  tags = merge(local.common_tags, {
+    Purpose    = "stock-images"
+    SyncSource = "ai-content-farm-core-kv"
+  })
+}
+
 # CI/CD secrets for GitHub Actions
 resource "azurerm_key_vault_secret" "infracost_api_key" {
   name            = "infracost-api-key"
@@ -180,45 +253,3 @@ resource "azurerm_key_vault_secret" "infracost_api_key" {
     Purpose = "cost-estimation"
   })
 }
-
-# Service Bus encryption key - DISABLED for Standard SKU cost optimization
-# Standard Service Bus SKU does not support customer-managed encryption keys
-# This resource is kept commented for future upgrade to Premium SKU if needed
-#
-# resource "azurerm_key_vault_key" "servicebus" {
-#   name            = "servicebus-encryption-key"
-#   key_vault_id    = azurerm_key_vault.main.id
-#   key_type        = "RSA"
-#   key_size        = 2048
-#   expiration_date = timeadd(timestamp(), "2160h") # 90 days for cost optimization
-#
-#   key_opts = [
-#     "decrypt",
-#     "encrypt",
-#     "sign",
-#     "unwrapKey",
-#     "verify",
-#     "wrapKey",
-#   ]
-#
-#   depends_on = [azurerm_key_vault_access_policy.current_user]
-#   tags = local.common_tags
-# }
-
-# Access policy for Service Bus managed identity - DISABLED for Standard SKU
-# Standard Service Bus SKU does not support customer-managed encryption keys
-# This resource is kept commented for future upgrade to Premium SKU if needed
-#
-# resource "azurerm_key_vault_access_policy" "servicebus" {
-#   key_vault_id = azurerm_key_vault.main.id
-#   tenant_id    = data.azurerm_client_config.current.tenant_id
-#   object_id    = azurerm_user_assigned_identity.servicebus.principal_id
-#
-#   key_permissions = [
-#     "Get",
-#     "UnwrapKey",
-#     "WrapKey"
-#   ]
-#
-#   depends_on = [azurerm_user_assigned_identity.servicebus]
-# }

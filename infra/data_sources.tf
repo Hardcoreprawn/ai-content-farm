@@ -24,6 +24,22 @@ data "azurerm_key_vault_secret" "core_reddit_user_agent" {
   key_vault_id = data.azurerm_key_vault.core.id
 }
 
+# Unsplash API credentials from core Key Vault
+data "azurerm_key_vault_secret" "core_unsplash_access_key" {
+  name         = "unsplash-access-key"
+  key_vault_id = data.azurerm_key_vault.core.id
+}
+
+data "azurerm_key_vault_secret" "core_unsplash_application_id" {
+  name         = "unsplash-application-id"
+  key_vault_id = data.azurerm_key_vault.core.id
+}
+
+data "azurerm_key_vault_secret" "core_unsplash_secret_key" {
+  name         = "unsplash-secret-key"
+  key_vault_id = data.azurerm_key_vault.core.id
+}
+
 resource "random_string" "suffix" {
   length  = 6
   upper   = false

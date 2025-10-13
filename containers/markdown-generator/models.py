@@ -45,6 +45,15 @@ class ArticleMetadata(BaseModel):
     tags: List[str] = Field(default_factory=list, description="Article tags")
     category: Optional[str] = Field(None, description="Content category")
 
+    # Stock image fields
+    hero_image: Optional[str] = Field(None, description="Hero image URL (1080px)")
+    thumbnail: Optional[str] = Field(None, description="Thumbnail URL (400px)")
+    image_alt: Optional[str] = Field(None, description="Image alt text/description")
+    image_credit: Optional[str] = Field(
+        None, description="Photographer credit and link"
+    )
+    image_color: Optional[str] = Field(None, description="Dominant image color (hex)")
+
     @field_validator("tags", mode="before")
     @classmethod
     def ensure_list(cls, v: Any) -> List[str]:

@@ -8,8 +8,11 @@ import asyncio
 import logging
 import os
 from datetime import datetime
-from typing import Any, Callable, Dict
+from typing import Any, Callable, Dict, Optional
 
+from azure.storage.blob import BlobServiceClient
+from jinja2 import Environment
+from markdown_processor import process_article
 from models import ProcessingStatus
 
 from libs.queue_client import (
@@ -21,14 +24,20 @@ logger = logging.getLogger(__name__)
 
 
 async def create_message_handler(
-    processor: Any,
+    blob_service_client: BlobServiceClient,
+    settings: Any,  # Settings type
+    jinja_env: Environment,
+    unsplash_key: Optional[str],
     app_state: Dict[str, Any],
 ) -> Callable:
     """
     Create message handler for queue processing.
 
     Args:
-        processor: MarkdownProcessor instance
+        blob_service_client: Azure Blob Service client
+        settings: Application settings
+        jinja_env: Jinja2 environment (reusable)
+        unsplash_key: Optional Unsplash API key
         app_state: Application state dictionary
 
     Returns:
@@ -52,8 +61,16 @@ async def create_message_handler(
             blob_name = files[0]
             logger.info(f"Processing markdown generation for {blob_name}")
 
-            # Use the processor to generate markdown (async)
-            result = await processor.process_article(blob_name)
+            # Call functional API directly
+            result = await process_article(
+                blob_service_client=blob_service_client,
+                settings=settings,
+                blob_name=blob_name,
+                overwrite=False,
+                template_name="default.md.j2",
+                jinja_env=jinja_env,
+                unsplash_access_key=unsplash_key,
+            )
 
             if result.status == ProcessingStatus.COMPLETED:
                 logger.info(

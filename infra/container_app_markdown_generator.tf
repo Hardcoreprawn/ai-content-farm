@@ -20,6 +20,21 @@ resource "azurerm_container_app" "markdown_generator" {
     identity_ids = [azurerm_user_assigned_identity.containers.id]
   }
 
+  secret {
+    name  = "unsplash-access-key"
+    value = azurerm_key_vault_secret.unsplash_access_key.value
+  }
+
+  secret {
+    name  = "unsplash-application-id"
+    value = azurerm_key_vault_secret.unsplash_application_id.value
+  }
+
+  secret {
+    name  = "unsplash-secret-key"
+    value = azurerm_key_vault_secret.unsplash_secret_key.value
+  }
+
   ingress {
     external_enabled = true
     target_port      = local.container_ports.markdown_generator
@@ -92,6 +107,21 @@ resource "azurerm_container_app" "markdown_generator" {
       env {
         name  = "MARKDOWN_QUEUE_NAME"
         value = azurerm_storage_queue.markdown_generation_requests.name
+      }
+
+      env {
+        name        = "UNSPLASH_ACCESS_KEY"
+        secret_name = "unsplash-access-key"
+      }
+
+      env {
+        name        = "UNSPLASH_APPLICATION_ID"
+        secret_name = "unsplash-application-id"
+      }
+
+      env {
+        name        = "UNSPLASH_SECRET_KEY"
+        secret_name = "unsplash-secret-key"
       }
 
       env {

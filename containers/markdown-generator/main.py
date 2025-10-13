@@ -18,7 +18,11 @@ from typing import Any, AsyncGenerator, Dict, Union
 from azure.identity import DefaultAzureCredential
 from azure.storage.blob import BlobServiceClient
 from fastapi import FastAPI, HTTPException, status
-from markdown_processor import MarkdownProcessor
+from markdown_processor import (
+    create_jinja_environment,
+    load_unsplash_key,
+    process_article,
+)
 from models import (
     HealthCheckResponse,
     MarkdownGenerationBatchRequest,
@@ -71,7 +75,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Store in app state
         app.state.blob_service_client = blob_service_client
         app.state.settings = settings
-        app.state.processor = MarkdownProcessor(blob_service_client, settings)
+
+        # Initialize reusable resources (avoid recreating on every request)
+        app.state.jinja_env = create_jinja_environment()
+        app.state.unsplash_key = (
+            load_unsplash_key(settings) if settings.enable_stock_images else None
+        )
 
         logger.info("Azure clients initialized successfully")
 
@@ -80,7 +89,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         raise
 
     # Process queue messages on startup until empty (KEDA scaling pattern)
-    message_handler = await create_message_handler(app.state.processor, app_state)
+    message_handler = await create_message_handler(
+        blob_service_client=blob_service_client,
+        settings=settings,
+        jinja_env=app.state.jinja_env,
+        unsplash_key=app.state.unsplash_key,
+        app_state=app_state,
+    )
 
     # Start the queue processing task
     asyncio.create_task(
@@ -201,13 +216,15 @@ async def generate_markdown(
         MarkdownGenerationResponse: Generation result
     """
     try:
-        processor: MarkdownProcessor = app.state.processor
-
-        # Call async processor directly
-        result = await processor.process_article(
-            request.blob_name,
-            request.overwrite,
-            request.template_name,
+        # Call functional API directly with pre-loaded resources
+        result = await process_article(
+            blob_service_client=app.state.blob_service_client,
+            settings=app.state.settings,
+            blob_name=request.blob_name,
+            overwrite=request.overwrite,
+            template_name=request.template_name,
+            jinja_env=app.state.jinja_env,
+            unsplash_access_key=app.state.unsplash_key,
         )
 
         # Update metrics
@@ -266,8 +283,7 @@ async def list_templates() -> MarkdownGenerationResponse:
         MarkdownGenerationResponse: Available templates
     """
     try:
-        processor: MarkdownProcessor = app.state.processor
-        templates = processor.jinja_env.list_templates(
+        templates = app.state.jinja_env.list_templates(
             filter_func=lambda x: x.endswith(".md.j2")
         )
 
@@ -310,14 +326,16 @@ async def generate_markdown_batch(
         MarkdownGenerationResponse: Batch processing results
     """
     try:
-        processor: MarkdownProcessor = app.state.processor
-
-        # Process articles concurrently (async function - no need for to_thread)
+        # Process articles concurrently using functional API
         tasks = [
-            processor.process_article(
-                blob_name,
-                request.overwrite,
-                request.template_name,
+            process_article(
+                blob_service_client=app.state.blob_service_client,
+                settings=app.state.settings,
+                blob_name=blob_name,
+                overwrite=request.overwrite,
+                template_name=request.template_name,
+                jinja_env=app.state.jinja_env,
+                unsplash_access_key=app.state.unsplash_key,
             )
             for blob_name in request.blob_names
         ]
