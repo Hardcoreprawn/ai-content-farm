@@ -42,7 +42,7 @@ python-docx~=1.2.0  # Word document support (current)
 # ============================================================================
 # HTTP & Async Support
 # ============================================================================
-aiohttp~=3.13.0  # Async HTTP client (updated from 3.12.15)
+aiohttp>=3.12.14,<4.0.0  # Security fix: CVE-2025-53643 (HTTP smuggling) - updated from 3.13.0
 tenacity~=9.1.2  # Retry logic for API calls (current)
 
 # ============================================================================
@@ -70,7 +70,7 @@ pytest-mock~=3.15.1  # Mock fixtures (updated from 3.14.0)
 # - azure-storage-blob: 12.24.0 → 12.26.0 (minor update, safe)
 # - pydantic: 2.10.6 → 2.12.0 (minor update within v2)
 # - pydantic-core: 2.27.2 → 2.41.1 (minor update, Pydantic dependency)
-# - aiohttp: 3.12.15 → 3.13.0 (minor update)
+# - aiohttp: 3.12.15 → 3.12.14+ (security update for CVE-2025-53643)
 #
 # COMPATIBILITY NOTES:
 # - FastAPI 0.118.x compatible with Starlette 0.48.x and httpx 0.28.x
