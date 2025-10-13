@@ -220,12 +220,17 @@ class TestTemplateRendering:
         try:
             frontmatter = yaml.safe_load(frontmatter_text)
             assert isinstance(frontmatter, dict), "Frontmatter should be a dict"
+            # Hugo required fields
             assert "title" in frontmatter
-            assert "url" in frontmatter
-            assert "source" in frontmatter
-            # Verify special characters preserved correctly
+            assert "date" in frontmatter
+            assert "draft" in frontmatter
+            # Custom fields under params
+            assert "params" in frontmatter
+            assert "original_url" in frontmatter["params"]
+            assert "source" in frontmatter["params"]
+            # Verify special characters preserved correctly in params
             assert (
-                frontmatter["url"]
+                frontmatter["params"]["original_url"]
                 == "https://example.com/article?param=value&test=true"
             )
             # Colon in title should be preserved
