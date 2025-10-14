@@ -110,3 +110,23 @@
     object-fit: cover;
     object-position: center;
 }
+
+/* Layout improvements: Match main content width to navigation width */
+.main {
+    max-width: calc(var(--nav-width) + var(--gap) * 2) !important;
+}
+
+/* First entry: Remove wasted vertical space and allow natural height */
+.first-entry {
+    justify-content: flex-start !important;
+    max-height: 320px !important;
+    min-height: unset !important;
+}
+
+/* Mobile responsive: Adjust first entry height for smaller screens */
+@media screen and (max-width: 768px) {
+    .first-entry {
+        max-height: 260px !important;
+        min-height: unset !important;
+    }
+}
