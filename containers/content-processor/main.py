@@ -29,6 +29,7 @@ from endpoints import (
     processing_router,
     storage_queue_router,
 )
+from endpoints.storage_queue_router import get_storage_queue_router
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -38,6 +39,7 @@ from fastapi.routing import APIRoute
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from libs.container_lifecycle import create_lifecycle_manager
+from libs.queue_client import process_queue_messages
 from libs.shared_models import (
     StandardError,
     StandardResponse,
@@ -109,12 +111,6 @@ async def lifespan(app: FastAPI):
                 raise SystemExit(1)
 
     # Process queue messages on startup until empty (KEDA scaling pattern)
-    import asyncio
-
-    from endpoints.storage_queue_router import get_storage_queue_router
-
-    from libs.queue_client import process_queue_messages
-
     # Initialize lifecycle manager
     lifecycle_manager = create_lifecycle_manager("content-processor")
 

@@ -38,6 +38,7 @@ python-dateutil~=2.9.0.post0  # Date/time utilities (current)
 beautifulsoup4~=4.14.2  # HTML parsing (current)
 lxml~=6.0.2  # XML/HTML processing (updated from 4.9.3 - MAJOR UPDATE)
 python-docx~=1.2.0  # Word document support (current)
+mistune~=3.1.4  # Markdown parsing and processing (for content cleanup)
 
 # ============================================================================
 # HTTP & Async Support

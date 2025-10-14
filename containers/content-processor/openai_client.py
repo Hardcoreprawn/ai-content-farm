@@ -11,6 +11,7 @@ import os
 from typing import Any, Dict, Optional, Tuple
 
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from markdown_cleaner import fix_malformed_headings
 from openai import AsyncAzureOpenAI
 from pricing_service import PricingService
 
@@ -126,6 +127,11 @@ class OpenAIClient:
 
             # Extract results
             article_content = response.choices[0].message.content
+
+            # Clean up malformed headings (fix AI tendency to create paragraph-length H2s)
+            if article_content:
+                article_content = fix_malformed_headings(article_content)
+
             tokens_used = response.usage.total_tokens if response.usage else 0
             prompt_tokens = response.usage.prompt_tokens if response.usage else 0
             content_length = len(article_content) if article_content else 0
@@ -188,10 +194,14 @@ class OpenAIClient:
                 "NEVER use H1 (#) - the page title is already H1.",
                 "Keep all headings concise (under 100 characters).",
                 "",
-                "1. Engaging introduction",
+                "CRITICAL: After the final H2 conclusion heading, write regular paragraphs.",
+                "Do NOT create additional H2 headings that start with 'In conclusion' or 'Ultimately'.",
+                "The conclusion content should be normal paragraph text, not headings.",
+                "",
+                "1. Engaging introduction (paragraph text, no heading needed)",
                 "2. Main content with clear H2/H3 section headings",
-                "3. Key insights and analysis",
-                "4. Conclusion with takeaways",
+                "3. Key insights and analysis (H2 heading)",
+                "4. Conclusion section (H2 heading) followed by paragraph text",
                 "",
                 "Focus on creating content that's valuable for a personal reading grid.",
             ]
