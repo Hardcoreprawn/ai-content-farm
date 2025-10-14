@@ -1,7 +1,7 @@
 # Makefile for AI Content Farm Project
 # Trigger pipeline for Terraform Docker fix test
 
-.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format terraform-quality terraform-quality-fix apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles scan-containers yamllint actionlint lint-workflows lint-actions check-emojis lint-python lint-python-all flake8 black-check black-format isort-check isort-format mypy pylint format-python lint-container lint-all quality-check test test-unit test-integration test-container test-service-bus test-functional test-all test-coverage
+.PHONY: help devcontainer site infra clean deploy-functions verify-functions lint-terraform checkov terraform-init terraform-validate terraform-plan terraform-format terraform-quality terraform-quality-fix apply verify destroy security-scan cost-estimate sbom trivy terrascan collect-topics process-content rank-topics enrich-content publish-articles content-status cleanup-articles scan-containers yamllint actionlint lint-workflows lint-actions check-emojis lint-python lint-python-all flake8 black-check black-format isort-check isort-format mypy pylint format-python lint-container lint-all quality-check test test-unit test-integration test-container test-service-bus test-functional test-all test-coverage monitor-pipeline monitor-collect analyze-scaling analyze-flow monitor-help
 
 help:
 	@echo "Available targets:"
@@ -83,6 +83,13 @@ help:
 	@echo "  publish-articles - Generate markdown articles for site"
 	@echo "  content-status   - Show content processing status"
 	@echo "  cleanup-articles - Remove duplicate articles from site"
+	@echo ""
+	@echo "Pipeline Monitoring:"
+	@echo "  monitor-pipeline     - Real-time pipeline monitoring dashboard"
+	@echo "  monitor-collect      - Collect metrics for analysis (30 min default)"
+	@echo "  analyze-scaling      - Analyze KEDA scaling behavior"
+	@echo "  analyze-flow         - Measure end-to-end flow-through times"
+	@echo "  monitor-help         - Show monitoring quick start guide"
 
 # Terraform targets
 terraform-format:
@@ -876,6 +883,69 @@ cleanup-articles:
 	@echo "🧹 Cleaning up duplicate articles..."
 	cd content_processor && python3 -m pip install -r requirements.txt --quiet
 	cd content_processor && python3 content_publisher.py --cleanup-only
+
+# ================================
+# Pipeline Monitoring Targets
+# ================================
+
+# Real-time pipeline monitoring
+monitor-pipeline:
+	@echo "📊 Starting real-time pipeline monitor..."
+	@./scripts/monitor-pipeline-performance.sh
+
+# Collect metrics for analysis
+monitor-collect:
+	@DURATION=$${DURATION:-30}; \
+	TIMESTAMP=$$(date +%Y%m%d_%H%M%S); \
+	FILE="metrics-$$TIMESTAMP.csv"; \
+	echo "📊 Collecting metrics for $$DURATION minutes..."; \
+	echo "💾 Saving to: $$FILE"; \
+	./scripts/monitor-pipeline-performance.sh --export $$FILE --duration $$DURATION
+
+# Analyze KEDA scaling behavior
+analyze-scaling:
+	@if [ -z "$(FILE)" ]; then \
+		LATEST=$$(ls -t metrics-*.csv 2>/dev/null | head -n 1); \
+		if [ -z "$$LATEST" ]; then \
+			echo "❌ No metrics file found. Run 'make monitor-collect' first."; \
+			exit 1; \
+		fi; \
+		echo "📊 Analyzing latest metrics: $$LATEST"; \
+		python scripts/analyze-keda-scaling.py --csv "$$LATEST"; \
+	else \
+		echo "📊 Analyzing metrics: $(FILE)"; \
+		python scripts/analyze-keda-scaling.py --csv "$(FILE)"; \
+	fi
+
+# Measure end-to-end flow-through
+analyze-flow:
+	@DURATION=$${DURATION:-60}; \
+	echo "🔄 Analyzing pipeline flow for $$DURATION minutes..."; \
+	python scripts/analyze-pipeline-flow.py --duration $$DURATION
+
+# Show monitoring quick start
+monitor-help:
+	@echo "📊 Pipeline Monitoring Quick Start"
+	@echo "==================================="
+	@echo ""
+	@echo "1. Real-time Dashboard:"
+	@echo "   make monitor-pipeline"
+	@echo ""
+	@echo "2. Collect Metrics (30 minutes default):"
+	@echo "   make monitor-collect"
+	@echo "   make monitor-collect DURATION=60"
+	@echo ""
+	@echo "3. Analyze KEDA Scaling:"
+	@echo "   make analyze-scaling FILE=metrics-20251014_143000.csv"
+	@echo "   make analyze-scaling  # Uses latest metrics file"
+	@echo ""
+	@echo "4. Analyze Flow-Through:"
+	@echo "   make analyze-flow"
+	@echo "   make analyze-flow DURATION=120"
+	@echo ""
+	@echo "📚 Full documentation:"
+	@echo "   docs/MONITORING_QUICK_START.md"
+	@echo "   docs/PIPELINE_MONITORING_GUIDE.md"
 
 # ================================
 # Testing Targets

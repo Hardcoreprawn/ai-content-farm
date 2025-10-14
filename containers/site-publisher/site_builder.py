@@ -6,6 +6,7 @@ Individual operations are in content_downloader.py and hugo_builder.py.
 """
 
 import logging
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import List
@@ -25,6 +26,20 @@ from security import sanitize_error_message
 from config import Settings  # type: ignore[attr-defined]
 
 logger = logging.getLogger(__name__)
+
+
+async def _copy_directory_async(src: Path, dst: Path) -> None:
+    """
+    Copy directory recursively (async-safe wrapper around shutil.copytree).
+
+    Args:
+        src: Source directory path
+        dst: Destination directory path
+    """
+    # shutil.copytree is I/O bound but synchronous
+    # For now we'll use it directly since it's fast for small directories
+    # If needed, we can run in executor: await asyncio.get_event_loop().run_in_executor(None, ...)
+    shutil.copytree(src, dst, dirs_exist_ok=True)
 
 
 async def build_and_deploy_site(
@@ -93,6 +108,35 @@ async def build_and_deploy_site(
             )
 
         all_errors.extend(organize_result.errors)
+
+        # Step 2.5: Copy Hugo layouts, static files, and assets
+        hugo_config_base = Path(config.hugo_config_path).parent
+        logger.info(f"Copying Hugo layouts and static files from {hugo_config_base}")
+
+        # Copy layouts directory (contains partials and overrides)
+        layouts_src = hugo_config_base / "layouts"
+        if layouts_src.exists():
+            layouts_dst = hugo_dir / "layouts"
+            await _copy_directory_async(layouts_src, layouts_dst)
+            logger.info(f"Copied layouts directory: {layouts_src} -> {layouts_dst}")
+        else:
+            logger.warning(f"Layouts directory not found: {layouts_src}")
+
+        # Copy static directory (contains CSS, images, etc.)
+        static_src = hugo_config_base / "static"
+        if static_src.exists():
+            static_dst = hugo_dir / "static"
+            await _copy_directory_async(static_src, static_dst)
+            logger.info(f"Copied static directory: {static_src} -> {static_dst}")
+        else:
+            logger.warning(f"Static directory not found: {static_src}")
+
+        # Copy assets directory if it exists
+        assets_src = hugo_config_base / "assets"
+        if assets_src.exists():
+            assets_dst = hugo_dir / "assets"
+            await _copy_directory_async(assets_src, assets_dst)
+            logger.info(f"Copied assets directory: {assets_src} -> {assets_dst}")
 
         # Step 3: Build site with Hugo
         config_file = Path(config.hugo_config_path)

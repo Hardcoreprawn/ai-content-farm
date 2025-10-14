@@ -169,6 +169,9 @@ class StorageQueueClient(QueueClientInterface):
         if not self._queue_client:
             await self.connect()
 
+        if not self._queue_client:
+            raise RuntimeError("Queue client not connected")
+
         try:
             # Convert message to appropriate format
             if isinstance(message, QueueMessageModel):
@@ -207,6 +210,9 @@ class StorageQueueClient(QueueClientInterface):
         if not self._queue_client:
             await self.connect()
 
+        if not self._queue_client:
+            raise RuntimeError("Queue client not connected")
+
         max_msgs = max_messages or 10
 
         try:
@@ -215,7 +221,7 @@ class StorageQueueClient(QueueClientInterface):
             # Get the async iterator - this is the Azure SDK AsyncItemPaged object
             message_pager = self._queue_client.receive_messages(
                 messages_per_page=max_msgs,
-                visibility_timeout=30,  # 30 seconds visibility timeout
+                visibility_timeout=300,  # 5 minutes - enough time for AI processing
             )
 
             # Properly manage the async iterator lifecycle
@@ -252,6 +258,9 @@ class StorageQueueClient(QueueClientInterface):
         if not self._queue_client:
             await self.connect()
 
+        if not self._queue_client:
+            raise RuntimeError("Queue client not connected")
+
         try:
             await self._queue_client.delete_message(message)
             logger.debug(f"Message completed in queue '{self.queue_name}'")
@@ -266,6 +275,9 @@ class StorageQueueClient(QueueClientInterface):
         """Get queue properties and metadata."""
         if not self._queue_client:
             await self.connect()
+
+        if not self._queue_client:
+            raise RuntimeError("Queue client not connected")
 
         try:
             properties = await self._queue_client.get_queue_properties()
@@ -313,6 +325,28 @@ def get_queue_client(
     return StorageQueueClient(
         queue_name=queue_name, storage_account_name=storage_account_name
     )
+
+
+async def create_queue_client(
+    queue_name: str, storage_account_name: Optional[str] = None
+) -> QueueClientInterface:
+    """
+    Create and connect a queue client instance.
+
+    Async version of get_queue_client that also connects the client.
+
+    Args:
+        queue_name: Name of the queue
+        storage_account_name: Storage account name (optional)
+
+    Returns:
+        Connected QueueClientInterface implementation
+    """
+    client = StorageQueueClient(
+        queue_name=queue_name, storage_account_name=storage_account_name
+    )
+    await client.connect()
+    return client
 
 
 # Convenience functions for common operations

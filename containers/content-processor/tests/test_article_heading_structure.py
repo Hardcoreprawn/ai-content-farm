@@ -425,7 +425,7 @@ def test_article_generation_prompt_should_instruct_h2_h6_only() -> None:
     This test will initially FAIL, then we'll update the prompt.
     """
     # Import the prompt building function
-    from openai_operations import build_article_prompt
+    from operations.openai_operations import build_article_prompt
 
     # Arrange & Act
     prompt = build_article_prompt(

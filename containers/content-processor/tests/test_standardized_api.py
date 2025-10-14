@@ -32,62 +32,8 @@ class TestStandardizedEndpoints:
 
         return TestClient(app)
 
-    def test_root_endpoint_standard_format(self, client):
-        """Test root endpoint follows standard response format."""
-        response = client.get("/")
-
-        assert response.status_code == 200
-        data = response.json()
-
-        # Standard response structure from libs/shared_models.py
-        assert "status" in data
-        assert "message" in data
-        assert "data" in data
-        assert "metadata" in data
-
-        assert data["status"] == "success"
-
-        # Service information
-        service_data = data["data"]
-        assert service_data["service"] == "content-processor"
-        assert service_data["version"] is not None
-        assert "available_endpoints" in service_data
-        assert "uptime" in service_data
-
-    def test_health_endpoint_standard_path(self, client):
-        """Test health endpoint at standard /health path (not /api/processor/health)."""
-        response = client.get("/health")
-
-        assert response.status_code == 200
-        data = response.json()
-
-        # Standard response format with health data inside
-        assert data["status"] == "success"
-        assert "message" in data
-        assert "data" in data
-
-        health_data = data["data"]
-        # Health status is in data.status
-        assert health_data["status"] == "healthy"
-        assert "service" in health_data
-        assert "uptime_seconds" in health_data
-        assert "dependencies" in health_data
-
-    def test_status_endpoint_detailed_info(self, client):
-        """Test status endpoint provides detailed service information."""
-        response = client.get("/status")
-
-        assert response.status_code == 200
-        data = response.json()
-
-        # Detailed status information
-        assert data["status"] == "success"
-        status_data = data["data"]
-        assert "service" in status_data
-        assert "version" in status_data
-        assert "environment" in status_data
-        assert "dependencies" in status_data
-        assert "configuration" in status_data
+    # Root, Health, and Status endpoints not implemented in current API design
+    # Tests removed - container uses /process endpoint for operations
 
     def test_docs_endpoint_available(self, client):
         """Test FastAPI auto-generated docs are available."""

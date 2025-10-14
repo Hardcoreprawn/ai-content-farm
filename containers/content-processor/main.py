@@ -16,16 +16,9 @@ import sys
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, AsyncGenerator, Callable, Dict
 
-from dependencies import (
-    DEPENDENCY_CHECKS,
-    get_configuration,
-    service_metadata,
-    settings,
-)
 from endpoints import (
-    diagnostics_router,
     processing_router,
     storage_queue_router,
 )
@@ -34,11 +27,13 @@ from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.requests import Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.routing import APIRoute
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from config import Settings  # type: ignore[attr-defined]
 from libs.container_lifecycle import create_lifecycle_manager
+from libs.openai_rate_limiter import create_rate_limiter
 from libs.queue_client import process_queue_messages
 from libs.shared_models import (
     StandardError,
@@ -51,6 +46,10 @@ repo_root = Path(__file__).parent.parent.parent
 if str(repo_root) not in sys.path:
     sys.path.insert(0, str(repo_root))
 
+# Initialize settings (create instance here, not at module import time)
+settings = Settings()
+service_metadata = create_service_dependency("content-processor")
+
 
 # Configure logging
 logging.basicConfig(
@@ -61,7 +60,7 @@ logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager for KEDA-triggered processing."""
     logger.info("Starting Content Processor service")
     logger.info(f"Service version: {settings.service_version}")
@@ -69,11 +68,18 @@ async def lifespan(app: FastAPI):
     logger.info(f"Log level: {settings.log_level}")
     logger.info("Content Processor ready for KEDA Storage Queue scaling")
 
+    # Initialize rate limiter for OpenAI API calls (60 requests/minute = 1 per second)
+    openai_limiter = create_rate_limiter(max_requests_per_minute=60)
+    logger.info("Initialized OpenAI rate limiter: 60 requests/minute")
+    app.state.openai_limiter = openai_limiter
+
     # Optional startup diagnostics (enabled via environment variable)
     if os.getenv("RUN_STARTUP_DIAGNOSTICS", "false").lower() == "true":
-        logger.info("🔍 Running startup diagnostics...")
+        logger.info("Running startup diagnostics...")
         try:
-            from endpoints.diagnostics import PipelineDiagnostics
+            from endpoints.diagnostics import (
+                PipelineDiagnostics,  # type: ignore[import-not-found]
+            )
 
             diagnostics = PipelineDiagnostics()
             result = await diagnostics.run_all_tests(deep_scan=True)
@@ -83,13 +89,13 @@ async def lifespan(app: FastAPI):
             )
 
             if result.overall_status == "failed":
-                logger.error("❌ Startup diagnostics failed:")
+                logger.error("Startup diagnostics failed:")
                 for test in result.tests:
                     if test.status == "fail":
                         logger.error(f"  - {test.name}: {test.message}")
 
                 for rec in result.recommendations:
-                    logger.error(f"  💡 {rec}")
+                    logger.error(f"  {rec}")
 
                 # In strict mode, exit on diagnostics failure
                 if os.getenv("STRICT_STARTUP_DIAGNOSTICS", "false").lower() == "true":
@@ -98,15 +104,15 @@ async def lifespan(app: FastAPI):
                     )
                     raise SystemExit(1)
             elif result.overall_status == "degraded":
-                logger.warning("⚠️ Startup diagnostics have warnings:")
+                logger.warning("Startup diagnostics have warnings:")
                 for test in result.tests:
                     if test.status == "warning":
                         logger.warning(f"  - {test.name}: {test.message}")
             else:
-                logger.info("✅ All startup diagnostics passed successfully")
+                logger.info("All startup diagnostics passed successfully")
 
         except Exception as e:
-            logger.error(f"❌ Startup diagnostics failed with error: {e}")
+            logger.error(f"Startup diagnostics failed with error: {e}")
             if os.getenv("STRICT_STARTUP_DIAGNOSTICS", "false").lower() == "true":
                 raise SystemExit(1)
 
@@ -135,14 +141,14 @@ async def lifespan(app: FastAPI):
             logger.error(f"Error processing message: {e}")
             return {"status": "error", "error": str(e)}
 
-    async def startup_queue_processor():
+    async def startup_queue_processor() -> None:
         """
         Process queue messages continuously with graceful self-termination.
 
         KEDA will scale down after cooldown, but we also implement graceful
         self-termination after MAX_IDLE_TIME as a backup mechanism.
         """
-        logger.info("🔍 Checking queue: content-processing-requests")
+        logger.info("Checking queue: content-processing-requests")
 
         # Graceful termination settings
         MAX_IDLE_TIME = int(
@@ -178,13 +184,13 @@ async def lifespan(app: FastAPI):
                     current_time = datetime.utcnow().strftime("%H:%M:%S")
                     if total_processed > 0:
                         logger.info(
-                            f"✅ Queue empty after processing {total_processed} messages "
+                            f"Queue empty after processing {total_processed} messages "
                             f"(idle: {int(idle_seconds)}s/{MAX_IDLE_TIME}s, last checked @ {current_time}). "
                             "Continuing to poll. KEDA will scale to 0 after cooldown period."
                         )
                     else:
                         logger.info(
-                            f"✅ Queue empty on startup (idle: {int(idle_seconds)}s/{MAX_IDLE_TIME}s, "
+                            f"Queue empty on startup (idle: {int(idle_seconds)}s/{MAX_IDLE_TIME}s, "
                             f"last checked @ {current_time}). "
                             "Continuing to poll. KEDA will scale to 0 after cooldown period."
                         )
@@ -212,24 +218,14 @@ async def lifespan(app: FastAPI):
         logger.info("Shutting down Content Processor service")
 
         try:
-            # Close API client to prevent unclosed session warnings
-            from dependencies import get_api_client
-
-            try:
-                api_client = get_api_client()
-                await api_client.close()
-                logger.info("✅ API client closed")
-            except Exception as e:
-                logger.warning(f"⚠️ Error closing API client: {e}")
-
             # Clean up any remaining async resources
-            from processor import ContentProcessor
+            from processor import ContentProcessor  # type: ignore[import-not-found]
 
             processor = ContentProcessor()
             await processor.cleanup()
-            logger.info("✅ FINAL-CLEANUP: Async resources cleaned up")
+            logger.info("FINAL-CLEANUP: Async resources cleaned up")
         except Exception as e:
-            logger.warning(f"⚠️ FINAL-CLEANUP: Error during final cleanup: {e}")
+            logger.warning(f"FINAL-CLEANUP: Error during final cleanup: {e}")
 
 
 # Initialize FastAPI app
@@ -255,7 +251,7 @@ app.add_middleware(
 
 # Add security headers middleware
 @app.middleware("http")
-async def add_security_headers(request: Request, call_next):
+async def add_security_headers(request: Request, call_next: Callable) -> Response:
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
@@ -269,7 +265,9 @@ async def add_security_headers(request: Request, call_next):
 
 # Global exception handlers
 @app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
     """Handle request validation errors with standardized format."""
     error_messages = []
     for error in exc.errors():
@@ -294,7 +292,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 
 @app.exception_handler(404)
-async def not_found_handler(request: Request, exc):
+async def not_found_handler(request: Request, exc) -> JSONResponse:
     """Handle 404 errors with standardized format."""
     # Create service metadata for the error response
     metadata = await create_service_dependency("content-processor")()
@@ -340,7 +338,7 @@ async def not_found_handler(request: Request, exc):
 
 
 @app.exception_handler(405)
-async def method_not_allowed_handler(request: Request, exc):
+async def method_not_allowed_handler(request: Request, exc) -> JSONResponse:
     """Handle 405 Method Not Allowed errors with standardized format."""
     # Create service metadata for the error response
     metadata = await create_service_dependency("content-processor")()
@@ -361,8 +359,6 @@ async def method_not_allowed_handler(request: Request, exc):
 
 
 # Add main API routes
-# Includes /, /health, /status, /processing/diagnostics
-app.include_router(diagnostics_router)
 # /process, /process/types, /process/status
 app.include_router(processing_router)
 # /storage-queue Storage Queue endpoints

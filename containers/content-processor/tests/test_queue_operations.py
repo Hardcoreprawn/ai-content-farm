@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, Mock, patch
 from uuid import uuid4
 
 import pytest
-from queue_operations import (
+from queue_operations_pkg import (
     clear_queue,
     create_markdown_trigger_message,
     create_queue_message,
@@ -22,6 +22,62 @@ from queue_operations import (
     send_queue_message,
     should_trigger_next_stage,
 )
+
+# ============================================================================
+# Test Helpers
+# ============================================================================
+
+
+class AsyncIteratorMock:
+    """Mock that acts as an async iterator."""
+
+    def __init__(self, items):
+        self.items = items
+        self.index = 0
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if self.index >= len(self.items):
+            raise StopAsyncIteration
+        item = self.items[self.index]
+        self.index += 1
+        return item
+
+
+class AwaitableAsyncIterator:
+    """Awaitable that returns an async iterator - matches Azure SDK behavior.
+
+    Azure SDK queue operations like receive_messages() and peek_messages() return
+    an awaitable that resolves to an async iterator.
+    """
+
+    def __init__(self, items):
+        self.items = items
+        self._iterator = None
+
+    def __await__(self):
+        # When awaited, return self which has __aiter__
+        async def _return_self():
+            self._iterator = AsyncIteratorMock(self.items)
+            return self
+
+        return _return_self().__await__()
+
+    def __aiter__(self):
+        # Return the actual iterator
+        return self._iterator if self._iterator else AsyncIteratorMock(self.items)
+
+    async def __anext__(self):
+        # Delegate to the iterator
+        if not self._iterator:
+            self._iterator = AsyncIteratorMock(self.items)
+        return await self._iterator.__anext__()
+
+
+# ============================================================================
+
 
 # ============================================================================
 # Test Message Creation (Pure Functions)
@@ -170,10 +226,10 @@ class TestSendQueueMessage:
     @pytest.mark.asyncio
     async def test_sends_message_successfully(self):
         """Should send message and return success."""
-        mock_client = Mock()
+        mock_client = AsyncMock()
         mock_response = Mock()
         mock_response.id = "msg-123"
-        mock_client.send_message = Mock(return_value=mock_response)
+        mock_client.send_message = AsyncMock(return_value=mock_response)
         mock_client.queue_name = "test-queue"
 
         message = {"service_name": "test", "operation": "wake_up"}
@@ -187,9 +243,9 @@ class TestSendQueueMessage:
     @pytest.mark.asyncio
     async def test_serializes_message_to_json(self):
         """Should convert message dict to JSON string."""
-        mock_client = Mock()
+        mock_client = AsyncMock()
         mock_response = Mock(id="msg-123")
-        mock_client.send_message = Mock(return_value=mock_response)
+        mock_client.send_message = AsyncMock(return_value=mock_response)
         mock_client.queue_name = "test-queue"
 
         message = {"service_name": "test", "data": {"key": "value"}}
@@ -203,8 +259,8 @@ class TestSendQueueMessage:
     @pytest.mark.asyncio
     async def test_handles_send_failure(self):
         """Should return error on send failure."""
-        mock_client = Mock()
-        mock_client.send_message = Mock(side_effect=Exception("Network error"))
+        mock_client = AsyncMock()
+        mock_client.send_message = AsyncMock(side_effect=Exception("Network error"))
 
         message = {"service_name": "test"}
         result = await send_queue_message(mock_client, message)
@@ -227,8 +283,10 @@ class TestReceiveQueueMessages:
         mock_msg.dequeue_count = 1
         mock_msg.insertion_time = datetime.now(timezone.utc)
 
-        mock_client = Mock()
-        mock_client.receive_messages = Mock(return_value=[mock_msg])
+        mock_client = AsyncMock()
+        mock_client.receive_messages = Mock(
+            return_value=AwaitableAsyncIterator([mock_msg])
+        )
 
         messages = await receive_queue_messages(mock_client, max_messages=1)
 
@@ -247,8 +305,10 @@ class TestReceiveQueueMessages:
         mock_msg.dequeue_count = 1
         mock_msg.insertion_time = datetime.now(timezone.utc)
 
-        mock_client = Mock()
-        mock_client.receive_messages = Mock(return_value=[mock_msg])
+        mock_client = AsyncMock()
+        mock_client.receive_messages = Mock(
+            return_value=AwaitableAsyncIterator([mock_msg])
+        )
 
         messages = await receive_queue_messages(mock_client)
 
@@ -269,8 +329,10 @@ class TestReceiveQueueMessages:
             msg.insertion_time = datetime.now(timezone.utc)
             mock_messages.append(msg)
 
-        mock_client = Mock()
-        mock_client.receive_messages = Mock(return_value=mock_messages)
+        mock_client = AsyncMock()
+        mock_client.receive_messages = Mock(
+            return_value=AwaitableAsyncIterator(mock_messages)
+        )
 
         messages = await receive_queue_messages(mock_client, max_messages=3)
 
@@ -281,7 +343,7 @@ class TestReceiveQueueMessages:
     @pytest.mark.asyncio
     async def test_handles_receive_failure(self):
         """Should return empty list on failure."""
-        mock_client = Mock()
+        mock_client = AsyncMock()
         mock_client.receive_messages = Mock(side_effect=Exception("Network error"))
 
         messages = await receive_queue_messages(mock_client)
@@ -295,8 +357,8 @@ class TestDeleteQueueMessage:
     @pytest.mark.asyncio
     async def test_deletes_message_successfully(self):
         """Should delete message and return True."""
-        mock_client = Mock()
-        mock_client.delete_message = Mock()
+        mock_client = AsyncMock()
+        mock_client.delete_message = AsyncMock()
 
         success = await delete_queue_message(
             mock_client,
@@ -310,8 +372,8 @@ class TestDeleteQueueMessage:
     @pytest.mark.asyncio
     async def test_handles_delete_failure(self):
         """Should return False on delete failure."""
-        mock_client = Mock()
-        mock_client.delete_message = Mock(side_effect=Exception("Not found"))
+        mock_client = AsyncMock()
+        mock_client.delete_message = AsyncMock(side_effect=Exception("Not found"))
 
         success = await delete_queue_message(
             mock_client,
@@ -333,8 +395,10 @@ class TestPeekQueueMessages:
         mock_msg.content = '{"service_name": "test"}'
         mock_msg.dequeue_count = 0
 
-        mock_client = Mock()
-        mock_client.peek_messages = Mock(return_value=[mock_msg])
+        mock_client = AsyncMock()
+        mock_client.peek_messages = Mock(
+            return_value=AwaitableAsyncIterator([mock_msg])
+        )
 
         messages = await peek_queue_messages(mock_client, max_messages=1)
 
@@ -351,8 +415,10 @@ class TestPeekQueueMessages:
         mock_msg.content = "invalid json"
         mock_msg.dequeue_count = 0
 
-        mock_client = Mock()
-        mock_client.peek_messages = Mock(return_value=[mock_msg])
+        mock_client = AsyncMock()
+        mock_client.peek_messages = Mock(
+            return_value=AwaitableAsyncIterator([mock_msg])
+        )
 
         messages = await peek_queue_messages(mock_client)
 
@@ -362,7 +428,7 @@ class TestPeekQueueMessages:
     @pytest.mark.asyncio
     async def test_handles_peek_failure(self):
         """Should return empty list on peek failure."""
-        mock_client = Mock()
+        mock_client = AsyncMock()
         mock_client.peek_messages = Mock(side_effect=Exception("Network error"))
 
         messages = await peek_queue_messages(mock_client)
@@ -380,9 +446,9 @@ class TestGetQueueProperties:
         mock_props.approximate_message_count = 5
         mock_props.metadata = {"env": "test"}
 
-        mock_client = Mock()
+        mock_client = AsyncMock()
         mock_client.queue_name = "test-queue"
-        mock_client.get_queue_properties = Mock(return_value=mock_props)
+        mock_client.get_queue_properties = AsyncMock(return_value=mock_props)
 
         props = await get_queue_properties(mock_client)
 
@@ -397,9 +463,9 @@ class TestGetQueueProperties:
         mock_props.approximate_message_count = 0
         mock_props.metadata = None
 
-        mock_client = Mock()
+        mock_client = AsyncMock()
         mock_client.queue_name = "test-queue"
-        mock_client.get_queue_properties = Mock(return_value=mock_props)
+        mock_client.get_queue_properties = AsyncMock(return_value=mock_props)
 
         props = await get_queue_properties(mock_client)
 
@@ -408,9 +474,11 @@ class TestGetQueueProperties:
     @pytest.mark.asyncio
     async def test_handles_properties_failure(self):
         """Should return error dict on failure."""
-        mock_client = Mock()
+        mock_client = AsyncMock()
         mock_client.queue_name = "test-queue"
-        mock_client.get_queue_properties = Mock(side_effect=Exception("Access denied"))
+        mock_client.get_queue_properties = AsyncMock(
+            side_effect=Exception("Access denied")
+        )
 
         props = await get_queue_properties(mock_client)
 
@@ -424,9 +492,9 @@ class TestClearQueue:
     @pytest.mark.asyncio
     async def test_clears_queue_successfully(self):
         """Should clear queue and return True."""
-        mock_client = Mock()
+        mock_client = AsyncMock()
         mock_client.queue_name = "test-queue"
-        mock_client.clear_messages = Mock()
+        mock_client.clear_messages = AsyncMock()
 
         success = await clear_queue(mock_client)
 
@@ -436,8 +504,10 @@ class TestClearQueue:
     @pytest.mark.asyncio
     async def test_handles_clear_failure(self):
         """Should return False on clear failure."""
-        mock_client = Mock()
-        mock_client.clear_messages = Mock(side_effect=Exception("Permission denied"))
+        mock_client = AsyncMock()
+        mock_client.clear_messages = AsyncMock(
+            side_effect=Exception("Permission denied")
+        )
 
         success = await clear_queue(mock_client)
 

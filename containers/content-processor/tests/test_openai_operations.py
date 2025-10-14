@@ -9,7 +9,7 @@ Contract Version: 1.0.0
 from unittest.mock import AsyncMock, Mock
 
 import pytest
-from openai_operations import (
+from operations.openai_operations import (
     build_article_prompt,
     check_openai_connection,
     generate_article_content,

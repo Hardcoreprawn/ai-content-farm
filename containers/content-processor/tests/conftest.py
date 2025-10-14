@@ -87,34 +87,6 @@ def mock_openai_client():
 
 
 @pytest.fixture
-def mock_pricing_service():
-    """Mock pricing service for OpenAI cost calculations."""
-    with patch("pricing_service.PricingService") as mock_class:
-        mock_instance = MagicMock()
-
-        # Model pricing (GPT-4 defaults)
-        mock_instance.get_model_pricing = MagicMock(
-            return_value={
-                "input_cost_per_1k": 0.01,
-                "output_cost_per_1k": 0.03,
-                "model": "gpt-4",
-            }
-        )
-
-        # Calculate cost method
-        def mock_calculate(input_tokens, output_tokens, model="gpt-4"):
-            pricing = mock_instance.get_model_pricing(model)
-            return (input_tokens * pricing["input_cost_per_1k"] / 1000) + (
-                output_tokens * pricing["output_cost_per_1k"] / 1000
-            )
-
-        mock_instance.calculate_cost = mock_calculate
-
-        mock_class.return_value = mock_instance
-        yield mock_instance
-
-
-@pytest.fixture
 def mock_processor_storage():
     """Mock processor storage service."""
     mock_storage = MagicMock()
@@ -161,21 +133,6 @@ def mock_article_generation():
     mock_service.close = AsyncMock()
 
     return mock_service
-
-
-@pytest.fixture
-def mock_lease_coordinator():
-    """Mock lease coordinator for parallel processing."""
-    mock_coordinator = MagicMock()
-
-    # Lease operations
-    mock_coordinator.acquire_topic_lease = AsyncMock(return_value=True)
-    mock_coordinator.release_topic_lease = AsyncMock(return_value=True)
-
-    # Close method
-    mock_coordinator.close = AsyncMock()
-
-    return mock_coordinator
 
 
 @pytest.fixture

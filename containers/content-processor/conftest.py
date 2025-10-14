@@ -1,9 +1,12 @@
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, Generator
+from unittest.mock import Mock
 
 import pytest
+
+import libs.blob_mock as blob_mock  # type: ignore[import-untyped]
 
 root = Path(__file__).parent
 # Ensure this container directory is first on sys.path so tests importing
@@ -31,23 +34,19 @@ if "integration" in os.environ.get("PYTEST_CURRENT_TEST", ""):
 
 
 @pytest.fixture(autouse=True)
-def _isolate_mock_blob_storage():
+def _isolate_mock_blob_storage() -> Generator[None, None, None]:
     """Ensure mock blob storage state is isolated per test when in mock mode."""
     if os.getenv("BLOB_STORAGE_MOCK", "false").lower() == "true":
         try:
-            import libs.blob_storage as _bs
-
-            if hasattr(_bs, "_MOCK_BLOBS"):
-                _bs._MOCK_BLOBS.clear()
-            if hasattr(_bs, "_MOCK_CONTAINERS"):
-                _bs._MOCK_CONTAINERS.clear()
+            blob_mock._MOCK_BLOBS.clear()
+            blob_mock._MOCK_CONTAINERS.clear()
         except Exception:
             pass
     yield
 
 
 @pytest.fixture
-def sample_reddit_post():
+def sample_reddit_post() -> Dict[str, Any]:
     """Sample Reddit post data for testing."""
     return {
         "id": "test_post_123",
@@ -64,7 +63,7 @@ def sample_reddit_post():
 
 
 @pytest.fixture
-def sample_collection_data(sample_reddit_post):
+def sample_collection_data(sample_reddit_post) -> Dict[str, Any]:
     """Sample collection data for testing."""
     return {
         "collection_id": "test_collection_20250823",
@@ -78,7 +77,7 @@ def sample_collection_data(sample_reddit_post):
 
 
 @pytest.fixture
-def mock_blob_storage():
+def mock_blob_storage() -> Mock:
     """Mock simplified blob storage client for fast unit tests."""
     from unittest.mock import Mock
 
@@ -93,8 +92,10 @@ def mock_blob_storage():
 
 
 @pytest.fixture
-def mock_openai_client():
+def mock_openai_client() -> Any:
     """Mock OpenAI client for fast unit tests."""
-    from tests.contracts.openai_api_contract import MockOpenAIClient
+    from tests.contracts.openai_api_contract import (
+        MockOpenAIClient,  # type: ignore[import-not-found]
+    )
 
     return MockOpenAIClient()
