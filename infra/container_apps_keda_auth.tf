@@ -45,7 +45,8 @@ resource "null_resource" "configure_processor_keda_auth" {
         --scale-rule-metadata \
           accountName=${azurerm_storage_account.main.name} \
           queueName=${azurerm_storage_queue.content_processing_requests.name} \
-          queueLength=1 \
+          queueLength=8 \
+          activationQueueLength=1 \
           cloud=AzurePublicCloud \
         --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
         --output none || {

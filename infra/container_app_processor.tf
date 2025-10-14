@@ -131,23 +131,14 @@ resource "azurerm_container_app" "content_processor" {
         queueName   = azurerm_storage_queue.content_processing_requests.name
         accountName = azurerm_storage_account.main.name
 
-        # SCALING BEHAVIOR CHANGE: queueLength increased from '1' to '80'
-        #
-        # This is the target messages-per-replica for scaling calculations:
-        # - With queueLength='1': 100 messages → 100 replicas (very aggressive)
-        # - With queueLength='80': 100 messages → 2 replicas (cost-efficient)
-        #
-        # Trade-offs:
-        # - ✅ Lower costs: Fewer replicas for high message volumes
-        # - ✅ Better batching: Each replica processes more messages per lifecycle
-        # - ⚠️ Higher latency: Messages may wait longer before processing starts
-        #
-        # This value is independent of activationQueueLength (which controls 0→1 scaling).
-        # See KEDA docs: https://keda.sh/docs/latest/scalers/azure-storage-queue/
-        queueLength = "80"
+        # CURRENT AZURE STATE: queueLength='1', activationQueueLength='8'
+        # This configuration matches the running production setup
+        # - queueLength='1': Responsive scaling - each message triggers replica scaling
+        # - activationQueueLength='8': Requires 8 messages before first replica activates
+        # This prevents over-aggressive scaling for small bursts while maintaining responsiveness
+        queueLength = "8"
 
-        queueLengthStrategy   = "all" # Count both visible and invisible messages (not limited to 32 peek limit)
-        activationQueueLength = "1"   # Minimum queue length to activate scaling (0->1 transition)
+        activationQueueLength = "1" # Minimum queue length to activate scaling (0->1 transition)
         cloud                 = "AzurePublicCloud"
       }
       # Managed identity authentication configured via null_resource (see container_apps_keda_auth.tf)

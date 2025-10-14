@@ -142,12 +142,12 @@ resource "azurerm_container_app" "markdown_generator" {
       name             = "markdown-queue-scaler"
       custom_rule_type = "azure-queue"
       metadata = {
-        queueName             = azurerm_storage_queue.markdown_generation_requests.name
-        accountName           = azurerm_storage_account.main.name
-        queueLength           = "160" # Increased from 1: Prevents over-scaling (1 replica can handle 160 msgs in ~5s at 35/sec)
-        queueLengthStrategy   = "all" # Count both visible and invisible messages
-        activationQueueLength = "1"   # Required for proper 0->1 and 1->0 scaling transitions
-        cloud                 = "AzurePublicCloud"
+        queueName   = azurerm_storage_queue.markdown_generation_requests.name
+        accountName = azurerm_storage_account.main.name
+        # CURRENT AZURE STATE: queueLength='1' only
+        # Matches running production - immediate scaling on any message
+        queueLength = "1"
+        cloud       = "AzurePublicCloud"
       }
       # Managed identity authentication configured via null_resource (see container_apps_keda_auth.tf)
     }
