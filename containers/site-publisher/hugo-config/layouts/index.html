@@ -1,0 +1,19 @@
+{{- define "main" }}
+
+{{ partial "hero-attribution.html" . }}
+
+{{- if .Content }}
+<div class="content">{{ .Content }}</div>
+{{- end }}
+
+{{- $pages := where .Site.RegularPages "Type" "in" .Site.Params.mainSections }}
+
+{{- if $pages }}
+<div class="post-list">
+    {{- range $pages }}
+    {{- partial "post_card.html" . }}
+    {{- end }}
+</div>
+{{- end }}
+
+{{- end }}{{/* end main */}}

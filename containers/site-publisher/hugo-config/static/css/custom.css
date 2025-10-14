@@ -1,0 +1,80 @@
+/* Static custom CSS override (copied to /css/custom.css)
+   This file is intentionally placed in the `static/` directory so Hugo
+   will copy it verbatim to the site root. `config.toml` references
+   `css/custom.css` which resolves to /css/custom.css in the generated site.
+
+   These rules are written with increased specificity and `!important`
+   to ensure they override theme defaults when the theme's CSS has equal
+   specificity or is loaded after the theme assets in some builds.
+*/
+
+/* Ensure hero/home-info gradient and background are applied */
+body .home-info,
+.first-entry.home-info,
+.home-info.home-info {
+    background-image: linear-gradient(135deg, rgba(102, 126, 234, 0.85) 0%, rgba(118, 75, 162, 0.85) 100%),
+        url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1600&q=80&fit=crop') !important;
+    background-size: cover !important;
+    background-position: center !important;
+    background-repeat: no-repeat !important;
+    color: #ffffff !important;
+}
+
+/* Force background overlay pattern to remain visible */
+.home-info::before {
+    background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.05'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E") !important;
+    pointer-events: none !important;
+}
+
+/* Make sure entry text sits above overlays */
+.home-info .entry-header,
+.home-info .entry-content,
+.home-info .entry-footer {
+    position: relative !important;
+    z-index: 2 !important;
+}
+
+/* Stronger layout override: set main content width to 1024px */
+/* Use high specificity and !important so that theme defaults are overridden. */
+html body .main {
+    max-width: 1024px !important;
+    width: 100% !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+/* First-entry adjustments: remove forced large heights from theme */
+.first-entry,
+.home .first-entry,
+article.first-entry {
+    max-height: none !important;
+    min-height: 0 !important;
+    height: auto !important;
+    display: block !important;
+    justify-content: flex-start !important;
+}
+
+/* If the theme sets explicit heights on entry-cover, override them */
+.first-entry .entry-cover,
+.post-entry .entry-cover {
+    max-height: none !important;
+    height: auto !important;
+    overflow: visible !important;
+}
+
+/* Keep hero images responsive */
+.first-entry .entry-cover img,
+.post-entry .entry-cover img {
+    width: 100% !important;
+    height: auto !important;
+    object-fit: cover !important;
+}
+
+/* Small screens: make first entry compact */
+@media (max-width: 768px) {
+
+    .first-entry,
+    .first-entry .entry-cover {
+        max-height: 260px !important;
+    }
+}
