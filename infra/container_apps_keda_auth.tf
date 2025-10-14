@@ -129,6 +129,8 @@ resource "null_resource" "configure_site_publisher_keda_auth" {
           accountName=${azurerm_storage_account.main.name} \
           queueName=${azurerm_storage_queue.site_publishing_requests.name} \
           queueLength=1 \
+          activationQueueLength=1 \
+          queueLengthStrategy=all \
           cloud=AzurePublicCloud \
         --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
         --output none || {

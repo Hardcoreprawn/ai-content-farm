@@ -65,22 +65,42 @@ az containerapp update \
 
 echo -e "${GREEN}✓ Configured content-processor KEDA authentication${NC}"
 
-# Configure site-generator KEDA scale rule
-echo -e "${YELLOW}Configuring KEDA auth for site-generator...${NC}"
+# Configure markdown-generator KEDA scale rule
+echo -e "${YELLOW}Configuring KEDA auth for markdown-generator...${NC}"
 az containerapp update \
-  --name ai-content-prod-site-generator \
+  --name ai-content-prod-markdown-generator \
   --resource-group "${RESOURCE_GROUP}" \
-  --scale-rule-name storage-queue-scaler \
+  --scale-rule-name markdown-queue-scaler \
   --scale-rule-type azure-queue \
   --scale-rule-metadata \
     accountName="${STORAGE_ACCOUNT_NAME}" \
-    queueName=site-generation-requests \
+    queueName=markdown-generation-requests \
     queueLength=1 \
+    activationQueueLength=1 \
     cloud=AzurePublicCloud \
   --scale-rule-auth workloadIdentity="${CLIENT_ID}" \
   --output none
 
-echo -e "${GREEN}✓ Configured site-generator KEDA authentication${NC}"
+echo -e "${GREEN}✓ Configured markdown-generator KEDA authentication${NC}"
+
+# Configure site-publisher KEDA scale rule
+echo -e "${YELLOW}Configuring KEDA auth for site-publisher...${NC}"
+az containerapp update \
+  --name ai-content-prod-site-publisher \
+  --resource-group "${RESOURCE_GROUP}" \
+  --scale-rule-name site-publish-queue-scaler \
+  --scale-rule-type azure-queue \
+  --scale-rule-metadata \
+    accountName="${STORAGE_ACCOUNT_NAME}" \
+    queueName=site-publishing-requests \
+    queueLength=1 \
+    activationQueueLength=1 \
+    queueLengthStrategy=all \
+    cloud=AzurePublicCloud \
+  --scale-rule-auth workloadIdentity="${CLIENT_ID}" \
+  --output none
+
+echo -e "${GREEN}✓ Configured site-publisher KEDA authentication${NC}"
 echo
 
 # Verify configuration
@@ -91,20 +111,29 @@ PROCESSOR_CONFIG=$(az containerapp show \
   --query "properties.template.scale.rules[?name=='storage-queue-scaler']" \
   --output json)
 
-SITE_GEN_CONFIG=$(az containerapp show \
-  --name ai-content-prod-site-generator \
+MARKDOWN_GEN_CONFIG=$(az containerapp show \
+  --name ai-content-prod-markdown-generator \
   --resource-group "${RESOURCE_GROUP}" \
-  --query "properties.template.scale.rules[?name=='storage-queue-scaler']" \
+  --query "properties.template.scale.rules[?name=='markdown-queue-scaler']" \
+  --output json)
+
+SITE_PUB_CONFIG=$(az containerapp show \
+  --name ai-content-prod-site-publisher \
+  --resource-group "${RESOURCE_GROUP}" \
+  --query "properties.template.scale.rules[?name=='site-publish-queue-scaler']" \
   --output json)
 
 echo "Processor Scale Rule:"
 echo "${PROCESSOR_CONFIG}" | jq '.'
 echo
-echo "Site Generator Scale Rule:"
-echo "${SITE_GEN_CONFIG}" | jq '.'
+echo "Markdown Generator Scale Rule:"
+echo "${MARKDOWN_GEN_CONFIG}" | jq '.'
+echo
+echo "Site Publisher Scale Rule:"
+echo "${SITE_PUB_CONFIG}" | jq '.'
 echo
 
 echo -e "${GREEN}=== KEDA Authentication Configuration Complete ===${NC}"
 echo
-echo -e "${YELLOW}NOTE: This configuration will be wiped out by the next 'terraform apply'${NC}"
-echo -e "${YELLOW}TODO: Integrate this script into Terraform using null_resource or azapi provider${NC}"
+echo -e "${YELLOW}NOTE: Terraform null_resource should auto-apply this config on deployment${NC}"
+echo -e "${YELLOW}If KEDA scaling fails, run this script manually after Terraform apply${NC}"

@@ -1,4 +1,4 @@
-# TODO - AI Content Farm
+ # TODO - AI Content Farm
 
 **Status**: 🎉 **STORAGE QUEUE MIGRATION COMPLETE** - Full end-to-end automation working!  
 **Achievement**: Successfully migrated from Service Bus to Storage Queues with managed identity  
@@ -384,6 +384,27 @@ grep -r "content-generator" . --exclude-dir=docs/archived --exclude-dir=.git
 ---
 
 **Current Status**: Architecture simplification complete! Ready for end-to-end pipeline testing and real AI integration. 🚀
+
+## 🧭 Roadmap (Epics)
+
+Short roadmap linking the new umbrella epics created to group related work.
+
+- Epic: Site Generator Improvements — https://github.com/Hardcoreprawn/ai-content-farm/issues/611  
+  Labels: `epic`, `site-generator`
+
+- Epic: Content Quality & Publishing — https://github.com/Hardcoreprawn/ai-content-farm/issues/612  
+  Labels: `epic`, `content-processor`, `content-pipeline`
+
+- Epic: Infra & CI Reliability — https://github.com/Hardcoreprawn/ai-content-farm/issues/613  
+  Labels: `epic`, `infrastructure`
+
+- Epic: Observability & Telemetry — https://github.com/Hardcoreprawn/ai-content-farm/issues/614  
+  Labels: `epic`, `infrastructure`, `content-collector`, `content-processor`, `site-generator`
+
+Next steps:
+- Link remaining open issues from `output/issue_dry_run_2025-10-14.csv` to the appropriate epic (in-progress).
+- For issues that are closed or removed, prune links from epics and update acceptance criteria.
+- Optionally open a lightweight milestone or project board to track progress across epics.
 
 ## 🚫 What NOT to Do
 
