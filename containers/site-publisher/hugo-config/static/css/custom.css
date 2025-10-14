@@ -78,3 +78,153 @@ article.first-entry {
         max-height: 260px !important;
     }
 }
+
+/* ========================================
+   Source Attribution Component
+   Display original social media source
+   ======================================== */
+
+.source-attribution {
+    margin: 1.5rem 0 2rem;
+    padding: 1rem 1.25rem;
+    background: linear-gradient(135deg, #f5f7fa 0%, #e8eef5 100%);
+    border-left: 4px solid #6366f1;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+}
+
+.source-attribution:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    transform: translateY(-1px);
+}
+
+.attribution-content {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+}
+
+.attribution-icon {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.attribution-icon svg {
+    width: 24px;
+    height: 24px;
+    color: #6366f1;
+}
+
+/* Platform-specific icon colors */
+.source-attribution[data-platform="mastodon"] .attribution-icon svg {
+    color: #6364ff;
+}
+
+.source-attribution[data-platform="reddit"] .attribution-icon svg {
+    color: #ff4500;
+}
+
+.source-attribution[data-platform="twitter"] .attribution-icon svg {
+    color: #1da1f2;
+}
+
+.attribution-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.attribution-label {
+    font-size: 0.8rem;
+    color: #6b7280;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+
+.attribution-link {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #4f46e5;
+    text-decoration: none;
+    transition: color 0.2s ease;
+}
+
+.attribution-link:hover {
+    color: #6366f1;
+    text-decoration: underline;
+}
+
+.attribution-arrow {
+    flex-shrink: 0;
+    color: #9ca3af;
+}
+
+.attribution-arrow svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .source-attribution {
+        background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+        border-left-color: #818cf8;
+    }
+
+    .attribution-icon {
+        background: #374151;
+    }
+
+    .attribution-label {
+        color: #9ca3af;
+    }
+
+    .attribution-link {
+        color: #a5b4fc;
+    }
+
+    .attribution-link:hover {
+        color: #c7d2fe;
+    }
+}
+
+/* Responsive adjustments */
+@media (max-width: 640px) {
+    .source-attribution {
+        padding: 0.875rem 1rem;
+        font-size: 0.9rem;
+    }
+
+    .attribution-content {
+        gap: 0.75rem;
+    }
+
+    .attribution-icon {
+        width: 36px;
+        height: 36px;
+    }
+
+    .attribution-icon svg {
+        width: 20px;
+        height: 20px;
+    }
+
+    .attribution-label {
+        font-size: 0.75rem;
+    }
+
+    .attribution-link {
+        font-size: 0.95rem;
+    }
+}

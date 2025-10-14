@@ -229,6 +229,8 @@ def prepare_frontmatter(
     image_alt: Optional[str] = None,
     image_credit: Optional[str] = None,
     image_color: Optional[str] = None,
+    source_url: Optional[str] = None,
+    source_platform: Optional[str] = None,
     **additional_params: Any,
 ) -> str:
     """
@@ -253,6 +255,8 @@ def prepare_frontmatter(
         image_alt: Image alt text (optional)
         image_credit: Image credit/attribution (optional)
         image_color: Dominant color hex code (optional)
+        source_url: URL of the original social media post (optional)
+        source_platform: Platform name (mastodon, reddit, rss, etc.) (optional)
         **additional_params: Any additional custom parameters
 
     Returns:
@@ -271,7 +275,9 @@ def prepare_frontmatter(
         ...     author="John Doe",
         ...     tags=["tech", "ai"],
         ...     hero_image="https://images.unsplash.com/photo-xyz?w=1080",
-        ...     image_credit="Photo by Jane Doe on Unsplash"
+        ...     image_credit="Photo by Jane Doe on Unsplash",
+        ...     source_url="https://mastodon.social/@user/123456",
+        ...     source_platform="mastodon"
         ... )
     """
     if format == "hugo":
@@ -289,6 +295,8 @@ def prepare_frontmatter(
             image_alt=image_alt,
             image_credit=image_credit,
             image_color=image_color,
+            source_url=source_url,
+            source_platform=source_platform,
             **additional_params,
         )
     else:
@@ -311,6 +319,8 @@ def _prepare_hugo_frontmatter(
     image_alt: Optional[str] = None,
     image_credit: Optional[str] = None,
     image_color: Optional[str] = None,
+    source_url: Optional[str] = None,
+    source_platform: Optional[str] = None,
     **additional_params: Any,
 ) -> str:
     """
@@ -334,6 +344,8 @@ def _prepare_hugo_frontmatter(
         image_alt: Image alt text (optional)
         image_credit: Image credit/attribution (optional)
         image_color: Dominant color hex code (optional)
+        source_url: URL of original social media post (optional)
+        source_platform: Platform name (mastodon, reddit, etc.) (optional)
         **additional_params: Additional custom parameters
 
     Returns:
@@ -351,6 +363,13 @@ def _prepare_hugo_frontmatter(
         "original_url": original_url,
         "generated_at": generated_at,
     }
+
+    # Add source attribution fields for proper credit
+    if source_url:
+        custom_params["source_url"] = source_url
+
+    if source_platform:
+        custom_params["source_platform"] = source_platform
 
     if author:
         custom_params["author"] = author
