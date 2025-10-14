@@ -128,6 +128,11 @@ resource "azurerm_container_app" "markdown_generator" {
         name  = "MAX_IDLE_TIME_SECONDS"
         value = "180" # 3 minutes - provides safety margin beyond 45s KEDA cooldown
       }
+
+      env {
+        name  = "STABLE_EMPTY_DURATION_SECONDS"
+        value = "30" # Wait 30s after queue empty to ensure content-processor burst finished before signaling site-publisher
+      }
     }
 
     # Scale to zero when queue is empty

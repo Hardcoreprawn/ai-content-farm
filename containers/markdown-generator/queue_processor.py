@@ -142,7 +142,10 @@ async def startup_queue_processor(
     """
     Process queue messages continuously with graceful self-termination.
 
-    Signals site-publisher after first batch completes, then continues polling.
+    Signals site-publisher after queue has been stable/empty for a period,
+    indicating content-processor burst has completed. Prevents excessive
+    site rebuilds during bursty traffic from scaled content-processors.
+
     Implements graceful self-termination after MAX_IDLE_TIME as backup to KEDA.
 
     Args:
@@ -161,8 +164,12 @@ async def startup_queue_processor(
     MAX_IDLE_TIME = int(os.getenv("MAX_IDLE_TIME_SECONDS", "180"))
     last_activity_time = datetime.now(timezone.utc)
 
+    # Site-publisher signaling with "stable empty queue" pattern
+    # Signal only after queue has been empty for this duration (processor burst finished)
+    STABLE_EMPTY_DURATION = int(os.getenv("STABLE_EMPTY_DURATION_SECONDS", "30"))
+    queue_empty_since = None  # Track when queue first became empty
     total_processed = 0
-    signaled_site_publisher = False
+    total_processed_since_signal = 0  # Track new content since last signal
     empty_checks = 0
 
     while True:
@@ -173,26 +180,42 @@ async def startup_queue_processor(
             max_messages=max_batch_size,
         )
 
+        current_time = datetime.now(timezone.utc)
+
         if messages_processed == 0:
             empty_checks += 1
 
-            # Signal site-publisher once after first batch completes
-            if total_processed > 0 and not signaled_site_publisher:
+            # Track when queue first became empty
+            if queue_empty_since is None:
+                queue_empty_since = current_time
                 logger.info(
-                    f"✅ Markdown queue empty after processing {total_processed} messages - "
-                    "signaling site-publisher to build static site"
-                )
-                await signal_site_publisher(total_processed, output_container)
-                signaled_site_publisher = True
-                logger.info(
-                    f"✅ Processing complete ({total_processed} messages). "
-                    "Continuing to poll. KEDA will scale to 0 after cooldown period."
+                    f"📭 Queue empty after processing {total_processed_since_signal} new messages. "
+                    f"Waiting {STABLE_EMPTY_DURATION}s to ensure processor burst complete..."
                 )
 
-            # Check if we should gracefully terminate
-            idle_seconds = (
-                datetime.now(timezone.utc) - last_activity_time
-            ).total_seconds()
+            # Calculate how long queue has been stable/empty
+            stable_empty_seconds = (current_time - queue_empty_since).total_seconds()
+
+            # Signal site-publisher if queue stable AND new content processed since last signal
+            if (
+                stable_empty_seconds >= STABLE_EMPTY_DURATION
+                and total_processed_since_signal > 0
+            ):
+                logger.info(
+                    f"✅ Queue stable for {int(stable_empty_seconds)}s after processing "
+                    f"{total_processed_since_signal} new messages - signaling site-publisher"
+                )
+                await signal_site_publisher(
+                    total_processed_since_signal, output_container
+                )
+                total_processed_since_signal = 0  # Reset counter after signaling
+                logger.info(
+                    "✅ Site-publisher signaled. Continuing to poll. "
+                    "KEDA will scale to 0 after cooldown period."
+                )
+
+            # Check if we should gracefully terminate (longer than stable period)
+            idle_seconds = (current_time - last_activity_time).total_seconds()
             if idle_seconds >= MAX_IDLE_TIME:
                 logger.info(
                     f"🛑 Graceful shutdown: No messages for {int(idle_seconds)}s "
@@ -202,22 +225,26 @@ async def startup_queue_processor(
 
             # Log every 10th empty check to avoid log spam
             if empty_checks % 10 == 1 and empty_checks > 1:
-                current_time = datetime.now(timezone.utc).strftime("%H:%M:%S")
+                current_time_str = current_time.strftime("%H:%M:%S")
                 logger.info(
                     f"✅ Queue still empty (processed {total_processed} total, "
-                    f"idle: {int(idle_seconds)}s/{MAX_IDLE_TIME}s, last checked @ {current_time}). "
+                    f"stable: {int(stable_empty_seconds)}s/{STABLE_EMPTY_DURATION}s, "
+                    f"idle: {int(idle_seconds)}s/{MAX_IDLE_TIME}s, last checked @ {current_time_str}). "
                     "Continuing to poll. KEDA will scale to 0 after cooldown period."
                 )
 
             # Wait longer when queue is empty to reduce polling load
             await asyncio.sleep(10)
         else:
-            # Reset idle timer when we process messages
-            last_activity_time = datetime.now(timezone.utc)
-            empty_checks = 0  # Reset counter when message processed
+            # Messages processed - reset all empty/idle timers
+            last_activity_time = current_time
+            queue_empty_since = None  # Reset: queue no longer empty
+            empty_checks = 0
             total_processed += messages_processed
+            total_processed_since_signal += messages_processed
             logger.info(
-                f"📦 Processed {messages_processed} messages (total: {total_processed}). "
+                f"📦 Processed {messages_processed} messages "
+                f"(batch total: {total_processed_since_signal}, lifetime: {total_processed}). "
                 "Checking for more..."
             )
 
