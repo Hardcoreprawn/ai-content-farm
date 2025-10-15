@@ -5,6 +5,7 @@ Main composition function that orchestrates the complete build and deploy pipeli
 Individual operations are in content_downloader.py and hugo_builder.py.
 """
 
+import asyncio
 import logging
 import shutil
 from datetime import datetime

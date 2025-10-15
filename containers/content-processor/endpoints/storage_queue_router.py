@@ -44,13 +44,13 @@ class StorageQueueProcessingResponse(BaseModel):
 class ContentProcessorStorageQueueRouter:
     """Content Processor Storage Queue message processor."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.processor = None
 
-    def get_processor(self):
+    def get_processor(self) -> Any:
         """Get or create processor instance."""
         if self.processor is None:
-            from processor import ContentProcessor
+            from processor import ContentProcessor  # type: ignore[import-not-found]
 
             self.processor = ContentProcessor()
         return self.processor
@@ -71,7 +71,7 @@ class ContentProcessorStorageQueueRouter:
             logger.info(
                 f"🔄 PROCESSING: Storage Queue message {message.message_id} - operation: {message.operation} from {message.service_name}"
             )
-            logger.info(f"📝 MESSAGE PAYLOAD: {message.payload}")
+            logger.info(f"MESSAGE PAYLOAD: {message.payload}")
 
             if message.operation == "wake_up":
                 # Handle wake-up message - scan for available work
@@ -80,11 +80,9 @@ class ContentProcessorStorageQueueRouter:
                 )
 
                 # Process available work using the wake-up pattern
-                logger.info("🏭 PROCESSOR: Creating ContentProcessor instance...")
+                logger.info("PROCESSOR: Creating ContentProcessor instance...")
                 processor = self.get_processor()
-                logger.info(
-                    "✅ PROCESSOR: ContentProcessor instance created successfully"
-                )
+                logger.info("PROCESSOR: ContentProcessor instance created successfully")
 
                 # Extract parameters from message payload with safe defaults
                 batch_size = message.payload.get("batch_size", 10)
@@ -104,7 +102,7 @@ class ContentProcessorStorageQueueRouter:
                     collection_files=collection_files,  # Pass files to processor
                 )
                 logger.info(
-                    f"✅ PROCESSING: Work processing completed - {result.topics_processed} topics processed, cost: ${result.total_cost:.4f}"
+                    f"PROCESSING: Work processing completed - {result.topics_processed} topics processed, cost: ${result.total_cost:.4f}"
                 )
 
                 response = {
@@ -121,7 +119,7 @@ class ContentProcessorStorageQueueRouter:
                     },
                     "message_id": message.message_id,
                 }
-                logger.info(f"📤 RESPONSE: Returning processing result: {response}")
+                logger.info(f"RESPONSE: Returning processing result: {response}")
                 return response
 
             elif message.operation == "process":
@@ -187,7 +185,7 @@ class ContentProcessorStorageQueueRouter:
                 )
 
                 # Convert payload to TopicMetadata object
-                from models import TopicMetadata
+                from models import TopicMetadata  # type: ignore[import-not-found]
 
                 # Parse collected_at timestamp safely
                 collected_at_str = payload.get("collected_at")

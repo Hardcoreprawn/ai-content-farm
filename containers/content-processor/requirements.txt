@@ -45,6 +45,7 @@ mistune~=3.1.4  # Markdown parsing and processing (for content cleanup)
 # ============================================================================
 aiohttp>=3.12.14,<4.0.0  # Security fix: CVE-2025-53643 (HTTP smuggling) - updated from 3.13.0
 tenacity~=9.1.2  # Retry logic for API calls (current)
+aiolimiter~=1.1.0  # Rate limiting for API calls (token bucket algorithm)
 
 # ============================================================================
 # Testing Dependencies (dev only)
@@ -53,6 +54,7 @@ pytest~=8.4.2  # Test framework (current)
 pytest-asyncio~=1.2.0  # Async test support (updated from 0.25.2 - MAJOR UPDATE)
 pytest-cov~=7.0.0  # Coverage reporting (updated from 6.0.0 - MAJOR UPDATE)
 pytest-mock~=3.15.1  # Mock fixtures (updated from 3.14.0)
+freezegun~=1.5.1  # Time mocking for deterministic timestamp tests
 
 # ============================================================================
 # Version Compatibility Notes & Major Updates (2025-10-08)

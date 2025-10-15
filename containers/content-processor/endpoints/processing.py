@@ -54,7 +54,7 @@ class ProcessRequest(BaseModel):
 async def process_content(
     request: ProcessRequest,
     metadata: Dict[str, Any] = Depends(service_metadata),
-):
+) -> StandardResponse:
     """
     Process content with AI enhancement.
 
@@ -95,7 +95,7 @@ async def process_content(
 )
 async def get_processing_types(
     metadata: Dict[str, Any] = Depends(service_metadata),
-):
+) -> StandardResponse:
     """Get available processing types."""
     return StandardResponse(
         status="success",
@@ -125,7 +125,7 @@ async def wake_up_processor(
     request: WakeUpRequest,
     background_tasks: BackgroundTasks,
     metadata: Dict[str, Any] = Depends(service_metadata),
-):
+) -> StandardResponse:
     """
     Async wake-up: queue processing job and return immediately.
     Use /process/jobs/{job_id} to check status.
@@ -171,7 +171,7 @@ async def wake_up_processor(
     )
 
 
-async def _process_collection_async(job_id: str, request: WakeUpRequest):
+async def _process_collection_async(job_id: str, request: WakeUpRequest) -> None:
     """
     Background task: actually process the collection.
     Updates job status as it progresses.
@@ -300,7 +300,7 @@ async def _process_collection_async(job_id: str, request: WakeUpRequest):
 async def get_job_status(
     job_id: str,
     metadata: Dict[str, Any] = Depends(service_metadata),
-):
+) -> StandardResponse:
     """Get the status of a processing job."""
     job_data = _processing_jobs.get(job_id)
 
@@ -331,7 +331,7 @@ async def get_job_status(
 async def list_jobs(
     limit: Optional[int] = 50,
     metadata: Dict[str, Any] = Depends(service_metadata),
-):
+) -> StandardResponse:
     """List all processing jobs."""
     jobs = sorted(
         _processing_jobs.values(), key=lambda x: x["created_at"], reverse=True
@@ -358,7 +358,7 @@ async def list_jobs(
 )
 async def get_processing_status(
     metadata: Dict[str, Any] = Depends(service_metadata),
-):
+) -> StandardResponse:
     """Get processing status."""
     return StandardResponse(
         status="success",
