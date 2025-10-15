@@ -1,8 +1,10 @@
 """
 Pure functional wrappers for Azure Queue Storage client operations.
 
-All operations are async and take QueueClient as explicit parameter.
+All operations are async and take Azure QueueClient as explicit parameter.
 No stored state, all configuration passed explicitly.
+
+Simplified: October 2025 - Direct Azure SDK usage, no wrapper layer.
 """
 
 import json
@@ -31,7 +33,7 @@ async def send_queue_message(
     Pure async function that sends message and returns result.
 
     Args:
-        queue_client: Configured Azure QueueClient
+        queue_client: Azure QueueClient instance
         message: Message dict to send
 
     Returns:
@@ -39,8 +41,13 @@ async def send_queue_message(
         Returns error status on failure
 
     Examples:
-        >>> from azure.storage.queue import QueueClient
-        >>> client = QueueClient.from_connection_string("conn_str", "queue")
+        >>> from azure.storage.queue.aio import QueueClient
+        >>> from azure.identity.aio import DefaultAzureCredential
+        >>> client = QueueClient(
+        ...     account_url="https://account.queue.core.windows.net",
+        ...     queue_name="my-queue",
+        ...     credential=DefaultAzureCredential()
+        ... )
         >>> result = await send_queue_message(
         ...     client,
         ...     {"service_name": "test", "operation": "wake_up"}
@@ -307,8 +314,13 @@ async def trigger_markdown_for_article(
         Dict with status, message_id, timestamp, or error information
 
     Examples:
-        >>> from azure.storage.queue import QueueClient
-        >>> client = QueueClient.from_connection_string("conn_str", "markdown-queue")
+        >>> from azure.storage.queue.aio import QueueClient
+        >>> from azure.identity.aio import DefaultAzureCredential
+        >>> client = QueueClient(
+        ...     account_url="https://account.queue.core.windows.net",
+        ...     queue_name="markdown-generation-requests",
+        ...     credential=DefaultAzureCredential()
+        ... )
         >>> result = await trigger_markdown_for_article(
         ...     queue_client=client,
         ...     blob_name="processed-content/article.json",
@@ -326,6 +338,11 @@ async def trigger_markdown_for_article(
 
         # Send message to queue
         result = await send_queue_message(queue_client, message)
+
+        if result["status"] == "success":
+            logger.info(f"✅ Markdown trigger sent for blob: {blob_name}")
+        else:
+            logger.warning(f"⚠️  Markdown trigger failed: {result.get('error')}")
 
         return result
 
