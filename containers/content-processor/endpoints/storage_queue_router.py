@@ -113,6 +113,87 @@ async def process_storage_queue_message(message: QueueMessageModel) -> Dict[str,
                 "message_id": message.message_id,
             }
 
+        elif message.operation == "process_topic":
+            # Single-topic processing path: individual topic → processed article → markdown trigger
+            payload = message.payload
+
+            # Extract topic metadata from payload
+            topic_id = payload.get("topic_id")
+            title = payload.get("title")
+
+            if not topic_id or not title:
+                logger.error(
+                    f"Missing required fields in process_topic payload: {payload}"
+                )
+                return {
+                    "status": "error",
+                    "error": "Missing required fields: topic_id and title",
+                    "message_id": message.message_id,
+                }
+
+            # Get processor context
+            context = await get_processor_context()
+
+            # Convert payload to TopicMetadata
+            from models import TopicMetadata
+
+            # Parse collected_at to datetime if present
+            collected_at_raw = payload.get("collected_at")
+            if collected_at_raw:
+                if isinstance(collected_at_raw, datetime):
+                    collected_at = collected_at_raw
+                else:
+                    try:
+                        # Handle ISO format with Z suffix
+                        collected_at = datetime.fromisoformat(
+                            collected_at_raw.replace("Z", "+00:00")
+                        )
+                    except Exception:
+                        collected_at = datetime.now(timezone.utc)
+            else:
+                collected_at = datetime.now(timezone.utc)
+
+            topic_metadata = TopicMetadata(
+                topic_id=topic_id,
+                title=title,
+                source=payload.get("source", "unknown"),
+                url=payload.get("url"),
+                subreddit=payload.get("subreddit"),
+                upvotes=payload.get("upvotes"),
+                comments=payload.get("comments"),
+                collected_at=collected_at,
+                priority_score=payload.get("priority_score", 0.5),
+            )
+
+            logger.info(
+                f"Processing single topic: '{title}' (ID: {topic_id}, source: {topic_metadata.source})"
+            )
+
+            # Import the single-topic processor
+            from core.processor_operations import _process_single_topic
+
+            # Process the single topic
+            result = await _process_single_topic(context, topic_metadata)
+
+            if result:
+                logger.info(
+                    f"Successfully processed topic '{title}': article_id={result.get('article_id')}, "
+                    f"cost=${result.get('cost', 0):.4f}"
+                )
+                return {
+                    "status": "success",
+                    "operation": "topic_processed",
+                    "result": result,
+                    "message_id": message.message_id,
+                }
+            else:
+                logger.info(f"Topic '{title}' was skipped (likely already processed)")
+                return {
+                    "status": "skipped",
+                    "operation": "topic_already_processed",
+                    "message_id": message.message_id,
+                }
+
         else:
             logger.warning(f"Unknown operation: {message.operation}")
             return {
