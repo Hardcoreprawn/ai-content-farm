@@ -143,7 +143,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             result = await process_storage_queue_message(queue_message)
 
             if result["status"] == "success":
-                logger.debug(f"Processed message {queue_message.message_id}")
+                logger.info(f"Processed message {queue_message.message_id}")
             else:
                 logger.warning(
                     f"Message processing failed: {result.get('error', 'Unknown error')}"

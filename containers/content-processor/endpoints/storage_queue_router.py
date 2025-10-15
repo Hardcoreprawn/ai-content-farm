@@ -64,11 +64,11 @@ async def process_storage_queue_message(message: QueueMessageModel) -> Dict[str,
         Dict with status, operation, result, message_id
     """
     try:
-        logger.debug(
+        logger.info(
             f"Processing queue message {message.message_id} - "
             f"operation: {message.operation} from {message.service_name}"
         )
-        logger.debug(f"Message payload: {message.payload}")
+        logger.info(f"Message payload: {message.payload}")
 
         if message.operation == "process":
             # Main processing path: collection blob → processed articles → markdown trigger
