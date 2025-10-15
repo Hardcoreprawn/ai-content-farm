@@ -1,27 +1,23 @@
 """
-Storage Queue Endpoints for Content Processor
+Storage Queue Message Handler for Content Processor
 
-Implements Storage Queue message processing for content processing requests.
-Uses unified queue interface and existing processor functionality.
+Pure functional implementation for processing queue messages.
+No classes - uses functional processor API (October 2025 refactor).
 """
 
 import logging
 import os
-import uuid
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException
-from pydantic import BaseModel
+# Import functional processor API from core module
+from core.processor import cleanup_processor, initialize_processor
+from core.processor_operations import process_collection_file
+from fastapi import APIRouter
 
-from libs.queue_client import (
-    QueueMessageModel,
-    get_queue_client,
-    process_queue_messages,
-    send_wake_up_message,
-)
+from libs.queue_client import QueueMessageModel
 
-# Configuration from environment variables
+# Configuration
 MARKDOWN_QUEUE_NAME = os.getenv("MARKDOWN_QUEUE_NAME", "markdown-generation-requests")
 
 logger = logging.getLogger(__name__)
@@ -30,356 +26,119 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/storage-queue", tags=["Storage Queue"])
 
 
-class StorageQueueProcessingResponse(BaseModel):
-    """Response for Storage Queue processing operations."""
+# ============================================================================
+# Pure Functional Queue Message Handler
+# ============================================================================
 
-    status: str
-    message: str
-    queue_name: str
-    messages_processed: int
-    correlation_id: str
-    timestamp: str  # ISO format timestamp
+# Module-level processor context (reused across messages in same container lifecycle)
+_processor_context = None
 
 
-class ContentProcessorStorageQueueRouter:
-    """Content Processor Storage Queue message processor."""
+async def get_processor_context():
+    """Get or create processor context (module-level singleton)."""
+    global _processor_context
+    if _processor_context is None:
+        _processor_context = await initialize_processor()
+        logger.info(f"Processor context initialized: {_processor_context.processor_id}")
+    return _processor_context
 
-    def __init__(self) -> None:
-        self.processor = None
 
-    def get_processor(self) -> Any:
-        """Get or create processor instance."""
-        if self.processor is None:
-            from processor import ContentProcessor  # type: ignore[import-not-found]
+async def process_storage_queue_message(message: QueueMessageModel) -> Dict[str, Any]:
+    """
+    Process a single Storage Queue message using functional API.
 
-            self.processor = ContentProcessor()
-        return self.processor
+    Core processing flow (the pattern that was working):
+    1. Receive queue message with blob_path
+    2. Download and validate collection blob
+    3. Process each topic (OpenAI generation)
+    4. Write processed articles to processed-content blob
+    5. Send markdown trigger message to markdown-generation-requests queue
+    6. Return success (caller deletes message from queue)
+    7. Check for next message
+    8. Wait gracefully if queue empty, then shutdown (KEDA scales down)
 
-    async def process_storage_queue_message(
-        self, message: QueueMessageModel
-    ) -> Dict[str, Any]:
-        """
-        Process a single Storage Queue message.
+    Args:
+        message: Storage Queue message with operation and payload
 
-        Args:
-            message: Storage Queue message to process
+    Returns:
+        Dict with status, operation, result, message_id
+    """
+    try:
+        logger.info(
+            f"Processing queue message {message.message_id} - "
+            f"operation: {message.operation} from {message.service_name}"
+        )
+        logger.info(f"Message payload: {message.payload}")
 
-        Returns:
-            Processing result
-        """
-        try:
-            logger.info(
-                f"🔄 PROCESSING: Storage Queue message {message.message_id} - operation: {message.operation} from {message.service_name}"
+        if message.operation == "process":
+            # Main processing path: collection blob → processed articles → markdown trigger
+            payload = message.payload
+
+            # Validate required field
+            blob_path = payload.get("blob_path")
+            if not blob_path:
+                logger.error("No blob_path in queue message payload")
+                return {
+                    "status": "error",
+                    "error": "Missing required field: blob_path",
+                    "message": "Queue messages must include blob_path",
+                }
+
+            # Get processor context (creates once, reuses for subsequent messages)
+            context = await get_processor_context()
+
+            # Process the collection file using functional API
+            logger.info(f"Processing collection from queue: {blob_path}")
+
+            # Call functional processor - no class needed!
+            result = await process_collection_file(
+                context=context,
+                blob_path=blob_path,
             )
-            logger.info(f"MESSAGE PAYLOAD: {message.payload}")
 
-            if message.operation == "wake_up":
-                # Handle wake-up message - scan for available work
-                logger.info(
-                    "🚀 WAKE-UP: Received wake-up signal from Storage Queue - scanning for available work"
-                )
+            logger.info(
+                f"Processing completed: {result.topics_processed} topics, "
+                f"{result.articles_generated} articles, cost: ${result.total_cost:.4f}"
+            )
 
-                # Process available work using the wake-up pattern
-                logger.info("PROCESSOR: Creating ContentProcessor instance...")
-                processor = self.get_processor()
-                logger.info("PROCESSOR: ContentProcessor instance created successfully")
-
-                # Extract parameters from message payload with safe defaults
-                batch_size = message.payload.get("batch_size", 10)
-                priority_threshold = message.payload.get("priority_threshold", 0.5)
-                debug_bypass = message.payload.get("debug_bypass", False)
-                collection_files = message.payload.get(
-                    "files", []
-                )  # Get specific files from payload
-
-                logger.info(
-                    f"⚙️ PROCESSING: Starting work processing with batch_size={batch_size}, priority_threshold={priority_threshold}, debug_bypass={debug_bypass}, files={collection_files}"
-                )
-                result = await processor.process_available_work(
-                    batch_size=batch_size,
-                    priority_threshold=priority_threshold,
-                    debug_bypass=debug_bypass,
-                    collection_files=collection_files,  # Pass files to processor
-                )
-                logger.info(
-                    f"PROCESSING: Work processing completed - {result.topics_processed} topics processed, cost: ${result.total_cost:.4f}"
-                )
-
-                response = {
-                    "status": "success",
-                    "operation": "wake_up_processed",
-                    "result": {
-                        "topics_processed": result.topics_processed,
-                        "articles_generated": result.articles_generated,
-                        "total_cost": result.total_cost,
-                        "processing_time": result.processing_time,
-                        "batch_size": batch_size,
-                        "priority_threshold": priority_threshold,
-                        "debug_bypass": debug_bypass,
-                    },
-                    "message_id": message.message_id,
-                }
-                logger.info(f"RESPONSE: Returning processing result: {response}")
-                return response
-
-            elif message.operation == "process":
-                # Process specific collection file from queue message
-                payload = message.payload
-
-                # Validate blob_path BEFORE creating processor
-                blob_path = payload.get("blob_path")
-                if not blob_path:
-                    logger.error("No blob_path in queue message payload")
-                    return {
-                        "status": "error",
-                        "error": "Missing required field: blob_path",
-                        "message": "Queue messages must include blob_path for targeted processing",
-                    }
-
-                # Now get processor after validation passes
-                processor = self.get_processor()
-
-                # Process the specific collection
-                logger.info(f"Processing collection from queue: {blob_path}")
-                collection_id = payload.get("collection_id")
-
-                result = await processor.process_collection_file(
-                    blob_path=blob_path,
-                    collection_id=collection_id,
-                )
-
-                return {
-                    "status": "success",
-                    "operation": "processing_completed",
-                    "result": {
-                        "topics_processed": result.topics_processed,
-                        "articles_generated": result.articles_generated,
-                        "total_cost": result.total_cost,
-                        "processing_time": result.processing_time,
-                    },
-                    "message_id": message.message_id,
-                }
-
-            elif message.operation == "process_topic":
-                # Process individual topic message (new fanout pattern)
-                payload = message.payload
-
-                # Validate required fields BEFORE creating processor
-                topic_id = payload.get("topic_id")
-                title = payload.get("title")
-                source = payload.get("source")
-
-                if not topic_id or not title or not source:
-                    logger.error(f"Missing required fields in topic payload: {payload}")
-                    return {
-                        "status": "error",
-                        "error": "Missing required fields: topic_id, title, or source",
-                        "message_id": message.message_id,
-                    }
-
-                # Now get processor after validation passes
-                processor = self.get_processor()
-
-                logger.info(
-                    f"Processing single topic from queue: {topic_id} - {title[:50]}"
-                )
-
-                # Convert payload to TopicMetadata object
-                from models import TopicMetadata  # type: ignore[import-not-found]
-
-                # Parse collected_at timestamp safely
-                collected_at_str = payload.get("collected_at")
-                collected_at = (
-                    datetime.fromisoformat(collected_at_str)
-                    if collected_at_str
-                    else datetime.now(timezone.utc)
-                )
-
-                topic = TopicMetadata(
-                    topic_id=topic_id,
-                    title=title,
-                    source=source,
-                    subreddit=payload.get("subreddit"),
-                    url=payload.get("url"),
-                    upvotes=payload.get("upvotes"),
-                    comments=payload.get("comments"),
-                    collected_at=collected_at,
-                    priority_score=payload.get("priority_score", 0.5),
-                )
-
-                # Process the topic directly (no wrapper!)
-                success, cost = await processor._process_topic_with_lease(topic)
-
-                return {
-                    "status": "success" if success else "error",
-                    "operation": "topic_processed",
-                    "result": {
-                        "topic_id": topic_id,
-                        "title": title,
-                        "success": success,
-                        "cost_usd": cost,
-                    },
-                    "message_id": message.message_id,
-                }
-
-            else:
-                logger.warning(f"Unknown operation: {message.operation}")
-                return {
-                    "status": "ignored",
-                    "operation": message.operation,
-                    "reason": "Unknown operation type",
-                    "message_id": message.message_id,
-                }
-
-        except Exception as e:
-            logger.error(f"Error processing Storage Queue message: {e}")
             return {
-                "status": "error",
-                "operation": message.operation,
-                "error": str(e),
+                "status": "success",
+                "operation": "processing_completed",
+                "result": {
+                    "topics_processed": result.topics_processed,
+                    "articles_generated": result.articles_generated,
+                    "total_cost": result.total_cost,
+                    "processing_time": result.processing_time,
+                },
                 "message_id": message.message_id,
             }
 
+        else:
+            logger.warning(f"Unknown operation: {message.operation}")
+            return {
+                "status": "ignored",
+                "operation": message.operation,
+                "reason": "Unknown operation type",
+                "message_id": message.message_id,
+            }
 
-# Global router instance - lazy loading for tests
-_storage_queue_router = None
+    except Exception as e:
+        logger.error(f"Error processing Storage Queue message: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "operation": message.operation,
+            "error": str(e),
+            "message_id": message.message_id,
+        }
 
 
-def get_storage_queue_router() -> ContentProcessorStorageQueueRouter:
-    """Get or create storage queue router instance."""
-    global _storage_queue_router
-    if _storage_queue_router is None:
-        _storage_queue_router = ContentProcessorStorageQueueRouter()
-    return _storage_queue_router
-
-
+# FastAPI endpoints (optional - for HTTP debugging)
 @router.get("/health")
 async def storage_queue_health() -> Dict[str, Any]:
     """Health check for Storage Queue integration."""
-    try:
-        # Test Storage Queue client connection
-        client = get_queue_client("content-processing-requests")
-        health = client.get_health_status()
-
-        return {
-            "status": "healthy",
-            "storage_queue_client": health,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "service": "content-processor",
-        }
-    except Exception as e:
-        logger.error(f"Storage Queue health check failed: {e}")
-        return {
-            "status": "unhealthy",
-            "error": "Storage queue health check failed",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "service": "content-processor",
-        }
-
-
-@router.post("/process", response_model=StorageQueueProcessingResponse)
-async def process_storage_queue_messages(
-    background_tasks: BackgroundTasks,
-    max_messages: Optional[int] = 10,
-) -> StorageQueueProcessingResponse:
-    """
-    Process Storage Queue messages.
-
-    Args:
-        background_tasks: FastAPI background tasks
-        max_messages: Maximum number of messages to process
-
-    Returns:
-        Processing response
-    """
-    correlation_id = str(uuid.uuid4())
-    start_time = datetime.now(timezone.utc)
-
-    try:
-        logger.info(
-            f"Starting Storage Queue processing (correlation_id: {correlation_id})"
-        )
-
-        # Process a single message for now
-        async def process_message(
-            queue_message: QueueMessageModel, message: Any
-        ) -> Dict[str, Any]:
-            """Process a single message."""
-            try:
-                # Process the message using the queue_message data
-                router_instance = get_storage_queue_router()
-                result = await router_instance.process_storage_queue_message(
-                    queue_message
-                )
-
-                if result["status"] == "success":
-                    logger.info(
-                        f"Successfully processed message {queue_message.message_id}"
-                    )
-                else:
-                    logger.warning(
-                        f"Message processing failed: {result.get('error', 'Unknown error')}"
-                    )
-
-                return result
-            except Exception as e:
-                logger.error(f"Error processing individual message: {e}")
-                return {"status": "error", "error": str(e)}
-
-        # Use the process_queue_messages utility from our unified interface
-        processed_count = await process_queue_messages(
-            queue_name="content-processing-requests",
-            message_handler=process_message,
-            max_messages=max_messages or 10,
-        )
-
-        return StorageQueueProcessingResponse(
-            status="success",
-            message=f"Processed {processed_count} messages",
-            queue_name="content-processing-requests",
-            messages_processed=processed_count,
-            correlation_id=correlation_id,
-            timestamp=start_time.isoformat(),
-        )
-
-    except Exception as e:
-        logger.error(f"Storage Queue processing failed: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Storage Queue processing failed: {str(e)}",
-        )
-
-
-@router.post("/send-wake-up")
-async def send_wake_up_endpoint() -> Dict[str, Any]:
-    """
-    Send wake-up message to trigger site generation.
-
-    Returns:
-        Send result
-    """
-    try:
-        # Use our unified send_wake_up_message function to trigger markdown generation
-        result = await send_wake_up_message(
-            queue_name=MARKDOWN_QUEUE_NAME,
-            service_name="content-processor",
-            payload={
-                "trigger": "content_processed",
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-            },
-        )
-
-        return {
-            "status": "success",
-            "message": "Wake-up message sent to markdown generator",
-            "queue_name": MARKDOWN_QUEUE_NAME,
-            "message_id": result["message_id"],
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to send wake-up message: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to send wake-up message: {str(e)}",
-        )
+    return {
+        "status": "healthy",
+        "message": "Storage queue handler ready",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "service": "content-processor",
+    }

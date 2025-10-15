@@ -15,8 +15,8 @@ from typing import Optional
 from aiolimiter import AsyncLimiter
 from azure.identity.aio import DefaultAzureCredential
 from azure.storage.queue.aio import QueueClient
-from openai_operations import create_openai_client
-from processor_context import ProcessorContext, create_processor_context
+from core.processor_context import ProcessorContext, create_processor_context
+from operations.openai_operations import create_openai_client
 
 from libs.simplified_blob_client import SimplifiedBlobClient
 

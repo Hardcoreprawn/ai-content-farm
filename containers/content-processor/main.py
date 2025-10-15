@@ -22,7 +22,7 @@ from endpoints import (
     processing_router,
     storage_queue_router,
 )
-from endpoints.storage_queue_router import get_storage_queue_router
+from endpoints.storage_queue_router import process_storage_queue_message
 from fastapi import FastAPI
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -130,8 +130,8 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     async def message_handler(queue_message, message) -> Dict[str, Any]:
         """Process a single content processing request from the queue."""
         try:
-            router_instance = get_storage_queue_router()
-            result = await router_instance.process_storage_queue_message(queue_message)
+            # Call pure function directly - no wrapper needed
+            result = await process_storage_queue_message(queue_message)
 
             if result["status"] == "success":
                 logger.info(
@@ -224,12 +224,13 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.info("Shutting down Content Processor service")
 
         try:
-            # Clean up any remaining async resources
-            from processor import ContentProcessor  # type: ignore[import-not-found]
+            # Clean up processor context using functional API
+            from core.processor import cleanup_processor
+            from endpoints.storage_queue_router import _processor_context
 
-            processor = ContentProcessor()
-            await processor.cleanup()
-            logger.info("FINAL-CLEANUP: Async resources cleaned up")
+            if _processor_context:
+                await cleanup_processor(_processor_context)
+                logger.info("FINAL-CLEANUP: Processor context cleaned up")
         except Exception as e:
             logger.warning(f"FINAL-CLEANUP: Error during final cleanup: {e}")
 
