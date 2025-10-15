@@ -30,31 +30,47 @@ resource "null_resource" "configure_processor_keda_auth" {
     scale_rule_name  = "storage-queue-scaler"
     queue_name       = azurerm_storage_queue.content_processing_requests.name
     identity_id      = azurerm_user_assigned_identity.containers.client_id
-    # Note: Can't hash scale rule directly as it may include null values
-    # Using individual components instead
+    # Force reconfiguration to fix queueLength from 8 to 16
+    version = "v2"
   }
 
   provisioner "local-exec" {
     command = <<-EOT
-      echo "Configuring KEDA authentication for content-processor..."
-      az containerapp update \
-        --name ${azurerm_container_app.content_processor.name} \
-        --resource-group ${azurerm_resource_group.main.name} \
-        --scale-rule-name storage-queue-scaler \
-        --scale-rule-type azure-queue \
-        --scale-rule-metadata \
-          accountName=${azurerm_storage_account.main.name} \
-          queueName=${azurerm_storage_queue.content_processing_requests.name} \
-          queueLength=8 \
-          activationQueueLength=1 \
-          cloud=AzurePublicCloud \
-        --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
-        --output none || {
-          echo "WARNING: KEDA auth configuration failed for content-processor"
-          echo "This may cause scaling issues. Run scripts/configure-keda-auth.sh manually."
-          exit 0  # Don't fail Terraform apply
-        }
-      echo "✓ KEDA authentication configured for content-processor"
+      set -e  # Exit on any error for better visibility
+      echo "🔧 Configuring KEDA authentication for content-processor..."
+
+      # Retry logic for transient failures
+      MAX_RETRIES=3
+      RETRY_COUNT=0
+
+      while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        if az containerapp update \
+          --name ${azurerm_container_app.content_processor.name} \
+          --resource-group ${azurerm_resource_group.main.name} \
+          --scale-rule-name storage-queue-scaler \
+          --scale-rule-type azure-queue \
+          --scale-rule-metadata \
+            accountName=${azurerm_storage_account.main.name} \
+            queueName=${azurerm_storage_queue.content_processing_requests.name} \
+            queueLength=16 \
+            activationQueueLength=1 \
+            cloud=AzurePublicCloud \
+          --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
+          --output none; then
+          echo "✅ KEDA authentication configured for content-processor (queueLength=16)"
+          exit 0
+        else
+          RETRY_COUNT=$((RETRY_COUNT + 1))
+          if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            echo "⚠️  Attempt $RETRY_COUNT failed, retrying in 5s..."
+            sleep 5
+          fi
+        fi
+      done
+
+      echo "❌ FAILED: KEDA auth configuration failed for content-processor after $MAX_RETRIES attempts"
+      echo "Run manually: scripts/configure-keda-auth.sh"
+      exit 1  # Fail Terraform to make issue visible
     EOT
 
     interpreter = ["bash", "-c"]
@@ -74,28 +90,45 @@ resource "null_resource" "configure_markdown_generator_keda_auth" {
     scale_rule_name  = "markdown-queue-scaler"
     queue_name       = azurerm_storage_queue.markdown_generation_requests.name
     identity_id      = azurerm_user_assigned_identity.containers.client_id
+    # Force reconfiguration to add activationQueueLength
+    version = "v2"
   }
 
   provisioner "local-exec" {
     command = <<-EOT
-      echo "Configuring KEDA authentication for markdown-generator..."
-      az containerapp update \
-        --name ${azurerm_container_app.markdown_generator.name} \
-        --resource-group ${azurerm_resource_group.main.name} \
-        --scale-rule-name markdown-queue-scaler \
-        --scale-rule-type azure-queue \
-        --scale-rule-metadata \
-          accountName=${azurerm_storage_account.main.name} \
-          queueName=${azurerm_storage_queue.markdown_generation_requests.name} \
-          queueLength=1 \
-          cloud=AzurePublicCloud \
-        --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
-        --output none || {
-          echo "WARNING: KEDA auth configuration failed for markdown-generator"
-          echo "This may cause scaling issues. Run scripts/configure-keda-auth.sh manually."
-          exit 0  # Don't fail Terraform apply
-        }
-      echo "✓ KEDA authentication configured for markdown-generator"
+      set -e
+      echo "🔧 Configuring KEDA authentication for markdown-generator..."
+
+      MAX_RETRIES=3
+      RETRY_COUNT=0
+
+      while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        if az containerapp update \
+          --name ${azurerm_container_app.markdown_generator.name} \
+          --resource-group ${azurerm_resource_group.main.name} \
+          --scale-rule-name markdown-queue-scaler \
+          --scale-rule-type azure-queue \
+          --scale-rule-metadata \
+            accountName=${azurerm_storage_account.main.name} \
+            queueName=${azurerm_storage_queue.markdown_generation_requests.name} \
+            queueLength=1 \
+            activationQueueLength=1 \
+            cloud=AzurePublicCloud \
+          --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
+          --output none; then
+          echo "✅ KEDA authentication configured for markdown-generator"
+          exit 0
+        else
+          RETRY_COUNT=$((RETRY_COUNT + 1))
+          if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            echo "⚠️  Attempt $RETRY_COUNT failed, retrying in 5s..."
+            sleep 5
+          fi
+        fi
+      done
+
+      echo "❌ FAILED: KEDA auth configuration failed for markdown-generator after $MAX_RETRIES attempts"
+      exit 1
     EOT
 
     interpreter = ["bash", "-c"]
@@ -115,30 +148,45 @@ resource "null_resource" "configure_site_publisher_keda_auth" {
     scale_rule_name  = "site-publish-queue-scaler"
     queue_name       = azurerm_storage_queue.site_publishing_requests.name
     identity_id      = azurerm_user_assigned_identity.containers.client_id
+    version          = "v2"
   }
 
   provisioner "local-exec" {
     command = <<-EOT
-      echo "Configuring KEDA authentication for site-publisher..."
-      az containerapp update \
-        --name ${azurerm_container_app.site_publisher.name} \
-        --resource-group ${azurerm_resource_group.main.name} \
-        --scale-rule-name site-publish-queue-scaler \
-        --scale-rule-type azure-queue \
-        --scale-rule-metadata \
-          accountName=${azurerm_storage_account.main.name} \
-          queueName=${azurerm_storage_queue.site_publishing_requests.name} \
-          queueLength=1 \
-          activationQueueLength=1 \
-          queueLengthStrategy=all \
-          cloud=AzurePublicCloud \
-        --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
-        --output none || {
-          echo "WARNING: KEDA auth configuration failed for site-publisher"
-          echo "This may cause scaling issues. Run scripts/configure-keda-auth.sh manually."
-          exit 0  # Don't fail Terraform apply
-        }
-      echo "✓ KEDA authentication configured for site-publisher"
+      set -e
+      echo "🔧 Configuring KEDA authentication for site-publisher..."
+
+      MAX_RETRIES=3
+      RETRY_COUNT=0
+
+      while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+        if az containerapp update \
+          --name ${azurerm_container_app.site_publisher.name} \
+          --resource-group ${azurerm_resource_group.main.name} \
+          --scale-rule-name site-publish-queue-scaler \
+          --scale-rule-type azure-queue \
+          --scale-rule-metadata \
+            accountName=${azurerm_storage_account.main.name} \
+            queueName=${azurerm_storage_queue.site_publishing_requests.name} \
+            queueLength=1 \
+            activationQueueLength=1 \
+            queueLengthStrategy=all \
+            cloud=AzurePublicCloud \
+          --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
+          --output none; then
+          echo "✅ KEDA authentication configured for site-publisher"
+          exit 0
+        else
+          RETRY_COUNT=$((RETRY_COUNT + 1))
+          if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+            echo "⚠️  Attempt $RETRY_COUNT failed, retrying in 5s..."
+            sleep 5
+          fi
+        fi
+      done
+
+      echo "❌ FAILED: KEDA auth configuration failed for site-publisher after $MAX_RETRIES attempts"
+      exit 1
     EOT
 
     interpreter = ["bash", "-c"]

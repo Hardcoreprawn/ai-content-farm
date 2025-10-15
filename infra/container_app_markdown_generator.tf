@@ -155,10 +155,11 @@ resource "azurerm_container_app" "markdown_generator" {
       metadata = {
         queueName   = azurerm_storage_queue.markdown_generation_requests.name
         accountName = azurerm_storage_account.main.name
-        # CURRENT AZURE STATE: queueLength='1' only
-        # Matches running production - immediate scaling on any message
+        # queueLength: target messages per replica when already scaled up
         queueLength = "1"
-        cloud       = "AzurePublicCloud"
+        # activationQueueLength: minimum messages to scale from 0 to 1
+        activationQueueLength = "1"
+        cloud                 = "AzurePublicCloud"
       }
       # Managed identity authentication configured via null_resource (see container_apps_keda_auth.tf)
     }
