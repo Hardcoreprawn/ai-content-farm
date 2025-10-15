@@ -37,8 +37,10 @@ async def _copy_directory_async(src: Path, dst: Path) -> None:
         src: Source directory path
         dst: Destination directory path
     """
-    # Use asyncio.to_thread to avoid blocking the event loop
-    await asyncio.to_thread(shutil.copytree, src, dst, dirs_exist_ok=True)
+    # shutil.copytree is I/O bound but synchronous
+    # For now we'll use it directly since it's fast for small directories
+    # If needed, we can run in executor: await asyncio.get_event_loop().run_in_executor(None, ...)
+    shutil.copytree(src, dst, dirs_exist_ok=True)
 
 
 async def build_and_deploy_site(
@@ -136,8 +138,6 @@ async def build_and_deploy_site(
             assets_dst = hugo_dir / "assets"
             await _copy_directory_async(assets_src, assets_dst)
             logger.info(f"Copied assets directory: {assets_src} -> {assets_dst}")
-        else:
-            logger.warning(f"Assets directory not found: {assets_src}")
 
         # Step 3: Build site with Hugo
         config_file = Path(config.hugo_config_path)
