@@ -89,6 +89,12 @@ resource "azurerm_container_app" "markdown_generator" {
         value = "production"
       }
 
+      # Application Insights for telemetry and monitoring
+      env {
+        name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        value = azurerm_application_insights.main.connection_string
+      }
+
       env {
         name  = "LOG_LEVEL"
         value = "INFO"

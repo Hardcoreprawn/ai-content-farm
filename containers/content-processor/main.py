@@ -33,6 +33,9 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from config import Settings  # type: ignore[attr-defined]
 from libs.container_lifecycle import create_lifecycle_manager
+
+# Application Insights monitoring
+from libs.monitoring import configure_application_insights
 from libs.openai_rate_limiter import create_rate_limiter
 from libs.queue_client import process_queue_messages
 from libs.shared_models import (
@@ -48,6 +51,9 @@ if str(repo_root) not in sys.path:
 
 # Initialize settings (create instance here, not at module import time)
 settings = Settings()
+
+# Initialize Application Insights (will gracefully disable if not configured)
+configure_application_insights(service_name="content-processor")
 service_metadata = create_service_dependency("content-processor")
 
 

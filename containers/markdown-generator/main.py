@@ -36,9 +36,15 @@ from queue_processor import create_message_handler, startup_queue_processor
 
 from config import configure_logging, get_settings  # type: ignore[import]
 
+# Application Insights monitoring
+from libs.monitoring import configure_application_insights
+
 # Initialize logging
 configure_logging()
 logger = logging.getLogger(__name__)
+
+# Initialize Application Insights (will gracefully disable if not configured)
+configure_application_insights(service_name="markdown-generator")
 
 # Application state
 app_state: Dict[str, Any] = {

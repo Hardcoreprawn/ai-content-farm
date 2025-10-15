@@ -87,6 +87,12 @@ resource "azurerm_container_app" "content_collector" {
         value = "production"
       }
 
+      # Application Insights for telemetry and monitoring
+      env {
+        name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        value = azurerm_application_insights.main.connection_string
+      }
+
       # Storage Queue configuration for wake-up pattern
       env {
         name  = "STORAGE_QUEUE_NAME"

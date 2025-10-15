@@ -33,11 +33,16 @@ from fastapi.routing import APIRoute
 from models import CollectionRequest, DiscoveryRequest, SourceConfig
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+# Application Insights monitoring
+from libs.monitoring import configure_application_insights
 from libs.shared_models import StandardResponse, create_service_dependency
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize Application Insights (will gracefully disable if not configured)
+configure_application_insights(service_name="content-collector")
 
 # Create service metadata dependency
 service_metadata = create_service_dependency("content-womble")

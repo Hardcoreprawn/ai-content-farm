@@ -15,6 +15,9 @@ dependencies = [
     "azure-storage-queue",
     "azure-servicebus",
     "azure-keyvault-secrets",
+    "azure-monitor-opentelemetry~=1.6.4",  # Application Insights integration
+    "opentelemetry-api",
+    "opentelemetry-sdk",
     "pydantic",
     "pydantic-settings",
     "aiofiles",

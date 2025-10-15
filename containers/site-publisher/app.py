@@ -37,11 +37,17 @@ from models import (
 from site_builder import build_and_deploy_site
 
 from config import get_settings  # type: ignore[attr-defined]
+
+# Application Insights monitoring
+from libs.monitoring import configure_application_insights
 from libs.secure_error_handler import ErrorSeverity
 
-# Configure secure logging
+# Configure logging first
 configure_secure_logging()
 logger = logging.getLogger(__name__)
+
+# Initialize Application Insights (will gracefully disable if not configured)
+configure_application_insights(service_name="site-publisher")
 
 # Application metrics (immutable updates only)
 app_metrics: Dict[str, Any] = {
