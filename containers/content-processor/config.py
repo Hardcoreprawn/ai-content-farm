@@ -8,7 +8,7 @@ Only includes settings actually used by the application.
 Version: 2.0.0 - Simplified configuration (removed unused fields)
 """
 
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
@@ -29,12 +29,12 @@ class Settings(BaseSettings):
     # Logging
     log_level: str = "INFO"
 
-    class Config:
-        """Pydantic configuration."""
-
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = False
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="allow",  # Allow extra environment variables (CI, devcontainer, etc.)
+    )
 
 
 # Note: No module-level instantiation!
