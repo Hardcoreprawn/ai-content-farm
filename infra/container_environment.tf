@@ -8,6 +8,12 @@ resource "azurerm_container_app_environment" "main" {
   resource_group_name        = azurerm_resource_group.main.name
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id # Reuse main workspace
 
+  # Configure logs to be sent to Log Analytics for historical retention and querying
+  # This enables ContainerAppConsoleLogs and ContainerAppSystemLogs tables in Log Analytics
+  # Logs will be retained for the workspace retention period (30 days)
+  # Without this, logs are only available ephemerally from running containers
+  logs_destination = "log-analytics"
+
   tags = local.common_tags
 }
 
