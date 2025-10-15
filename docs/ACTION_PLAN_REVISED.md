@@ -167,27 +167,55 @@ ContainerAppSystemLogs_CL
 | render timechart
 ```
 
-### Phase 4: KEDA Tuning (15 minutes)
+### Phase 4: KEDA Tuning (CI/CD-Compliant Approach)
 
-**Based on real issues, update these**:
+**Update scaling configuration through Terraform and GitHub Actions**:
 
-```bash
-# 1. Reduce content-processor concurrency (prevent 429 errors)
-az containerapp update \
-  --name content-processor \
-  --resource-group ai-content-prod-rg \
-  --max-replicas 2 \
-  --scale-rule-metadata queueLength=5
+1. **Edit Terraform configuration** in `infra/`:
+   ```hcl
+   # Update max_replicas and scale rules
+   resource "azurerm_container_app" "content_processor" {
+     name                = "content-processor"
+     resource_group_name = "ai-content-prod-rg"
+     
+     template {
+       max_replicas = 2  # Reduce to prevent 429 errors
+       
+       # ... other config
+     }
+     
+     scale_rule {
+       name = "queue"
+       queue_auth {
+         secret_name = "storage-connection-string"
+       }
+       queue_length = 5  # More conservative threshold
+     }
+   }
+   
+   resource "azurerm_container_app" "site_publisher" {
+     name                = "site-publisher"
+     resource_group_name = "ai-content-prod-rg"
+     
+     scale_rule {
+       name = "queue"
+       queue_auth {
+         secret_name = "storage-connection-string"
+       }
+       queue_length = 1  # Single message processing
+     }
+   }
+   ```
 
-# 2. Fix site-publisher cooldown (reduce 300s → 60s)
-az containerapp update \
-  --name site-publisher \
-  --resource-group ai-content-prod-rg \
-  --scale-rule-metadata queueLength=1
-
-# Note: cooldownPeriod requires separate CLI command
-# This is Azure limitation, not in Terraform yet
-```
+2. **Create Pull Request**:
+   - Commit Terraform changes
+   - Open PR to `main` branch
+   - GitHub Actions will validate and apply changes
+   
+3. **Note on cooldownPeriod**:
+   - Track as technical debt if not yet in Terraform
+   - Document in PR description
+   - **Do not use manual `az containerapp update` commands**
 
 ## Testing the Solution
 
@@ -228,12 +256,12 @@ az storage message put \
 - `docs/MONITORING_RECOMMENDATIONS_REVISED.md` - Correct approach ✅
 - `docs/PIPELINE_ISSUES_AND_FIXES.md` - Problem analysis ✅
 - `scripts/diagnose-pipeline-issues.sh` - Diagnostic tool ✅
+- `scripts/monitor-pipeline-performance.sh` - Real-time monitoring dashboard ✅
 
 **Old Files** (Delete):
 - `libs/rate_limiter.py` - OOP implementation, not functional ❌
 - `libs/queue_message_handler.py` - Unnecessary, existing code works ❌
-- `scripts/monitor-pipeline-performance.sh` - Azure Monitor better ❌
-- `scripts/monitor-cron-pipeline.sh` - Azure Monitor better ❌
+- `scripts/monitor-cron-pipeline.sh` - Superseded by monitor-pipeline-performance.sh ❌
 
 **Files to Modify**:
 - `libs/queue_client.py` - Change visibility_timeout: 30 → 300 ✏️

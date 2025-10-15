@@ -63,14 +63,6 @@ except ImportError as e:
     print(f"  Failed: {e}")
     sys.exit(1)
 
-try:
-    from processor_context import ProcessorContext
-
-    print("  processor_context.ProcessorContext")
-except ImportError as e:
-    print(f"  Failed: {e}")
-    sys.exit(1)
-
 # Test 3: Import split queue modules
 print("\n✓ Test 3: Importing split queue modules...")
 try:

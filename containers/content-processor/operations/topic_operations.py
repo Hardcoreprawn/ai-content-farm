@@ -25,7 +25,7 @@ def collection_item_to_topic_metadata(
     """
     Convert a collection item to TopicMetadata.
 
-    Pure function - no side effects.
+    Stateless and deterministic function (logging is a side effect).
 
     Args:
         item: Collection item dict
@@ -85,7 +85,7 @@ def calculate_priority_score(item: Dict[str, Any]) -> float:
     """
     Calculate priority score for a topic based on engagement and freshness.
 
-    Pure function - deterministic scoring.
+    Stateless and deterministic function (logging is a side effect).
 
     Args:
         item: Collection item dict

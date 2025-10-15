@@ -6,7 +6,7 @@ Pydantic models for request/response validation.
 
 from typing import Any, Dict
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ProcessingRequest(BaseModel):
@@ -14,7 +14,7 @@ class ProcessingRequest(BaseModel):
 
     content: str
     processing_type: str = "general"
-    options: Dict[str, Any] = {}
+    options: Dict[str, Any] = Field(default_factory=dict)
 
     class Config:
         """Pydantic configuration with examples."""

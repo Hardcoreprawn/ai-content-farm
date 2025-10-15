@@ -105,7 +105,13 @@ def check_type_hints() -> Dict[str, Any]:
     files_checked = 0
 
     for py_file in base_dir.rglob("*.py"):
-        if "__pycache__" in str(py_file) or "test_" in py_file.name:
+        if (
+            "__pycache__" in str(py_file)
+            or "venv" in str(py_file)
+            or ".venv" in str(py_file)
+            or ".git" in str(py_file)
+            or "test_" in py_file.name
+        ):
             continue
 
         try:
@@ -167,7 +173,12 @@ def check_tests() -> Dict[str, Any]:
 
 
 def check_required_files() -> Dict[str, bool]:
-    """Check if required files exist."""
+    """
+    Check if required files exist.
+
+    Note: This script should be run from the container directory
+    (containers/content-processor), so paths are relative to that location.
+    """
     required_files = [
         "main.py",
         "config.py",
