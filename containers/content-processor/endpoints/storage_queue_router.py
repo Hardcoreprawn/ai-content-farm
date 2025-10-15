@@ -64,11 +64,11 @@ async def process_storage_queue_message(message: QueueMessageModel) -> Dict[str,
         Dict with status, operation, result, message_id
     """
     try:
-        logger.info(
+        logger.debug(
             f"Processing queue message {message.message_id} - "
             f"operation: {message.operation} from {message.service_name}"
         )
-        logger.info(f"Message payload: {message.payload}")
+        logger.debug(f"Message payload: {message.payload}")
 
         if message.operation == "process":
             # Main processing path: collection blob → processed articles → markdown trigger
@@ -88,7 +88,7 @@ async def process_storage_queue_message(message: QueueMessageModel) -> Dict[str,
             context = await get_processor_context()
 
             # Process the collection file using functional API
-            logger.info(f"Processing collection from queue: {blob_path}")
+            logger.debug(f"Processing collection from queue: {blob_path}")
 
             # Call functional processor - no class needed!
             result = await process_collection_file(
@@ -97,8 +97,8 @@ async def process_storage_queue_message(message: QueueMessageModel) -> Dict[str,
             )
 
             logger.info(
-                f"Processing completed: {result.topics_processed} topics, "
-                f"{result.articles_generated} articles, cost: ${result.total_cost:.4f}"
+                f"Processed {blob_path}: {result.topics_processed} topics, "
+                f"{result.articles_generated} articles, ${result.total_cost:.2f}"
             )
 
             return {

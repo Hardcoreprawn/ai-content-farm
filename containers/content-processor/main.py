@@ -64,19 +64,28 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Silence noisy third-party loggers
+logging.getLogger("azure").setLevel(logging.WARNING)
+logging.getLogger("azure.core").setLevel(logging.WARNING)
+logging.getLogger("azure.core.pipeline").setLevel(logging.WARNING)
+logging.getLogger("azure.storage").setLevel(logging.WARNING)
+logging.getLogger("azure.identity").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("opentelemetry").setLevel(logging.WARNING)
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan manager for KEDA-triggered processing."""
-    logger.info("Starting Content Processor service")
-    logger.info(f"Service version: {settings.service_version}")
-    logger.info(f"Environment: {settings.environment}")
-    logger.info(f"Log level: {settings.log_level}")
-    logger.info("Content Processor ready for KEDA Storage Queue scaling")
+    logger.info(
+        f"Content Processor v{settings.service_version} starting "
+        f"(env: {settings.environment}, log: {settings.log_level})"
+    )
 
     # Initialize rate limiter for OpenAI API calls (60 requests/minute = 1 per second)
     openai_limiter = create_rate_limiter(max_requests_per_minute=60)
-    logger.info("Initialized OpenAI rate limiter: 60 requests/minute")
+    logger.debug("OpenAI rate limiter: 60 req/min")
     app.state.openai_limiter = openai_limiter
 
     # Optional startup diagnostics (enabled via environment variable)
@@ -134,9 +143,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             result = await process_storage_queue_message(queue_message)
 
             if result["status"] == "success":
-                logger.info(
-                    f"Successfully processed message {queue_message.message_id}"
-                )
+                logger.debug(f"Processed message {queue_message.message_id}")
             else:
                 logger.warning(
                     f"Message processing failed: {result.get('error', 'Unknown error')}"

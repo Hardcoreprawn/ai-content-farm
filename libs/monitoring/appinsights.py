@@ -57,23 +57,35 @@ def configure_application_insights(
         from azure.monitor.opentelemetry import configure_azure_monitor
 
         # Configure Azure Monitor with OpenTelemetry
+        # Reduced instrumentation to minimize noise
         configure_azure_monitor(
             connection_string=conn_string,
-            enable_live_metrics=True,
+            enable_live_metrics=False,  # Disable live metrics to reduce noise
             logger_name=service_name,
             instrumentation_options={
-                "azure_sdk": {"enabled": True},
-                "fastapi": {"enabled": True},
-                "httpx": {"enabled": True},
-                "requests": {"enabled": True},
-                "urllib": {"enabled": True},
-                "urllib3": {"enabled": True},
+                # Disable noisy Azure SDK traces
+                "azure_sdk": {"enabled": False},
+                "fastapi": {"enabled": True},  # Keep FastAPI instrumentation
+                # Disable HTTP client instrumentation
+                "httpx": {"enabled": False},
+                # Disable requests instrumentation
+                "requests": {"enabled": False},
+                "urllib": {"enabled": False},  # Disable urllib instrumentation
+                # Disable urllib3 instrumentation
+                "urllib3": {"enabled": False},
             },
         )
 
+        # Silence noisy Azure loggers
+        logging.getLogger("azure").setLevel(logging.WARNING)
+        logging.getLogger("azure.core").setLevel(logging.WARNING)
+        logging.getLogger("azure.core.pipeline").setLevel(logging.WARNING)
+        logging.getLogger("azure.storage").setLevel(logging.WARNING)
+        logging.getLogger("azure.identity").setLevel(logging.WARNING)
+        logging.getLogger("opentelemetry").setLevel(logging.WARNING)
+
         logger.info(
-            f"✅ Application Insights configured for service: {service_name}",
-            extra={"service_name": service_name},
+            f"Application Insights configured (minimal instrumentation) for: {service_name}"
         )
 
         # Get the tracer provider
