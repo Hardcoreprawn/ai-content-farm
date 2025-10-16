@@ -1,0 +1,36 @@
+{{/* Post Card Partial - Displays article summary in card format */}}
+<article class="post-card">
+    <header class="post-card-header">
+        {{- if .Title }}
+        <h2 class="post-card-title">
+            <a href="{{ .RelPermalink }}" title="{{ .Title }}">{{ .Title }}</a>
+        </h2>
+        {{- end }}
+
+        {{- if .Date }}
+        <time class="post-card-date" datetime="{{ .Date.Format "2006-01-02" }}">
+            {{ .Date.Format "January 2, 2006" }}
+        </time>
+        {{- end }}
+    </header>
+
+    {{- if .Summary }}
+    <div class="post-card-summary">
+        {{ .Summary }}
+    </div>
+    {{- end }}
+
+    {{- if .Params.tags }}
+    <footer class="post-card-footer">
+        <div class="post-card-tags">
+            {{- range .Params.tags }}
+            <span class="post-card-tag">{{ . }}</span>
+            {{- end }}
+        </div>
+    </footer>
+    {{- end }}
+
+    <a href="{{ .RelPermalink }}" class="post-card-link" aria-label="Read more about {{ .Title }}">
+        Read more →
+    </a>
+</article>
