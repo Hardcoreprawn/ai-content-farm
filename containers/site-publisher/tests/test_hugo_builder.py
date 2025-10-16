@@ -241,12 +241,14 @@ async def test_deploy_to_web_container_directory_check(mock_blob_client, temp_di
 
 @pytest.mark.asyncio
 async def test_backup_current_site_success(mock_blob_client):
-    """Test successful site backup when backup container is empty (idempotent)."""
+    """Test successful incremental backup with new files."""
     # Setup mock blobs for source
     mock_blob1 = Mock()
     mock_blob1.name = "index.html"
     mock_blob2 = Mock()
     mock_blob2.name = "style.css"
+    mock_blob3 = Mock()
+    mock_blob3.name = "new.html"  # New file not in backup
 
     # Setup mock containers
     mock_source = AsyncMock()
@@ -255,18 +257,19 @@ async def test_backup_current_site_success(mock_blob_client):
     async def source_blob_iterator():
         yield mock_blob1
         yield mock_blob2
+        yield mock_blob3
 
-    async def empty_backup_iterator():
-        # Empty iterator - no existing backup (triggers backup creation)
-        for _ in []:
-            yield
+    async def existing_backup_iterator():
+        # Only first two files exist in backup
+        yield mock_blob1
+        yield mock_blob2
 
     mock_source.list_blobs = Mock(return_value=source_blob_iterator())
-    mock_backup.list_blobs = Mock(return_value=empty_backup_iterator())
+    mock_backup.list_blobs = Mock(return_value=existing_backup_iterator())
 
     # Setup mock blob clients
     mock_source_blob = AsyncMock()
-    mock_source_blob.url = "https://test.blob.core.windows.net/web/index.html"
+    mock_source_blob.url = "https://test.blob.core.windows.net/web/new.html"
     mock_source.get_blob_client = Mock(return_value=mock_source_blob)
 
     mock_backup_blob = AsyncMock()
@@ -288,27 +291,35 @@ async def test_backup_current_site_success(mock_blob_client):
         backup_container="$web-backup",
     )
 
-    # Assert - should create backup since backup container was empty
-    assert result.files_uploaded == 2
+    # Assert - should only backup the 1 new file (incremental)
+    assert result.files_uploaded == 1
     assert result.duration_seconds > 0
     assert len(result.errors) == 0
 
 
 @pytest.mark.asyncio
-async def test_backup_current_site_idempotent_skip(mock_blob_client):
-    """Test backup skips when backup already exists (idempotent behavior)."""
-    # Setup mock blobs for existing backup
-    mock_existing_blob = Mock()
-    mock_existing_blob.name = "existing.html"
+async def test_backup_current_site_no_new_files(mock_blob_client):
+    """Test incremental backup when all files already backed up."""
+    # Setup mock blobs
+    mock_blob1 = Mock()
+    mock_blob1.name = "index.html"
+    mock_blob2 = Mock()
+    mock_blob2.name = "style.css"
 
     # Setup mock containers
     mock_source = AsyncMock()
     mock_backup = AsyncMock()
 
-    async def existing_backup_iterator():
-        # Backup exists - should skip
-        yield mock_existing_blob
+    async def source_blob_iterator():
+        yield mock_blob1
+        yield mock_blob2
 
+    async def existing_backup_iterator():
+        # All files already backed up
+        yield mock_blob1
+        yield mock_blob2
+
+    mock_source.list_blobs = Mock(return_value=source_blob_iterator())
     mock_backup.list_blobs = Mock(return_value=existing_backup_iterator())
 
     # Setup container client routing
@@ -326,8 +337,8 @@ async def test_backup_current_site_idempotent_skip(mock_blob_client):
         backup_container="$web-backup",
     )
 
-    # Assert - should skip backup (idempotent check)
-    assert result.files_uploaded == 0  # No files backed up (skipped)
+    # Assert - should skip all files (already backed up)
+    assert result.files_uploaded == 0
     assert result.duration_seconds > 0
     assert len(result.errors) == 0
 
