@@ -327,9 +327,12 @@ async def backup_current_site(
     backup_container: str,
 ) -> DeploymentResult:
     """
-    Backup current site before deployment.
+    Idempotent backup: Only backs up if backup container is empty.
 
-    Copies all files from $web to $web-backup container.
+    This prevents re-backing up the same content on every deployment.
+    The backup serves as a "last known good" restore point. Once we have
+    a backup, we keep it until the next successful deployment, then that
+    becomes the new restore point.
 
     Args:
         blob_client: Azure blob service client (injected dependency)
@@ -340,7 +343,6 @@ async def backup_current_site(
         DeploymentResult with backup metrics and errors
     """
     start_time = datetime.now()
-    logger.info(f"Backing up site from {source_container} to {backup_container}")
 
     backed_up_files = 0
     errors: List[str] = []
@@ -349,6 +351,26 @@ async def backup_current_site(
         # Get container clients
         source_client = blob_client.get_container_client(source_container)
         backup_client = blob_client.get_container_client(backup_container)
+
+        # Check if backup already exists (idempotent check)
+        existing_backup_count = 0
+        async for _ in backup_client.list_blobs(results_per_page=1):
+            existing_backup_count += 1
+            break  # Just need to know if ANY files exist
+
+        if existing_backup_count > 0:
+            logger.info(
+                f"Backup already exists in {backup_container} - skipping backup (idempotent)"
+            )
+            return DeploymentResult(
+                files_uploaded=0,
+                duration_seconds=(datetime.now() - start_time).total_seconds(),
+                errors=[],
+            )
+
+        logger.info(
+            f"No existing backup found - creating backup from {source_container} to {backup_container}"
+        )
 
         # List all blobs in source container
         blob_list = []
@@ -507,6 +529,69 @@ async def rollback_deployment(
             e,
             error_type="rollback",
             context={"backup": backup_container, "target": target_container},
+        )
+        return DeploymentResult(
+            files_uploaded=0,
+            duration_seconds=duration,
+            errors=[sanitize_error_message(e)],
+        )
+
+
+async def clear_backup(
+    blob_client: BlobServiceClient,
+    backup_container: str,
+) -> DeploymentResult:
+    """
+    Clear backup container after successful deployment.
+
+    This makes the backup idempotent: after a successful deployment,
+    we clear the old backup so the next deployment will create a fresh
+    backup of the newly deployed content.
+
+    Args:
+        blob_client: Azure blob service client (injected dependency)
+        backup_container: Backup container to clear (usually "$web-backup")
+
+    Returns:
+        DeploymentResult with deletion metrics and errors
+    """
+    start_time = datetime.now()
+    logger.info(f"Clearing backup container: {backup_container}")
+
+    deleted_files = 0
+    errors: List[str] = []
+
+    try:
+        backup_client = blob_client.get_container_client(backup_container)
+
+        # Delete all blobs in backup container
+        async for blob in backup_client.list_blobs():
+            try:
+                await backup_client.delete_blob(blob.name)
+                deleted_files += 1
+
+                # Log progress every 500 files
+                if deleted_files % 500 == 0:
+                    logger.info(f"Cleared {deleted_files} backup files...")
+
+            except Exception as e:
+                errors.append(
+                    f"Failed to delete {blob.name}: {sanitize_error_message(e)}"
+                )
+
+        duration = (datetime.now() - start_time).total_seconds()
+        logger.info(
+            f"Cleared {deleted_files} backup files with {len(errors)} errors in {duration:.2f}s"
+        )
+
+        return DeploymentResult(
+            files_uploaded=deleted_files, duration_seconds=duration, errors=errors
+        )
+
+    except Exception as e:
+        duration = (datetime.now() - start_time).total_seconds()
+        error_info = handle_error(
+            e, error_type="backup_clear", context={"backup": backup_container}
         )
         return DeploymentResult(
             files_uploaded=0,

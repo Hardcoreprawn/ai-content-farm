@@ -18,6 +18,7 @@ from error_handling import handle_error
 from hugo_builder import (
     backup_current_site,
     build_site_with_hugo,
+    clear_backup,
     deploy_to_web_container,
     rollback_deployment,
 )
@@ -160,7 +161,8 @@ async def build_and_deploy_site(
         all_errors.extend(build_result.errors)
         logger.info(f"Built site: {build_result.output_files} files")
 
-        # Step 4: Backup current site (before deployment)
+        # Step 4: Idempotent backup (only backs up if backup container is empty)
+        # This ensures we have a restore point without re-backing up on every deployment
         backup_result = await backup_current_site(
             blob_client=blob_client,
             source_container=config.output_container,
@@ -171,8 +173,10 @@ async def build_and_deploy_site(
         if backup_result.errors:
             logger.warning(f"Backup completed with {len(backup_result.errors)} errors")
             all_errors.extend(backup_result.errors)
+        elif backup_result.files_uploaded > 0:
+            logger.info(f"Created backup: {backup_result.files_uploaded} files")
         else:
-            logger.info(f"Backed up {backup_result.files_uploaded} files")
+            logger.info("Using existing backup (idempotent backup check)")
 
         # Step 5: Deploy to $web container
         public_dir = hugo_dir / "public"
@@ -213,6 +217,22 @@ async def build_and_deploy_site(
             else:
                 logger.error("Rollback failed - site may be in inconsistent state")
                 all_errors.append("Deployment failed and rollback failed")
+        elif deploy_result.files_uploaded > 0:
+            # Deployment succeeded! Clear the backup so next deployment creates a fresh one
+            logger.info(
+                "Deployment successful - clearing backup for next deployment cycle"
+            )
+            clear_result = await clear_backup(
+                blob_client=blob_client,
+                backup_container=config.backup_container,
+            )
+            if clear_result.errors:
+                logger.warning(
+                    f"Failed to clear backup (non-critical): {clear_result.errors}"
+                )
+                # Don't add to all_errors - this is non-critical
+            else:
+                logger.info(f"Cleared {clear_result.files_uploaded} old backup files")
 
         all_errors.extend(deploy_result.errors)
 

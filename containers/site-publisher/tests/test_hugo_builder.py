@@ -241,8 +241,8 @@ async def test_deploy_to_web_container_directory_check(mock_blob_client, temp_di
 
 @pytest.mark.asyncio
 async def test_backup_current_site_success(mock_blob_client):
-    """Test successful site backup."""
-    # Setup mock blobs
+    """Test successful site backup when backup container is empty (idempotent)."""
+    # Setup mock blobs for source
     mock_blob1 = Mock()
     mock_blob1.name = "index.html"
     mock_blob2 = Mock()
@@ -252,11 +252,17 @@ async def test_backup_current_site_success(mock_blob_client):
     mock_source = AsyncMock()
     mock_backup = AsyncMock()
 
-    async def blob_iterator():
+    async def source_blob_iterator():
         yield mock_blob1
         yield mock_blob2
 
-    mock_source.list_blobs = Mock(return_value=blob_iterator())
+    async def empty_backup_iterator():
+        # Empty iterator - no existing backup (triggers backup creation)
+        for _ in []:
+            yield
+
+    mock_source.list_blobs = Mock(return_value=source_blob_iterator())
+    mock_backup.list_blobs = Mock(return_value=empty_backup_iterator())
 
     # Setup mock blob clients
     mock_source_blob = AsyncMock()
@@ -282,8 +288,46 @@ async def test_backup_current_site_success(mock_blob_client):
         backup_container="$web-backup",
     )
 
-    # Assert
+    # Assert - should create backup since backup container was empty
     assert result.files_uploaded == 2
+    assert result.duration_seconds > 0
+    assert len(result.errors) == 0
+
+
+@pytest.mark.asyncio
+async def test_backup_current_site_idempotent_skip(mock_blob_client):
+    """Test backup skips when backup already exists (idempotent behavior)."""
+    # Setup mock blobs for existing backup
+    mock_existing_blob = Mock()
+    mock_existing_blob.name = "existing.html"
+
+    # Setup mock containers
+    mock_source = AsyncMock()
+    mock_backup = AsyncMock()
+
+    async def existing_backup_iterator():
+        # Backup exists - should skip
+        yield mock_existing_blob
+
+    mock_backup.list_blobs = Mock(return_value=existing_backup_iterator())
+
+    # Setup container client routing
+    def get_container(name):
+        if name == "$web":
+            return mock_source
+        return mock_backup
+
+    mock_blob_client.get_container_client = Mock(side_effect=get_container)
+
+    # Execute
+    result = await backup_current_site(
+        blob_client=mock_blob_client,
+        source_container="$web",
+        backup_container="$web-backup",
+    )
+
+    # Assert - should skip backup (idempotent check)
+    assert result.files_uploaded == 0  # No files backed up (skipped)
     assert result.duration_seconds > 0
     assert len(result.errors) == 0
 
