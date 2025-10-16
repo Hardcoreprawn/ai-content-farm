@@ -124,17 +124,18 @@ class StorageQueueClient(QueueClientInterface):
             raise ValueError("AZURE_STORAGE_ACCOUNT_NAME must be provided")
 
         self._queue_client = None
+        self._credential = None
         logger.info(f"StorageQueueClient initialized for queue: {queue_name}")
 
     async def connect(self) -> None:
         """Establish connection to Storage Queue using managed identity."""
         try:
-            credential = DefaultAzureCredential()
+            self._credential = DefaultAzureCredential()
 
             self._queue_client = QueueClient(
                 account_url=f"https://{self.storage_account_name}.queue.core.windows.net",
                 queue_name=self.queue_name,
-                credential=credential,
+                credential=self._credential,
             )
 
             # Ensure queue exists
@@ -154,11 +155,15 @@ class StorageQueueClient(QueueClientInterface):
             raise
 
     async def close(self) -> None:
-        """Close Storage Queue connection."""
+        """Close Storage Queue connection and credential."""
         try:
             if self._queue_client:
                 await self._queue_client.close()
                 logger.info(f"Storage Queue connection closed: {self.queue_name}")
+
+            if self._credential:
+                await self._credential.close()
+                logger.debug(f"Credential closed for queue: {self.queue_name}")
         except Exception as e:
             logger.error(f"Error closing Storage Queue connection: {e}")
 
