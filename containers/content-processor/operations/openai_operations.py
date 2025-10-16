@@ -10,7 +10,7 @@ Contract Version: 1.0.0
 import logging
 from typing import Any, Dict, Optional, Tuple
 
-from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from azure.identity.aio import DefaultAzureCredential, get_bearer_token_provider
 from openai import AsyncAzureOpenAI
 
 logger = logging.getLogger(__name__)

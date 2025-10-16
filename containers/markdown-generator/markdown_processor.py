@@ -16,9 +16,9 @@ from datetime import UTC, datetime
 from typing import Any, Dict, Optional
 
 from azure.core.exceptions import ResourceNotFoundError
-from azure.identity import DefaultAzureCredential
-from azure.keyvault.secrets import SecretClient
-from azure.storage.blob import BlobServiceClient
+from azure.identity.aio import DefaultAzureCredential
+from azure.keyvault.secrets.aio import SecretClient
+from azure.storage.blob.aio import BlobServiceClient
 from blob_operations import read_json_from_blob, write_markdown_to_blob
 from jinja2 import Environment
 from markdown_generator import (
@@ -59,7 +59,7 @@ __all__ = [
 # =============================================================================
 
 
-def load_unsplash_key(
+async def load_unsplash_key(
     settings: Settings, credential: Optional[DefaultAzureCredential] = None
 ) -> Optional[str]:
     """
@@ -94,14 +94,15 @@ def load_unsplash_key(
                 vault_url=settings.azure_key_vault_url,
                 credential=credential,
             )
-            secret = secret_client.get_secret("unsplash-access-key")
+            secret = await secret_client.get_secret("unsplash-access-key")
             access_key = secret.value
 
         if access_key and access_key != "placeholder-get-from-unsplash-com":
             logger.info("Stock image service initialized successfully")
             return access_key
         else:
-            logger.warning("Unsplash access key not found - stock images disabled")
+            logger.warning(
+                "Unsplash access key not found - stock images disabled")
             return None
 
     except Exception as e:
@@ -227,7 +228,8 @@ async def process_article(
             overwrite,
         )
 
-        processing_time = (datetime.now(UTC) - start_time).total_seconds() * 1000
+        processing_time = (datetime.now(
+            UTC) - start_time).total_seconds() * 1000
 
         logger.info(
             f"Successfully processed article: {blob_name} -> "

@@ -10,7 +10,7 @@ import os
 from datetime import datetime
 from typing import Any, Callable, Dict, Optional
 
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob.aio import BlobServiceClient
 from jinja2 import Environment
 from markdown_processor import process_article
 from models import ProcessingStatus

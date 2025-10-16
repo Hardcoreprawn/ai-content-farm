@@ -10,7 +10,7 @@ import logging
 from typing import Any, Dict
 
 from azure.core.exceptions import ResourceNotFoundError
-from azure.storage.blob import BlobServiceClient
+from azure.storage.blob.aio import BlobServiceClient
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,7 @@ __all__ = [
 ]
 
 
-def read_json_from_blob(
+async def read_json_from_blob(
     blob_service_client: BlobServiceClient, container_name: str, blob_name: str
 ) -> Dict[str, Any]:
     """
@@ -47,12 +47,13 @@ def read_json_from_blob(
     container_client = blob_service_client.get_container_client(container_name)
     blob_client = container_client.get_blob_client(blob_name)
 
-    blob_data = blob_client.download_blob().readall()
+    downloader = await blob_client.download_blob()
+    blob_data = await downloader.readall()
     parsed_data: Dict[str, Any] = json.loads(blob_data)
     return parsed_data
 
 
-def write_markdown_to_blob(
+async def write_markdown_to_blob(
     blob_service_client: BlobServiceClient,
     container_name: str,
     blob_name: str,
@@ -85,11 +86,12 @@ def write_markdown_to_blob(
     blob_client = container_client.get_blob_client(blob_name)
 
     # Check if exists
-    if not overwrite and blob_client.exists():
+    exists = await blob_client.exists()
+    if not overwrite and exists:
         raise ValueError(f"Markdown file already exists: {blob_name}")
 
     # Upload markdown
-    blob_client.upload_blob(
+    await blob_client.upload_blob(
         markdown_content, overwrite=overwrite, content_type="text/markdown"
     )
 
