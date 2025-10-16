@@ -198,7 +198,7 @@ async def process_article(
             jinja_env = create_jinja_environment()
 
         # Read JSON from input container (I/O)
-        article_data = read_json_from_blob(
+        article_data = await read_json_from_blob(
             blob_service_client, settings.input_container, blob_name
         )
 
@@ -219,7 +219,7 @@ async def process_article(
         markdown_blob_name = generate_markdown_blob_name(blob_name)
 
         # Write markdown to output container (I/O)
-        write_markdown_to_blob(
+        await write_markdown_to_blob(
             blob_service_client,
             settings.output_container,
             markdown_blob_name,

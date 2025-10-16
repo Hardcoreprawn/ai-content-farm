@@ -2,9 +2,10 @@
 Test fixtures and configuration for markdown-generator tests.
 """
 
+import asyncio
 import json
 from typing import Any, Dict
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from azure.storage.blob import BlobServiceClient
@@ -94,18 +95,18 @@ def mock_blob_service_client(sample_article_data: Dict[str, Any]) -> Mock:
     mock_container_client = Mock()
     mock_client.get_container_client.return_value = mock_container_client
 
-    # Mock blob client for reading
+    # Mock blob client for reading (async methods)
     mock_read_blob_client = Mock()
-    mock_download_blob = Mock()
-    mock_download_blob.readall.return_value = json.dumps(sample_article_data).encode(
-        "utf-8"
+    mock_download_blob = AsyncMock()
+    mock_download_blob.readall = AsyncMock(
+        return_value=json.dumps(sample_article_data).encode("utf-8")
     )
-    mock_read_blob_client.download_blob.return_value = mock_download_blob
+    mock_read_blob_client.download_blob = AsyncMock(return_value=mock_download_blob)
 
-    # Mock blob client for writing
+    # Mock blob client for writing (async methods)
     mock_write_blob_client = Mock()
-    mock_write_blob_client.exists.return_value = False
-    mock_write_blob_client.upload_blob.return_value = None
+    mock_write_blob_client.exists = AsyncMock(return_value=False)
+    mock_write_blob_client.upload_blob = AsyncMock(return_value=None)
 
     # Setup container client to return appropriate blob clients
     def get_blob_client(blob_name: str) -> Mock:
