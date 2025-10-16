@@ -169,9 +169,13 @@ def validate_hugo_output(output_dir: Path) -> ValidationResult:
     # Check total size (prevent DOS)
     try:
         total_size = sum(f.stat().st_size for f in output_dir.rglob("*") if f.is_file())
-        max_size = 100 * 1024 * 1024  # 100 MB
+        max_size = (
+            200 * 1024 * 1024
+        )  # 200 MB (increased from 100 MB for 4000+ article sites)
         if total_size > max_size:
-            errors.append(f"Build output too large: {total_size / (1024*1024):.1f} MB")
+            errors.append(
+                f"Build output too large: {total_size / (1024*1024):.1f} MB (max: {max_size / (1024*1024):.0f} MB)"
+            )
     except Exception as e:
         errors.append(f"Failed to check output size: {type(e).__name__}")
 

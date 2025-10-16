@@ -177,6 +177,18 @@ async def build_and_deploy_site(
         # Step 5: Deploy to $web container
         public_dir = hugo_dir / "public"
 
+        # Validate before attempting deployment
+        from security import validate_hugo_output
+
+        validation = validate_hugo_output(public_dir)
+        if not validation.is_valid:
+            logger.error(f"Hugo output validation failed: {validation.errors}")
+            return DeploymentResult(
+                files_uploaded=0,
+                duration_seconds=(datetime.now() - start_time).total_seconds(),
+                errors=all_errors + validation.errors,
+            )
+
         deploy_result = await deploy_to_web_container(
             blob_client=blob_client,
             source_dir=public_dir,

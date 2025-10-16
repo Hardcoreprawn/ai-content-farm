@@ -260,7 +260,7 @@ async def deploy_to_web_container(
         files_to_upload = [f for f in source_dir.rglob("*") if f.is_file()]
         logger.info(f"Uploading {len(files_to_upload)} files")
 
-        for file_path in files_to_upload:
+        for idx, file_path in enumerate(files_to_upload):
             try:
                 # Calculate blob name (relative path)
                 rel_path = file_path.relative_to(source_dir)
@@ -282,8 +282,19 @@ async def deploy_to_web_container(
                     )
 
                 uploaded_files += 1
-                logger.debug(f"Uploaded: {blob_name} ({content_type})")
 
+                # Log progress every 500 files to track long-running operations
+                if (idx + 1) % 500 == 0:
+                    logger.info(
+                        f"Upload progress: {idx + 1}/{len(files_to_upload)} files"
+                    )
+
+            except asyncio.CancelledError:
+                # Gracefully handle shutdown during upload
+                logger.warning(
+                    f"Upload cancelled during shutdown after {uploaded_files}/{len(files_to_upload)} files"
+                )
+                raise  # Re-raise to propagate cancellation
             except Exception as e:
                 error_info = handle_error(
                     e, error_type="upload", context={"file": str(file_path)}
@@ -350,7 +361,7 @@ async def backup_current_site(
         logger.info(f"Found {len(blob_list)} files to backup")
 
         # Copy each blob to backup container
-        for blob in blob_list:
+        for idx, blob in enumerate(blob_list):
             try:
                 source_blob = source_client.get_blob_client(blob.name)
                 backup_blob = backup_client.get_blob_client(blob.name)
@@ -360,8 +371,17 @@ async def backup_current_site(
                 await backup_blob.start_copy_from_url(source_url)
 
                 backed_up_files += 1
-                logger.debug(f"Backed up: {blob.name}")
 
+                # Log progress every 500 files to track long-running operations
+                if (idx + 1) % 500 == 0:
+                    logger.info(f"Backup progress: {idx + 1}/{len(blob_list)} files")
+
+            except asyncio.CancelledError:
+                # Gracefully handle shutdown during backup
+                logger.warning(
+                    f"Backup cancelled during shutdown after {backed_up_files}/{len(blob_list)} files"
+                )
+                raise  # Re-raise to propagate cancellation
             except Exception as e:
                 error_info = handle_error(
                     e, error_type="backup", context={"blob": blob.name}
@@ -446,7 +466,7 @@ async def rollback_deployment(
             # Continue with restore even if delete fails
 
         # Copy each blob from backup to target
-        for blob in blob_list:
+        for idx, blob in enumerate(blob_list):
             try:
                 backup_blob = backup_client.get_blob_client(blob.name)
                 target_blob = target_client.get_blob_client(blob.name)
@@ -456,8 +476,17 @@ async def rollback_deployment(
                 await target_blob.start_copy_from_url(backup_url)
 
                 restored_files += 1
-                logger.debug(f"Restored: {blob.name}")
 
+                # Log progress every 500 files to track long-running operations
+                if (idx + 1) % 500 == 0:
+                    logger.info(f"Rollback progress: {idx + 1}/{len(blob_list)} files")
+
+            except asyncio.CancelledError:
+                # Gracefully handle shutdown during rollback
+                logger.warning(
+                    f"Rollback cancelled during shutdown after {restored_files}/{len(blob_list)} files"
+                )
+                raise  # Re-raise to propagate cancellation
             except Exception as e:
                 error_info = handle_error(
                     e, error_type="rollback", context={"blob": blob.name}
