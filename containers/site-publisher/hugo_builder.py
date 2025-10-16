@@ -218,9 +218,12 @@ async def deploy_to_web_container(
 
     Pure function with explicit dependencies and limits.
 
+    Note: Hugo output validation should be performed by the caller (site_builder.py)
+    before calling this function. This function only performs basic directory checks.
+
     Args:
         blob_client: Azure blob service client (injected dependency)
-        source_dir: Directory with built site files (Hugo public/ directory)
+        source_dir: Directory with built site files (Hugo public/ directory) - should be pre-validated
         container_name: Target container name (usually "$web")
         max_files: Maximum files to upload (DOS prevention)
         max_file_size: Maximum size per file (DOS prevention)
@@ -238,19 +241,13 @@ async def deploy_to_web_container(
     errors: List[str] = []
 
     try:
-        # Validate source directory
+        # Validate source directory exists (basic check only)
+        # Note: Full Hugo output validation happens in site_builder.py before calling this function
         if not source_dir.exists():
             return DeploymentResult(
                 files_uploaded=0,
                 duration_seconds=0.0,
                 errors=[f"Source directory not found: {source_dir}"],
-            )
-
-        # Validate built output
-        validation = validate_hugo_output(source_dir)
-        if not validation.is_valid:
-            return DeploymentResult(
-                files_uploaded=0, duration_seconds=0.0, errors=validation.errors
             )
 
         # Get container client

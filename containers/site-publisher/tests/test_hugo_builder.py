@@ -216,12 +216,16 @@ async def test_deploy_to_web_container_missing_source(mock_blob_client, temp_dir
 
 
 @pytest.mark.asyncio
-async def test_deploy_to_web_container_validation_failure(mock_blob_client, temp_dir):
-    """Test deployment with invalid Hugo output."""
-    # Setup source directory without index.html (validation fails)
-    source_dir = temp_dir / "public"
-    source_dir.mkdir()
-    (source_dir / "style.css").write_text("body { }")
+async def test_deploy_to_web_container_directory_check(mock_blob_client, temp_dir):
+    """
+    Test deployment with basic directory validation.
+
+    Note: Full Hugo output validation (index.html, size limits, etc.)
+    is now performed in site_builder.py before calling this function.
+    This test verifies the basic directory existence check only.
+    """
+    # Setup non-existent source directory
+    source_dir = temp_dir / "nonexistent_public"
 
     # Execute
     result = await deploy_to_web_container(
@@ -230,9 +234,9 @@ async def test_deploy_to_web_container_validation_failure(mock_blob_client, temp
         container_name="$web",
     )
 
-    # Assert
+    # Assert - should fail with directory not found error
     assert result.files_uploaded == 0
-    assert any("Missing index.html" in error for error in result.errors)
+    assert any("not found" in error.lower() for error in result.errors)
 
 
 @pytest.mark.asyncio
