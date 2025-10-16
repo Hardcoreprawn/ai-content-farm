@@ -5,26 +5,29 @@
 ## Summary
 
 {{ article_data.summary }}
+
 {%- endif %}
 
-{%- if article_data.content %}
+{%- if article_data.content or article_data.article_content %}
 
-{{ article_data.content }}
+{{ article_data.content or article_data.article_content }}
+
 {%- endif %}
 
 {%- if article_data.key_points %}
 
 ## Key Points
 
-{%- for point in article_data.key_points %}
+{% for point in article_data.key_points %}
 - {{ point }}
-{%- endfor %}
+{% endfor %}
+
 {%- endif %}
 
----
-
 {%- if article_data.source_metadata and article_data.source_metadata.source_url %}
+
 **Originally posted on {{ article_data.source_metadata.source|title }}**: [View original post]({{ article_data.source_metadata.source_url }})
 {%- else %}
-**Source:** [{{ metadata.url }}]({{ metadata.url }})
+
+**Source:** {{ metadata.source }} — {{ metadata.url }}
 {%- endif %}
