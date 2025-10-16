@@ -88,9 +88,12 @@ def generate_markdown_content(
     # Generate Hugo-compliant frontmatter
     from datetime import UTC, datetime
 
-    # Extract the actual source URL from article_data (the social media post URL)
-    # metadata.url contains the local article URL, but we want original_url from JSON
-    source_url = article_data.get("original_url", metadata.url)
+    # Extract the actual source URL from nested source_metadata (the social media post URL)
+    # metadata.url contains the local article URL, but we want source_url from source_metadata
+    source_metadata = article_data.get("source_metadata", {})
+    source_url = source_metadata.get(
+        "source_url", article_data.get("original_url", metadata.url)
+    )
 
     frontmatter = prepare_frontmatter(
         title=metadata.title,
@@ -110,7 +113,7 @@ def generate_markdown_content(
         image_credit=metadata.image_credit,
         image_color=metadata.image_color,
         # Add source attribution fields
-        source_url=source_url,  # The actual social media post URL
+        source_url=source_url,  # The actual social media post URL from source_metadata
         source_platform=metadata.source,  # mastodon, reddit, rss, etc.
     )
 

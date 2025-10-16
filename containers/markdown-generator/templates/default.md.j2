@@ -7,9 +7,9 @@
 {{ article_data.summary }}
 {%- endif %}
 
-{%- if article_data.article_content %}
+{%- if article_data.content %}
 
-{{ article_data.article_content }}
+{{ article_data.content }}
 {%- endif %}
 
 {%- if article_data.key_points %}
@@ -23,4 +23,8 @@
 
 ---
 
+{%- if article_data.source_metadata and article_data.source_metadata.source_url %}
+**Originally posted on {{ article_data.source_metadata.source|title }}**: [View original post]({{ article_data.source_metadata.source_url }})
+{%- else %}
 **Source:** [{{ metadata.url }}]({{ metadata.url }})
+{%- endif %}

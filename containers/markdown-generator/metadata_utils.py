@@ -125,10 +125,14 @@ def extract_metadata_from_article(
             image_data, article_data.get("title", "")
         )
 
+    # Extract source from nested source_metadata if available
+    source_metadata = article_data.get("source_metadata", {})
+    source = source_metadata.get("source", article_data.get("source", "unknown"))
+
     return ArticleMetadata(
         title=article_data.get("title", "Untitled"),
         url=article_data.get("url", ""),
-        source=article_data.get("source", "unknown"),
+        source=source,
         author=article_data.get("author"),
         published_date=parse_date_string(article_data.get("published_date")),
         tags=article_data.get("tags", []),
