@@ -115,6 +115,7 @@ resource "null_resource" "configure_markdown_generator_keda_auth" {
             activationQueueLength=1 \
             cloud=AzurePublicCloud \
           --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
+          --cooldown-period 90 \
           --output none; then
           echo "✅ KEDA authentication configured for markdown-generator"
           exit 0

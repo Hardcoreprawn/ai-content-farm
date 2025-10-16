@@ -118,6 +118,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # Cleanup
     logger.info("Shutting down markdown-generator container")
 
+    # Close HTTP session first (aiohttp)
+    try:
+        from services.image_service import close_http_session
+
+        await close_http_session()
+        logger.info("HTTP session closed")
+    except Exception as e:
+        logger.warning(f"Error closing HTTP session: {e}")
+
     # Close Azure clients
     try:
         if hasattr(app.state, "blob_service_client") and app.state.blob_service_client:

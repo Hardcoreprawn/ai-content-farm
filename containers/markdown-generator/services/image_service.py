@@ -36,6 +36,25 @@ STOPWORDS = {
     "were",
 }
 
+# Global session for connection pooling and proper cleanup
+_http_session: Optional[aiohttp.ClientSession] = None
+
+
+async def get_http_session() -> aiohttp.ClientSession:
+    """Get or create the shared HTTP session for connection pooling."""
+    global _http_session
+    if _http_session is None or _http_session.closed:
+        _http_session = aiohttp.ClientSession()
+    return _http_session
+
+
+async def close_http_session() -> None:
+    """Close the shared HTTP session. Call during application shutdown."""
+    global _http_session
+    if _http_session is not None and not _http_session.closed:
+        await _http_session.close()
+        _http_session = None
+
 
 def extract_keywords_from_article(
     title: str,
@@ -161,40 +180,40 @@ async def search_unsplash_image(
         return None
 
     try:
-        async with aiohttp.ClientSession() as session:
-            params = {
-                "query": clean_query,
-                "per_page": 1,  # Only need top result
-                "orientation": orientation,
-                "content_filter": "high",  # Family-friendly only
-            }
-            headers = {"Authorization": f"Client-ID {access_key}"}
-            url = f"{UNSPLASH_API_BASE_URL}/search/photos"
+        session = await get_http_session()
+        params = {
+            "query": clean_query,
+            "per_page": 1,  # Only need top result
+            "orientation": orientation,
+            "content_filter": "high",  # Family-friendly only
+        }
+        headers = {"Authorization": f"Client-ID {access_key}"}
+        url = f"{UNSPLASH_API_BASE_URL}/search/photos"
 
-            logger.info(f"Searching Unsplash for: {clean_query}")
+        logger.info(f"Searching Unsplash for: {clean_query}")
 
-            async with session.get(url, params=params, headers=headers) as resp:
-                if resp.status != 200:
-                    error_text = await resp.text()
-                    logger.error(f"Unsplash API error: {resp.status} - {error_text}")
-                    return None
+        async with session.get(url, params=params, headers=headers) as resp:
+            if resp.status != 200:
+                error_text = await resp.text()
+                logger.error(f"Unsplash API error: {resp.status} - {error_text}")
+                return None
 
-                data = await resp.json()
+            data = await resp.json()
 
-                if not data.get("results"):
-                    logger.warning(f"No images found for query: {query}")
-                    return None
+            if not data.get("results"):
+                logger.warning(f"No images found for query: {query}")
+                return None
 
-                # Parse first result
-                photo = data["results"][0]
-                result = parse_unsplash_photo(photo)
+            # Parse first result
+            photo = data["results"][0]
+            result = parse_unsplash_photo(photo)
 
-                logger.info(
-                    f"Found image by {result['photographer']}: "
-                    f"{result['description'][:50]}"
-                )
+            logger.info(
+                f"Found image by {result['photographer']}: "
+                f"{result['description'][:50]}"
+            )
 
-                return result
+            return result
 
     except aiohttp.ClientError as e:
         logger.error(f"Network error fetching image: {e}")
@@ -264,21 +283,19 @@ async def download_image_from_url(image_url: str, output_path: str) -> bool:
         True
     """
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(image_url) as resp:
-                if resp.status != 200:
-                    logger.error(
-                        f"Failed to download image: {resp.status} - {image_url}"
-                    )
-                    return False
+        session = await get_http_session()
+        async with session.get(image_url) as resp:
+            if resp.status != 200:
+                logger.error(f"Failed to download image: {resp.status} - {image_url}")
+                return False
 
-                content = await resp.read()
+            content = await resp.read()
 
-                with open(output_path, "wb") as f:
-                    f.write(content)
+            with open(output_path, "wb") as f:
+                f.write(content)
 
-                logger.info(f"Downloaded image to {output_path}")
-                return True
+            logger.info(f"Downloaded image to {output_path}")
+            return True
 
     except Exception as e:
         logger.error(f"Failed to download image: {e}")
