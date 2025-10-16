@@ -8,18 +8,95 @@ import inspect
 
 import pytest
 from services.image_service import (
+    extract_capitalized_words,
     extract_keywords_from_article,
+    extract_keywords_from_content,
     fetch_image_for_article,
+    has_date_prefix,
     parse_unsplash_photo,
     search_unsplash_image,
+    should_skip_image,
 )
+
+# ============================================================================
+# Skip Logic Tests
+# ============================================================================
+
+
+@pytest.mark.unit
+def test_has_date_prefix_detects_standard_format():
+    """Should detect (DD MMM) format."""
+    assert has_date_prefix("(15 Oct) Article Title")
+    assert has_date_prefix("(1 Jan) News")
+
+
+@pytest.mark.unit
+def test_has_date_prefix_no_false_positives():
+    """Should not detect date prefix in clean titles."""
+    assert not has_date_prefix("Article Title")
+    assert not has_date_prefix("10 Reasons to Use AI")
+
+
+@pytest.mark.unit
+def test_should_skip_image_for_short_titles():
+    """Should skip images for suspiciously short titles."""
+    assert should_skip_image("AI")  # Too short
+    assert should_skip_image("Short")  # < 20 chars
+    assert not should_skip_image("Understanding Quantum Computing")  # Good length
+
+
+@pytest.mark.unit
+def test_should_skip_image_for_date_prefix():
+    """Should skip images for titles with date prefixes."""
+    assert should_skip_image("(15 Oct) Article Title")
+    assert not should_skip_image("Article Title Without Date")
+
+
+@pytest.mark.unit
+def test_should_skip_image_for_mostly_numbers():
+    """Should skip images for titles that are mostly numbers/symbols."""
+    assert should_skip_image("123-456-789")
+    assert should_skip_image("###")
+    assert not should_skip_image("Windows 11 Security Update")
+
+
+# ============================================================================
+# Keyword Extraction Tests
+# ============================================================================
+
+
+@pytest.mark.unit
+def test_extract_capitalized_words():
+    """Should extract capitalized words from text."""
+    words = extract_capitalized_words("Windows Security Update Released")
+    assert "Windows" in words
+    assert "Security" in words
+    assert "Update" in words
+    assert "Released" in words
+
+
+@pytest.mark.unit
+def test_extract_keywords_from_content():
+    """Should extract meaningful keywords from content."""
+    content = (
+        "Artificial Intelligence is transforming healthcare. "
+        "AI systems can analyze medical data efficiently. "
+        "Healthcare providers are adopting machine learning."
+    )
+    keywords = extract_keywords_from_content(content, max_keywords=5)
+
+    assert len(keywords) <= 5
+    # Should have some capitalized terms
+    assert any(k[0].isupper() for k in keywords)
+    # Should have meaningful words
+    assert any(len(k) > 5 for k in keywords)
 
 
 @pytest.mark.unit
 def test_extract_keywords_prioritizes_tags():
     """Keywords should come from tags first."""
     keywords = extract_keywords_from_article(
-        title="Some Long Article Title Here",
+        title="Some Long Article Title Here That Is Good Length",
         tags=["AI", "machine-learning"],
     )
     assert keywords == "AI machine-learning"
@@ -39,18 +116,56 @@ def test_extract_keywords_from_title_when_no_tags():
 def test_extract_keywords_handles_none_tags():
     """Should handle None tags gracefully."""
     keywords = extract_keywords_from_article(
-        title="Machine Learning Basics",
+        title="Machine Learning Basics Tutorial",
         tags=None,
     )
+    assert keywords is not None
     assert "Machine" in keywords
     assert "Learning" in keywords
 
 
 @pytest.mark.unit
-def test_extract_keywords_fallback():
-    """Should provide fallback when nothing available."""
-    keywords = extract_keywords_from_article(title="", tags=[])
-    assert keywords == "technology"
+def test_extract_keywords_returns_none_for_poor_titles():
+    """Should return None for poor quality titles to skip images."""
+    # Short title
+    assert extract_keywords_from_article(title="AI", tags=[]) is None
+
+    # Date prefix
+    assert extract_keywords_from_article(title="(15 Oct) Short", tags=[]) is None
+
+    # Too short
+    assert extract_keywords_from_article(title="Test", tags=[]) is None
+
+
+@pytest.mark.unit
+def test_extract_keywords_uses_content():
+    """Should extract keywords from content when available."""
+    keywords = extract_keywords_from_article(
+        title="Article About Technology Trends",
+        content=(
+            "Artificial Intelligence systems are revolutionizing healthcare. "
+            "Machine learning algorithms analyze patient data efficiently. "
+            "Healthcare providers benefit from AI-driven insights."
+        ),
+        tags=[],
+    )
+    assert keywords is not None
+    # Should prioritize content keywords over title
+    assert any(
+        word in keywords for word in ["Artificial", "Intelligence", "healthcare"]
+    )
+
+
+@pytest.mark.unit
+def test_extract_keywords_uses_category():
+    """Should use category when tags and content unavailable."""
+    keywords = extract_keywords_from_article(
+        title="Some Generic Article Title Here",
+        content="",
+        tags=[],
+        category="Technology",
+    )
+    assert keywords == "Technology"
 
 
 @pytest.mark.unit

@@ -208,6 +208,7 @@ async def test_cost_tracking():
 **Effort**: ⚡ Low (2-3 hours)  
 **Container**: `markdown-generator`  
 **Owner**: Markdown generation pipeline
+**Status**: 🚧 IN PROGRESS
 
 #### Problem Statement
 Stock images often irrelevant because:
