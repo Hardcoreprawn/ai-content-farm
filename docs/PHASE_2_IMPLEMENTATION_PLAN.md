@@ -41,15 +41,24 @@ Current article titles are truncated mid-word with "..." making them unprofessio
 
 #### Implementation Details
 
-**File**: `/containers/content-processor/content_processor.py`
+**File**: `/containers/content-processor/operations/article_operations.py`
+
+**Model Choice**: **gpt-4o-mini** (see docs/AI_MODEL_COST_ANALYSIS.md for detailed justification)
+- Cost: $0.000035 per title (vs $0.000108 for gpt-35-turbo)
+- Quality: Better than gpt-35-turbo for creative tasks
+- Speed: Same fast response time
+- Monthly impact: +$0.01/month for 200 articles
 
 **Approach**:
 ```python
+import re
+from utils.cost_utils import calculate_openai_cost
+
 async def generate_clean_title(
     original_title: str,
     content_summary: str,
-    azure_openai_client: AzureOpenAI
-) -> str:
+    azure_openai_client: AsyncAzureOpenAI
+) -> tuple[str, float]:
     """
     Generate clean, concise title using AI if needed.
     
@@ -58,68 +67,136 @@ async def generate_clean_title(
     2. If title has date prefix: remove it
     3. If title > 80 chars: use AI to create concise version
     4. Never truncate mid-word
+    
+    Returns:
+        Tuple of (cleaned_title, cost_usd)
     """
     # Remove date prefixes like "(15 Oct)"
     cleaned = re.sub(r'^\(\d{1,2}\s+\w{3}\)\s*', '', original_title)
     
-    # If short enough, return cleaned version
-    if len(cleaned) <= 80:
-        return cleaned.strip()
+    # If short enough, return cleaned version (no AI cost)
+    if len(cleaned) <= 80 and not re.match(r'.*\.\.\.?\s*$', cleaned):
+        logger.info(f"Title already clean, no AI needed: {cleaned}")
+        return cleaned.strip(), 0.0
     
     # Use AI to generate concise title
-    prompt = f"""Generate a concise, SEO-friendly article title (max 80 characters) 
-    based on the original title and content summary.
-    
-    Original title: {original_title}
-    Content summary: {content_summary[:200]}
-    
-    Requirements:
-    - Max 80 characters
-    - Clear and engaging
-    - No date prefixes
-    - Proper capitalization
-    """
+    logger.info(f"Generating clean title with gpt-4o-mini for: {original_title[:50]}...")
     
     response = await azure_openai_client.chat.completions.create(
-        model="gpt-4o-mini",  # Cost-effective for title generation
+        model="gpt-4o-mini",  # Cost-optimized: $0.000035/title vs $0.000108 for gpt-35-turbo
         messages=[
-            {"role": "system", "content": "You are a professional editor creating article titles."},
-            {"role": "user", "content": prompt}
+            {
+                "role": "system", 
+                "content": "You are a professional editor. Create concise, engaging article titles."
+            },
+            {
+                "role": "user",
+                "content": f"""Generate a concise title (max 80 characters):
+
+Original: {original_title}
+Summary: {content_summary[:200]}
+
+Requirements:
+- Maximum 80 characters
+- Remove date prefixes like (15 Oct)
+- Clear and engaging
+- No truncation with "..."
+- SEO-friendly"""
+            }
         ],
-        max_tokens=50,
-        temperature=0.7
+        max_tokens=25,  # Title generation needs minimal tokens
+        temperature=0.7,  # Balanced creativity
     )
     
-    return response.choices[0].message.content.strip()
+    # Calculate cost for tracking
+    cost = calculate_openai_cost(
+        model_name="gpt-4o-mini",
+        prompt_tokens=response.usage.prompt_tokens,
+        completion_tokens=response.usage.completion_tokens
+    )
+    
+    clean_title = response.choices[0].message.content.strip()
+    logger.info(f"Generated title: {clean_title} (cost: ${cost:.6f})")
+    
+    return clean_title, cost
 ```
 
 **Integration Point**: Call after article generation, before saving to processed-content:
 ```python
-# In process_article() function
-article_data["title"] = await generate_clean_title(
+# In process_article() function (operations/article_operations.py)
+clean_title, title_cost = await generate_clean_title(
     original_title=article_data["title"],
     content_summary=article_data.get("summary", article_data["content"][:500]),
-    azure_openai_client=self.azure_openai_client
+    azure_openai_client=azure_openai_client
 )
+
+# Update title and track cost
+article_data["title"] = clean_title
+article_data["source_metadata"]["original_title"] = original_title  # Preserve original
+total_cost += title_cost  # Add to processing cost tracking
 ```
 
 **Testing**:
 ```python
 # tests/test_title_generation.py
-async def test_remove_date_prefix():
+import pytest
+from unittest.mock import AsyncMock, Mock
+
+async def test_remove_date_prefix_no_ai():
+    """Test that short titles with date prefixes are cleaned without AI."""
     title = "(15 Oct) Windows Zero-Days Exploited"
-    result = await generate_clean_title(title, "", mock_client)
+    result, cost = await generate_clean_title(title, "", mock_client)
     assert not result.startswith("(")
     assert "Windows Zero-Days" in result
+    assert cost == 0.0  # No AI used
 
-async def test_shorten_long_title():
-    long_title = "This is an extremely long title that goes on and on with too much detail..."
-    result = await generate_clean_title(long_title, "Summary here", mock_client)
+async def test_keep_short_clean_title():
+    """Test that short, clean titles are returned as-is."""
+    title = "Windows Security Update"
+    result, cost = await generate_clean_title(title, "", mock_client)
+    assert result == title
+    assert cost == 0.0  # No AI used
+
+async def test_shorten_long_title_with_ai():
+    """Test that long titles use AI to generate concise version."""
+    long_title = "This is an extremely long title that goes on and on with too much detail and needs to be shortened significantly..."
+    
+    # Mock Azure OpenAI response
+    mock_client = AsyncMock()
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Concise Article Title"))]
+    mock_response.usage = Mock(prompt_tokens=170, completion_tokens=15)
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+    
+    result, cost = await generate_clean_title(long_title, "Summary here", mock_client)
+    
     assert len(result) <= 80
     assert not result.endswith("...")
+    assert cost > 0  # AI was used
+    assert cost < 0.001  # But very cheap (gpt-4o-mini)
+    
+    # Verify correct model was used
+    call_args = mock_client.chat.completions.create.call_args
+    assert call_args.kwargs["model"] == "gpt-4o-mini"
+    assert call_args.kwargs["max_tokens"] == 25
+
+async def test_cost_tracking():
+    """Test that costs are properly calculated and logged."""
+    # Setup mock with realistic token usage
+    mock_client = AsyncMock()
+    mock_response = Mock()
+    mock_response.choices = [Mock(message=Mock(content="Clean Title"))]
+    mock_response.usage = Mock(prompt_tokens=170, completion_tokens=15)
+    mock_client.chat.completions.create = AsyncMock(return_value=mock_response)
+    
+    _, cost = await generate_clean_title("Long title...", "Summary", mock_client)
+    
+    # gpt-4o-mini: 170 * $0.00015/1k + 15 * $0.0006/1k ≈ $0.000035
+    assert 0.00003 < cost < 0.00005
 ```
 
-**Cost Estimate**: ~$0.0001 per title (gpt-4o-mini, ~30 tokens)  
+**Cost Estimate**: $0.000035 per title (gpt-4o-mini, ~185 tokens)  
+**Monthly Cost**: $0.01/month for 200 articles (negligible)  
 **Rollout**: Gradual - enable for new articles, backfill old ones optionally
 
 ---
@@ -388,9 +465,11 @@ Each task is independent and can be rolled back separately:
 
 ## Cost Estimate
 
-- Title generation: ~$0.10/1000 articles (gpt-4o-mini)
-- Image search: No change (existing Unsplash API)
-- Total: Negligible cost increase (~$1/month at current volume)
+- **Title generation**: $0.01/month for 200 articles (gpt-4o-mini at $0.000035/title)
+- **Image search**: No change (existing Unsplash API)
+- **Total**: Negligible cost increase (~$0.01/month at current volume)
+
+**Justification**: gpt-4o-mini is 3x cheaper than gpt-35-turbo and better quality for creative tasks like title generation. See docs/AI_MODEL_COST_ANALYSIS.md for detailed comparison.
 
 ---
 
