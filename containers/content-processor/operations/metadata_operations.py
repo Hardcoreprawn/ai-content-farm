@@ -15,6 +15,7 @@ from aiolimiter import AsyncLimiter
 from models import TopicMetadata
 from openai import AsyncAzureOpenAI
 from operations.openai_operations import generate_completion
+from operations.title_operations import generate_clean_title
 from utils.cost_utils import calculate_openai_cost
 
 from libs.openai_rate_limiter import call_with_rate_limit
@@ -36,7 +37,7 @@ async def generate_metadata_with_cost(
     rate_limiter: Optional[AsyncLimiter] = None,
 ) -> Dict[str, Any]:
     """
-    Generate SEO metadata for article.
+    Generate SEO metadata for article with AI title generation.
 
     Pure async function.
 
@@ -52,36 +53,49 @@ async def generate_metadata_with_cost(
         Dict with title, slug, filename, url, cost_usd, tokens_used
     """
     try:
-        # Clean title first
-        clean_title = clean_title_text(title)
+        total_cost = 0.0
+        total_tokens = 0
 
-        # Check if translation needed
-        needs_translation = detect_non_english_or_hashtags(clean_title)
+        # Step 1: Generate clean title (removes date prefixes, handles truncation)
+        clean_title_result, title_cost = await generate_clean_title(
+            original_title=title,
+            content_summary=content_preview,
+            azure_openai_client=openai_client,
+        )
+        total_cost += title_cost
+
+        if title_cost > 0:
+            logger.info(
+                f"AI title generation used: ${title_cost:.6f} - "
+                f"'{title[:50]}...' -> '{clean_title_result}'"
+            )
+
+        # Step 2: Check if translation needed (for non-English content)
+        needs_translation = detect_non_english_or_hashtags(clean_title_result)
 
         if needs_translation:
-            # Generate AI metadata
+            # Generate AI metadata (translation + SEO description)
             ai_metadata, prompt_tokens, completion_tokens = await generate_ai_metadata(
-                openai_client, clean_title, content_preview, config, rate_limiter
+                openai_client, clean_title_result, content_preview, config, rate_limiter
             )
 
             seo_title = ai_metadata["title"]
             description = ai_metadata["description"]
             language = ai_metadata["language"]
 
-            # Calculate cost
-            cost_usd = calculate_openai_cost(
+            # Calculate additional cost for translation
+            translation_cost = calculate_openai_cost(
                 model_name=config["model_name"],
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
             )
-            tokens_used = prompt_tokens + completion_tokens
+            total_cost += translation_cost
+            total_tokens = prompt_tokens + completion_tokens
         else:
-            # No translation needed
-            seo_title = clean_title
+            # No translation needed - use cleaned title
+            seo_title = clean_title_result
             description = f"{seo_title[:140]}..."  # Simple description
             language = "en"
-            cost_usd = 0.0
-            tokens_used = 0
 
         # Generate slug, filename, URL
         slug = create_slug(seo_title)
@@ -96,13 +110,13 @@ async def generate_metadata_with_cost(
             "slug": slug,
             "filename": filename,
             "url": url,
-            "cost_usd": cost_usd,
-            "tokens_used": tokens_used,
+            "cost_usd": total_cost,
+            "tokens_used": total_tokens,
         }
 
     except Exception as e:
         logger.error(f"Metadata generation failed: {e}")
-        # Fallback
+        # Fallback to simple cleaning
         slug = create_slug(title)
         filename = create_filename(slug, published_date)
         return {
