@@ -226,7 +226,7 @@ class StorageQueueClient(QueueClientInterface):
             # Get the async iterator - this is the Azure SDK AsyncItemPaged object
             message_pager = self._queue_client.receive_messages(
                 messages_per_page=max_msgs,
-                visibility_timeout=300,  # 5 minutes - enough time for AI processing
+                visibility_timeout=600,  # 10 minutes - allows for site builds taking 3-5 minutes
             )
 
             # Properly manage the async iterator lifecycle
