@@ -101,8 +101,7 @@ async def load_unsplash_key(
             logger.info("Stock image service initialized successfully")
             return access_key
         else:
-            logger.warning(
-                "Unsplash access key not found - stock images disabled")
+            logger.warning("Unsplash access key not found - stock images disabled")
             return None
 
     except Exception as e:
@@ -228,8 +227,7 @@ async def process_article(
             overwrite,
         )
 
-        processing_time = (datetime.now(
-            UTC) - start_time).total_seconds() * 1000
+        processing_time = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
         logger.info(
             f"Successfully processed article: {blob_name} -> "

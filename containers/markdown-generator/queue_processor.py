@@ -154,7 +154,6 @@ async def startup_queue_processor(
         max_batch_size: Maximum messages to process per batch
         output_container: Container name for markdown output
     """
-    import os
     from datetime import datetime, timezone
 
     logger.info(f"🔍 Checking queue: {queue_name}")

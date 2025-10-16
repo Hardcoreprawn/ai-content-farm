@@ -85,8 +85,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         # Initialize reusable resources (avoid recreating on every request)
         app.state.jinja_env = create_jinja_environment()
         app.state.unsplash_key = (
-            await load_unsplash_key(
-                settings) if settings.enable_stock_images else None
+            await load_unsplash_key(settings) if settings.enable_stock_images else None
         )
 
         logger.info("Azure clients initialized successfully")
@@ -367,8 +366,7 @@ async def generate_markdown_batch(
                         successful.append(result.markdown_blob_name)
                     app_state["total_processed"] += 1
                     if result.processing_time_ms:
-                        app_state["processing_times"].append(
-                            result.processing_time_ms)
+                        app_state["processing_times"].append(result.processing_time_ms)
                 else:
                     failed.append(result.error_message or "Unknown error")
                     app_state["total_failed"] += 1

@@ -9,7 +9,6 @@ import json
 import logging
 from typing import Any, Dict
 
-from azure.core.exceptions import ResourceNotFoundError
 from azure.storage.blob.aio import BlobServiceClient
 
 logger = logging.getLogger(__name__)
