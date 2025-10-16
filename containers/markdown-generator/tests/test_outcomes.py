@@ -111,17 +111,27 @@ class TestMarkdownGenerationOutcomes:
         markdown_content = write_calls[0][0][0]
 
         # Verify sections exist
-        assert "## Summary" in markdown_content, "Summary header missing from generated markdown"
-        assert "This is the main content" in markdown_content, "Article content missing from generated markdown"
-        assert "## Key Points" in markdown_content, "Key Points header missing from generated markdown"
-        assert "**Source:**" in markdown_content, "Source footer missing from generated markdown"
+        assert (
+            "## Summary" in markdown_content
+        ), "Summary header missing from generated markdown"
+        assert (
+            "This is the main content" in markdown_content
+        ), "Article content missing from generated markdown"
+        assert (
+            "## Key Points" in markdown_content
+        ), "Key Points header missing from generated markdown"
+        assert (
+            "**Source:**" in markdown_content
+        ), "Source footer missing from generated markdown"
 
         # Verify order: Summary -> Article Content -> Key Points
         summary_idx = markdown_content.index("## Summary")
         article_idx = markdown_content.index("This is the main content")
         key_points_idx = markdown_content.index("## Key Points")
 
-        assert summary_idx < article_idx < key_points_idx, "Sections are not in expected order: Summary -> Content -> Key Points"
+        assert (
+            summary_idx < article_idx < key_points_idx
+        ), "Sections are not in expected order: Summary -> Content -> Key Points"
 
     @pytest.mark.asyncio
     async def test_missing_blob_returns_failed_status(
