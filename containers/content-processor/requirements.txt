@@ -16,7 +16,7 @@ python-multipart~=0.0.20  # Form/file upload support (current)
 # Azure SDK (Cloud Integration)
 # ============================================================================
 azure-identity~=1.25.1  # Azure authentication (updated from 1.19.0)
-azure-storage-blob~=12.26.0  # Blob storage client (updated from 12.24.0)
+azure-storage-blob~=12.27.0  # Blob storage client (updated from 12.24.0)
 azure-storage-queue~=12.13.0  # Queue storage client (current)
 
 # ============================================================================
