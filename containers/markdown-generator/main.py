@@ -120,7 +120,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # Close HTTP session first (aiohttp)
     try:
-        from services.image_service import close_http_session
+        from libs.http_client import close_http_session
 
         await close_http_session()
         logger.info("HTTP session closed")

@@ -10,6 +10,8 @@ from typing import Any, Dict, List, Optional
 
 import aiohttp
 
+from libs.http_client import close_http_session, get_http_session
+
 logger = logging.getLogger(__name__)
 
 # Constants
@@ -36,24 +38,8 @@ STOPWORDS = {
     "were",
 }
 
-# Global session for connection pooling and proper cleanup
-_http_session: Optional[aiohttp.ClientSession] = None
-
-
-async def get_http_session() -> aiohttp.ClientSession:
-    """Get or create the shared HTTP session for connection pooling."""
-    global _http_session
-    if _http_session is None or _http_session.closed:
-        _http_session = aiohttp.ClientSession()
-    return _http_session
-
-
-async def close_http_session() -> None:
-    """Close the shared HTTP session. Call during application shutdown."""
-    global _http_session
-    if _http_session is not None and not _http_session.closed:
-        await _http_session.close()
-        _http_session = None
+# Re-export for backwards compatibility
+__all__ = ["close_http_session", "get_http_session"]
 
 
 def extract_keywords_from_article(
