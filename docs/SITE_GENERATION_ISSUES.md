@@ -110,10 +110,18 @@ source_url = article_data.get("source_metadata", {}).get("source_url", metadata.
 - Search for "(15 Oct) Two..." returns random results
 - Should extract keywords from content or disable for short titles
 
-**Fix Required**:
-- Disable stock images for titles < 50 chars or with date prefixes
-- OR extract keywords from article content for better image search
-- OR use article category/tags for image search
+**Fix Status**: ✅ **ALREADY IMPLEMENTED**
+- Smart image skipping logic implemented
+- Skips images for titles with date prefixes
+- Skips images for very short titles (< 20 chars)
+- Extracts keywords from article content instead of title
+- File: `markdown-generator/services/image_service.py`
+- Functions: `should_skip_image()`, `extract_keywords_from_article()`
+
+**Verification Needed**:
+- [ ] Check if irrelevant images are appearing in recent articles
+- [ ] Verify proper keywords extracted from content
+- [ ] Check if images are being skipped for low-quality titles
 
 ### 6. Verbose Directory Names (Low Priority)
 **Current**: `20251016_104549_mastodon_mastodon.social_115383358597059180`  
@@ -206,10 +214,19 @@ source_url = article_data.get("source_metadata", {}).get("source_url", metadata.
    - Status: Ready to verify in production
    - Owner: content-processor container
 
-5. 🔄 **Improve stock image selection logic**
-   - Priority: MEDIUM
-   - Effort: Low
-   - Impact: Better visual quality
+5. ✅ **Stock image selection already improved**
+   - Implementation: `markdown-generator/services/image_service.py`
+   - Features:
+     - Skips images for titles with date prefixes
+     - Skips images for titles < 20 chars (likely truncated)
+     - Extracts keywords from content instead of using truncated title
+     - Prioritizes capitalized words (proper nouns, topics)
+     - Falls back to tags, category, or skips if no good search terms
+   - Functions:
+     - `should_skip_image()` - Detect low-quality titles
+     - `extract_keywords_from_article()` - Smart keyword extraction
+     - `extract_keywords_from_content()` - Content-based keyword mining
+   - Status: Ready to verify in production
    - Owner: markdown-generator container
 
 6. 🔄 **Use article slugs for directory names**
