@@ -18,9 +18,9 @@
 
 ## Key Points
 
-{% for point in article_data.key_points %}
+{%- for point in article_data.key_points -%}
 - {{ point }}
-{% endfor %}
+{%- endfor %}
 
 {%- endif %}
 
@@ -29,5 +29,5 @@
 **Originally posted on {{ article_data.source_metadata.source|title }}**: [View original post]({{ article_data.source_metadata.source_url }})
 {%- else %}
 
-**Source:** {{ metadata.source }} — {{ metadata.url }}
+**Source:** {{ metadata.source }} — [{{ metadata.url }}]({{ metadata.url }})
 {%- endif %}
