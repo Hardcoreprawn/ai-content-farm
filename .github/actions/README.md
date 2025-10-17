@@ -53,7 +53,6 @@ The CI/CD pipeline has been restructured to support our multi-tier container str
 **Inputs**:
 - `azure-credentials`: Azure service principal credentials
 - `resource-group`: Azure resource group name
-- `acr-name`: Azure Container Registry name
 - `environment`: Environment to deploy to
 - `containers`: Containers to deploy (default: all)
 
@@ -67,7 +66,6 @@ The CI/CD pipeline has been restructured to support our multi-tier container str
   with:
     azure-credentials: ${{ secrets.AZURE_CREDENTIALS }}
     resource-group: 'ai-content-farm-core-rg'
-    acr-name: 'aicontentfarm76ko2hacr'
     environment: 'production'
 ```
 

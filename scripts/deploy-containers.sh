@@ -9,8 +9,8 @@ echo "🚀 Starting Azure Container Apps deployment with multi-tier strategy..."
 # Configuration
 RESOURCE_GROUP="ai-content-farm-core-rg"
 LOCATION="UK South"
-ACR_NAME="aicontentfarm76ko2hacr"
 CONTAINER_APP_ENV="ai-content-farm-core-env"
+# Note: Using GitHub Container Registry (GHCR) instead of ACR for cost efficiency
 
 # Check if logged into Azure
 if ! az account show &>/dev/null; then
@@ -42,15 +42,10 @@ echo "✅ Infrastructure deployed"
 # Return to repo root for multi-tier builds
 cd ..
 
-# Get ACR login server
-ACR_LOGIN_SERVER=$(az acr show --name $ACR_NAME --resource-group $RESOURCE_GROUP --query loginServer -o tsv)
-echo "📋 ACR Login Server: $ACR_LOGIN_SERVER"
+echo "🏗️ Building and pushing multi-tier base images to GitHub Container Registry..."
 
-# Login to ACR
-echo "🔐 Logging into Azure Container Registry..."
-az acr login --name $ACR_NAME
-
-echo "🏗️ Building and pushing multi-tier base images..."
+# Note: Actual deployment is handled by GitHub Actions CI/CD pipeline
+# This script is retained for reference and manual testing only
 
 # Step 1: Build and push base images (required for all services)
 echo "Building foundation base image..."

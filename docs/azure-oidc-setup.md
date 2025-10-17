@@ -89,12 +89,6 @@ az role assignment create \
   --role "Contributor" \
   --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/ai-content-farm-core-rg"
 
-# AcrPush role for container registry
-az role assignment create \
-  --assignee-object-id "$SP_OBJECT_ID" \
-  --role "AcrPush" \
-  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/ai-content-farm-core-rg/providers/Microsoft.ContainerRegistry/registries/aicontentfarm76ko2hacr"
-
 # Key Vault Secrets Officer for secret management
 az role assignment create \
   --assignee-object-id "$SP_OBJECT_ID" \

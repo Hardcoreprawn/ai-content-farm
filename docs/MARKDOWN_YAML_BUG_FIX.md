@@ -4,6 +4,8 @@
 **Severity:** 🔴 CRITICAL - Blocking site generation
 **Status:** ✅ Fixed, awaiting deployment
 
+> **Note (October 17, 2025)**: This is a historical document. ACR references have been replaced with GitHub Container Registry (GHCR) for cost efficiency. Deployment is now handled by the CI/CD pipeline.
+
 ## Problem Summary
 
 The markdown-generator container was producing **456 malformed markdown files** with invalid YAML frontmatter, preventing the site-publisher from building the static site.
