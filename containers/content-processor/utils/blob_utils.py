@@ -1,96 +1,140 @@
 """
-Blob path utility functions.
+Blob path utility functions for article storage.
 
-Provides standardized blob path generation for Azure Blob Storage
-following consistent naming conventions.
-
-Path format: prefix/YYYY/MM/DD/YYYYMMdd_HHMMSS_identifier.extension
+NEW FLAT STRUCTURE: articles/YYYY-MM-DD/slug.ext
+Generates standardized blob paths for Azure Blob Storage following
+consistent naming conventions for easy date-range queries and SEO-friendly URLs.
 """
 
-from .timestamp_utils import get_utc_timestamp
+# ============================================================================
+# FLATTENED STRUCTURE FUNCTIONS (articles/ prefix with YYYY-MM-DD format)
+# ============================================================================
 
 
-def generate_blob_path(prefix: str, identifier: str, extension: str = "json") -> str:
+def generate_articles_path(
+    slug: str, published_date: str, extension: str = "json"
+) -> str:
     """
-    Generate standardized blob path with date hierarchy.
+    Generate flattened blob path using articles/ prefix with date and slug.
 
-    Creates a path with year/month/day folders and timestamped filename.
+    Creates a clean path structure: articles/YYYY-MM-DD/slug.ext
+    Extracts date from ISO timestamp if provided as such.
 
     Args:
-        prefix: Blob container prefix (e.g., "processed", "collected-content")
-        identifier: Unique identifier for the blob (e.g., topic_id, article_id)
+        slug: URL-safe article slug
+        published_date: Either YYYY-MM-DD format or ISO 8601 timestamp
         extension: File extension without dot (default: "json")
 
     Returns:
-        str: Blob path in format: prefix/YYYY/MM/DD/YYYYMMdd_HHMMSS_identifier.ext
+        str: Blob path in format: articles/YYYY-MM-DD/slug.ext
 
     Example:
-        >>> path = generate_blob_path("processed", "topic-123", "json")
-        >>> "processed/" in path and "topic-123.json" in path
-        True
-        >>> # Result: "processed/2025/10/15/20251015_103000_topic-123.json"
+        >>> path = generate_articles_path("saturn-moon-potential", "2025-10-13")
+        >>> path
+        'articles/2025-10-13/saturn-moon-potential.json'
+
+        >>> # Also works with ISO timestamp
+        >>> path = generate_articles_path(
+        ...     "saturn-moon-potential",
+        ...     "2025-10-13T09:06:54+00:00"
+        ... )
+        >>> path
+        'articles/2025-10-13/saturn-moon-potential.json'
     """
-    now = get_utc_timestamp()
+    # Extract date in YYYY-MM-DD format
+    if len(published_date) > 10 and "T" in published_date:
+        # ISO 8601 timestamp - extract date portion
+        date_str = published_date[:10]  # YYYY-MM-DD
+    else:
+        # Already in YYYY-MM-DD format
+        date_str = published_date
 
-    # Date hierarchy: YYYY/MM/DD
-    date_part = now.strftime("%Y/%m/%d")
-
-    # Timestamp prefix: YYYYMMdd_HHMMSS
-    file_part = now.strftime("%Y%m%d_%H%M%S")
-
-    # Combine: prefix/YYYY/MM/DD/YYYYMMdd_HHMMSS_identifier.ext
-    return f"{prefix}/{date_part}/{file_part}_{identifier}.{extension}"
+    return f"articles/{date_str}/{slug}.{extension}"
 
 
-def generate_collection_blob_path(collection_id: str) -> str:
+def generate_articles_processed_blob_path(article_data: dict) -> str:
     """
-    Generate standardized path for collection blobs.
+    Generate blob path for processed article using articles/ structure.
+
+    Extracts slug and date from article data.
 
     Args:
-        collection_id: Collection identifier
+        article_data: Article result dict with slug and published_date fields
 
     Returns:
-        str: Collection blob path
+        str: Blob path for processed article
 
     Example:
-        >>> path = generate_collection_blob_path("daily-tech")
-        >>> "collections/" in path and "daily-tech.json" in path
-        True
+        >>> article = {
+        ...     "slug": "saturn-moon",
+        ...     "published_date": "2025-10-13T09:06:54+00:00"
+        ... }
+        >>> generate_articles_processed_blob_path(article)
+        'articles/2025-10-13/saturn-moon.json'
     """
-    return generate_blob_path("collections", collection_id, "json")
+    slug = article_data.get("slug", "unknown")
+    published_date = article_data.get("published_date", "")
+
+    return generate_articles_path(slug, published_date, "json")
 
 
-def generate_processed_blob_path(topic_id: str) -> str:
+def generate_articles_markdown_blob_path(article_data: dict) -> str:
     """
-    Generate standardized path for processed article blobs.
+    Generate blob path for markdown output using articles/ structure.
+
+    Extracts slug and date from article data.
 
     Args:
-        topic_id: Topic/article identifier
+        article_data: Article result dict with slug and published_date fields
 
     Returns:
-        str: Processed article blob path
+        str: Blob path for markdown file
 
     Example:
-        >>> path = generate_processed_blob_path("ai-breakthrough")
-        >>> "processed/" in path and "ai-breakthrough.json" in path
-        True
+        >>> article = {
+        ...     "slug": "saturn-moon",
+        ...     "published_date": "2025-10-13T09:06:54+00:00"
+        ... }
+        >>> generate_articles_markdown_blob_path(article)
+        'articles/2025-10-13/saturn-moon.md'
     """
-    return generate_blob_path("processed", topic_id, "json")
+    slug = article_data.get("slug", "unknown")
+    published_date = article_data.get("published_date", "")
+
+    return generate_articles_path(slug, published_date, "md")
 
 
-def generate_markdown_blob_path(article_id: str) -> str:
+def generate_articles_collection_blob_path(
+    collection_timestamp: str, collection_id: str = ""
+) -> str:
     """
-    Generate standardized path for markdown output blobs.
+    Generate blob path for collection file using articles/ structure.
 
     Args:
-        article_id: Article identifier
+        collection_timestamp: ISO 8601 timestamp of collection
+        collection_id: Optional collection identifier (e.g., "20251013_090700")
 
     Returns:
-        str: Markdown blob path
+        str: Blob path for collection file
 
     Example:
-        >>> path = generate_markdown_blob_path("article-456")
-        >>> "markdown/" in path and "article-456.md" in path
-        True
+        >>> path = generate_articles_collection_blob_path(
+        ...     "2025-10-13T09:07:00+00:00",
+        ...     "20251013_090700"
+        ... )
+        >>> path
+        'articles/2025-10-13/collection-20251013_090700.json'
     """
-    return generate_blob_path("markdown", article_id, "md")
+    # Extract date
+    if len(collection_timestamp) > 10 and "T" in collection_timestamp:
+        date_str = collection_timestamp[:10]  # YYYY-MM-DD
+    else:
+        date_str = collection_timestamp
+
+    # Build filename
+    if collection_id:
+        filename = f"collection-{collection_id}.json"
+    else:
+        filename = "collection.json"
+
+    return f"articles/{date_str}/{filename}"

@@ -15,6 +15,7 @@ from models import ProcessingResult, ProcessorStatus, TopicMetadata
 from operations.openai_operations import create_openai_client
 from operations.topic_operations import collection_item_to_topic_metadata
 from queue_operations_pkg import trigger_markdown_for_article
+from utils.blob_utils import generate_articles_processed_blob_path
 
 logger = logging.getLogger(__name__)
 
@@ -197,14 +198,13 @@ async def _process_single_topic(
 
     try:
         # IDEMPOTENCY CHECK: Skip if already processed
+        # Check articles/ prefix for processed articles
         existing_blobs = await context.blob_client.list_blobs(
-            container="processed-content", prefix="processed/"
+            container="processed-content", prefix="articles/"
         )
 
-        # Check if any blob ends with _{topic_id}.json
-        already_processed = any(
-            blob["name"].endswith(f"_{topic_id}.json") for blob in existing_blobs
-        )
+        # Check if any blob contains this topic_id
+        already_processed = any(topic_id in blob["name"] for blob in existing_blobs)
 
         if already_processed:
             logger.info(
@@ -241,13 +241,8 @@ async def _process_single_topic(
             logger.warning("No article_result to save")
             return None
 
-        # Generate blob name with timestamp structure
-        timestamp = datetime.now(timezone.utc)
-        topic_id = article_result.get("topic_id", "unknown")
-        blob_name = (
-            f"processed/{timestamp.strftime('%Y/%m/%d')}/"
-            f"{timestamp.strftime('%Y%m%d_%H%M%S')}_{topic_id}.json"
-        )
+        # Generate blob path using new articles/ structure
+        blob_name = generate_articles_processed_blob_path(article_result)
 
         # Save directly to blob storage
         save_success = await context.blob_client.upload_json(
