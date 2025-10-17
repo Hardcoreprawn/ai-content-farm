@@ -1,4 +1,12 @@
-{{ frontmatter }}
+---
+title: "{{ metadata.title }}"
+date: "{{ metadata.published_date }}"
+draft: false
+tags: [{% for t in metadata.tags %}"{{ t }}"{% if not loop.last %}, {% endif %}{% endfor %}]
+params:
+  original_url: "{{ metadata.url }}"
+  source: "{{ metadata.source }}"
+---
 
 {%- if article_data.summary %}
 
@@ -24,10 +32,4 @@
 
 {%- endif %}
 
-{%- if article_data.source_metadata and article_data.source_metadata.source_url %}
-
-**Originally posted on {{ article_data.source_metadata.source|title }}**: [View original post]({{ article_data.source_metadata.source_url }})
-{%- else %}
-
 **Source:** {{ metadata.source }} — {{ metadata.url }}
-{%- endif %}

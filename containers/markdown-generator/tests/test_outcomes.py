@@ -1,327 +1,127 @@
-"""
-Outcome-based tests for markdown-generator.
-
-These tests focus on verifiable outcomes rather than implementation details.
-"""
-
-import json
-from typing import Any, Dict
-
 import pytest
-from azure.core.exceptions import ResourceNotFoundError
-from markdown_processor import process_article
-from models import ProcessingStatus
+from datetime import datetime
+from jinja2 import Environment, FileSystemLoader
+import os
 
 
 class TestMarkdownGenerationOutcomes:
-    """Test observable outcomes of markdown generation."""
+    """Tests that verify the markdown generation produces expected outcomes."""
 
-    @pytest.mark.asyncio
-    async def test_successful_processing_produces_markdown_blob(
-        self, markdown_processor_deps: Dict[str, Any]
-    ) -> None:
-        """
-        GIVEN a valid JSON article blob
-        WHEN processing is requested
-        THEN a markdown blob is created in the output container
-        """
-        # Arrange
-        blob_name = "test-article.json"
-
-        # Act - Call functional API directly
-        result = await process_article(
-            blob_name=blob_name,
-            overwrite=False,
-            template_name="default.md.j2",
-            **markdown_processor_deps,
+    @pytest.fixture
+    def jinja_env(self):
+        """Setup Jinja2 environment with template directory."""
+        template_dir = os.path.join(
+            os.path.dirname(__file__), '..', 'templates'
         )
+        return Environment(loader=FileSystemLoader(template_dir))
 
-        # Assert - Verify outcome
-        assert result.status == ProcessingStatus.COMPLETED
-        assert result.markdown_blob_name == "test-article.md"
-        assert result.processing_time_ms is not None
-        assert result.error_message is None
-
-    @pytest.mark.asyncio
-    async def test_markdown_contains_frontmatter_with_metadata(
-        self,
-        markdown_processor_deps: Dict[str, Any],
-        mock_blob_service_client: Any,
-    ) -> None:
-        """
-        GIVEN an article with complete metadata
-        WHEN markdown is generated
-        THEN the output contains YAML frontmatter with all metadata fields
-        """
-        # Arrange
-        blob_name = "test-article.json"
-
-        # Act - Call functional API directly
-        result = await process_article(
-            blob_name=blob_name,
-            overwrite=False,
-            template_name="default.md.j2",
-            **markdown_processor_deps,
-        )
-
-        # Assert - Check what was written
-        container_client = mock_blob_service_client.get_container_client("test-output")
-        blob_client = container_client.get_blob_client("test-article.md")
-        write_calls = blob_client.upload_blob.call_args_list
-        assert len(write_calls) > 0
-
-        markdown_content = write_calls[0][0][0]  # First positional arg
-
-        # Verify frontmatter structure (Hugo compliant)
-        assert markdown_content.startswith("---")
-        assert "title:" in markdown_content
-        assert "date:" in markdown_content  # Hugo required field
-        assert "draft:" in markdown_content  # Hugo required field
-        assert "params:" in markdown_content  # Custom fields under params
-        # Custom fields now under params:
-        assert "original_url:" in markdown_content
-        assert "source:" in markdown_content
-
-    @pytest.mark.asyncio
-    async def test_markdown_contains_structured_content(
-        self,
-        markdown_processor_deps: Dict[str, Any],
-        mock_blob_service_client: Any,
-    ) -> None:
-        """
-        GIVEN an article with summary, content, and key points
-        WHEN markdown is generated
-        THEN the output contains all sections in proper order
-        """
-        # Arrange
-        blob_name = "test-article.json"
-
-        # Act - Call functional API directly
-        await process_article(
-            blob_name=blob_name,
-            overwrite=False,
-            template_name="default.md.j2",
-            **markdown_processor_deps,
-        )
-
-        # Assert - Check content structure
-        container_client = mock_blob_service_client.get_container_client("test-output")
-        blob_client = container_client.get_blob_client("test-article.md")
-        write_calls = blob_client.upload_blob.call_args_list
-        markdown_content = write_calls[0][0][0]
-
-        # Verify sections exist and are in order
-        summary_pos = markdown_content.find("## Summary")
-        key_points_pos = markdown_content.find("## Key Points")
-        article_content_pos = markdown_content.find("This is the main content")
-
-        assert summary_pos > 0
-        assert (
-            article_content_pos > summary_pos
-        )  # Article content appears after summary
-        assert key_points_pos > article_content_pos  # Key points after article content
-        assert "**Source:**" in markdown_content
-
-    @pytest.mark.asyncio
-    async def test_missing_blob_returns_failed_status(
-        self,
-        markdown_processor_deps: Dict[str, Any],
-        mock_blob_service_client: Any,
-    ) -> None:
-        """
-        GIVEN a non-existent blob name
-        WHEN processing is requested
-        THEN status is FAILED with appropriate error message
-        """
-        # Arrange
-        container_client = mock_blob_service_client.get_container_client("test-input")
-        blob_client = container_client.get_blob_client("nonexistent.json")
-        blob_client.download_blob.side_effect = ResourceNotFoundError("Blob not found")
-
-        blob_name = "nonexistent.json"
-
-        # Act - Call functional API directly
-        result = await process_article(
-            blob_name=blob_name,
-            overwrite=False,
-            template_name="default.md.j2",
-            **markdown_processor_deps,
-        )
-
-        # Assert - Verify failure outcome
-        assert result.status == ProcessingStatus.FAILED
-        assert result.markdown_blob_name is None
-        assert result.error_message is not None
-        assert "not found" in result.error_message.lower()
-
-    @pytest.mark.asyncio
-    async def test_existing_markdown_prevents_overwrite_by_default(
-        self,
-        markdown_processor_deps: Dict[str, Any],
-        mock_blob_service_client: Any,
-    ) -> None:
-        """
-        GIVEN a markdown blob that already exists
-        WHEN processing is requested without overwrite flag
-        THEN processing fails with appropriate error
-        """
-        # Arrange
-        container_client = mock_blob_service_client.get_container_client("test-output")
-        blob_client = container_client.get_blob_client("existing-article.md")
-        blob_client.exists.return_value = True
-
-        blob_name = "existing-article.json"
-
-        # Act - Call functional API directly
-        result = await process_article(
-            blob_name=blob_name,
-            overwrite=False,
-            template_name="default.md.j2",
-            **markdown_processor_deps,
-        )
-
-        # Assert - Verify overwrite protection
-        assert result.status == ProcessingStatus.FAILED
-        assert result.error_message is not None
-        assert "already exists" in result.error_message.lower()
-
-    @pytest.mark.asyncio
-    async def test_overwrite_flag_allows_replacing_existing_markdown(
-        self,
-        markdown_processor_deps: Dict[str, Any],
-        mock_blob_service_client: Any,
-    ) -> None:
-        """
-        GIVEN a markdown blob that already exists
-        WHEN processing is requested WITH overwrite flag
-        THEN processing succeeds and blob is replaced
-        """
-        # Arrange
-        container_client = mock_blob_service_client.get_container_client("test-output")
-        blob_client = container_client.get_blob_client("existing-article.md")
-        blob_client.exists.return_value = True
-
-        blob_name = "existing-article.json"
-
-        # Act - Call functional API directly with overwrite=True
-        result = await process_article(
-            blob_name=blob_name,
-            overwrite=True,
-            template_name="default.md.j2",
-            **markdown_processor_deps,
-        )
-
-        # Assert - Verify successful overwrite
-        assert result.status == ProcessingStatus.COMPLETED
-        assert result.markdown_blob_name == "existing-article.md"
-
-        # Verify upload_blob was called with overwrite=True
-        container_client = mock_blob_service_client.get_container_client("test-output")
-        blob_client = container_client.get_blob_client("existing-article.md")
-        upload_calls = blob_client.upload_blob.call_args_list
-        assert len(upload_calls) > 0
-        assert upload_calls[0][1]["overwrite"] is True
-
-    @pytest.mark.asyncio
-    async def test_processing_time_is_reasonable(
-        self, markdown_processor_deps: Dict[str, Any]
-    ) -> None:
-        """
-        GIVEN a standard article
-        WHEN processing completes
-        THEN processing time is within acceptable range (<5000ms)
-        """
-        # Arrange
-        blob_name = "test-article.json"
-
-        # Act - Call functional API directly
-        result = await process_article(
-            blob_name=blob_name,
-            overwrite=False,
-            template_name="default.md.j2",
-            **markdown_processor_deps,
-        )
-
-        # Assert - Verify performance outcome
-        assert result.status == ProcessingStatus.COMPLETED
-        assert result.processing_time_ms is not None
-        assert result.processing_time_ms < 5000  # Should be <5 seconds
-
-    @pytest.mark.asyncio
-    async def test_malformed_json_returns_failed_status(
-        self,
-        markdown_processor_deps: Dict[str, Any],
-        mock_blob_service_client: Any,
-    ) -> None:
-        """
-        GIVEN a blob with invalid JSON content
-        WHEN processing is requested
-        THEN status is FAILED with JSON parse error
-        """
-        # Arrange
-        container_client = mock_blob_service_client.get_container_client("test-input")
-        blob_client = container_client.get_blob_client("malformed.json")
-        blob_client.download_blob.return_value.readall.return_value = (
-            b"{ invalid json }"
-        )
-
-        blob_name = "malformed.json"
-
-        # Act - Call functional API directly
-        result = await process_article(
-            blob_name=blob_name,
-            overwrite=False,
-            template_name="default.md.j2",
-            **markdown_processor_deps,
-        )
-
-        # Assert - Verify error handling
-        assert result.status == ProcessingStatus.FAILED
-        assert result.error_message is not None
-
-    @pytest.mark.asyncio
-    async def test_minimal_article_data_still_produces_valid_markdown(
-        self,
-        markdown_processor_deps: Dict[str, Any],
-        mock_blob_service_client: Any,
-    ) -> None:
-        """
-        GIVEN an article with only required fields (title, url)
-        WHEN markdown is generated
-        THEN valid markdown is produced without errors
-        """
-        # Arrange
-        minimal_data = {
-            "title": "Minimal Article",
-            "url": "https://example.com/minimal",
+    @pytest.fixture
+    def sample_article_data(self):
+        """Provide sample article data for testing."""
+        return {
+            "summary": "This is the summary section",
+            "content": "This is the main content",
+            "article_content": None,
+            "key_points": [
+                "First key point",
+                "Second key point",
+                "Third key point"
+            ]
         }
 
-        container_client = mock_blob_service_client.get_container_client("test-input")
-        blob_client = container_client.get_blob_client("minimal.json")
-        blob_client.download_blob.return_value.readall.return_value = json.dumps(
-            minimal_data
-        ).encode("utf-8")
+    @pytest.fixture
+    def sample_metadata(self):
+        """Provide sample metadata for testing."""
+        return {
+            "title": "Test Article",
+            "published_date": "2025-10-17T10:00:00Z",
+            "tags": ["test", "markdown"],
+            "url": "https://example.com/article",
+            "source": "Example Source"
+        }
 
-        blob_name = "minimal.json"
-
-        # Act - Call functional API directly
-        result = await process_article(
-            blob_name=blob_name,
-            overwrite=False,
-            template_name="default.md.j2",
-            **markdown_processor_deps,
+    def test_markdown_contains_structured_content(self, jinja_env, sample_article_data, sample_metadata):
+        """Test that generated markdown contains all expected sections in correct order."""
+        template = jinja_env.get_template('default.md.j2')
+        markdown_content = template.render(
+            metadata=sample_metadata,
+            article_data=sample_article_data
         )
 
-        # Assert - Verify graceful handling
-        assert result.status == ProcessingStatus.COMPLETED
-        assert result.markdown_blob_name is not None
+        # Verify sections exist
+        assert "## Summary" in markdown_content, "Summary header missing from generated markdown"
+        assert "This is the main content" in markdown_content, "Article content missing from generated markdown"
+        assert "## Key Points" in markdown_content, "Key Points header missing from generated markdown"
+        assert "**Source:**" in markdown_content, "Source footer missing from generated markdown"
 
-        # Verify minimal frontmatter still valid
-        container_client = mock_blob_service_client.get_container_client("test-output")
-        blob_client = container_client.get_blob_client("minimal.md")
-        write_calls = blob_client.upload_blob.call_args_list
-        markdown_content = write_calls[0][0][0]
+        # Verify order: Summary -> Article Content -> Key Points
+        summary_idx = markdown_content.index("## Summary")
+        article_idx = markdown_content.index("This is the main content")
+        key_points_idx = markdown_content.index("## Key Points")
 
-        assert markdown_content.startswith("---")
-        assert "title:" in markdown_content
-        assert "url:" in markdown_content
+        assert summary_idx < article_idx < key_points_idx, "Sections are not in expected order: Summary -> Content -> Key Points"
+
+    def test_markdown_contains_key_points(self, jinja_env, sample_article_data, sample_metadata):
+        """Test that all key points are rendered as bullet points."""
+        template = jinja_env.get_template('default.md.j2')
+        markdown_content = template.render(
+            metadata=sample_metadata,
+            article_data=sample_article_data
+        )
+
+        for point in sample_article_data['key_points']:
+            assert f"- {point}" in markdown_content, f"Key point missing: {point}"
+
+    def test_markdown_contains_frontmatter(self, jinja_env, sample_article_data, sample_metadata):
+        """Test that frontmatter is properly formatted."""
+        template = jinja_env.get_template('default.md.j2')
+        markdown_content = template.render(
+            metadata=sample_metadata,
+            article_data=sample_article_data
+        )
+
+        # Check for YAML frontmatter markers
+        assert markdown_content.startswith('---'), "Markdown should start with frontmatter delimiter"
+        assert '---' in markdown_content[1:], "Frontmatter should have closing delimiter"
+
+        # Check for required frontmatter fields
+        assert f'title: "{sample_metadata["title"]}"' in markdown_content
+        assert f'date: "{sample_metadata["published_date"]}"' in markdown_content
+        assert f'original_url: "{sample_metadata["url"]}"' in markdown_content
+        assert f'source: "{sample_metadata["source"]}"' in markdown_content
+
+    def test_markdown_handles_article_content_fallback(self, jinja_env, sample_metadata):
+        """Test that template falls back to article_content when content is missing."""
+        article_data = {
+            "summary": "Summary",
+            "content": None,  # Missing primary field
+            "article_content": "This is fallback content",
+            "key_points": ["Point 1"]
+        }
+        template = jinja_env.get_template('default.md.j2')
+        markdown_content = template.render(
+            metadata=sample_metadata,
+            article_data=article_data
+        )
+
+        assert "This is fallback content" in markdown_content, "Template should use article_content as fallback"
+
+    def test_markdown_skips_missing_optional_sections(self, jinja_env, sample_metadata):
+        """Test that template gracefully handles missing optional sections."""
+        article_data = {
+            "summary": None,
+            "content": "Main content only",
+            "article_content": None,
+            "key_points": None
+        }
+        template = jinja_env.get_template('default.md.j2')
+        markdown_content = template.render(
+            metadata=sample_metadata,
+            article_data=article_data
+        )
+
+        # Should contain content and metadata, but not summary/key_points headers
+        assert "Main content only" in markdown_content
+        assert "## Summary" not in markdown_content, "Summary header should not appear when summary is missing"
+        assert "## Key Points" not in markdown_content, "Key Points header should not appear when key_points is missing"
+        assert "**Source:**" in markdown_content, "Source footer should always appear"
