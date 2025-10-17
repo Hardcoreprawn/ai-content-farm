@@ -1,0 +1,81 @@
+{{/*
+  Application Insights & Performance Monitoring
+  Injects telemetry collection and monitoring into the site
+  - Core Web Vitals tracking
+  - Page performance metrics
+  - User interaction tracking
+  - Design structure analysis
+*/}}
+
+{{- if site.Params.analyticsEnabled | default true }}
+
+{{/* Store Application Insights config in meta tag for JavaScript to access */}}
+{{- if site.Params.appInsights }}
+<meta name="appinsights-config" content="{&quot;instrumentationKey&quot;: &quot;{{ site.Params.appInsights.instrumentationKey }}&quot;, &quot;connectionString&quot;: &quot;{{ site.Params.appInsights.connectionString }}&quot;}">
+{{- end }}
+
+{{/* Load performance monitoring script */}}
+<script type="module">
+  // Initialize performance monitoring with optional Application Insights
+  const config = null;
+  const metaConfig = document.querySelector('meta[name="appinsights-config"]');
+  if (metaConfig) {
+    try {
+      config = JSON.parse(metaConfig.content);
+    } catch (e) {
+      console.debug('Failed to parse Application Insights config:', e);
+    }
+  }
+
+  // Create monitor instance (will handle missing config gracefully)
+  window.performanceMonitor = new PerformanceMonitor(config);
+
+  // Expose tracking methods for analytics throughout the site
+  window.trackAction = (action, properties, measurements) => {
+    if (window.performanceMonitor) {
+      window.performanceMonitor.trackUserAction(action, properties, measurements);
+    }
+  };
+
+  window.trackError = (error, severity) => {
+    if (window.performanceMonitor) {
+      window.performanceMonitor.trackError(error, severity);
+    }
+  };
+
+  // Track pagination clicks
+  document.addEventListener('click', (e) => {
+    const paginationLink = e.target.closest('.pagination-item a');
+    if (paginationLink) {
+      window.trackAction('PaginationNavigation', {
+        url: paginationLink.href,
+        text: paginationLink.textContent
+      });
+    }
+
+    // Track post card clicks
+    const postLink = e.target.closest('.post-card-link, .post-card-title a');
+    if (postLink) {
+      window.trackAction('ArticleClick', {
+        url: postLink.href,
+        title: postLink.textContent
+      });
+    }
+  });
+
+  // Track scroll depth
+  let maxScrollDepth = 0;
+  window.addEventListener('scroll', () => {
+    const scrollDepth = (window.scrollY / (document.documentElement.scrollHeight - window.innerHeight)) * 100;
+    if (scrollDepth > maxScrollDepth) {
+      maxScrollDepth = scrollDepth;
+      if (maxScrollDepth % 25 === 0) {  // Track at 25%, 50%, 75%, 100%
+        window.trackAction('ScrollDepth', {
+          percentage: Math.round(maxScrollDepth)
+        });
+      }
+    }
+  });
+</script>
+
+{{- end }}{{/* end if analyticsEnabled */}}

@@ -45,6 +45,15 @@ buildExpired = false
   description = "AI-curated content from across the web"
   author = "AI Content Farm"
 
+  # Analytics and monitoring
+  analyticsEnabled = true  # Enable performance monitoring and telemetry
+
+  # Application Insights configuration
+  # These are populated from environment variables during build
+  [params.appInsights]
+    instrumentationKey = ""  # Populated from APPINSIGHTS_INSTRUMENTATION_KEY env var
+    connectionString = ""    # Populated from APPLICATIONINSIGHTS_CONNECTION_STRING env var
+
   # Custom CSS for image sizing and layout
   [params.assets]
     customCSS = ["css/custom.css"]

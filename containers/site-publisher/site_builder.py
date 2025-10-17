@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import List
 
 from azure.storage.blob.aio import BlobServiceClient
+from configure_telemetry import configure_hugo_telemetry
 from content_downloader import download_markdown_files, organize_content_for_hugo
 from error_handling import handle_error
 from hugo_builder import (
@@ -69,6 +70,10 @@ async def build_and_deploy_site(
     all_errors: List[str] = []
 
     try:
+        # Configure Application Insights telemetry for Hugo
+        hugo_config_file = Path(config.hugo_config_path)
+        configure_hugo_telemetry(str(hugo_config_file))
+
         # Step 1: Download markdown files
         temp_dir = Path("/tmp/site-builder")
         content_dir = temp_dir / "content"

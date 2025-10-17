@@ -1,0 +1,88 @@
+{{- define "main" }}
+
+{{- if eq .Kind "home" }}
+{{ partial "hero-attribution.html" . }}
+
+{{- if .Content }}
+<div class="content">{{ .Content }}</div>
+{{- end }}
+{{- else }}
+{{- if .Title }}
+<header class="page-header">
+    <h1 class="page-title">{{ .Title }}</h1>
+    {{- if .Description }}
+    <div class="page-description">
+        {{ .Description }}
+    </div>
+    {{- end }}
+</header>
+{{- end }}
+
+{{- if .Content }}
+<div class="page-content">{{ .Content }}</div>
+{{- end }}
+{{- end }}
+
+{{- $paginator := .Paginator }}
+
+{{- if gt $paginator.TotalPages 1 }}
+{{- $pages := $paginator.Pages }}
+{{- else }}
+{{- $pages := where .Site.RegularPages "Type" "in" .Site.Params.mainSections }}
+{{- end }}
+
+<div class="post-list">
+    {{- range .Paginator.Pages }}
+    {{- partial "post_card.html" . }}
+    {{- end }}
+</div>
+
+{{- with $paginator }}
+{{- if or .HasPrev .HasNext }}
+<nav class="pagination" role="navigation" aria-label="Pagination Navigation">
+    <ul class="pagination-list">
+        {{- if .HasPrev }}
+        <li class="pagination-item">
+            <a href="{{ .First.URL }}" aria-label="Go to first page">
+                <span aria-hidden="true">&laquo;</span> First
+            </a>
+        </li>
+        <li class="pagination-item">
+            <a href="{{ .Prev.URL }}" aria-label="Go to previous page">
+                <span aria-hidden="true">&lsaquo;</span> Prev
+            </a>
+        </li>
+        {{- end }}
+
+        {{- range $paginator.Pagers }}
+        <li class="pagination-item">
+            {{- if eq . $paginator }}
+            <span class="pagination-current" aria-label="Current page, page {{ .PageNumber }}" aria-current="page">
+                {{ .PageNumber }}
+            </span>
+            {{- else }}
+            <a href="{{ .URL }}" aria-label="Go to page {{ .PageNumber }}">
+                {{ .PageNumber }}
+            </a>
+            {{- end }}
+        </li>
+        {{- end }}
+
+        {{- if .HasNext }}
+        <li class="pagination-item">
+            <a href="{{ .Next.URL }}" aria-label="Go to next page">
+                Next <span aria-hidden="true">&rsaquo;</span>
+            </a>
+        </li>
+        <li class="pagination-item">
+            <a href="{{ .Last.URL }}" aria-label="Go to last page">
+                Last <span aria-hidden="true">&raquo;</span>
+            </a>
+        </li>
+        {{- end }}
+    </ul>
+</nav>
+{{- end }}
+{{- end }}
+
+{{- end }}{{/* end main */}}

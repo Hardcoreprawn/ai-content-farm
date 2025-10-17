@@ -1,0 +1,10 @@
+{{/*
+  Custom Head Partial - Called by PaperMod theme at end of <head>
+  Adds performance monitoring and Application Insights integration
+*/}}
+
+{{/* Load performance monitoring script */}}
+<script src="{{ "js/performance-monitor.js" | absURL }}" defer></script>
+
+{{/* Initialize Application Insights telemetry */}}
+{{ partial "appinsights-telemetry.html" . }}
