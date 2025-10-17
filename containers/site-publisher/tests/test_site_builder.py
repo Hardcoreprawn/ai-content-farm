@@ -104,6 +104,7 @@ async def test_build_and_deploy_site_success(
 
 
 @pytest.mark.asyncio
+@patch("security.validate_hugo_output")
 @patch("site_builder.download_markdown_files", new_callable=AsyncMock)
 @patch("site_builder.organize_content_for_hugo", new_callable=AsyncMock)
 @patch("site_builder.build_site_with_hugo", new_callable=AsyncMock)
@@ -117,6 +118,7 @@ async def test_build_and_deploy_site_download_failure(
     mock_build,
     mock_organize,
     mock_download,
+    mock_validate,
     mock_blob_client,
     temp_dir,
 ):
@@ -129,6 +131,8 @@ async def test_build_and_deploy_site_download_failure(
 
     mock_config = Mock()
     mock_config.markdown_container = "markdown-content"
+    mock_config.hugo_config_path = "/tmp/config.toml"
+    mock_config.build_timeout_seconds = 300
 
     # Execute
     result = await build_and_deploy_site(
@@ -150,6 +154,7 @@ async def test_build_and_deploy_site_download_failure(
 
 
 @pytest.mark.asyncio
+@patch("security.validate_hugo_output")
 @patch("site_builder.download_markdown_files", new_callable=AsyncMock)
 @patch("site_builder.organize_content_for_hugo", new_callable=AsyncMock)
 @patch("site_builder.build_site_with_hugo", new_callable=AsyncMock)
@@ -163,6 +168,7 @@ async def test_build_and_deploy_site_build_failure(
     mock_build,
     mock_organize,
     mock_download,
+    mock_validate,
     mock_blob_client,
     temp_dir,
 ):
