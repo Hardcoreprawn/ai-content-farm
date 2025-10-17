@@ -23,7 +23,7 @@ azure-storage-queue~=12.13.0  # Queue storage client (current)
 # AI/ML Services
 # ============================================================================
 openai~=2.2.0  # OpenAI/Azure OpenAI integration (updated from 1.57.4 - MAJOR UPDATE)
-anthropic~=0.69.0  # Anthropic Claude API (updated from 0.68.0)
+anthropic~=0.70.0  # Anthropic Claude API (updated from 0.68.0)
 
 # ============================================================================
 # Data Processing & Validation
