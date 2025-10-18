@@ -38,14 +38,18 @@ async def create_message_handler(
         settings: Application settings
         jinja_env: Jinja2 environment (reusable)
         unsplash_key: Optional Unsplash API key
-        app_state: Application state dictionary
+        app_state: Application state dictionary (includes file tracking)
 
     Returns:
-        Async message handler function
+        Async message handler function that returns file creation count
     """
 
     async def message_handler(queue_message, message) -> Dict[str, Any]:
-        """Process a single markdown generation request from the queue."""
+        """
+        Process a single markdown generation request from the queue.
+
+        Returns information about whether NEW FILES were created (not just messages processed).
+        """
         try:
             # Extract the processed file path from the queue_message (QueueMessageModel)
             payload = queue_message.payload
@@ -55,7 +59,12 @@ async def create_message_handler(
                 logger.warning(
                     f"No files in message {queue_message.message_id}, payload: {payload}"
                 )
-                return {"status": "error", "error": "No files in message"}
+                app_state["total_failed"] += 1
+                return {
+                    "status": "error",
+                    "error": "No files in message",
+                    "files_created": 0,
+                }
 
             # Process the first file (we expect one file per message)
             blob_name = files[0]
@@ -73,22 +82,39 @@ async def create_message_handler(
             )
 
             if result.status == ProcessingStatus.COMPLETED:
+                # Track: did we CREATE a new file, or was it a duplicate?
+                files_created_count = 1 if result.files_created else 0
+
                 logger.info(
-                    f"Successfully generated markdown: {result.markdown_blob_name}"
+                    f"Successfully processed markdown: {result.markdown_blob_name} "
+                    f"(new_file={result.files_created})"
                 )
                 app_state["total_processed"] += 1
+                app_state["total_files_generated"] = (
+                    app_state.get("total_files_generated", 0) + files_created_count
+                )
+
                 if result.processing_time_ms:
                     app_state["processing_times"].append(result.processing_time_ms)
-                return {"status": "success", "result": result.model_dump()}
+
+                return {
+                    "status": "success",
+                    "files_created": files_created_count,
+                    "result": result.model_dump(),
+                }
             else:
                 logger.warning(f"Markdown generation failed: {result.error_message}")
                 app_state["total_failed"] += 1
-                return {"status": "error", "error": result.error_message}
+                return {
+                    "status": "error",
+                    "error": result.error_message,
+                    "files_created": 0,
+                }
 
         except Exception as e:
             logger.error(f"Error processing message: {e}", exc_info=True)
             app_state["total_failed"] += 1
-            return {"status": "error", "error": str(e)}
+            return {"status": "error", "error": str(e), "files_created": 0}
 
     return message_handler
 
@@ -138,28 +164,33 @@ async def startup_queue_processor(
     message_handler: Callable,
     max_batch_size: int,
     output_container: str,
+    app_state: Dict[str, Any],
 ) -> None:
     """
     Process queue messages continuously with graceful self-termination.
 
-    Signals site-publisher after queue has been stable/empty for a period,
-    indicating content-processor burst has completed. Prevents excessive
-    site rebuilds during bursty traffic from scaled content-processors.
+    Signals site-publisher ONLY after queue has been stable/empty for a period
+    AND at least one NEW markdown file was generated.
+
+    This prevents false signals when:
+    - Queue had duplicate messages
+    - Messages failed to generate markdown
+    - No actual new content was produced
 
     Implements graceful self-termination after MAX_IDLE_TIME as backup to KEDA.
 
     Args:
         queue_name: Name of the queue to process
-        message_handler: Async function to process each message
+        message_handler: Async function to process each message (returns files_created count)
         max_batch_size: Maximum messages to process per batch
         output_container: Container name for markdown output
+        app_state: Application state dict (includes total_files_generated counter)
     """
     from datetime import datetime, timezone
 
     logger.info(f"🔍 Checking queue: {queue_name}")
 
     # Graceful termination settings
-    # 3 minutes default
     MAX_IDLE_TIME = int(os.getenv("MAX_IDLE_TIME_SECONDS", "180"))
     last_activity_time = datetime.now(timezone.utc)
 
@@ -168,8 +199,9 @@ async def startup_queue_processor(
     STABLE_EMPTY_DURATION = int(os.getenv("STABLE_EMPTY_DURATION_SECONDS", "30"))
     queue_empty_since = None  # Track when queue first became empty
     total_processed = 0
-    total_processed_since_signal = 0  # Track new content since last signal
+    files_generated_this_batch = 0  # Track NEW files in current batch
     empty_checks = 0
+    last_files_generated_count = 0  # Track previous app_state value
 
     while True:
         # Process batch of messages (markdown generation is lightweight)
@@ -187,38 +219,58 @@ async def startup_queue_processor(
             # Track when queue first became empty
             if queue_empty_since is None:
                 queue_empty_since = current_time
+                # Get files generated count from app_state
+                files_generated_this_batch = (
+                    app_state.get("total_files_generated", 0)
+                    - last_files_generated_count
+                )
                 logger.info(
-                    f"📭 Queue empty after processing {total_processed_since_signal} new messages. "
+                    f"📭 Queue empty. "
+                    f"Generated {files_generated_this_batch} NEW markdown files in batch. "
                     f"Waiting {STABLE_EMPTY_DURATION}s to ensure processor burst complete..."
                 )
 
             # Calculate how long queue has been stable/empty
             stable_empty_seconds = (current_time - queue_empty_since).total_seconds()
 
-            # Signal site-publisher if queue stable AND new content processed since last signal
+            # FIXED: Signal site-publisher ONLY if NEW FILES were actually generated
             if (
                 stable_empty_seconds >= STABLE_EMPTY_DURATION
-                and total_processed_since_signal > 0
+                and files_generated_this_batch
+                > 0  # ← KEY FIX: Check FILES, not messages
             ):
                 logger.info(
-                    f"✅ Queue stable for {int(stable_empty_seconds)}s after processing "
-                    f"{total_processed_since_signal} new messages - signaling site-publisher"
+                    f"✅ Queue stable for {int(stable_empty_seconds)}s after generating "
+                    f"{files_generated_this_batch} NEW markdown files - signaling site-publisher"
                 )
                 await signal_site_publisher(
-                    total_processed_since_signal, output_container
+                    files_generated_this_batch, output_container
                 )
-                total_processed_since_signal = 0  # Reset counter after signaling
+                last_files_generated_count = app_state.get("total_files_generated", 0)
+                files_generated_this_batch = 0  # Reset counter after signaling
+                queue_empty_since = None  # Reset for next batch
                 logger.info(
                     "✅ Site-publisher signaled. Continuing to poll. "
                     "KEDA will scale to 0 after cooldown period."
                 )
+            elif (
+                stable_empty_seconds >= STABLE_EMPTY_DURATION
+                and files_generated_this_batch == 0
+            ):
+                # Queue empty but NO new files generated - don't signal
+                logger.info(
+                    f"✅ Queue stable for {int(stable_empty_seconds)}s but NO new markdown files generated. "
+                    "Skipping site-publisher signal (no work to do)."
+                )
+                queue_empty_since = None  # Reset to avoid repeated logging
 
             # Check if we should gracefully terminate (longer than stable period)
             idle_seconds = (current_time - last_activity_time).total_seconds()
             if idle_seconds >= MAX_IDLE_TIME:
                 logger.info(
                     f"🛑 Graceful shutdown: No messages for {int(idle_seconds)}s "
-                    f"(max: {MAX_IDLE_TIME}s). Processed {total_processed} messages total."
+                    f"(max: {MAX_IDLE_TIME}s). Processed {total_processed} messages, "
+                    f"generated {files_generated_this_batch} files in last batch."
                 )
                 break  # Exit loop, trigger cleanup and container shutdown
 
@@ -226,7 +278,8 @@ async def startup_queue_processor(
             if empty_checks % 10 == 1 and empty_checks > 1:
                 current_time_str = current_time.strftime("%H:%M:%S")
                 logger.info(
-                    f"✅ Queue still empty (processed {total_processed} total, "
+                    f"✅ Queue still empty (processed {total_processed} messages total, "
+                    f"generated {files_generated_this_batch} files this batch, "
                     f"stable: {int(stable_empty_seconds)}s/{STABLE_EMPTY_DURATION}s, "
                     f"idle: {int(idle_seconds)}s/{MAX_IDLE_TIME}s, last checked @ {current_time_str}). "
                     "Continuing to poll. KEDA will scale to 0 after cooldown period."
@@ -235,15 +288,19 @@ async def startup_queue_processor(
             # Wait longer when queue is empty to reduce polling load
             await asyncio.sleep(10)
         else:
-            # Messages processed - reset all empty/idle timers
+            # Messages processed - reset idle timer and empty queue tracking
             last_activity_time = current_time
             queue_empty_since = None  # Reset: queue no longer empty
             empty_checks = 0
             total_processed += messages_processed
-            total_processed_since_signal += messages_processed
+
+            # Get updated file generation count
+            new_files_count = app_state.get("total_files_generated", 0)
+            files_in_batch = new_files_count - last_files_generated_count
+
             logger.info(
-                f"📦 Processed {messages_processed} messages "
-                f"(batch total: {total_processed_since_signal}, lifetime: {total_processed}). "
+                f"📦 Processed {messages_processed} messages, "
+                f"generated {files_in_batch} NEW markdown files. "
                 "Checking for more..."
             )
 

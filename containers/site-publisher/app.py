@@ -94,9 +94,54 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
         # Message handler for queue polling
         async def message_handler(queue_message, message) -> dict[str, Any]:
-            """Process a single site publishing request from the queue."""
+            """
+            Process a single site publishing request from the queue.
+
+            Validates that markdown files were actually generated before triggering build.
+            This prevents false builds when no new content was produced.
+            """
             try:
                 logger.info(f"Processing queue message {queue_message.message_id}")
+
+                # Extract signal details
+                payload = queue_message.payload
+                operation = payload.get("operation")
+                content_summary = payload.get("content_summary", {})
+
+                # Validate message format
+                if not operation:
+                    logger.warning("Message missing 'operation' field, skipping")
+                    return {"status": "skipped", "reason": "Invalid message format"}
+
+                # CRITICAL: Only process markdown_generated operations
+                if operation != "markdown_generated":
+                    logger.info(
+                        f"Ignoring operation '{operation}' (not markdown_generated)"
+                    )
+                    return {
+                        "status": "skipped",
+                        "reason": f"Operation not markdown_generated: {operation}",
+                    }
+
+                # CRITICAL: Only build if markdown files were actually created
+                markdown_count = content_summary.get("files_created", 0)
+                markdown_failed = content_summary.get("files_failed", 0)
+
+                if markdown_count == 0:
+                    logger.info(
+                        f"Skipping Hugo build: {markdown_count} files created, "
+                        f"{markdown_failed} failed. No work to do."
+                    )
+                    return {
+                        "status": "skipped",
+                        "reason": "No markdown files created",
+                        "files_created": markdown_count,
+                    }
+
+                logger.info(
+                    f"Building site: {markdown_count} markdown files ready "
+                    f"({markdown_failed} had issues)"
+                )
 
                 # Call the build and deploy function
                 result = await build_and_deploy_site(
@@ -111,12 +156,14 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                     ).isoformat()
                     app_metrics["last_build_duration"] = result.duration_seconds
                     logger.info(
-                        f"Successfully built site ({result.files_uploaded} files)"
+                        f"Successfully built site ({result.files_uploaded} files, "
+                        f"{markdown_count} markdown sources)"
                     )
                     return {
                         "status": "success",
                         "files_uploaded": result.files_uploaded,
                         "duration": result.duration_seconds,
+                        "markdown_count": markdown_count,
                     }
                 else:
                     app_metrics["failed_builds"] += 1
@@ -125,6 +172,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                         "status": "error",
                         "errors": result.errors,
                         "files_uploaded": result.files_uploaded,
+                        "markdown_count": markdown_count,
                     }
 
             except Exception as e:

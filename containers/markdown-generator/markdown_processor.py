@@ -11,6 +11,7 @@ re-exporting functions from specialized modules:
 Main entry point: process_article() - orchestrates the full pipeline.
 """
 
+import hashlib
 import logging
 from datetime import UTC, datetime
 from typing import Any, Dict, Optional
@@ -174,6 +175,8 @@ async def process_article(
     Main orchestration function - composes pure functions and I/O operations.
     All dependencies passed as arguments (no hidden state).
 
+    Now tracks whether a NEW file was actually created (vs skipped as duplicate).
+
     Args:
         blob_service_client: Azure Blob Service client
         settings: Application settings
@@ -184,7 +187,7 @@ async def process_article(
         unsplash_access_key: Unsplash API key (loaded if None and enabled)
 
     Returns:
-        MarkdownGenerationResult: Processing result with status and timing
+        MarkdownGenerationResult: Processing result with status, timing, and file_created flag
 
     Examples:
         >>> # See integration tests
@@ -218,27 +221,77 @@ async def process_article(
         # Generate blob name (pure function)
         markdown_blob_name = generate_markdown_blob_name(blob_name)
 
+        # Calculate hash of generated markdown (for duplicate detection)
+        new_content_hash = hashlib.sha256(markdown_content.encode()).hexdigest()
+
+        # Check if file exists with same content (duplicate detection)
+        files_created = True
+        existing_hash = None
+
+        try:
+            container_client = blob_service_client.get_container_client(
+                settings.output_container
+            )
+            blob_client = container_client.get_blob_client(markdown_blob_name)
+
+            if await blob_client.exists():
+                # File exists - check if content is same
+                downloader = await blob_client.download_blob()
+                existing_content = await downloader.readall()
+                existing_hash = hashlib.sha256(existing_content).hexdigest()
+
+                if existing_hash == new_content_hash and not overwrite:
+                    # File exists with identical content - skip (duplicate)
+                    logger.info(
+                        f"Markdown file already exists with same content: {markdown_blob_name}. "
+                        "Skipping (duplicate detection)"
+                    )
+                    files_created = False
+                else:
+                    # File exists but content is different (or overwrite=True)
+                    logger.info(
+                        f"Updating existing markdown file: {markdown_blob_name} "
+                        f"(overwrite={overwrite})"
+                    )
+                    files_created = True
+        except Exception as e:
+            # If we can't check, assume it's new
+            logger.debug(f"Could not check existing blob: {e}, assuming new")
+            files_created = True
+
         # Write markdown to output container (I/O)
-        await write_markdown_to_blob(
-            blob_service_client,
-            settings.output_container,
-            markdown_blob_name,
-            markdown_content,
-            overwrite,
-        )
+        # Only write if file doesn't exist or overwrite is True
+        if files_created or overwrite:
+            await write_markdown_to_blob(
+                blob_service_client,
+                settings.output_container,
+                markdown_blob_name,
+                markdown_content,
+                overwrite=True,  # Force overwrite since we checked above
+            )
+            logger.info(
+                f"Successfully {'created' if files_created else 'updated'} markdown: {markdown_blob_name}"
+            )
+        else:
+            logger.info(f"Skipped writing markdown (duplicate): {markdown_blob_name}")
 
         processing_time = (datetime.now(UTC) - start_time).total_seconds() * 1000
 
         logger.info(
             f"Successfully processed article: {blob_name} -> "
             f"{markdown_blob_name} ({processing_time:.0f}ms) "
-            f"using template: {template_name}"
+            f"using template: {template_name} (files_created={files_created})"
         )
 
         return MarkdownGenerationResult(
             blob_name=blob_name,
             status=ProcessingStatus.COMPLETED,
             markdown_blob_name=markdown_blob_name,
+            files_created=files_created,
+            file_created_timestamp=(
+                datetime.now(UTC).isoformat() if files_created else None
+            ),
+            file_hash=new_content_hash,
             error_message=None,
             processing_time_ms=int(processing_time),
         )
@@ -250,6 +303,9 @@ async def process_article(
             blob_name=blob_name,
             status=ProcessingStatus.FAILED,
             markdown_blob_name=None,
+            files_created=False,
+            file_created_timestamp=None,
+            file_hash=None,
             error_message=error_msg,
             processing_time_ms=None,
         )
@@ -261,6 +317,9 @@ async def process_article(
             blob_name=blob_name,
             status=ProcessingStatus.FAILED,
             markdown_blob_name=None,
+            files_created=False,
+            file_created_timestamp=None,
+            file_hash=None,
             error_message=error_msg,
             processing_time_ms=None,
         )

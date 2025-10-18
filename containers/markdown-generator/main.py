@@ -49,7 +49,8 @@ configure_application_insights(service_name="markdown-generator")
 # Application state
 app_state: Dict[str, Any] = {
     "start_time": datetime.utcnow(),
-    "total_processed": 0,
+    "total_processed": 0,  # Total messages processed
+    "total_files_generated": 0,  # Total NEW files created (not duplicates)
     "total_failed": 0,
     "processing_times": [],
     "last_processed": None,
@@ -110,6 +111,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             message_handler=message_handler,
             max_batch_size=settings.max_batch_size,
             output_container=settings.output_container,
+            app_state=app_state,
         )
     )
 

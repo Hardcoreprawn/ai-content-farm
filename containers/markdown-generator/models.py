@@ -123,6 +123,17 @@ class MarkdownGenerationResult(BaseModel):
     markdown_blob_name: Optional[str] = Field(
         None, description="Name of generated markdown blob"
     )
+    files_created: bool = Field(
+        default=False,
+        description="Whether a new markdown file was actually created (vs skipped/duplicate)",
+    )
+    file_created_timestamp: Optional[str] = Field(
+        None, description="Timestamp when file was created (ISO-8601)"
+    )
+    file_hash: Optional[str] = Field(
+        None,
+        description="SHA256 hash of generated markdown content (for dedup detection)",
+    )
     error_message: Optional[str] = Field(None, description="Error details")
     processing_time_ms: Optional[int] = Field(
         None, description="Processing duration in milliseconds"
