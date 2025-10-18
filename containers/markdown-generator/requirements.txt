@@ -10,6 +10,7 @@ azure-storage-blob>=12.19.0,<13.0.0
 azure-storage-queue>=12.9.0,<13.0.0
 azure-keyvault-secrets>=4.7.0,<5.0.0  # For fetching Unsplash key
 aiohttp>=3.12.14,<4.0.0  # Security fix: CVE-2025-53643 (HTTP smuggling)
+azure-monitor-opentelemetry~=1.6.4  # Application Insights integration
 
 # Utilities
 python-dotenv>=1.0.1,<2.0.0

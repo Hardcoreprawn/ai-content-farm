@@ -86,3 +86,8 @@ freezegun~=1.5.1  # Time mocking for deterministic timestamp tests
 # 2. Verify OpenAI API calls work with 2.2.0
 # 3. Verify async tests pass with pytest-asyncio 1.2.0
 # 4. Check lxml XML/HTML parsing with 6.0.2
+
+# ============================================================================
+# Monitoring & Telemetry
+# ============================================================================
+azure-monitor-opentelemetry~=1.6.4  # Application Insights integration

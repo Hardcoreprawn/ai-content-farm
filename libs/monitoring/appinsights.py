@@ -8,6 +8,7 @@ import logging
 import os
 from typing import Any, Optional
 
+from azure.monitor.opentelemetry import configure_azure_monitor
 from opentelemetry import trace
 
 logger = logging.getLogger(__name__)
@@ -54,8 +55,6 @@ def configure_application_insights(
         return None
 
     try:
-        from azure.monitor.opentelemetry import configure_azure_monitor
-
         # Configure Azure Monitor with OpenTelemetry
         # Reduced instrumentation to minimize noise
         configure_azure_monitor(
@@ -93,8 +92,28 @@ def configure_application_insights(
         return tracer_provider
 
     except ImportError as e:
-        logger.warning(
-            f"Azure Monitor OpenTelemetry not installed: {e} - monitoring disabled"
+        # This is a critical issue - telemetry won't work without this package
+        logger.error(
+            f"""
+╔══════════════════════════════════════════════════════════════════╗
+║                  TELEMETRY DISABLED - CRITICAL                  ║
+╚══════════════════════════════════════════════════════════════════╝
+Missing required package for Application Insights monitoring:
+  Error: {e}
+
+This container will NOT send telemetry to Application Insights.
+
+To fix:
+  1. Install package: pip install azure-monitor-opentelemetry~=1.6.4
+  2. Rebuild container image
+  3. Redeploy container application
+
+Current environment:
+  SERVICE: {service_name}
+  CONNECTION_STRING: {conn_string[:50] if conn_string else 'NOT SET'}...
+
+See logs for telemetry validation results after fix.
+            """
         )
         return None
     except Exception as e:
