@@ -54,9 +54,9 @@ resource "null_resource" "configure_processor_keda_auth" {
             queueName=${azurerm_storage_queue.content_processing_requests.name} \
             queueLength=8 \
             activationQueueLength=1 \
+            cooldownPeriod=45 \
             cloud=AzurePublicCloud \
           --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
-          --cooldown-period 45 \
           --output none; then
           echo "✅ KEDA authentication configured for content-processor (queueLength=8, cooldown=45s)"
           exit 0
@@ -114,9 +114,9 @@ resource "null_resource" "configure_markdown_generator_keda_auth" {
             queueName=${azurerm_storage_queue.markdown_generation_requests.name} \
             queueLength=1 \
             activationQueueLength=1 \
+            cooldownPeriod=90 \
             cloud=AzurePublicCloud \
           --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
-          --cooldown-period 90 \
           --output none; then
           echo "✅ KEDA authentication configured for markdown-generator"
           exit 0
@@ -174,9 +174,9 @@ resource "null_resource" "configure_site_publisher_keda_auth" {
             queueLength=1 \
             activationQueueLength=1 \
             queueLengthStrategy=all \
+            cooldownPeriod=120 \
             cloud=AzurePublicCloud \
           --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
-          --cooldown-period 120 \
           --output none; then
           echo "✅ KEDA authentication configured for site-publisher (cooldown=120s)"
           exit 0
