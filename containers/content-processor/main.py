@@ -392,3 +392,4 @@ if __name__ == "__main__":
         log_level=settings.log_level.lower(),
         reload=settings.environment == "development",
     )
+# Version bump: Trigger rebuild with latest code (Oct 19, 2025)

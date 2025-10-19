@@ -415,3 +415,7 @@ async def get_status() -> Dict[str, Any]:
         "last_build": app_metrics["last_build_time"],
         "builds_today": app_metrics["total_builds"],
     }
+
+
+# Version bump: Trigger rebuild with latest code (Oct 19, 2025)
+# This includes: Homepage redesign with pagination, PaperMod defaults, and performance improvements

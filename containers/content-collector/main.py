@@ -264,3 +264,4 @@ if __name__ == "__main__":
 
     port = int(os.getenv("PORT", "8000"))
     uvicorn.run(app, host="0.0.0.0", port=port)
+# Version bump: Trigger rebuild with latest code (Oct 19, 2025)
