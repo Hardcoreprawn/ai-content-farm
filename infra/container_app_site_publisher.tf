@@ -113,13 +113,14 @@ resource "azurerm_container_app" "site_publisher" {
 
       env {
         name  = "MAX_IDLE_TIME_SECONDS"
-        value = "300" # 5 minutes - matches KEDA cooldown period
+        value = "240" # 4 minutes - allows margin beyond 120s KEDA cooldown (tuned October 2025)
       }
     }
 
     # Scale to zero when queue is empty
     # KEDA authentication configured via null_resource in container_apps_keda_auth.tf
-    # NOTE: cooldownPeriod=300s configured via Azure CLI (not supported by azurerm provider)
+    # cooldownPeriod=120s configured via Azure CLI (not supported by azurerm provider)
+    # Tuned October 2025: Reduced from 300s to 120s (Hugo builds are fast, ~15-30s)
     min_replicas = 0
     max_replicas = 1 # Hugo builds must be sequential: multiple replicas cause file conflicts and corrupt builds
 

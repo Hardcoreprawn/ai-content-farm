@@ -129,7 +129,8 @@ resource "azurerm_container_app" "content_processor" {
     max_replicas = 6 # Increased from 3: Testing showed 5 replicas hit OpenAI rate limits, 6 allows spike handling
 
     # KEDA scaling rules for Storage Queue messages with managed identity
-    # Updated for individual item processing (responsive scaling)
+    # Tuned for better throughput: smaller batches enable more parallelism
+    # Processing is CPU-bound (~30-45s per item), so split across more replicas
     custom_scale_rule {
       name             = "storage-queue-scaler"
       custom_rule_type = "azure-queue"
@@ -137,17 +138,18 @@ resource "azurerm_container_app" "content_processor" {
         queueName   = azurerm_storage_queue.content_processing_requests.name
         accountName = azurerm_storage_account.main.name
 
-        # CURRENT AZURE STATE: queueLength='1', activationQueueLength='8'
-        # This configuration matches the running production setup
-        # - queueLength='1': Responsive scaling - each message triggers replica scaling
-        # - activationQueueLength='8': Requires 8 messages before first replica activates
-        # This prevents over-aggressive scaling for small bursts while maintaining responsiveness
+        # KEDA Scale Rule Configuration (October 2025 Tuning)
+        # - queueLength='8': Process 8 items per replica before scaling (down from 16)
+        #   Smaller batches = more parallelism via multiple container instances
+        # - activationQueueLength='1': Quick activation when queue has items
+        # - cooldownPeriod='45s': Faster scale-down (configured via Azure CLI in container_apps_keda_auth.tf)
         queueLength = "8"
 
-        activationQueueLength = "1" # Minimum queue length to activate scaling (0->1 transition)
+        activationQueueLength = "1" # Activate scaling immediately when queue has messages
         cloud                 = "AzurePublicCloud"
       }
       # Managed identity authentication configured via null_resource (see container_apps_keda_auth.tf)
+      # Additional settings applied via Azure CLI provisioner: cooldownPeriod=45s
     }
   }
 

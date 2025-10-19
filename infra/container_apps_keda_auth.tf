@@ -30,8 +30,8 @@ resource "null_resource" "configure_processor_keda_auth" {
     scale_rule_name  = "storage-queue-scaler"
     queue_name       = azurerm_storage_queue.content_processing_requests.name
     identity_id      = azurerm_user_assigned_identity.containers.client_id
-    # Force reconfiguration to fix queueLength from 8 to 16
-    version = "v2"
+    # Tuned queueLength from 16 to 8 and cooldown from 60s to 45s for better throughput
+    version = "v3-keda-tuning"
   }
 
   provisioner "local-exec" {
@@ -52,12 +52,13 @@ resource "null_resource" "configure_processor_keda_auth" {
           --scale-rule-metadata \
             accountName=${azurerm_storage_account.main.name} \
             queueName=${azurerm_storage_queue.content_processing_requests.name} \
-            queueLength=16 \
+            queueLength=8 \
             activationQueueLength=1 \
             cloud=AzurePublicCloud \
           --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
+          --cooldown-period 45 \
           --output none; then
-          echo "✅ KEDA authentication configured for content-processor (queueLength=16)"
+          echo "✅ KEDA authentication configured for content-processor (queueLength=8, cooldown=45s)"
           exit 0
         else
           RETRY_COUNT=$((RETRY_COUNT + 1))
@@ -149,7 +150,8 @@ resource "null_resource" "configure_site_publisher_keda_auth" {
     scale_rule_name  = "site-publish-queue-scaler"
     queue_name       = azurerm_storage_queue.site_publishing_requests.name
     identity_id      = azurerm_user_assigned_identity.containers.client_id
-    version          = "v2"
+    # Tuned cooldown from 300s to 120s for faster scale-down (Hugo builds are fast)
+    version = "v3-keda-tuning"
   }
 
   provisioner "local-exec" {
@@ -174,8 +176,9 @@ resource "null_resource" "configure_site_publisher_keda_auth" {
             queueLengthStrategy=all \
             cloud=AzurePublicCloud \
           --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
+          --cooldown-period 120 \
           --output none; then
-          echo "✅ KEDA authentication configured for site-publisher"
+          echo "✅ KEDA authentication configured for site-publisher (cooldown=120s)"
           exit 0
         else
           RETRY_COUNT=$((RETRY_COUNT + 1))
