@@ -123,11 +123,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                         "reason": f"Operation not markdown_generated: {operation}",
                     }
 
-                # CRITICAL: Only build if markdown files were actually created
+                # Build if markdown files were created or if signal is for rebuild operation
                 markdown_count = content_summary.get("files_created", 0)
                 markdown_failed = content_summary.get("files_failed", 0)
+                force_rebuild = content_summary.get("force_rebuild", False)
 
-                if markdown_count == 0:
+                if markdown_count == 0 and not force_rebuild:
                     logger.info(
                         f"Skipping Hugo build: {markdown_count} files created, "
                         f"{markdown_failed} failed. No work to do."
@@ -138,10 +139,15 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
                         "files_created": markdown_count,
                     }
 
-                logger.info(
-                    f"Building site: {markdown_count} markdown files ready "
-                    f"({markdown_failed} had issues)"
-                )
+                if force_rebuild:
+                    logger.info(
+                        "Force rebuild requested - performing full site rebuild"
+                    )
+                else:
+                    logger.info(
+                        f"Building site: {markdown_count} markdown files ready "
+                        f"({markdown_failed} had issues)"
+                    )
 
                 # Call the build and deploy function
                 result = await build_and_deploy_site(

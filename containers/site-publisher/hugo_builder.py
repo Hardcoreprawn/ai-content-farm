@@ -300,9 +300,37 @@ async def deploy_to_web_container(
                     f"Failed to upload {file_path.name}: {sanitize_error_message(e)}"
                 )
 
+        # Clean up stale files: delete any files in the container that don't exist in Hugo output
+        logger.info("Removing stale files from deployed site...")
+        stale_count = 0
+        try:
+            # Get set of deployed file names
+            deployed_names = set()
+            for file_path in files_to_upload:
+                rel_path = file_path.relative_to(source_dir)
+                blob_name = str(rel_path).replace("\\", "/")
+                deployed_names.add(blob_name)
+
+            # List all files currently in container and delete those not in Hugo output
+            async for blob in container_client.list_blobs():
+                if blob.name not in deployed_names:
+                    try:
+                        await container_client.delete_blob(blob.name)
+                        stale_count += 1
+                        logger.debug(f"Deleted stale file: {blob.name}")
+                    except Exception as e:
+                        logger.warning(f"Failed to delete stale file {blob.name}: {e}")
+
+            if stale_count > 0:
+                logger.info(f"Removed {stale_count} stale files")
+
+        except Exception as e:
+            # Log but don't fail on cleanup errors
+            logger.warning(f"Error during stale file cleanup: {e}")
+
         duration = (datetime.now() - start_time).total_seconds()
         logger.info(
-            f"Deployed {uploaded_files} files with {len(errors)} errors in {duration:.2f}s"
+            f"Deployed {uploaded_files} files (removed {stale_count} stale) with {len(errors)} errors in {duration:.2f}s"
         )
 
         return DeploymentResult(
