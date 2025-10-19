@@ -135,10 +135,9 @@ resource "azurerm_container_app" "site_publisher" {
         queueLength           = "1"
         activationQueueLength = "1"
         queueLengthStrategy   = "all"
-        cooldownPeriod        = "120"
         cloud                 = "AzurePublicCloud"
       }
-      # Managed identity authentication configured via null_resource (see container_apps_keda_auth.tf)
+      # Managed identity authentication and cooldownPeriod configured via null_resource (see container_apps_keda_auth.tf)
     }
   }
 
