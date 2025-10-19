@@ -33,7 +33,7 @@
 
 <div class="post-list">
     {{- range .Paginator.Pages }}
-    {{- partial "post_card.html" . }}
+    {{- .Render "summary" }}
     {{- end }}
 </div>
 
