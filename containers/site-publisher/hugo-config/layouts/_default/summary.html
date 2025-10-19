@@ -1,0 +1,25 @@
+{{- define "summary" }}
+<article class="post-entry">
+    <header class="entry-header">
+        {{- $image := .Params.image }}
+        {{- if $image }}
+        <figure class="entry-image">
+            <img loading="lazy" src="{{ $image }}" alt="{{ .Title }}" />
+        </figure>
+        {{- end }}
+        <h2 class="entry-title">
+            <a href="{{ .Permalink }}" aria-label="{{ .Title }}">{{ .Title }}</a>
+        </h2>
+    </header>
+    {{- if .Summary }}
+    <section class="entry-content">
+        {{ .Summary }}
+    </section>
+    {{- end }}
+    <footer class="entry-footer">
+        {{- if .Date }}
+        <time class="entry-date">{{ .Date.Format "2006-01-02" }}</time>
+        {{- end }}
+    </footer>
+</article>
+{{- end }}
