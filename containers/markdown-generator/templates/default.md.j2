@@ -1,12 +1,4 @@
----
-title: "{{ metadata.title }}"
-date: "{{ metadata.published_date }}"
-draft: false
-tags: [{% for t in metadata.tags %}"{{ t }}"{% if not loop.last %}, {% endif %}{% endfor %}]
-params:
-  original_url: "{{ metadata.url }}"
-  source: "{{ metadata.source }}"
----
+{{ frontmatter }}
 
 {%- if article_data.summary %}
 

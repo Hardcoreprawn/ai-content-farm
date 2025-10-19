@@ -289,3 +289,287 @@ class TestTemplateRendering:
             assert ":" in frontmatter["title"]
         except yaml.YAMLError as e:
             pytest.fail(f"YAML frontmatter parsing failed for {template_name}: {e}")
+
+
+class TestImageDataFlow:
+    """Test that image data flows correctly through templates.
+
+    Verifies the complete pipeline:
+    1. Image fields in metadata
+    2. Frontmatter generation with cover image
+    3. Template rendering includes cover structure
+    4. Hugo can parse the result
+    """
+
+    @pytest.mark.parametrize(
+        "template_name",
+        ["default.md.j2", "minimal.md.j2", "with-toc.md.j2"],
+    )
+    def test_image_data_included_in_frontmatter(
+        self,
+        markdown_processor_deps: Dict[str, Any],
+        sample_article_data,
+        template_name,
+    ) -> None:
+        """
+        GIVEN article metadata with image fields
+        WHEN generating markdown with any template
+        THEN frontmatter includes cover image structure
+        """
+        # Arrange
+        jinja_env = markdown_processor_deps["jinja_env"]
+        metadata = ArticleMetadata(
+            title="Quantum Computing Breakthrough",
+            url="https://example.com/quantum",
+            source="reddit",
+            author="Dr. Jane Smith",
+            published_date=None,
+            category="technology",
+            tags=["quantum", "computing", "ai"],
+            # Image fields populated
+            hero_image="https://images.unsplash.com/photo-1526374965328-7f5ae4e8cfb6?w=1080&q=80",
+            thumbnail="https://images.unsplash.com/photo-1526374965328-7f5ae4e8cfb6?w=400&q=80",
+            image_alt="Quantum computer processor with blue lights",
+            image_credit="Photo by Author Name on Unsplash",
+            image_color="#1a1a2e",
+        )
+
+        # Act
+        markdown = generate_markdown_content(
+            sample_article_data, metadata, jinja_env, template_name
+        )
+
+        # Extract and parse frontmatter
+        parts = markdown.split("---")
+        assert len(parts) >= 3, "Markdown should have frontmatter delimiters"
+        frontmatter_text = parts[1].strip()
+
+        # Assert
+        try:
+            frontmatter = yaml.safe_load(frontmatter_text)
+
+            # Verify cover image structure (PaperMod theme expects this)
+            assert "cover" in frontmatter, "Frontmatter should include cover field"
+            assert isinstance(frontmatter["cover"], dict), "Cover should be a dict"
+            assert frontmatter["cover"]["image"] == metadata.hero_image
+            assert frontmatter["cover"]["alt"] == metadata.image_alt
+            assert frontmatter["cover"]["caption"] == metadata.image_credit
+            assert frontmatter["cover"]["relative"] is False
+
+            # Verify image metadata in params (for template customization)
+            assert "params" in frontmatter
+            assert frontmatter["params"]["thumbnail"] == metadata.thumbnail
+            assert frontmatter["params"]["image_color"] == metadata.image_color
+
+        except yaml.YAMLError as e:
+            pytest.fail(f"YAML parsing failed: {e}")
+
+    def test_image_fields_optional_graceful_degradation(
+        self,
+        markdown_processor_deps: Dict[str, Any],
+        sample_article_data,
+        create_metadata,
+    ) -> None:
+        """
+        GIVEN article metadata WITHOUT image fields
+        WHEN generating markdown
+        THEN markdown renders without cover section (graceful degradation)
+        """
+        # Arrange
+        jinja_env = markdown_processor_deps["jinja_env"]
+        metadata = create_metadata(
+            title="Regular Article",
+            url="https://example.com/regular",
+            source="rss",
+            tags=["tech"],
+        )
+
+        # Act
+        markdown = generate_markdown_content(
+            sample_article_data, metadata, jinja_env, "default.md.j2"
+        )
+
+        # Extract and parse frontmatter
+        parts = markdown.split("---")
+        frontmatter_text = parts[1].strip()
+        frontmatter = yaml.safe_load(frontmatter_text)
+
+        # Assert - graceful degradation
+        assert "cover" not in frontmatter, "No cover section if no images"
+        assert "title" in frontmatter, "Title still present"
+        assert "date" in frontmatter, "Date still present"
+        assert "params" in frontmatter, "Params still present"
+        # Content sections should still render
+        assert "## Summary" in markdown
+        assert "## Key Points" in markdown
+
+    def test_partial_image_data_handled_correctly(
+        self,
+        markdown_processor_deps: Dict[str, Any],
+        sample_article_data,
+        create_metadata,
+    ) -> None:
+        """
+        GIVEN article metadata with some image fields but not all
+        WHEN generating markdown
+        THEN only provided fields are included (missing fields don't cause errors)
+        """
+        # Arrange
+        jinja_env = markdown_processor_deps["jinja_env"]
+        metadata = create_metadata(
+            title="Partial Image Article",
+            url="https://example.com/partial",
+            source="mastodon",
+            # Only hero_image and alt provided
+            hero_image="https://images.unsplash.com/photo-xxx?w=1080",
+            image_alt="A descriptive alt text",
+            tags=["tech"],
+        )
+
+        # Act
+        markdown = generate_markdown_content(
+            sample_article_data, metadata, jinja_env, "default.md.j2"
+        )
+
+        # Extract and parse frontmatter
+        parts = markdown.split("---")
+        frontmatter_text = parts[1].strip()
+        frontmatter = yaml.safe_load(frontmatter_text)
+
+        # Assert - partial data handled gracefully
+        assert "cover" in frontmatter, "Cover section included with provided fields"
+        assert frontmatter["cover"]["image"] == metadata.hero_image
+        assert frontmatter["cover"]["alt"] == metadata.image_alt
+        # caption field should not be in cover if not provided
+        assert (
+            "caption" not in frontmatter["cover"]
+            or frontmatter["cover"]["caption"] is None
+        )
+        # Content renders normally
+        assert len(markdown) > 0
+
+    def test_image_urls_preserved_correctly(
+        self,
+        markdown_processor_deps: Dict[str, Any],
+        sample_article_data,
+        create_metadata,
+    ) -> None:
+        """
+        GIVEN image URLs with query parameters and special characters
+        WHEN generating markdown
+        THEN URLs are preserved exactly as provided
+        """
+        # Arrange
+        jinja_env = markdown_processor_deps["jinja_env"]
+        complex_image_url = "https://images.unsplash.com/photo-1234567890?w=1080&q=80&fmt=auto&crop=faces"
+        metadata = create_metadata(
+            title="Complex URL Test",
+            url="https://example.com/test",
+            source="reddit",
+            hero_image=complex_image_url,
+            image_alt="Test image with query params",
+            tags=["test"],
+        )
+
+        # Act
+        markdown = generate_markdown_content(
+            sample_article_data, metadata, jinja_env, "default.md.j2"
+        )
+
+        # Extract and parse frontmatter
+        parts = markdown.split("---")
+        frontmatter_text = parts[1].strip()
+        frontmatter = yaml.safe_load(frontmatter_text)
+
+        # Assert - URL preserved exactly
+        assert frontmatter["cover"]["image"] == complex_image_url
+        assert "?" in frontmatter["cover"]["image"], "Query parameters preserved"
+        assert "&" in frontmatter["cover"]["image"], "Multiple params preserved"
+
+    def test_image_credit_attribution_preserved(
+        self,
+        markdown_processor_deps: Dict[str, Any],
+        sample_article_data,
+        create_metadata,
+    ) -> None:
+        """
+        GIVEN image credit with markdown/HTML formatting
+        WHEN generating markdown
+        THEN credit text is preserved for template rendering
+        """
+        # Arrange
+        jinja_env = markdown_processor_deps["jinja_env"]
+        credit_text = "Photo by [Jane Doe](https://unsplash.com/@jane) on Unsplash"
+        metadata = create_metadata(
+            title="Image Attribution Test",
+            url="https://example.com/test",
+            source="rss",
+            hero_image="https://images.unsplash.com/photo-test?w=1080",
+            image_alt="Test photo",
+            image_credit=credit_text,
+            tags=["attribution"],
+        )
+
+        # Act
+        markdown = generate_markdown_content(
+            sample_article_data, metadata, jinja_env, "default.md.j2"
+        )
+
+        # Extract and parse frontmatter
+        parts = markdown.split("---")
+        frontmatter_text = parts[1].strip()
+        frontmatter = yaml.safe_load(frontmatter_text)
+
+        # Assert - credit preserved for Hugo theme to render
+        assert frontmatter["cover"]["caption"] == credit_text
+        assert "Jane Doe" in frontmatter["cover"]["caption"]
+        assert "https://unsplash.com/@jane" in frontmatter["cover"]["caption"]
+
+    @pytest.mark.parametrize(
+        "template_name",
+        ["default.md.j2", "minimal.md.j2", "with-toc.md.j2"],
+    )
+    def test_all_templates_preserve_image_data(
+        self,
+        markdown_processor_deps: Dict[str, Any],
+        sample_article_data,
+        template_name,
+        create_metadata,
+    ) -> None:
+        """
+        GIVEN different template choices
+        WHEN all render markdown with images
+        THEN all templates preserve image data in frontmatter
+        """
+        # Arrange
+        jinja_env = markdown_processor_deps["jinja_env"]
+        metadata = create_metadata(
+            title="Multi-Template Image Test",
+            url="https://example.com/test",
+            source="reddit",
+            hero_image="https://images.unsplash.com/photo-test?w=1080",
+            image_alt="Multi-template test image",
+            image_credit="Photo by Test Author",
+            thumbnail="https://images.unsplash.com/photo-test?w=400",
+            image_color="#ff5733",
+            tags=["test"],
+        )
+
+        # Act
+        markdown = generate_markdown_content(
+            sample_article_data, metadata, jinja_env, template_name
+        )
+
+        # Extract and parse frontmatter
+        parts = markdown.split("---")
+        frontmatter_text = parts[1].strip()
+        frontmatter = yaml.safe_load(frontmatter_text)
+
+        # Assert - all templates preserve image data
+        assert "cover" in frontmatter, f"{template_name} should have cover field"
+        assert frontmatter["cover"]["image"] is not None
+        assert frontmatter["cover"]["alt"] is not None
+        assert frontmatter["cover"]["caption"] is not None
+        assert "params" in frontmatter
+        assert frontmatter["params"]["thumbnail"] is not None
+        assert frontmatter["params"]["image_color"] is not None

@@ -70,3 +70,112 @@
     position: relative;
     z-index: 1;
 }
+
+/* ============================================
+   Image Styling: Summary Cards & Hero Images
+   ============================================ */
+
+/* Summary card entry images (homepage grid) */
+.entry-image {
+    margin: 0 0 12px 0;
+    overflow: hidden;
+    border-radius: 6px;
+    background-color: #f0f0f0;
+}
+
+.entry-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.post-entry:hover .entry-image img {
+    transform: scale(1.02);
+}
+
+/* Hero/cover image on article pages */
+.post-hero-image {
+    margin: 0 0 28px 0;
+    overflow: hidden;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    background-color: #f5f5f5;
+}
+
+.post-hero-image .hero-img {
+    width: 100%;
+    height: auto;
+    display: block;
+    max-height: 500px;
+    object-fit: cover;
+}
+
+/* Image attribution/credit */
+.image-credit {
+    font-size: 0.875rem;
+    color: #666;
+    padding: 10px 14px;
+    background-color: #f9f9f9;
+    margin: 0;
+    line-height: 1.4;
+    font-style: italic;
+    border-top: 1px solid #eee;
+}
+
+.post-hero-image .image-credit {
+    text-align: center;
+}
+
+.entry-image .image-credit {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+}
+
+/* Image in content (within article body) */
+.post-content img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 16px 0;
+    border-radius: 6px;
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 768px) {
+    .post-hero-image {
+        margin: 0 -20px 20px -20px;
+        border-radius: 0;
+    }
+
+    .post-hero-image .hero-img {
+        max-height: 300px;
+    }
+
+    .entry-image {
+        margin: 0 0 10px 0;
+    }
+
+    .image-credit {
+        font-size: 0.8rem;
+        padding: 8px 10px;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .image-credit {
+        color: #aaa;
+        background-color: #1a1a1a;
+        border-top-color: #333;
+    }
+
+    .post-hero-image {
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+        background-color: #1a1a1a;
+    }
+
+    .entry-image {
+        background-color: #2a2a2a;
+    }
+}

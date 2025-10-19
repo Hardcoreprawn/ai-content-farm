@@ -11,6 +11,7 @@ import pytest
 from azure.storage.blob import BlobServiceClient
 from jinja2 import Environment
 from markdown_processor import create_jinja_environment, process_article
+from models import ArticleMetadata
 
 from config import Settings  # type: ignore[import]
 
@@ -148,3 +149,38 @@ def markdown_processor_deps(
         "jinja_env": jinja_env,
         "unsplash_access_key": None,
     }
+
+
+@pytest.fixture
+def create_metadata() -> Any:
+    """
+    Factory fixture for creating ArticleMetadata with sensible defaults.
+
+    This simplifies test setup by providing a function that creates metadata
+    with all Optional fields properly initialized.
+
+    Usage:
+        metadata = create_metadata(title="My Article", hero_image="https://...")
+    """
+
+    def _create(**kwargs) -> ArticleMetadata:
+        """Create ArticleMetadata with defaults for all optional fields."""
+        defaults = {
+            "title": kwargs.get("title", "Test Article"),
+            "url": kwargs.get("url", "https://example.com/test"),
+            "source": kwargs.get("source", "test"),
+            "author": kwargs.get("author", None),
+            "published_date": kwargs.get("published_date", None),
+            "category": kwargs.get("category", None),
+            "tags": kwargs.get("tags", []),
+            "hero_image": kwargs.get("hero_image", None),
+            "thumbnail": kwargs.get("thumbnail", None),
+            "image_alt": kwargs.get("image_alt", None),
+            "image_credit": kwargs.get("image_credit", None),
+            "image_color": kwargs.get("image_color", None),
+        }
+        # Override defaults with any kwargs provided
+        defaults.update(kwargs)
+        return ArticleMetadata(**defaults)
+
+    return _create

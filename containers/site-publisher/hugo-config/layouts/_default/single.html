@@ -1,0 +1,43 @@
+{{- define "main" }}
+
+<article class="post-single">
+  <header class="post-header">
+    {{/* Display hero/cover image if present */}}
+    {{- with .Params.cover }}
+    <figure class="post-hero-image">
+      {{- with .image }}
+      <img loading="lazy" src="{{ . }}" alt="{{ .alt | default $.Title }}" class="hero-img" />
+      {{- end }}
+      {{- with .caption }}
+      <figcaption class="image-credit">{{ . }}</figcaption>
+      {{- end }}
+    </figure>
+    {{- end }}
+
+    <h1 class="post-title">{{ .Title }}</h1>
+    {{- if .Description }}
+    <p class="post-description">{{ .Description }}</p>
+    {{- end }}
+  </header>
+
+  {{/* Source Attribution - Show where content originated from */}}
+  {{ partial "source-attribution.html" . }}
+
+  {{- if .Content }}
+  <div class="post-content">
+    {{ .Content }}
+  </div>
+  {{- end }}
+
+  <footer class="post-footer">
+    {{- if .Params.tags }}
+    <ul class="post-tags">
+      {{- range ($.GetTerms "tags") }}
+      <li><a href="{{ .Permalink }}">{{ .LinkTitle }}</a></li>
+      {{- end }}
+    </ul>
+    {{- end }}
+  </footer>
+</article>
+
+{{- end }}{{/* end main */}}
