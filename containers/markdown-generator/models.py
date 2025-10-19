@@ -176,3 +176,6 @@ class MetricsResponse(BaseModel):
     last_processed: Optional[datetime] = Field(
         None, description="Last processing timestamp"
     )
+    rate_limit_status: Optional[Dict[str, Any]] = Field(
+        None, description="Unsplash API rate limit status (if stock images enabled)"
+    )

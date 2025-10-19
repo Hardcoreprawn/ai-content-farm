@@ -6,12 +6,21 @@ Provides automatic instrumentation for FastAPI, HTTP requests, and custom teleme
 
 import logging
 import os
+import warnings
 from typing import Any, Optional
 
 from azure.monitor.opentelemetry import configure_azure_monitor
 from opentelemetry import trace
 
 logger = logging.getLogger(__name__)
+
+# Suppress warnings about missing optional instrumentation packages
+# Azure Monitor tries to instrument all available libraries, but some are optional
+warnings.filterwarnings(
+    "ignore",
+    category=Warning,
+    message=".*psycopg2.*",
+)
 
 
 def configure_application_insights(
@@ -82,6 +91,12 @@ def configure_application_insights(
         logging.getLogger("azure.storage").setLevel(logging.WARNING)
         logging.getLogger("azure.identity").setLevel(logging.WARNING)
         logging.getLogger("opentelemetry").setLevel(logging.WARNING)
+
+        # Suppress warnings about missing optional instrumentation packages
+        # (e.g., psycopg2, pymongo) that Azure Monitor tries to instrument
+        logging.getLogger("azure.monitor.opentelemetry._configure").setLevel(
+            logging.ERROR
+        )
 
         logger.info(
             f"Application Insights configured (minimal instrumentation) for: {service_name}"

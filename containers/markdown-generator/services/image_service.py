@@ -11,13 +11,18 @@ from collections import Counter
 from typing import Any, Dict, List, Optional
 
 import aiohttp
+from services.unsplash_client import (
+    UnsplashError,
+    UnsplashRateLimitError,
+    get_unsplash_limiter,
+    search_unsplash_photo,
+)
 
 from libs.http_client import close_http_session, get_http_session
 
 logger = logging.getLogger(__name__)
 
 # Constants
-UNSPLASH_API_BASE_URL = "https://api.unsplash.com"
 STOPWORDS = {
     "the",
     "a",
@@ -347,9 +352,13 @@ async def search_unsplash_image(
     orientation: str = "landscape",
 ) -> Optional[Dict[str, Any]]:
     """
-    Search Unsplash API for image matching query.
+    Search Unsplash API for image matching query with rate limiting.
 
-    Pure async function - performs HTTP call but no other side effects.
+    This is a wrapper around the rate-limited Unsplash client that:
+    - Enforces rate limiting (50 req/hour free tier, using 0.4 req/sec)
+    - Implements exponential backoff on rate limit errors (403)
+    - Logs remaining quota for monitoring
+    - Returns standardized response format
 
     Args:
         access_key: Unsplash API access key
@@ -375,46 +384,46 @@ async def search_unsplash_image(
         return None
 
     try:
-        session = await get_http_session()
-        params = {
-            "query": clean_query,
-            "per_page": 1,  # Only need top result
-            "orientation": orientation,
-            "content_filter": "high",  # Family-friendly only
-        }
-        headers = {"Authorization": f"Client-ID {access_key}"}
-        url = f"{UNSPLASH_API_BASE_URL}/search/photos"
+        # Use rate-limited Unsplash client
+        photo = await search_unsplash_photo(
+            access_key=access_key,
+            query=clean_query,
+            orientation=orientation,
+        )
 
-        logger.info(f"Searching Unsplash for: {clean_query}")
-
-        async with session.get(url, params=params, headers=headers) as resp:
-            if resp.status != 200:
-                error_text = await resp.text()
-                logger.error(f"Unsplash API error: {resp.status} - {error_text}")
-                return None
-
-            data = await resp.json()
-
-            if not data.get("results"):
-                logger.warning(f"No images found for query: {query}")
-                return None
-
-            # Parse first result
-            photo = data["results"][0]
+        if photo:
+            # Parse and return standardized format
             result = parse_unsplash_photo(photo)
-
             logger.info(
                 f"Found image by {result['photographer']}: "
                 f"{result['description'][:50]}"
             )
-
             return result
+        else:
+            logger.info(f"No images found for query: {clean_query}")
+            return None
+
+    except UnsplashRateLimitError:
+        # Rate limit exceeded - log current status
+        limiter = get_unsplash_limiter()
+        status = limiter.get_stats()
+        logger.error(
+            f"Unsplash rate limit exceeded: {status}. "
+            f"Skipping image for '{clean_query}' to preserve quota"
+        )
+        return None
+
+    except UnsplashError as e:
+        # API error (auth, bad request, etc)
+        logger.error(f"Unsplash API error: {e}")
+        return None
 
     except aiohttp.ClientError as e:
         logger.error(f"Network error fetching image: {e}")
         return None
+
     except Exception as e:
-        logger.error(f"Unexpected error fetching image: {e}")
+        logger.error(f"Unexpected error fetching image: {e}", exc_info=True)
         return None
 
 

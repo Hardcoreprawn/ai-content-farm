@@ -33,6 +33,7 @@ from models import (
     ProcessingStatus,
 )
 from queue_processor import create_message_handler, startup_queue_processor
+from services.unsplash_client import get_unsplash_limiter
 
 from config import configure_logging, get_settings  # type: ignore[import]
 
@@ -199,8 +200,13 @@ async def get_status() -> MetricsResponse:
     """
     Get processing metrics and statistics.
 
+    Includes:
+    - Article processing count and times
+    - Uptime and last processed timestamp
+    - Unsplash API rate limit status (if stock images enabled)
+
     Returns:
-        MetricsResponse: Current metrics
+        MetricsResponse: Current metrics with rate limit info
     """
     uptime = (datetime.utcnow() - app_state["start_time"]).total_seconds()
 
@@ -210,12 +216,24 @@ async def get_status() -> MetricsResponse:
             app_state["processing_times"]
         )
 
+    # Get Unsplash rate limit status for monitoring
+    rate_limit_info = None
+    settings = get_settings()
+    if settings.enable_stock_images:
+        try:
+            limiter = get_unsplash_limiter()
+            rate_limit_info = limiter.get_stats()
+            logger.debug(f"Rate limit status: {rate_limit_info}")
+        except Exception as e:
+            logger.warning(f"Failed to get rate limit status: {e}")
+
     return MetricsResponse(
         total_processed=app_state["total_processed"],
         total_failed=app_state["total_failed"],
         average_processing_time_ms=avg_time,
         uptime_seconds=uptime,
         last_processed=app_state["last_processed"],
+        rate_limit_status=rate_limit_info,  # Include for monitoring
     )
 
 
