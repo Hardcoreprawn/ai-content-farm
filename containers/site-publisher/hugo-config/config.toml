@@ -20,6 +20,10 @@ buildExpired = false
   tag = "tags"
   category = "categories"
 
+# Pagination
+[pagination]
+  pagerSize = 12
+
 # Menu
 [[menu.main]]
   identifier = "home"
