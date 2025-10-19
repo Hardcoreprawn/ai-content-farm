@@ -53,12 +53,10 @@ resource "null_resource" "configure_processor_keda_auth" {
             accountName=${azurerm_storage_account.main.name} \
             queueName=${azurerm_storage_queue.content_processing_requests.name} \
             queueLength=8 \
-            activationQueueLength=1 \
-            cooldownPeriod=45 \
             cloud=AzurePublicCloud \
           --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
           --output none; then
-          echo "✅ KEDA authentication configured for content-processor (queueLength=8, cooldown=45s)"
+          echo "✅ KEDA authentication configured for content-processor (queueLength=8)"
           exit 0
         else
           RETRY_COUNT=$((RETRY_COUNT + 1))
@@ -113,8 +111,6 @@ resource "null_resource" "configure_markdown_generator_keda_auth" {
             accountName=${azurerm_storage_account.main.name} \
             queueName=${azurerm_storage_queue.markdown_generation_requests.name} \
             queueLength=1 \
-            activationQueueLength=1 \
-            cooldownPeriod=90 \
             cloud=AzurePublicCloud \
           --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
           --output none; then
@@ -172,13 +168,10 @@ resource "null_resource" "configure_site_publisher_keda_auth" {
             accountName=${azurerm_storage_account.main.name} \
             queueName=${azurerm_storage_queue.site_publishing_requests.name} \
             queueLength=1 \
-            activationQueueLength=1 \
-            queueLengthStrategy=all \
-            cooldownPeriod=120 \
             cloud=AzurePublicCloud \
           --scale-rule-auth workloadIdentity=${azurerm_user_assigned_identity.containers.client_id} \
           --output none; then
-          echo "✅ KEDA authentication configured for site-publisher (cooldown=120s)"
+          echo "✅ KEDA authentication configured for site-publisher"
           exit 0
         else
           RETRY_COUNT=$((RETRY_COUNT + 1))

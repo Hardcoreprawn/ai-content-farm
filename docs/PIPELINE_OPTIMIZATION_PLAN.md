@@ -227,27 +227,44 @@ async def collect_and_stream_to_processor(self, sources_data):
 ### 5. Index.html Homepage - Improve Quality 📱 MEDIUM IMPACT
 
 **Problem**:  
-Current homepage (index.html) is "still not good" - needs investigation and redesign.
+Current homepage has performance and layout issues:
+- Infinite scroll (ALL articles loaded in DOM)
+- Missing article images (text-only cards)
+- Poor performance (20+ sec load time)
+- No pagination support
 
-**Investigation Required**:
-- [ ] Review current Hugo template for homepage
-- [ ] Check responsive design on mobile/tablet
-- [ ] Verify article listing, pagination, and layout
-- [ ] Test accessibility (a11y) compliance
-- [ ] Get user feedback on design
+**Root Cause Analysis** (Completed ✅):
+- Custom `layouts/index.html` loops through all pages (no pagination)
+- Custom `layouts/partials/post_card.html` is minimal (no images)
+- CSS overrides conflict with PaperMod defaults
+- Images exist in markdown frontmatter but not rendered
 
-**Potential Issues**:
-- Poor article discovery (unclear navigation)
-- Weak visual design (not engaging)
-- Slow performance (large images, unoptimized CSS)
-- Missing metadata (SEO issues)
+**Solution** (Designed ✅):
+Replace custom templates with PaperMod defaults + add pagination:
+- ✅ Delete custom homepage → Use PaperMod default
+- ✅ Delete custom post card → Use PaperMod `.post-entry` (has images)
+- ✅ Add pagination config → 12 articles per page
+- ✅ Clean CSS overrides → Remove conflicts
+
+**Expected Results**:
+- Performance: 20+ sec → <5 sec load ⚡
+- Images: 0% → 100% coverage 📸
+- Memory: 50+ MB → ~10 MB 💾
+- Mobile: Laggy → Smooth ✅
+- Pagination: None → Yes (Pages 1, 2, 3...) 📖
+
+**Implementation** (Ready):
+See `/docs/HOMEPAGE_REDESIGN_SUMMARY.md` for quick reference.
+See `/docs/HOMEPAGE_REDESIGN_CODE_CHANGES.md` for exact code changes.
 
 **Action Items**:
-- [ ] Audit `site-publisher/templates/` Hugo templates
-- [ ] Review Core Web Vitals metrics for homepage
-- [ ] Create design mockups for improved layout
-- [ ] Implement iterative improvements
-- [ ] A/B test if significant changes
+- [ ] Update `config.toml` - add pagination (2 lines)
+- [ ] Delete `layouts/index.html` - use theme default
+- [ ] Delete `layouts/partials/post_card.html` - use theme default
+- [ ] Update `assets/css/custom.css` - remove post-entry CSS
+- [ ] Test locally (verify pagination + images)
+- [ ] Create PR and deploy via CI/CD
+- [ ] Monitor performance metrics post-deploy
 
 ---
 

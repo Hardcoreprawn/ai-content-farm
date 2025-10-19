@@ -135,21 +135,15 @@ resource "azurerm_container_app" "content_processor" {
       name             = "storage-queue-scaler"
       custom_rule_type = "azure-queue"
       metadata = {
-        queueName   = azurerm_storage_queue.content_processing_requests.name
-        accountName = azurerm_storage_account.main.name
-
-        # KEDA Scale Rule Configuration (October 2025 Tuning)
-        # - queueLength='8': Process 8 items per replica before scaling (down from 16)
-        #   Smaller batches = more parallelism via multiple container instances
-        # - activationQueueLength='1': Quick activation when queue has items
-        # - cooldownPeriod='45s': Faster scale-down (configured via Azure CLI in container_apps_keda_auth.tf)
-        queueLength = "8"
-
-        activationQueueLength = "1" # Activate scaling immediately when queue has messages
+        accountName           = azurerm_storage_account.main.name
+        queueName             = azurerm_storage_queue.content_processing_requests.name
+        queueLength           = "8"
+        activationQueueLength = "1"
+        queueLengthStrategy   = "all"
+        cooldownPeriod        = "45"
         cloud                 = "AzurePublicCloud"
       }
       # Managed identity authentication configured via null_resource (see container_apps_keda_auth.tf)
-      # Additional settings applied via Azure CLI provisioner: cooldownPeriod=45s
     }
   }
 
