@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """
 Trigger a full site rebuild by:
-1. Clearing the $web container
+1. Optionally clearing the $web container
 2. Sending a rebuild message to the queue
+
+Usage:
+    python trigger_full_rebuild.py              # Just send rebuild message
+    python trigger_full_rebuild.py --delete     # Clear $web and send rebuild message
+    python trigger_full_rebuild.py --help       # Show help
 """
 
+import argparse
 import asyncio
 import json
 import logging
@@ -91,6 +97,26 @@ async def send_rebuild_message(queue_client: QueueClient) -> str:
 
 async def main():
     """Main function."""
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(
+        description="Trigger a full site rebuild",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Just send rebuild message (Hugo will handle cleanup)
+  %(prog)s
+
+  # Clear $web container first, then rebuild (full clean rebuild)
+  %(prog)s --delete
+        """,
+    )
+    parser.add_argument(
+        "--delete",
+        action="store_true",
+        help="Clear the $web container before rebuild (optional, Hugo handles cleanup)",
+    )
+    args = parser.parse_args()
+
     try:
         # Get configuration from environment
         storage_account_name = os.getenv("AZURE_STORAGE_ACCOUNT_NAME")
@@ -103,6 +129,7 @@ async def main():
         logger.info(f"📋 Configuration:")
         logger.info(f"   Storage Account: {storage_account_name}")
         logger.info(f"   Queue Name: {queue_name}")
+        logger.info(f"   Clear $web: {args.delete}")
         logger.info("")
 
         # Create credentials
@@ -114,8 +141,14 @@ async def main():
             credential=credential,
         )
 
-        # Clear the $web container
-        blobs_deleted = await clear_web_container(blob_service_client)
+        # Optionally clear the $web container
+        blobs_deleted = 0
+        if args.delete:
+            blobs_deleted = await clear_web_container(blob_service_client)
+        else:
+            logger.info(
+                "⏭️  Skipping $web container deletion (Hugo will handle cleanup)"
+            )
 
         # Create queue client and send rebuild message
         queue_client = QueueClient(
@@ -128,13 +161,22 @@ async def main():
 
         logger.info("")
         logger.info("✨ Full rebuild triggered successfully!")
-        logger.info(f"   Cleared: {blobs_deleted} blobs from $web")
+        if args.delete:
+            logger.info(f"   Cleared: {blobs_deleted} blobs from $web")
+        else:
+            logger.info("   Cleared: none (Hugo will clean up automatically)")
         logger.info(f"   Message ID: {message_id}")
         logger.info("")
         logger.info("ℹ️  The site-publisher will:")
         logger.info("   1. Pick up the rebuild message from the queue")
         logger.info("   2. Perform a full Hugo build of all markdown files")
-        logger.info("   3. Deploy the built site to $web container")
+        if not args.delete:
+            logger.info("   3. Hugo will clean up stale files during build")
+        logger.info(
+            "   "
+            + ("4" if not args.delete else "3")
+            + ". Deploy the built site to $web container"
+        )
         logger.info("")
 
         # Cleanup
