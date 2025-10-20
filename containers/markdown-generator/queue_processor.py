@@ -128,17 +128,21 @@ async def signal_site_publisher(total_processed: int, output_container: str) -> 
         output_container: Container name where markdown files are stored
     """
     try:
-        # Create publish request message
+        # Create publish request message in correct format for site-publisher
         batch_id = f"collection-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
         publish_message = {
             "service_name": "markdown-generator",
-            "operation": "site_publish_request",
+            "operation": "markdown_generated",
             "payload": {
                 "batch_id": batch_id,
-                "markdown_count": total_processed,
                 "markdown_container": output_container,
                 "trigger": "queue_empty",
                 "timestamp": datetime.utcnow().isoformat(),
+            },
+            "content_summary": {
+                "files_created": total_processed,
+                "files_failed": 0,
+                "force_rebuild": False,
             },
         }
 
@@ -147,7 +151,7 @@ async def signal_site_publisher(total_processed: int, output_container: str) -> 
             result = await queue_client.send_message(publish_message)
             logger.info(
                 f"📤 Sent publish request to site-publisher "
-                f"(batch_id={batch_id}, message_id={result.get('message_id', 'unknown')})"
+                f"(batch_id={batch_id}, files_created={total_processed}, message_id={result.get('message_id', 'unknown')})"
             )
 
     except Exception as e:
