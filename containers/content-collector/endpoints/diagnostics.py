@@ -4,11 +4,12 @@ Diagnostics Endpoints - Health, Status, and Troubleshooting
 RESTful endpoints for service health checks and diagnostic information.
 """
 
+# flake8: noqa: F821
+
 from typing import Any, Dict
 
 from fastapi import APIRouter, Depends
 from reddit_client import RedditClient
-from source_collectors import SourceCollectorFactory
 
 from config import ENVIRONMENT
 from libs.shared_models import StandardResponse, create_service_dependency

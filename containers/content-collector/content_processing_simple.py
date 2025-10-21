@@ -8,7 +8,7 @@ Clean, simple content collection using the new simplified collectors.
 Provides batch collection and deduplication without complex strategies.
 
 Features:
-- Multi-source batch collection using factory pattern
+- Multi-source batch collection using simple collector dispatch
 - Simple content deduplication by hash
 - Configuration conversion from legacy formats
 - Clean error handling and metadata tracking
@@ -20,7 +20,26 @@ Clean, simple content collection using the new simplified collectors.
 import hashlib
 from typing import Any, Dict, List
 
-from collectors.factory import CollectorFactory
+from collectors.simple_mastodon import SimpleMastodonCollector
+from collectors.simple_reddit import SimpleRedditCollector
+from collectors.simple_rss import SimpleRSSCollector
+from collectors.simple_web import SimpleWebCollector
+
+
+def _get_collector(source_type: str, config: Dict[str, Any]):
+    """Get appropriate collector for source type - simple dispatch, no factory pattern."""
+    collectors = {
+        "reddit": SimpleRedditCollector,
+        "mastodon": SimpleMastodonCollector,
+        "rss": SimpleRSSCollector,
+        "web": SimpleWebCollector,
+    }
+
+    collector_class = collectors.get(source_type.lower())
+    if not collector_class:
+        raise ValueError(f"Unknown source type: {source_type}")
+
+    return collector_class(config)
 
 
 async def collect_content_batch(sources_data: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -45,8 +64,8 @@ async def collect_content_batch(sources_data: List[Dict[str, Any]]) -> Dict[str,
             # Convert source config to simplified collector format
             collector_config = _convert_source_config(source_config)
 
-            # Create and use simplified collector
-            collector = CollectorFactory.create_collector(source_type, collector_config)
+            # Create and use simplified collector (sync function, not async)
+            collector = _get_collector(source_type, collector_config)
 
             async with collector:
                 items = await collector.collect_with_retry()

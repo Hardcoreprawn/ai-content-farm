@@ -8,7 +8,7 @@ import logging
 
 import pytest
 
-from config import Settings, configure_logging, get_settings
+from config import Settings, configure_logging, get_settings  # type: ignore[import]
 
 
 class TestSettings:
