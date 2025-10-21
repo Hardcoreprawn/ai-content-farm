@@ -64,54 +64,73 @@
 
 ---
 
-## Phase 2: Quality Integration 🚧 IN PROGRESS
+## Phase 2: Quality Integration ✅ COMPLETE
 
-### Goals
+### Quality Module Created (200 lines, 20 tests)
 
-1. Move existing quality_gate.py logic → quality/review.py
-2. Refactor for item-level (not batch-level) operation
-3. Integrate into stream.py pipeline
-4. Keep all existing quality logic intact
+**quality/review.py**
+- `validate_item(item)` - Check required fields: id, title, content, source
+- `check_readability(item)` - Filters: min title/content length, readable text
+- `check_technical_relevance(item)` - Filters: tech keywords, off-topic sources
+- `review_item(item, check_relevance=True)` - Complete review pipeline
+  - Returns: (passes: bool, reason: Optional[str])
+  - Pure sync function (no I/O)
 
-### File Structure
+**Integration into stream.py**
+- Call `review_item()` after collect, before dedup
+- Track rejected_quality stat
+- Log rejection reason for debugging
 
-```
-containers/content-collector/
-├── quality/
-│   ├── __init__.py
-│   ├── review.py          # MOVE from quality_gate.py (item-level)
-│   ├── readability.py     # Keep existing
-│   ├── technical_relevance.py  # Keep existing
-│   └── fact_check.py      # Keep existing
-```
+### Tests Created (20 tests, all passing)
 
-### Implementation Steps
+**tests/test_quality_review.py**
+- 5 validation tests (required fields, types, structure)
+- 5 readability tests (length, content quality, markup detection)
+- 4 technical relevance tests (keywords, off-topic sources)
+- 5 integration tests (full pipeline, mixed items)
 
-1. **review.py** - Refactor review_item() for single items
-   - Input: standardized item dict
-   - Checks: readability, technical relevance, fact-check
-   - Output: reviewed_item (with review metadata) or None (rejected)
-   - No async yet (keep existing logic)
-
-2. **Integrate into stream.py**
-   - Already has placeholder: `from quality.review import review_item`
-   - Call after collect, before dedup
-   - Track rejected_quality stat
-
-3. **Test integration**
-   - Create test_quality_integration.py
-   - Verify review_item filters correctly
-   - Verify stats tracked
+**Result**: All 37 Phase 1+2 tests passing
 
 ---
 
-## Phase 3: API Endpoints
+## Phase 3: HTTP Endpoint for Manual Testing & Debugging
 
-### Goals
+### Purpose
+Manual collection trigger for:
+- Testing new subreddit/instance sources before adding to templates
+- Debugging quality filters on specific sources
+- Ad-hoc collection runs (one-off verification)
+- NOT used in production (templates use KEDA timer instead)
 
-1. Create HTTP endpoint for manual collection trigger
-2. Support parameters: subreddits, instances, min_score, max_items
-3. Return immediate response + async processing
+### Design: Simple Sync HTTP Endpoint
+
+Container App serves HTTP endpoint directly:
+- Accept parameters (subreddits, instances, filters)
+- Run collection immediately in request context
+- Return results with stats
+- Fast enough for manual testing
+
+```
+HTTP POST /collect
+  ↓
+Validate auth header
+  ↓
+Validate payload
+  ↓
+Run streaming pipeline (collect → review → dedupe → queue)
+  ↓
+Return: 200 OK with stats
+{
+  "status": "complete",
+  "stats": {
+    "collected": 42,
+    "published": 38,
+    "rejected_quality": 3,
+    "rejected_dedup": 1
+  },
+  "collection_id": "manual_abc123"
+}
+```
 
 ### File Structure
 
@@ -119,38 +138,153 @@ containers/content-collector/
 containers/content-collector/
 ├── endpoints/
 │   ├── __init__.py
-│   └── collect.py         # HTTP POST /collect
+│   └── collect.py         # POST /collect handler
+│
+├── auth/
+│   ├── __init__.py
+│   └── validate_auth.py   # API key validation
 ```
 
-### Endpoint Design
+### Authentication
+
+**Simple API Key** (via environment variable):
+- Request header: `x-api-key: <COLLECTION_API_KEY>`
+- Key stored in Key Vault, injected as env var to container
+- Used only for manual testing (not production-critical)
+- Can be rotated by updating container env var
 
 ```python
-# POST /collect
-{
-    "subreddits": ["programming", "learnprogramming"],
-    "instances": ["fosstodon.org"],
-    "min_score": 25,
-    "max_items": 50
-}
-
-# Response (immediate)
-{
-    "status": "processing",
-    "collection_id": "col_abc123",
-    "expected_items": 50
-}
-
-# Check status: GET /collect/col_abc123
-{
-    "status": "processing|complete",
-    "stats": {
-        "collected": 42,
-        "published": 38,
-        "rejected_quality": 3,
-        "rejected_dedup": 1
-    }
-}
+# Example validation
+def validate_api_key(headers: Dict[str, str]) -> bool:
+    provided_key = headers.get("x-api-key", "").strip()
+    expected_key = os.getenv("COLLECTION_API_KEY")
+    return provided_key == expected_key if expected_key else False
 ```
+
+### Endpoint: POST /collect
+
+**Purpose**: Manual collection trigger with immediate results
+
+```python
+async def collect_handler(request):
+    """
+    HTTP endpoint for manual collection testing.
+    
+    Request:
+    POST /collect
+    Headers: x-api-key: <key>
+    Body:
+    {
+        "subreddits": ["programming"],
+        "min_score": 25,
+        "max_items": 50
+    }
+    
+    Response:
+    {
+        "status": "complete",
+        "collection_id": "manual_abc123",
+        "stats": {
+            "collected": 42,
+            "published": 38,
+            "rejected_quality": 3,
+            "rejected_dedup": 1
+        }
+    }
+    """
+    # 1. Validate auth
+    if not validate_api_key(request.headers):
+        return 401 {"error": "Invalid API key"}
+    
+    # 2. Parse and validate payload
+    try:
+        payload = request.get_json()
+    except:
+        return 400 {"error": "Invalid JSON"}
+    
+    is_valid, error = validate_trigger_payload(payload)
+    if not is_valid:
+        return 400 {"error": error}
+    
+    # 3. Create collector
+    collection_id = f"manual_{uuid4().hex[:8]}"
+    
+    if payload.get("subreddits"):
+        collector = collect_reddit(
+            subreddits=payload["subreddits"],
+            min_score=payload.get("min_score", 25),
+            max_items=payload.get("max_items", 50)
+        )
+    elif payload.get("instances"):
+        collector = collect_mastodon(
+            instance=payload["instances"][0],
+            max_items=payload.get("max_items", 50)
+        )
+    else:
+        return 400 {"error": "No sources provided"}
+    
+    # 4. Run streaming pipeline (blocks during request)
+    stats = await stream_collection(
+        collector_fn=collector,
+        collection_id=collection_id,
+        collection_blob=f"manual-tests/{datetime.now(timezone.utc).isoformat()}.json",
+        blob_client=blob_client,
+        queue_client=queue_client
+    )
+    
+    # 5. Return results
+    return 200 {
+        "status": "complete",
+        "collection_id": collection_id,
+        "stats": stats
+    }
+```
+
+### Example Usage
+
+```bash
+# Test new subreddit before adding to templates
+curl -X POST http://localhost:8000/collect \
+  -H "x-api-key: $COLLECTION_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "subreddits": ["newsubreddit"],
+    "min_score": 25,
+    "max_items": 10
+  }'
+
+# Response
+{
+  "status": "complete",
+  "stats": {
+    "collected": 8,
+    "published": 7,
+    "rejected_quality": 1,
+    "rejected_dedup": 0
+  },
+  "collection_id": "manual_abc12345"
+}
+
+# Verify results in blob storage
+az storage blob list \
+  --account-name aicontentprodsa \
+  --container-name manual-tests \
+  --output table
+```
+
+### Testing Strategy
+
+1. **Unit tests**: Payload validation, auth, message creation (25 tests ✅)
+2. **Integration tests**: HTTP endpoint flow (validate → collect → queue)
+3. **Manual tests**: Curl against local/staging endpoint
+4. **Debugging**: Use collection_id to find blob results, verify quality filtering
+
+### Container App Setup
+
+- Add endpoint route in app.py or FastAPI handler
+- Inject COLLECTION_API_KEY env var from Key Vault
+- No special infrastructure needed (runs in existing container)
+- Request timeout: 30-60 seconds (manual testing is not time-critical)
 
 ---
 
