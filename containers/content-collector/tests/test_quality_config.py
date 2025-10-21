@@ -214,6 +214,25 @@ class TestPaywallHelpers:
         assert is_paywall_domain("https://www.medium.com/story") is False
         assert is_paywall_domain("https://github.com/repo") is False
 
+    def test_is_paywall_domain_path_based_blocks(self):
+        """Should detect path-based paywall blocks like medium.com/paywall."""
+        assert is_paywall_domain("https://medium.com/paywall/story") is True
+        assert is_paywall_domain("https://www.medium.com/paywall/article") is True
+        assert is_paywall_domain("https://theguardian.com/international/news") is True
+
+    def test_is_paywall_domain_subdomain_support(self):
+        """Should detect paywalls on subdomains."""
+        assert is_paywall_domain("https://archive.wired.com/article") is True
+        assert is_paywall_domain("https://blog.ft.com/article") is True
+
+    def test_is_paywall_domain_bypass_attempts(self):
+        """Should prevent URL bypass attacks like domain.evil.com."""
+        # These should NOT match wired.com
+        assert is_paywall_domain("https://wired.com.evil.com/article") is False
+        assert is_paywall_domain("https://evil-wired.com/article") is False
+        # But these SHOULD match
+        assert is_paywall_domain("https://subdomain.wired.com/article") is True
+
     def test_is_paywall_domain_invalid_input(self):
         """Should return False for invalid inputs gracefully."""
         # Test through type casting to simulate real-world edge cases

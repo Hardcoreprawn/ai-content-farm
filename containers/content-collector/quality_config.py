@@ -7,6 +7,7 @@ No business logic - only configuration data.
 
 import re
 from typing import Any, Dict, Optional, Set
+from urllib.parse import urlparse
 
 # ============================================================================
 # PAYWALL DETECTION - Keywords and domain blocklist
@@ -149,12 +150,39 @@ COMPARISON_REGEX = compile_regex_patterns(COMPARISON_PATTERNS)
 
 
 def is_paywall_domain(url: Any) -> bool:
-    """Check if URL is from known paywall domain."""
+    """Check if URL is from known paywall domain using proper hostname extraction.
+
+    Properly validates domain by extracting hostname and path, checking against blocklist.
+    This prevents bypass attempts like "wired.com.evil.com" while supporting both:
+    - Domain-only blocks: "wired.com"
+    - Domain+path blocks: "medium.com/paywall"
+    """
     if not isinstance(url, str):
         return False
 
-    url_lower = url.lower()
-    return any(domain in url_lower for domain in PAYWALL_DOMAINS)
+    try:
+        parsed = urlparse(url.lower())
+        hostname = parsed.hostname or parsed.netloc or ""
+        path = parsed.path or ""
+
+        # Build the full domain:path identifier for matching
+        for blocked_entry in PAYWALL_DOMAINS:
+            if "/" in blocked_entry:
+                # Path-based block like "medium.com/paywall"
+                domain, blocked_path = blocked_entry.split("/", 1)
+                if (
+                    hostname == domain or hostname.endswith("." + domain)
+                ) and blocked_path in path:
+                    return True
+            else:
+                # Domain-only block like "wired.com"
+                if hostname == blocked_entry or hostname.endswith("." + blocked_entry):
+                    return True
+
+        return False
+    except (ValueError, AttributeError):
+        # If URL parsing fails, be conservative and return False
+        return False
 
 
 def has_paywall_keyword(text: Any) -> bool:
