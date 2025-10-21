@@ -25,7 +25,6 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
-from models import CollectionRequest, DiscoveryRequest, SourceConfig
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 # Application Insights monitoring
