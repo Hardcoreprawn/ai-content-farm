@@ -194,6 +194,31 @@ async def startup_queue_processor(
 
     logger.info(f"🔍 Checking queue: {queue_name}")
 
+    # Log queue diagnostics on startup to help debug backlog issues
+    try:
+        async with get_queue_client(queue_name) as client:
+            props = await client.get_queue_properties()
+            logger.info(
+                f"📊 Queue diagnostics on startup: "
+                f"approximate_count={props.get('approximate_message_count', '?')}, "
+                f"peeked_visible={props.get('peeked_visible_messages', '?')}"
+            )
+
+            # Warning if there's a mismatch (suggests messages are invisible/locked)
+            approx = props.get("approximate_message_count", 0)
+            peeked = props.get("peeked_visible_messages", 0)
+            if approx > 0 and peeked == 0 and approx > 5:
+                logger.warning(
+                    f"⚠️  DIAGNOSTIC ALERT: Queue has ~{approx} messages but "
+                    f"{peeked} are visible. Messages may be locked/invisible from a previous run. "
+                    f"This commonly happens when: "
+                    f"1) Previous container crashed during processing, 2) Visibility timeout too long, "
+                    f"3) Messages failed to complete/delete. "
+                    f"Waiting for visibility timeout to expire (~60s)..."
+                )
+    except Exception as diag_err:
+        logger.warning(f"Could not get queue diagnostics on startup: {diag_err}")
+
     # Graceful termination settings
     MAX_IDLE_TIME = int(os.getenv("MAX_IDLE_TIME_SECONDS", "180"))
     last_activity_time = datetime.now(timezone.utc)
