@@ -26,6 +26,18 @@ class AsyncContextManagerHelper:
         pass
 
 
+class _Response:
+    """Wrapper to hold response status and json data."""
+
+    def __init__(self, status: int, json_data: Any):
+        self.status = status
+        self._json_data = json_data
+
+    async def json(self):
+        """Return already-parsed JSON."""
+        return self._json_data
+
+
 async def _rate_limited_get_impl(
     url: str,
     params: Optional[Dict[str, Any]] = None,
@@ -39,8 +51,8 @@ async def _rate_limited_get_impl(
 
     async with aiohttp.ClientSession() as session:
         async with session.get(url, params=params, headers=headers) as resp:
-            resp.data = await resp.json()
-            return resp
+            json_data = await resp.json()
+            return _Response(resp.status, json_data)
 
 
 def rate_limited_get(
