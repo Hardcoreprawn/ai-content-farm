@@ -9,7 +9,7 @@ import json
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from quality_gate import (
+from quality.gate import (
     emit_to_processor,
     get_pipeline_status,
     process_items,
@@ -53,7 +53,8 @@ class TestValidateItem:
         is_valid, error = validate_item(item)
 
         assert is_valid is False
-        assert "title" in error
+        assert error is not None
+        assert "title" in str(error)
 
     def test_validate_item_wrong_content_type(self):
         """Should reject non-string content."""
@@ -61,7 +62,8 @@ class TestValidateItem:
         is_valid, error = validate_item(item)
 
         assert is_valid is False
-        assert "content" in error
+        assert error is not None
+        assert "content" in str(error)
 
     def test_validate_item_not_dict(self):
         """Should reject non-dict items."""

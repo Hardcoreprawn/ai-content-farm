@@ -8,8 +8,8 @@ Pure math functions, no side effects.
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from quality_config import DETECTION_WEIGHTS, QUALITY_SCORE_THRESHOLD
-from quality_detectors import detect_content_quality
+from quality.config import DETECTION_WEIGHTS, QUALITY_SCORE_THRESHOLD
+from quality.detectors import detect_content_quality
 
 logger = logging.getLogger(__name__)
 

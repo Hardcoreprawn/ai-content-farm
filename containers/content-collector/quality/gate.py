@@ -21,10 +21,10 @@ import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
-from quality_config import get_quality_config
-from quality_dedup import apply_all_dedup_layers
-from quality_detectors import detect_content_quality
-from quality_scoring import calculate_quality_score, rank_items, score_items
+from quality.config import get_quality_config
+from quality.dedup import apply_all_dedup_layers
+from quality.detectors import detect_content_quality
+from quality.scoring import calculate_quality_score, rank_items, score_items
 
 logger = logging.getLogger(__name__)
 

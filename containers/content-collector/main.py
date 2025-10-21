@@ -17,11 +17,8 @@ from contextlib import asynccontextmanager
 from typing import Any, Dict
 
 from endpoints import (
-    collections_router,
-    discoveries_router,
-    reprocess_router,
     storage_queue_router,
-    templates_router,
+    trigger_router,
 )
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -58,54 +55,11 @@ async def graceful_shutdown(exit_code: int = 0):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager with KEDA cron auto-collection."""
+    """Application lifespan manager."""
     logger.info("Content Womble starting up...")
-
-    # Check if this startup was triggered by KEDA cron scaling
-    if os.getenv("KEDA_CRON_TRIGGER", "false").lower() == "true":
-        logger.info("Detected KEDA cron trigger - running scheduled collection")
-        try:
-            from endpoints.collections import run_scheduled_collection
-
-            metadata = {
-                "timestamp": time.time(),
-                "function": "content-womble",
-                "version": "1.0.0",
-            }
-            result = await run_scheduled_collection(metadata)
-            logger.info(f"Scheduled collection completed: {result.message}")
-
-            # Check if auto-shutdown is disabled (for development/testing)
-            disable_auto_shutdown = (
-                os.getenv("DISABLE_AUTO_SHUTDOWN", "false").lower() == "true"
-            )
-
-            if disable_auto_shutdown:
-                logger.info(
-                    "Scheduled collection completed - container will remain active (DISABLE_AUTO_SHUTDOWN=true)"
-                )
-            else:
-                logger.info(
-                    "Scheduled collection completed - scheduling graceful shutdown"
-                )
-                # Schedule graceful shutdown after collection
-                asyncio.create_task(graceful_shutdown())
-
-        except Exception as e:
-            logger.error(f"Failed to run scheduled collection: {str(e)}")
-            disable_auto_shutdown = (
-                os.getenv("DISABLE_AUTO_SHUTDOWN", "false").lower() == "true"
-            )
-            if disable_auto_shutdown:
-                logger.warning(
-                    "Collection error occurred but container will remain active (DISABLE_AUTO_SHUTDOWN=true)"
-                )
-            else:
-                # Schedule shutdown with error
-                asyncio.create_task(graceful_shutdown(exit_code=1))
-
-    # KEDA cron scaling handles scheduling - no background polling needed
-    logger.info("Content Womble startup complete - ready for KEDA cron triggers")
+    logger.info(
+        "KEDA cron scaling configured - ready for scheduled collection triggers"
+    )
 
     try:
         yield
@@ -242,15 +196,10 @@ async def method_not_allowed_handler(request: Request, exc):
 # API Routes
 # Root, health, and status endpoints are provided by shared library above
 
-# Include routers with proper REST endpoints
-# TEMPORARILY DISABLED during collector architecture refactoring
-# app.include_router(diagnostics_router)  # Includes /, /health, /status, /reddit/diagnostics
-app.include_router(collections_router)  # /collections endpoints
-app.include_router(discoveries_router)  # /discoveries endpoints
-# app.include_router(sources_router)  # /sources endpoints - Disabled during refactoring
-app.include_router(templates_router)  # /templates endpoints
-app.include_router(reprocess_router)  # /reprocess endpoints
-# Storage Queue endpoints for KEDA integration
+# Include routers - Streaming architecture
+# Manual trigger endpoint for ad-hoc collection testing
+app.include_router(trigger_router)
+# Storage Queue endpoints for KEDA cron integration
 app.include_router(storage_queue_router)
 
 

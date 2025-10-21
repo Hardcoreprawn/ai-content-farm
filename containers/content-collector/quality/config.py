@@ -5,6 +5,7 @@ Single source of truth for all detection patterns, thresholds, and defaults.
 No business logic - only configuration data.
 """
 
+import copy
 import re
 from typing import Any, Dict, Optional, Set
 from urllib.parse import urlparse
@@ -196,7 +197,7 @@ def has_paywall_keyword(text: Any) -> bool:
 
 def get_quality_config(overrides: Optional[Dict] = None) -> Dict:
     """Get configuration with optional overrides."""
-    config = DEFAULT_CONFIG.copy()
+    config = copy.deepcopy(DEFAULT_CONFIG)
     if overrides and isinstance(overrides, dict):
         config.update(overrides)
     return config

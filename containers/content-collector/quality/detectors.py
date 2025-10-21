@@ -12,7 +12,7 @@ Pure functions, defensive coding, reusable across modules.
 import logging
 from typing import Any, Dict, Optional, Tuple
 
-from quality_config import (
+from quality.config import (
     COMPARISON_KEYWORDS,
     COMPARISON_REGEX,
     LISTICLE_REGEX,

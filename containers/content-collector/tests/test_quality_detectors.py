@@ -11,7 +11,7 @@ Focus on input/output contracts and real-world edge cases.
 """
 
 import pytest
-from quality_detectors import (
+from quality.detectors import (
     detect_comparison,
     detect_content_length,
     detect_content_quality,

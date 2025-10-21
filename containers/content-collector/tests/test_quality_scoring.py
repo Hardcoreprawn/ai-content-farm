@@ -6,7 +6,7 @@ Focus on input/output contracts and scoring correctness.
 """
 
 import pytest
-from quality_scoring import (
+from quality.scoring import (
     add_score_metadata,
     calculate_quality_score,
     rank_items,

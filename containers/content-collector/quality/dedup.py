@@ -106,14 +106,13 @@ async def filter_duplicates_today(
         today_hashes: Set[str] = set()
 
         try:
-            async for blob in blob_client.list_blobs(
-                container_name, name_starts_with=prefix
-            ):
+            container = blob_client.get_container_client(container_name)
+            async for blob in container.list_blobs(name_starts_with=prefix):
                 if not blob.name.endswith(".json"):
                     continue
 
                 try:
-                    article_json = await blob_client.download_blob(blob.name).readall()
+                    article_json = await container.download_blob(blob.name).readall()
                     article_data = json.loads(article_json)
 
                     if "title" in article_data and "content" in article_data:
@@ -182,7 +181,8 @@ async def filter_duplicates_historical(
         published_urls: Set[str] = set()
 
         try:
-            metadata_blob = await blob_client.download_blob(metadata_path).readall()
+            container = blob_client.get_container_client("processed-content")
+            metadata_blob = await container.download_blob(metadata_path).readall()
             metadata = json.loads(metadata_blob)
             published_urls = set(metadata.get("urls", []))
         except Exception as e:

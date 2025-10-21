@@ -4,6 +4,11 @@ from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
 
+from fastapi import APIRouter
+
+# Create API router
+router = APIRouter(prefix="/collect", tags=["collection"])
+
 
 def validate_trigger_payload(payload: Any) -> Tuple[bool, Optional[str]]:
     """

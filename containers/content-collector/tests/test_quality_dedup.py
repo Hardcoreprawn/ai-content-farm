@@ -10,7 +10,7 @@ Tests deduplication contracts:
 import hashlib
 
 import pytest
-from quality_dedup import (
+from quality.dedup import (
     filter_duplicates_in_batch,
     hash_content,
 )

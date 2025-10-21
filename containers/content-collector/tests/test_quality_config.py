@@ -8,7 +8,7 @@ Ensures critical configuration remains stable across changes.
 import re
 
 import pytest
-from quality_config import (
+from quality.config import (
     COMPARISON_KEYWORDS,
     COMPARISON_REGEX,
     DEFAULT_CONFIG,
