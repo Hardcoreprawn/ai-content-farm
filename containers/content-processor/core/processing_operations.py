@@ -8,11 +8,11 @@ import logging
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
-from aiolimiter import AsyncLimiter
 from models import TopicMetadata
 from openai import AsyncAzureOpenAI
 from operations.article_operations import generate_article_with_cost, get_openai_config
 from operations.metadata_operations import generate_metadata_with_cost
+from utils.rate_limiter import AsyncLimiter  # type: ignore[import]
 
 logger = logging.getLogger(__name__)
 
