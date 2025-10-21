@@ -7,6 +7,17 @@
 
 ## ✅ Recent Achievements
 
+### 🔧 HOTFIX: Queue Visibility Timeout - October 21, 2025 ✅ DEPLOYED
+**Issue**: Markdown-generator showing queue backlog but receiving 0 messages
+**Root Cause**: 600-second visibility timeout causing messages to lock/become invisible
+**Solution**: 
+- Reduced visibility_timeout from 600s → 60s (sufficient for markdown generation)
+- Added queue diagnostics to `get_queue_properties()` for future debugging
+- Enhanced startup logging to detect invisible message conditions
+- See `/docs/QUEUE_BACKLOG_FIX.md` for full analysis
+
+**Result**: ✅ Queued messages now processed immediately, no more false "empty queue" shutdowns
+
 ### 🎉 PHASE 3a: Storage Structure Refactoring - October 17, 2025 ✅ COMPLETE
 **Achievement**: Implemented cleaner, date-queryable blob storage structure
 **Implementation**: 

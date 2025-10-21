@@ -12,7 +12,7 @@ import logging
 import os
 from typing import Optional
 
-from aiolimiter import AsyncLimiter
+from aiolimiter import AsyncLimiter  # type: ignore[import]
 from azure.identity.aio import DefaultAzureCredential
 from azure.storage.queue.aio import QueueClient
 from core.processor_context import ProcessorContext, create_processor_context

@@ -226,26 +226,17 @@ class StorageQueueClient(QueueClientInterface):
             # Get the async iterator - this is the Azure SDK AsyncItemPaged object
             message_pager = self._queue_client.receive_messages(
                 messages_per_page=max_msgs,
-                visibility_timeout=600,  # 10 minutes - allows for site builds taking 3-5 minutes
+                visibility_timeout=60,  # 60 seconds - reasonable for message processing and deletion
             )
 
-            # Properly manage the async iterator lifecycle
-            try:
-                # Use async for but ensure we don't break without cleanup
-                count = 0
-                async for message in message_pager:
-                    messages.append(message)
-                    count += 1
-                    # Stop after max_msgs, but iterator will auto-close at loop end
-                    if count >= max_msgs:
-                        break
-            finally:
-                # Explicitly close the iterator if it has cleanup
-                # Azure AsyncItemPaged should have aclose() or close()
-                if hasattr(message_pager, "aclose"):
-                    await message_pager.aclose()
-                elif hasattr(message_pager, "close"):
-                    await message_pager.close()
+            # Azure AsyncItemPaged auto-closes when iteration ends
+            count = 0
+            async for message in message_pager:
+                messages.append(message)
+                count += 1
+                # Stop after max_msgs to limit results
+                if count >= max_msgs:
+                    break
 
             logger.info(
                 f"Received {len(messages)} messages from queue '{self.queue_name}'"
@@ -287,13 +278,22 @@ class StorageQueueClient(QueueClientInterface):
         try:
             properties = await self._queue_client.get_queue_properties()
 
+            # Try to peek at visible messages (without locking them)
+            # This helps diagnose when messages are stuck/invisible due to processing failures
+            peek_count = 0
+            try:
+                peeked = await self._queue_client.peek_messages(messages_per_page=32)
+                peek_count = len(peeked) if peeked else 0
+            except Exception as peek_err:
+                logger.debug(f"Could not peek messages: {peek_err}")
+                peek_count = -1  # Unable to peek
+
             return {
                 "approximate_message_count": properties.approximate_message_count,
+                "peeked_visible_messages": peek_count,
                 "metadata": properties.metadata or {},
                 "queue_name": self.queue_name,
                 "storage_account": self.storage_account_name,
-                "last_modified": properties.last_modified,
-                "etag": properties.etag,
             }
 
         except Exception as e:

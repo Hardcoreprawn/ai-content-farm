@@ -128,17 +128,21 @@ async def signal_site_publisher(total_processed: int, output_container: str) -> 
         output_container: Container name where markdown files are stored
     """
     try:
-        # Create publish request message
+        # Create publish request message in correct format for site-publisher
         batch_id = f"collection-{datetime.utcnow().strftime('%Y%m%d-%H%M%S')}"
         publish_message = {
             "service_name": "markdown-generator",
-            "operation": "site_publish_request",
+            "operation": "markdown_generated",
             "payload": {
                 "batch_id": batch_id,
-                "markdown_count": total_processed,
                 "markdown_container": output_container,
                 "trigger": "queue_empty",
                 "timestamp": datetime.utcnow().isoformat(),
+            },
+            "content_summary": {
+                "files_created": total_processed,
+                "files_failed": 0,
+                "force_rebuild": False,
             },
         }
 
@@ -147,7 +151,7 @@ async def signal_site_publisher(total_processed: int, output_container: str) -> 
             result = await queue_client.send_message(publish_message)
             logger.info(
                 f"📤 Sent publish request to site-publisher "
-                f"(batch_id={batch_id}, message_id={result.get('message_id', 'unknown')})"
+                f"(batch_id={batch_id}, files_created={total_processed}, message_id={result.get('message_id', 'unknown')})"
             )
 
     except Exception as e:
@@ -189,6 +193,31 @@ async def startup_queue_processor(
     from datetime import datetime, timezone
 
     logger.info(f"🔍 Checking queue: {queue_name}")
+
+    # Log queue diagnostics on startup to help debug backlog issues
+    try:
+        async with get_queue_client(queue_name) as client:
+            props = await client.get_queue_properties()
+            logger.info(
+                f"📊 Queue diagnostics on startup: "
+                f"approximate_count={props.get('approximate_message_count', '?')}, "
+                f"peeked_visible={props.get('peeked_visible_messages', '?')}"
+            )
+
+            # Warning if there's a mismatch (suggests messages are invisible/locked)
+            approx = props.get("approximate_message_count", 0)
+            peeked = props.get("peeked_visible_messages", 0)
+            if approx > 0 and peeked == 0 and approx > 5:
+                logger.warning(
+                    f"⚠️  DIAGNOSTIC ALERT: Queue has ~{approx} messages but "
+                    f"{peeked} are visible. Messages may be locked/invisible from a previous run. "
+                    f"This commonly happens when: "
+                    f"1) Previous container crashed during processing, 2) Visibility timeout too long, "
+                    f"3) Messages failed to complete/delete. "
+                    f"Waiting for visibility timeout to expire (~60s)..."
+                )
+    except Exception as diag_err:
+        logger.warning(f"Could not get queue diagnostics on startup: {diag_err}")
 
     # Graceful termination settings
     MAX_IDLE_TIME = int(os.getenv("MAX_IDLE_TIME_SECONDS", "180"))

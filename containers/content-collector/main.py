@@ -18,10 +18,8 @@ from typing import Any, Dict
 
 from endpoints import (
     collections_router,
-    diagnostics_router,
     discoveries_router,
     reprocess_router,
-    sources_router,
     storage_queue_router,
     templates_router,
 )
@@ -245,12 +243,11 @@ async def method_not_allowed_handler(request: Request, exc):
 # Root, health, and status endpoints are provided by shared library above
 
 # Include routers with proper REST endpoints
-app.include_router(
-    diagnostics_router
-)  # Includes /, /health, /status, /reddit/diagnostics
+# TEMPORARILY DISABLED during collector architecture refactoring
+# app.include_router(diagnostics_router)  # Includes /, /health, /status, /reddit/diagnostics
 app.include_router(collections_router)  # /collections endpoints
 app.include_router(discoveries_router)  # /discoveries endpoints
-app.include_router(sources_router)  # /sources endpoints
+# app.include_router(sources_router)  # /sources endpoints - Disabled during refactoring
 app.include_router(templates_router)  # /templates endpoints
 app.include_router(reprocess_router)  # /reprocess endpoints
 # Storage Queue endpoints for KEDA integration
