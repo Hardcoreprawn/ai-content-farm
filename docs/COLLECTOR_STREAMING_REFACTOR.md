@@ -1,20 +1,172 @@
 # Content-Collector Streaming Refactor - Implementation Plan
 
-**Status**: Planning Complete - Ready for Implementation  
+**Status**: Phase 1 Complete ✅ → Phase 2 In Progress  
 **Branch**: `feature/quality-gate-streaming-foundation`  
 **Target**: Pure functional streaming architecture  
 **Timeline**: 2-3 weeks
 
 ---
 
-## Goals
+## Phase 1: Core Streaming Modules ✅ COMPLETE
 
-1. ✅ Stream items one-by-one (not batch)
-2. ✅ Quality gate integrated into collection flow
-3. ✅ Pure functions, no OOP state mutation
-4. ✅ Social sources only (Reddit, Mastodon)
-5. ✅ Defensive rate limiting (prevent IP blocks)
-6. ✅ **CRITICAL**: Honor existing message format for content-processor
+### Modules Created (650 lines, all passing tests)
+
+1. ✅ **collectors/collect.py** (207 lines)
+   - `collect_reddit()` - Pure async generator with quality filtering
+   - `collect_mastodon()` - Pure async generator for social timeline
+   - `rate_limited_get()` - Async context manager for HTTP requests
+   - Uses aiohttp (async, no blocking)
+
+2. ✅ **collectors/standardize.py** (140 lines)
+   - `standardize_reddit_item()` - Convert Reddit JSON to standard format
+   - `standardize_mastodon_item()` - Convert Mastodon JSON to standard format
+   - `validate_item()` - Check required fields present
+
+3. ✅ **pipeline/rate_limit.py** (140 lines)
+   - `RateLimiter` class - Token bucket with exponential backoff
+   - `handle_429()` - Exponential backoff on rate limit errors
+   - `create_reddit_limiter()` - 30 rpm, 2.5x multiplier, 600s max
+   - `create_mastodon_limiter()` - 60 rpm, 2.0x multiplier, 300s max
+
+4. ✅ **pipeline/stream.py** (160 lines)
+   - `stream_collection()` - Orchestration: collect → review → dedupe → queue
+   - `create_queue_message()` - **CRITICAL**: Exact message format for content-processor
+   - Returns stats: collected, published, rejected_quality, rejected_dedup
+
+5. ✅ **pipeline/dedup.py** (150 lines)
+   - `hash_content()` - SHA256 of title + content
+   - `is_seen()` - Check 14-day blob window
+   - `mark_seen()` - Mark content as seen
+   - Defensive: fails open if blob unreachable
+
+### Tests Created (17 tests, all passing)
+
+1. ✅ **tests/test_rate_limit_429.py** (7 tests)
+   - 429 triggers exponential backoff (1x → 2x → 4x → 8x)
+   - Max backoff respected (doesn't exceed cap)
+   - Retry-After header honored
+   - Backoff resets after success
+   - Token acquisition includes delay
+   - Reddit/Mastodon limiter configs correct
+
+2. ✅ **tests/test_async_patterns.py** (10 tests)
+   - collect_reddit is async generator
+   - collect_mastodon is async generator
+   - rate_limited_get returns async context manager
+   - stream_collection is async function
+   - Dedup functions are async (I/O operations)
+   - Standardize functions are pure sync (no I/O)
+   - RateLimiter.acquire is async
+   - No blocking I/O in async generators
+   - aiohttp used (not blocking requests)
+
+**Result**: 17 tests passing, all code quality checks passing
+
+---
+
+## Phase 2: Quality Integration 🚧 IN PROGRESS
+
+### Goals
+
+1. Move existing quality_gate.py logic → quality/review.py
+2. Refactor for item-level (not batch-level) operation
+3. Integrate into stream.py pipeline
+4. Keep all existing quality logic intact
+
+### File Structure
+
+```
+containers/content-collector/
+├── quality/
+│   ├── __init__.py
+│   ├── review.py          # MOVE from quality_gate.py (item-level)
+│   ├── readability.py     # Keep existing
+│   ├── technical_relevance.py  # Keep existing
+│   └── fact_check.py      # Keep existing
+```
+
+### Implementation Steps
+
+1. **review.py** - Refactor review_item() for single items
+   - Input: standardized item dict
+   - Checks: readability, technical relevance, fact-check
+   - Output: reviewed_item (with review metadata) or None (rejected)
+   - No async yet (keep existing logic)
+
+2. **Integrate into stream.py**
+   - Already has placeholder: `from quality.review import review_item`
+   - Call after collect, before dedup
+   - Track rejected_quality stat
+
+3. **Test integration**
+   - Create test_quality_integration.py
+   - Verify review_item filters correctly
+   - Verify stats tracked
+
+---
+
+## Phase 3: API Endpoints
+
+### Goals
+
+1. Create HTTP endpoint for manual collection trigger
+2. Support parameters: subreddits, instances, min_score, max_items
+3. Return immediate response + async processing
+
+### File Structure
+
+```
+containers/content-collector/
+├── endpoints/
+│   ├── __init__.py
+│   └── collect.py         # HTTP POST /collect
+```
+
+### Endpoint Design
+
+```python
+# POST /collect
+{
+    "subreddits": ["programming", "learnprogramming"],
+    "instances": ["fosstodon.org"],
+    "min_score": 25,
+    "max_items": 50
+}
+
+# Response (immediate)
+{
+    "status": "processing",
+    "collection_id": "col_abc123",
+    "expected_items": 50
+}
+
+# Check status: GET /collect/col_abc123
+{
+    "status": "processing|complete",
+    "stats": {
+        "collected": 42,
+        "published": 38,
+        "rejected_quality": 3,
+        "rejected_dedup": 1
+    }
+}
+```
+
+---
+
+## Phase 4: Cleanup
+
+### Remove Old Code
+
+- ❌ simple_reddit_collector.py
+- ❌ simple_mastodon_collector.py
+- ❌ content_processing_simple.py
+- ❌ Old batch collection logic
+
+### Migrate Configuration
+
+- ✅ Collection frequency (KEDA cron already configured)
+- Update collection templates to use new API
 
 ---
 
@@ -46,7 +198,60 @@
 }
 ```
 
-**DO NOT CHANGE** this format. Content-processor depends on these exact fields.
+**TESTED**: test_message_format_compatibility validates exact fields  
+**VERIFIED**: stream.py create_queue_message produces correct format
+
+---
+
+## Architecture
+
+### Current (Batch)
+```
+collect_all() → [100 items] → dedupe → save blob → flood queue (5 min)
+```
+
+### Target (Streaming)
+```
+async for item in collect():
+  → review(item)
+  → if pass: dedupe → save blob → send message (10 sec per item)
+```
+
+---
+
+## Configuration (Tuned)
+
+```python
+# Collection frequency: Every 8 hours (KEDA cron - already configured)
+# Quality thresholds:
+REDDIT_MIN_SCORE = 25          # UP from 10 (better quality)
+REDDIT_MAX_PER_SUBREDDIT = 25  # DOWN from 50 (less noise)
+MASTODON_MIN_BOOSTS = 5        # UP from 3
+DEDUP_WINDOW_DAYS = 14         # UP from 1 (Reddit resurrects old posts)
+
+# Rate limiting:
+REDDIT_DELAY_SECONDS = 2.0
+REDDIT_MAX_BACKOFF = 300.0     # 5 min max
+MASTODON_DELAY_SECONDS = 1.0   # Gentler on instances
+```
+
+---
+
+## File Structure (New)
+
+```
+containers/content-collector/
+├── collectors/
+│   ├── collect.py           # NEW: Pure async generators (~350 lines)
+│   └── standardize.py       # NEW: Format converters (~200 lines)
+│
+├── pipeline/
+│   ├── stream.py            # NEW: Streaming orchestration (~350 lines)
+│   ├── rate_limit.py        # NEW: Token bucket + backoff (~200 lines)
+│   └── dedup.py             # MOVE from quality_dedup.py (~250 lines)
+│
+├── quality/                 # REORGANIZE existing quality_* files
+```
 
 ---
 

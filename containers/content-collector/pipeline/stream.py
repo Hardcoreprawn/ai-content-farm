@@ -57,14 +57,11 @@ async def stream_collection(
 
         try:
             # Quality review (pure function)
-            reviewed = review_item(item)
+            passes_review, rejection_reason = review_item(item)
 
-            if not reviewed.get("quality_passed"):
+            if not passes_review:
                 stats["rejected_quality"] += 1
-                logger.debug(
-                    f"Quality rejected: {item.get('id')} - "
-                    f"{reviewed.get('quality_reason', 'unknown')}"
-                )
+                logger.debug(f"Quality rejected: {item.get('id')} - {rejection_reason}")
                 continue
 
             # Deduplication check
@@ -84,10 +81,10 @@ async def stream_collection(
             await mark_seen(item_hash, blob_client)
 
             # Save to blob (append operation)
-            await blob_client.append_item(collection_id, reviewed)
+            await blob_client.append_item(collection_id, item)
 
             # Send to processor queue
-            message = create_queue_message(reviewed, collection_id, collection_blob)
+            message = create_queue_message(item, collection_id, collection_blob)
             await queue_client.send_message(message)
 
             stats["published"] += 1
