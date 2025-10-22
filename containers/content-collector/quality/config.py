@@ -195,9 +195,44 @@ def has_paywall_keyword(text: Any) -> bool:
     return any(keyword in text_lower for keyword in PAYWALL_KEYWORDS)
 
 
-def get_quality_config(overrides: Optional[Dict] = None) -> Dict:
-    """Get configuration with optional overrides."""
+def _deep_merge_dicts(base: Dict[str, Any], overrides: Dict[str, Any]) -> None:
+    """Recursively merge overrides into base dict, handling nested dicts properly.
+
+    Mutates base dict in-place, replacing only specified keys while preserving
+    unspecified nested values.
+
+    Args:
+        base: Base dict to merge into
+        overrides: Override values (can include partial nested dicts)
+    """
+    for key, value in overrides.items():
+        if isinstance(value, dict) and key in base and isinstance(base[key], dict):
+            # Recursive merge for nested dicts
+            _deep_merge_dicts(base[key], value)
+        else:
+            # Replace value for non-dict items or new keys
+            base[key] = value
+
+
+def get_quality_config(overrides: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Get quality config with optional overrides, supporting nested dict merging.
+
+    Args:
+        overrides: Optional dict of config overrides. Supports partial nested dicts:
+            - {'detection': {'paywall': {'enabled': False}}} - only disables paywall
+            - {'max_results': 25} - overrides top-level key
+            - {'detection': {'paywall': {}, 'listicle': {}}} - multiple nested overrides
+
+    Returns:
+        Quality configuration with overrides applied (never mutates DEFAULT_CONFIG)
+
+    Note: Uses deepcopy() to protect nested dicts (diversity, detection, deduplication)
+    from being mutated by callers. Overrides use recursive merge to preserve
+    unspecified nested values.
+    """
     config = copy.deepcopy(DEFAULT_CONFIG)
+
     if overrides and isinstance(overrides, dict):
-        config.update(overrides)
+        _deep_merge_dicts(config, overrides)
+
     return config

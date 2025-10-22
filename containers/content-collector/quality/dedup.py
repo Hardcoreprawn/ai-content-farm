@@ -121,8 +121,13 @@ async def filter_duplicates_today(
                         )
                         if pub_hash:
                             today_hashes.add(pub_hash)
+                except json.JSONDecodeError as e:
+                    logger.debug(f"Invalid JSON in {blob.name}: {e}")
+                    continue
                 except Exception as e:
-                    logger.debug(f"Could not hash article {blob.name}: {e}")
+                    logger.warning(
+                        f"Error processing {blob.name}: {type(e).__name__}: {e}"
+                    )
                     continue
 
         except Exception as e:
@@ -185,8 +190,16 @@ async def filter_duplicates_historical(
             metadata_blob = await container.download_blob(metadata_path).readall()
             metadata = json.loads(metadata_blob)
             published_urls = set(metadata.get("urls", []))
+        except FileNotFoundError:
+            logger.debug(
+                f"Metadata file not found: {metadata_path} (expected on first run)"
+            )
+            # Fail open - metadata doesn't exist yet
+        except json.JSONDecodeError as e:
+            logger.warning(f"Corrupted metadata file {metadata_path}: {e}")
+            # Fail open - invalid metadata
         except Exception as e:
-            logger.debug(f"Could not load published URLs metadata: {e}")
+            logger.warning(f"Error loading published URLs: {type(e).__name__}: {e}")
             # Fail open - don't block on metadata errors
 
         # Filter out items with published source URLs

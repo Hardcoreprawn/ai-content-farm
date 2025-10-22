@@ -114,8 +114,25 @@ def create_queue_message(
     Returns:
         Queue message dict (JSON-serializable)
     """
+    # Fallback ID: Use deterministic hash instead of random UUID
+    # Ensures same item reprocessed after failure won't create duplicate messages
+    fallback_id = None
+    if not item.get("id"):
+        from pipeline.dedup import hash_content
+
+        title = item.get("title", "")
+        content = item.get("content", "")
+        if title or content:
+            # Use hash of content for deterministic ID
+            content_hash = hash_content(title, content)
+            if content_hash:
+                fallback_id = f"topic_{content_hash[:12]}"
+        if not fallback_id:
+            # Only use random UUID if we can't compute hash (defensive)
+            fallback_id = f"topic_{uuid4().hex[:8]}"
+
     payload = {
-        "topic_id": item.get("id", f"topic_{uuid4().hex[:8]}"),
+        "topic_id": item.get("id", fallback_id),
         "title": item.get("title", "Untitled"),
         "source": item.get("source", "unknown"),
         "collected_at": item.get(
@@ -141,11 +158,16 @@ def create_queue_message(
     if metadata.get("author"):
         payload["author"] = metadata["author"]
 
+    # Correlation ID: Use descriptive format for better traceability
+    # Format: {collection_id}_{topic_id} to link collection through pipeline stages
+    topic_id = payload.get("topic_id", "unknown")
+    correlation_id = f"{collection_id}_{topic_id}"
+
     message = {
         "operation": "process_topic",
         "service_name": "content-collector",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "correlation_id": str(uuid4()),
+        "correlation_id": correlation_id,
         "payload": payload,
     }
 

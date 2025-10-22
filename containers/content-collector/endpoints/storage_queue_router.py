@@ -1,6 +1,7 @@
 """Storage Queue endpoint for KEDA integration - minimal, clean."""
 
 import logging
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict
 
@@ -10,6 +11,46 @@ from libs.queue_client import QueueMessageModel, get_queue_client
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/storage-queue", tags=["storage-queue"])
+
+
+def _sanitize_error_for_response(error: Exception) -> str:
+    """Sanitize error message to prevent information disclosure.
+
+    Removes:
+    - File paths and URLs
+    - Stack trace information
+    - Credential/token information
+
+    Returns a generic error message safe for external consumption.
+    """
+    error_msg = str(error)
+
+    # Remove URLs FIRST (before path removal, to avoid matching //)
+    error_msg = re.sub(r"https?://[^\s]+", "[URL]", error_msg)
+
+    # Remove file paths (anything with /)
+    error_msg = re.sub(r"/[^\s]+", "[PATH]", error_msg)
+
+    # Remove Windows paths (anything with \)
+    error_msg = re.sub(r"\\[^\s]+", "[PATH]", error_msg)
+
+    # Remove credentials/tokens
+    error_msg = re.sub(
+        r"(key|token|password|secret|credential)=[^\s&]+",
+        r"\1=[REDACTED]",
+        error_msg,
+        flags=re.IGNORECASE,
+    )
+
+    # Limit length to prevent huge error dumps
+    if len(error_msg) > 100:
+        error_msg = error_msg[:100] + "..."
+
+    # If nothing meaningful remains, use generic message
+    if not error_msg or error_msg.isspace():
+        return "Internal server error - check logs for details"
+
+    return error_msg
 
 
 async def process_queue_message(
@@ -127,5 +168,7 @@ async def process_messages(max_messages: int = 10) -> Dict[str, Any]:
             "timestamp": start.isoformat(),
         }
     except Exception as e:
-        logger.error(f"Processing failed: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Processing failed: {e}", exc_info=True)
+        # Sanitize error message to prevent information disclosure
+        safe_error = _sanitize_error_for_response(e)
+        raise HTTPException(status_code=500, detail=safe_error)

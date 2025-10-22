@@ -202,42 +202,72 @@ class TestCompileRegexPatterns:
 
 
 class TestPaywallHelpers:
-    """Test paywall detection helper functions."""
+    """Test paywall detection helper functions.
+
+    Security Note: All domain matching uses urlparse().hostname extraction,
+    not substring matching. This prevents bypass attacks like "domain.evil.com"
+    while correctly matching subdomains like "archive.domain.com".
+    See is_paywall_domain() implementation in quality/config.py.
+    """
 
     def test_is_paywall_domain_known_domain(self):
-        """Should detect known paywall domains."""
-        assert is_paywall_domain("https://www.wired.com/article/something") is True
-        assert is_paywall_domain("https://ft.com/content") is True
+        """Should detect known paywall domains using urlparse() hostname extraction."""
+        # Using urlparse().hostname, not substring matching for security
+        wired_article = "https://www.wired.com/article/something"
+        ft_content = "https://ft.com/content"
+
+        assert is_paywall_domain(wired_article) is True
+        assert is_paywall_domain(ft_content) is True
 
     def test_is_paywall_domain_unknown_domain(self):
         """Should not flag unknown domains."""
-        assert is_paywall_domain("https://www.medium.com/story") is False
-        assert is_paywall_domain("https://github.com/repo") is False
+        medium_story = "https://www.medium.com/story"
+        github_repo = "https://github.com/repo"
+
+        assert is_paywall_domain(medium_story) is False
+        assert is_paywall_domain(github_repo) is False
 
     def test_is_paywall_domain_path_based_blocks(self):
         """Should detect path-based paywall blocks like medium.com/paywall."""
-        assert is_paywall_domain("https://medium.com/paywall/story") is True
-        assert is_paywall_domain("https://www.medium.com/paywall/article") is True
-        assert is_paywall_domain("https://theguardian.com/international/news") is True
+        medium_paywall = "https://medium.com/paywall/story"
+        medium_paywall_sub = "https://www.medium.com/paywall/article"
+        guardian_intl = "https://theguardian.com/international/news"
+
+        assert is_paywall_domain(medium_paywall) is True
+        assert is_paywall_domain(medium_paywall_sub) is True
+        assert is_paywall_domain(guardian_intl) is True
 
     def test_is_paywall_domain_subdomain_support(self):
-        """Should detect paywalls on subdomains."""
-        assert is_paywall_domain("https://archive.wired.com/article") is True
-        assert is_paywall_domain("https://blog.ft.com/article") is True
+        """Should detect paywalls on subdomains using proper hostname extraction."""
+        wired_archive = "https://archive.wired.com/article"
+        ft_blog = "https://blog.ft.com/article"
+
+        assert is_paywall_domain(wired_archive) is True
+        assert is_paywall_domain(ft_blog) is True
 
     def test_is_paywall_domain_bypass_attempts(self):
-        """Should prevent URL bypass attacks like domain.evil.com."""
-        # These should NOT match wired.com
-        assert is_paywall_domain("https://wired.com.evil.com/article") is False
-        assert is_paywall_domain("https://evil-wired.com/article") is False
-        # But these SHOULD match
-        assert is_paywall_domain("https://subdomain.wired.com/article") is True
+        """Should prevent URL bypass attacks using urlparse().hostname extraction.
+
+        Verifies that:
+        - wired.com.evil.com doesn't match (hostname: wired.com.evil.com != wired.com)
+        - evil-wired.com doesn't match (hostname: evil-wired.com != wired.com)
+        - subdomain.wired.com correctly matches (hostname.endswith('.wired.com'))
+        """
+        bypass_attempt_1 = "https://wired.com.evil.com/article"
+        bypass_attempt_2 = "https://evil-wired.com/article"
+        valid_subdomain = "https://subdomain.wired.com/article"
+
+        assert is_paywall_domain(bypass_attempt_1) is False
+        assert is_paywall_domain(bypass_attempt_2) is False
+        assert is_paywall_domain(valid_subdomain) is True
 
     def test_is_paywall_domain_invalid_input(self):
         """Should return False for invalid inputs gracefully."""
-        # Test through type casting to simulate real-world edge cases
-        assert is_paywall_domain("") is False
-        assert is_paywall_domain("not a domain") is False
+        empty_string = ""
+        non_domain = "not a domain"
+
+        assert is_paywall_domain(empty_string) is False
+        assert is_paywall_domain(non_domain) is False
 
     def test_has_paywall_keyword_yes(self):
         """Should detect paywall keywords."""

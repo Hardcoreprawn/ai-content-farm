@@ -18,7 +18,7 @@ collection and processing.
 
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 from quality.config import get_quality_config
@@ -125,7 +125,10 @@ async def process_items(
 
     Args:
         items: List of content items to process
-        blob_client: Azure Blob Storage async client
+        blob_client: Azure ContainerClient for processed-content container.
+                     Required for deduplication layers (list_blobs, download_blob).
+                     Must be bound to the "processed-content" container.
+                     Type: azure.storage.blob.aio.ContainerClient
         config: Configuration dict (optional, uses defaults if not provided)
 
     Returns:
@@ -273,7 +276,9 @@ async def emit_to_processor(
                     "source_url": item.get("source_url"),
                     "url": item.get("url"),
                     "quality_score": item.get("_quality_score", 0.0),
-                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "timestamp": datetime.now(timezone.utc)
+                    .isoformat()
+                    .replace("+00:00", "Z"),
                 }
             )
 

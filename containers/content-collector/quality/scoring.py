@@ -96,8 +96,12 @@ def score_items(
         if not isinstance(item, dict):
             continue
 
-        # Calculate score for this item
-        score = calculate_quality_score(item)
+        # Use pre-computed detection results if available to avoid redundant work
+        # Checks if detection was already computed and cached in item
+        detection_results = item.get("_detection_results")
+
+        # Calculate score for this item (passing pre-computed detection if available)
+        score = calculate_quality_score(item, detection_results=detection_results)
 
         # Only include items above threshold
         if score >= threshold:

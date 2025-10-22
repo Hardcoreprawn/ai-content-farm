@@ -47,20 +47,28 @@ class RateLimiter:
 
     async def acquire(self, timeout: Optional[float] = None) -> bool:
         """
-        Acquire a token for making a request.
+        Acquire a token for making a request, with optional timeout.
 
         Waits for token availability, includes current backoff delay.
 
         Args:
-            timeout: Maximum time to wait (ignored, waits until token available)
+            timeout: Maximum time to wait in seconds. If None, waits indefinitely.
 
         Returns:
-            True if token acquired, False on timeout (not used currently)
+            True if token acquired, False on timeout
         """
         async with self._lock:
+            start_time: Optional[float] = time.time() if timeout else None
+
             # Apply current backoff delay
             if self.current_delay > 0:
-                await asyncio.sleep(self.current_delay)
+                if timeout is not None and start_time is not None:
+                    elapsed = time.time() - start_time
+                    if elapsed >= timeout:
+                        return False
+                    await asyncio.sleep(min(self.current_delay, timeout - elapsed))
+                else:
+                    await asyncio.sleep(self.current_delay)
 
             # Refill tokens based on time elapsed
             now = time.time()
@@ -70,8 +78,22 @@ class RateLimiter:
 
             # Wait for token if needed
             while self.tokens < 1:
+                if timeout is not None and start_time is not None:
+                    elapsed = time.time() - start_time
+                    if elapsed >= timeout:
+                        return False
+                    remaining_timeout = timeout - elapsed
+                else:
+                    remaining_timeout = float("inf")
+
                 wait_time = (1 - self.tokens) / self.refill_rate
-                await asyncio.sleep(min(wait_time, 0.1))
+
+                if timeout is not None:
+                    wait_time = min(wait_time, 0.1, remaining_timeout)
+                else:
+                    wait_time = min(wait_time, 0.1)
+
+                await asyncio.sleep(wait_time)
 
                 now = time.time()
                 elapsed = now - self.last_refill

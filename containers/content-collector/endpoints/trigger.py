@@ -1,5 +1,6 @@
 """Manual collection trigger endpoint for Container App."""
 
+import re
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import uuid4
@@ -8,6 +9,9 @@ from fastapi import APIRouter
 
 # Create API router
 router = APIRouter(prefix="/collect", tags=["collection"])
+
+# Reddit subreddit naming: alphanumeric + underscores, 1-21 chars
+SUBREDDIT_REGEX = re.compile(r"^[a-zA-Z0-9_]{1,21}$")
 
 
 def validate_trigger_payload(payload: Any) -> Tuple[bool, Optional[str]]:
@@ -44,10 +48,16 @@ def validate_trigger_payload(payload: Any) -> Tuple[bool, Optional[str]]:
     if len(instances) > 5:
         return (False, "Maximum 5 Mastodon instances allowed")
 
-    # Validate individual sources (must be non-empty strings)
+    # Validate individual sources (must follow proper naming conventions)
     for sub in subreddits:
         if not isinstance(sub, str) or not sub.strip():
             return (False, "Invalid subreddit name (must be non-empty string)")
+        # Validate Reddit subreddit naming: alphanumeric + underscore, 1-21 chars
+        if not SUBREDDIT_REGEX.match(sub.strip()):
+            return (
+                False,
+                f"Invalid subreddit '{sub}' (must be alphanumeric + underscore, max 21 chars)",
+            )
 
     for instance in instances:
         if not isinstance(instance, str) or not instance.strip():
@@ -84,16 +94,17 @@ def create_trigger_message(
         Trigger message dict
     """
     collection_id = f"manual_{uuid4().hex[:8]}"
-    now_iso = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone.utc)
+    now_date = now.strftime("%Y-%m-%d")
 
     return {
         "operation": "trigger_collection",
         "collection_id": collection_id,
-        "collection_blob": f"manual-tests/{now_iso[:10]}/{collection_id}.json",
+        "collection_blob": f"manual-tests/{now_date}/{collection_id}.json",
         "subreddits": subreddits or [],
         "instances": instances or [],
         "min_score": min_score,
         "max_items": max_items,
-        "timestamp": now_iso,
+        "timestamp": now.isoformat(),
         "source": "manual_endpoint",
     }
