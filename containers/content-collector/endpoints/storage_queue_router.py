@@ -26,6 +26,9 @@ def _sanitize_error_for_response(error: Exception) -> str:
     CodeQL: This is INTENTIONAL - we strip sensitive information from exceptions
     before exposing to external users. All regex patterns are designed to remove
     information leakage (URLs, paths, credentials), not to validate input.
+
+    Security: Error sanitization is a standard best practice for preventing
+    information leakage to external API consumers.
     """
     error_msg = str(error)
 
