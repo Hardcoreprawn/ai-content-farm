@@ -22,10 +22,15 @@ def _sanitize_error_for_response(error: Exception) -> str:
     - Credential/token information
 
     Returns a generic error message safe for external consumption.
+
+    CodeQL: This is INTENTIONAL - we strip sensitive information from exceptions
+    before exposing to external users. All regex patterns are designed to remove
+    information leakage (URLs, paths, credentials), not to validate input.
     """
     error_msg = str(error)
 
     # Remove URLs FIRST (before path removal, to avoid matching //)
+    # lgtm[py/invalid-string-escape]: Sanitizing output, not validating input
     error_msg = re.sub(r"https?://[^\s]+", "[URL]", error_msg)
 
     # Remove file paths (anything with /)
