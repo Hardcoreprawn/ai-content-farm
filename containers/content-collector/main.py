@@ -86,13 +86,17 @@ async def lifespan(app: FastAPI):
             logger.info(f"Using collection template: {template_name}")
 
             # Try multiple path locations for template file
+            # Path precedence: local dev → container /app → alternative mounts (devcontainer, CI/CD)
             possible_paths = [
+                # Local development: relative to repo root
                 (
                     Path(__file__).parent.parent.parent
                     / "collection-templates"
                     / template_name
                 ),
+                # Container deployment: /app is the working directory in Docker
                 Path("/app/collection-templates") / template_name,
+                # Alternative container mount: e.g., devcontainer or CI/CD pipeline
                 Path("/workspace/collection-templates") / template_name,
             ]
 
