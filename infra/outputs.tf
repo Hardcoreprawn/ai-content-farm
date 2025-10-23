@@ -38,6 +38,10 @@ output "storage_pipeline_logs_container_name" {
   value = azurerm_storage_container.pipeline_logs.name
 }
 
+output "storage_collection_templates_container_name" {
+  value = azurerm_storage_container.collection_templates.name
+}
+
 output "key_vault_name" {
   value = azurerm_key_vault.main.name
 }

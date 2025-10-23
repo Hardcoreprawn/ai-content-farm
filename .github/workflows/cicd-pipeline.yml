@@ -263,50 +263,6 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           image-tag: ${{ github.sha }}
 
-      - name: Upload Collection Templates to Blob Storage
-        if: success()
-        run: |
-          # Upload collection templates to blob storage for dynamic loading
-          # Templates are in collection-templates/ directory at repo root
-
-          # Initialize Terraform to read outputs
-          cd infra
-          terraform init \
-            -backend-config="resource_group_name=${{ vars.TERRAFORM_STATE_RESOURCE_GROUP_PROD }}" \
-            -backend-config="storage_account_name=${{ vars.TERRAFORM_STATE_STORAGE_ACCOUNT_PROD }}" \
-            -backend-config="container_name=${{ vars.TERRAFORM_STATE_CONTAINER_PROD }}" \
-            -backend-config="key=terraform.tfstate" \
-            -upgrade \
-            -no-color
-
-          # Get storage account name from Terraform output
-          STORAGE_ACCOUNT=$(terraform output -raw storage_account_name 2>/dev/null || echo "")
-          cd ..
-
-          if [ -z "$STORAGE_ACCOUNT" ]; then
-            echo "❌ ERROR: Could not retrieve storage account name from Terraform output"
-            exit 1
-          fi
-
-          CONTAINER_NAME="collection-templates"
-
-          echo "Uploading collection templates to blob storage (account: $STORAGE_ACCOUNT)..."
-          for template_file in collection-templates/*.json; do
-            if [ -f "$template_file" ]; then
-              filename=$(basename "$template_file")
-              echo "  Uploading: $filename"
-              az storage blob upload \
-                --account-name "$STORAGE_ACCOUNT" \
-                --container-name "$CONTAINER_NAME" \
-                --file "$template_file" \
-                --name "$filename" \
-                --overwrite \
-                --auth-mode login || echo "    Warning: Upload may have failed, continuing..."
-            fi
-          done
-
-          echo "✅ Collection templates uploaded to blob storage"
-
   # === CONTAINER SYNC ===
   container-sync:
     name: Sync ${{ matrix.container }}
