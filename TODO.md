@@ -7,6 +7,31 @@
 
 ## ✅ Recent Achievements
 
+### 🎉 STARTUP COLLECTION IMPLEMENTATION - October 23, 2025 ✅ COMPLETE
+**Achievement**: Fixed KEDA scaling limitation by implementing automatic collection on container startup
+**Problem**: KEDA cron scaler can only scale container replicas (0→1, 1→0), cannot trigger code execution. Collections were never running despite KEDA schedule configured.
+**Solution**: 
+- Added `AUTO_COLLECT_ON_STARTUP` environment variable (defaults true)
+- Enhanced `lifespan()` context manager to run collection when container starts
+- When KEDA scales up: Container starts → collection runs automatically → HTTP API serves manual triggers
+- When KEDA scales down: Container shutdown graceful, no data loss
+**Implementation**:
+- 70 lines added to `containers/content-collector/main.py` `lifespan()` function
+- 25 new comprehensive test cases covering startup behavior, error handling, edge cases
+- Terraform env var configured in `infra/container_app_collector.tf`
+- Uses Mastodon instances (fosstodon.org + techhub.social) with quality-tech.json template
+- Collection ID format: `keda_YYYY-MM-DDTHH:MM:SS` for easy identification
+**Tests**: 273/273 passing (248 existing + 25 new startup collection tests)
+**Status**: ✅ Ready for production deployment
+
+**Benefits**:
+- Collection now runs automatically on 8-hour KEDA schedule (0, 8, 16 UTC)
+- Zero infrastructure cost added (uses Container Apps quota already allocated)
+- Consistent with other 4 containers (all use Container Apps, single managed identity)
+- Proven pattern from previous iterations (familiar to team)
+- Graceful error handling (collection failures don't crash HTTP API)
+- See `/docs/COLLECTION_SCHEDULING_DESIGN.md` for architecture rationale
+
 ### 🔧 HOTFIX: Queue Visibility Timeout - October 21, 2025 ✅ DEPLOYED
 **Issue**: Markdown-generator showing queue backlog but receiving 0 messages
 **Root Cause**: 600-second visibility timeout causing messages to lock/become invisible
