@@ -76,26 +76,46 @@ async def lifespan(app: FastAPI):
             collection_id = f"keda_{datetime.now(timezone.utc).isoformat()[:19]}"
             collection_blob = f"collections/keda/{collection_id}.json"
 
-            logger.info(f"Collection ID: {collection_id}")
-            logger.info(f"Collection Blob: {collection_blob}")
+            # Load collection template from environment variable
+            # Defaults to quality-tech.json for Mastodon sources
+            # Can be overridden by setting COLLECTION_TEMPLATE environment variable
+            template_name = os.getenv("COLLECTION_TEMPLATE", "quality-tech.json")
+            logger.info(f"Using collection template: {template_name}")
 
-            # Load quality-tech template for Mastodon sources
-            # Template determines which instances and how many items to collect
-            template_path = (
-                Path(__file__).parent.parent.parent
-                / "collection-templates"
-                / "quality-tech.json"
-            )
+            # Try multiple path locations for template file
+            # Path precedence: local dev → container /app → alternative mounts (devcontainer, CI/CD)
+            possible_paths = [
+                # Local development: relative to repo root
+                (
+                    Path(__file__).parent.parent.parent
+                    / "collection-templates"
+                    / template_name
+                ),
+                # Container deployment: /app is the working directory in Docker
+                Path("/app/collection-templates") / template_name,
+                # Alternative container mount: e.g., devcontainer or CI/CD pipeline
+                Path("/workspace/collection-templates") / template_name,
+            ]
+
+            template_path = None
+            for path in possible_paths:
+                if path.exists():
+                    template_path = path
+                    break
+
             try:
-                with open(template_path) as f:
-                    template = json.load(f)
-                sources = template.get("sources", {}).get("mastodon", [])
-                logger.info(
-                    f"Loaded {len(sources)} Mastodon sources from quality-tech template"
-                )
+                if template_path:
+                    with open(template_path) as f:
+                        template = json.load(f)
+                    sources = template.get("sources", {}).get("mastodon", [])
+                    logger.info(
+                        f"Loaded {len(sources)} Mastodon sources from {template_name}"
+                    )
+                else:
+                    raise FileNotFoundError(f"Template not found: {template_name}")
             except FileNotFoundError:
                 logger.warning(
-                    f"Template not found at {template_path}, using default Mastodon sources"
+                    f"Collection template '{template_name}' not found, using default Mastodon sources"
                 )
                 sources = [
                     {"instance": "fosstodon.org", "max_items": 25},

@@ -13,7 +13,16 @@
   "customizations": {
     "vscode": {
       "settings": {
-        "editor.formatOnSave": false
+        "editor.formatOnSave": true,
+        "[python]": {
+          "editor.defaultFormatter": "ms-python.python",
+          "editor.formatOnSave": true
+        },
+        "python.formatting.provider": "black",
+        "python.linting.enabled": true,
+        "python.linting.flake8Enabled": true,
+        "python.linting.pylintEnabled": false,
+        "isort.check": true
       },
       "extensions": [
         "ms-python.python",
