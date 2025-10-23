@@ -63,12 +63,14 @@ async def lifespan(app: FastAPI):
     if should_collect:
         logger.info("⚡ KEDA cron startup detected - running scheduled collection...")
         try:
+            import json
             from datetime import datetime, timezone
-            from uuid import uuid4
+            from pathlib import Path
 
             from collectors.collect import collect_mastodon
             from pipeline.stream import stream_collection
 
+            from libs.blob_storage import BlobStorageClient
             from libs.queue_client import get_queue_client
 
             collection_id = f"keda_{datetime.now(timezone.utc).isoformat()[:19]}"
@@ -77,30 +79,53 @@ async def lifespan(app: FastAPI):
             logger.info(f"Collection ID: {collection_id}")
             logger.info(f"Collection Blob: {collection_blob}")
 
-            # Initialize queue client for sending processed items to processor
-            async with get_queue_client("content-processor-requests") as queue_client:
-                # Create async generator for Mastodon sources (quality-tech template)
-                # Reddit is disabled pending OAuth implementation
-                async def collect_quality_tech():
-                    """Collect from Mastodon instances (quality-tech template)."""
-                    # Primary Mastodon instance
-                    async for item in collect_mastodon(
-                        instance="fosstodon.org", delay=1.0, max_items=25
-                    ):
-                        yield item
-                    # Secondary instance
-                    async for item in collect_mastodon(
-                        instance="techhub.social", delay=1.0, max_items=15
-                    ):
-                        yield item
+            # Load quality-tech template for Mastodon sources
+            # Template determines which instances and how many items to collect
+            template_path = (
+                Path(__file__).parent.parent.parent
+                / "collection-templates"
+                / "quality-tech.json"
+            )
+            try:
+                with open(template_path) as f:
+                    template = json.load(f)
+                sources = template.get("sources", {}).get("mastodon", [])
+                logger.info(
+                    f"Loaded {len(sources)} Mastodon sources from quality-tech template"
+                )
+            except FileNotFoundError:
+                logger.warning(
+                    f"Template not found at {template_path}, using default Mastodon sources"
+                )
+                sources = [
+                    {"instance": "fosstodon.org", "max_items": 25},
+                    {"instance": "techhub.social", "max_items": 15},
+                ]
 
-                # Run streaming pipeline
-                # blob_client=None because stream_collection handles blob operations internally
+            # Initialize clients for collection and deduplication
+            blob_client = BlobStorageClient()
+            async with get_queue_client("content-processor-requests") as queue_client:
+                # Create async generator for Mastodon sources from template
+                async def collect_from_template():
+                    """Collect from Mastodon instances configured in template."""
+                    for source in sources:
+                        instance = source.get("instance", "fosstodon.org")
+                        max_items = source.get("max_items", 25)
+                        delay = source.get("delay", 1.0)
+                        logger.info(
+                            f"Collecting from {instance} ({max_items} items)..."
+                        )
+                        async for item in collect_mastodon(
+                            instance=instance, delay=delay, max_items=max_items
+                        ):
+                            yield item
+
+                # Run streaming pipeline with proper blob client for deduplication
                 stats = await stream_collection(
-                    collector_fn=collect_quality_tech(),
+                    collector_fn=collect_from_template(),
                     collection_id=collection_id,
                     collection_blob=collection_blob,
-                    blob_client=None,
+                    blob_client=blob_client,
                     queue_client=queue_client,
                 )
 
