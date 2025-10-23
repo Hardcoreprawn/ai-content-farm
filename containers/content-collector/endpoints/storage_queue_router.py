@@ -141,7 +141,10 @@ async def health() -> Dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"Health check failed: {e}")
-        return {"status": "unhealthy", "error": "Internal server error - check logs for details"}
+        return {
+            "status": "unhealthy",
+            "error": "Internal server error - check logs for details",
+        }
 
 
 @router.post("/process")
