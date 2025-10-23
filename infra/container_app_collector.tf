@@ -110,6 +110,12 @@ resource "azurerm_container_app" "content_collector" {
         name  = "AUTO_COLLECT_ON_STARTUP"
         value = "true"
       }
+
+      # Collection template to use (defines which sources and how many items)
+      env {
+        name  = "COLLECTION_TEMPLATE"
+        value = "quality-tech.json"
+      }
     }
 
     # Scale based on CRON schedule (0->1 at start time, 1->0 after end time)

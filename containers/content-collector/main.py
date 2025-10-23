@@ -79,23 +79,42 @@ async def lifespan(app: FastAPI):
             logger.info(f"Collection ID: {collection_id}")
             logger.info(f"Collection Blob: {collection_blob}")
 
-            # Load quality-tech template for Mastodon sources
-            # Template determines which instances and how many items to collect
-            template_path = (
-                Path(__file__).parent.parent.parent
-                / "collection-templates"
-                / "quality-tech.json"
-            )
+            # Load collection template from environment variable
+            # Defaults to quality-tech.json for Mastodon sources
+            # Can be overridden by setting COLLECTION_TEMPLATE environment variable
+            template_name = os.getenv("COLLECTION_TEMPLATE", "quality-tech.json")
+            logger.info(f"Using collection template: {template_name}")
+
+            # Try multiple path locations for template file
+            possible_paths = [
+                (
+                    Path(__file__).parent.parent.parent
+                    / "collection-templates"
+                    / template_name
+                ),
+                Path("/app/collection-templates") / template_name,
+                Path("/workspace/collection-templates") / template_name,
+            ]
+
+            template_path = None
+            for path in possible_paths:
+                if path.exists():
+                    template_path = path
+                    break
+
             try:
-                with open(template_path) as f:
-                    template = json.load(f)
-                sources = template.get("sources", {}).get("mastodon", [])
-                logger.info(
-                    f"Loaded {len(sources)} Mastodon sources from quality-tech template"
-                )
+                if template_path:
+                    with open(template_path) as f:
+                        template = json.load(f)
+                    sources = template.get("sources", {}).get("mastodon", [])
+                    logger.info(
+                        f"Loaded {len(sources)} Mastodon sources from {template_name}"
+                    )
+                else:
+                    raise FileNotFoundError(f"Template not found: {template_name}")
             except FileNotFoundError:
                 logger.warning(
-                    f"Template not found at {template_path}, using default Mastodon sources"
+                    f"Collection template '{template_name}' not found, using default Mastodon sources"
                 )
                 sources = [
                     {"instance": "fosstodon.org", "max_items": 25},
