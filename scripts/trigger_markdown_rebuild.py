@@ -52,12 +52,11 @@ async def list_processed_articles(
     try:
         async for blob in container_client.list_blobs(results_per_page=1000):
             if blob.name.endswith(".json"):
-                articles.append(
-                    (
-                        blob.name,
-                        blob.properties.creation_time or blob.properties.last_modified,
-                    )
+                # Use getattr with fallback for compatibility with different Azure SDK versions
+                timestamp = getattr(blob, "creation_time", None) or getattr(
+                    blob, "last_modified", None
                 )
+                articles.append((blob.name, timestamp))
     except Exception as e:
         logger.error(f"Error listing blobs: {e}")
         raise
@@ -201,6 +200,7 @@ Examples:
 
         # Cleanup
         await blob_service_client.close()
+        await queue_client.close()
         await credential.close()
 
     except Exception as e:

@@ -3,7 +3,7 @@
         {
             "type": "reddit",
             "enabled": false,
-            "_comment": "Reddit sources disabled due to blocking - let block timeout before re-enabling",
+            "_comment": "Reddit collection DISABLED - requires OAuth implementation (Reddit API policy 2023+). See collectors/collect.py for details. Use Mastodon sources for production.",
             "subreddits": [
                 "technology",
                 "programming",

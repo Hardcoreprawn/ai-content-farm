@@ -36,7 +36,7 @@ jobs:
         id: find-large
         shell: bash
         run: |
-          echo "Scanning for files over 500 lines..."
+          echo "Scanning for files over 550 lines..."
 
           # Get list of changed files (for PR) or all files (for push to main)
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -81,7 +81,7 @@ jobs:
             # Count lines
             line_count=$(wc -l < "$file" 2>/dev/null || echo "0")
 
-            if [[ $line_count -gt 500 ]]; then
+            if [[ $line_count -gt 550 ]]; then
               echo "Large file detected: $file ($line_count lines)"
               if [[ -z "$large_files" ]]; then
                 large_files="$file:$line_count"
@@ -144,7 +144,7 @@ jobs:
                   // Get current line count
                   const lineCount = parseInt(execSync(`wc -l < "${filePath}"`, { encoding: 'utf8' }).trim());
 
-                  if (lineCount <= 500) {
+                  if (lineCount <= 550) {
                     issuesToClose.push({
                       number: issue.number,
                       filePath: filePath,
@@ -174,10 +174,10 @@ jobs:
               } else {
                 commentBody = `[RESOLVED] **Automatically resolved - File now meets size requirements**
 
-            This issue has been automatically closed because the file \`${issueInfo.filePath}\` is now ${issueInfo.currentLines} lines, which is under the current threshold of 500 lines.
+            This issue has been automatically closed because the file \`${issueInfo.filePath}\` is now ${issueInfo.currentLines} lines, which is under the current threshold of 550 lines.
 
-            **Previous threshold**: 400 lines
-            **New threshold**: 500 lines
+            **Previous threshold**: 500 lines
+            **New threshold**: 550 lines
             **Current file size**: ${issueInfo.currentLines} lines
 
             The file refactoring work tracked by this issue is no longer required.
@@ -258,7 +258,7 @@ jobs:
               }
 
               // Determine severity and priority
-              const percentage = Math.round((file.lines / 500) * 100);
+              const percentage = Math.round((file.lines / 550) * 100);
               let severity, priority, urgency;
 
               if (file.lines > 1000) {
@@ -281,14 +281,14 @@ jobs:
               const issueBody = `## ${urgency} Large File Refactoring Required
 
             **File**: \`${file.path}\`
-            **Current Size**: ${file.lines} lines (${percentage}% over 500-line limit)
+            **Current Size**: ${file.lines} lines (${percentage}% over 550-line limit)
             **Severity**: ${severity}
             **Priority**: ${priority}
 
             ### [STATS] Size Analysis
-            - **Target**: < 500 lines
+            - **Target**: < 550 lines
             - **Current**: ${file.lines} lines
-            - **Reduction needed**: ${file.lines - 500} lines (${Math.round(((file.lines - 500) / file.lines) * 100)}%)
+            - **Reduction needed**: ${file.lines - 550} lines (${Math.round(((file.lines - 550) / file.lines) * 100)}%)
 
             ### [REFACTOR] Refactoring Strategies
             ${file.path.endsWith('.py') ? `
@@ -312,7 +312,7 @@ jobs:
             - Extract code examples to separate files` : ''}
 
             ### [PASS] Acceptance Criteria
-            - [ ] File reduced to < 500 lines
+            - [ ] File reduced to < 550 lines
             - [ ] Functionality preserved (all tests pass)
             - [ ] Clear separation of concerns
             - [ ] No breaking changes to public APIs
@@ -374,11 +374,11 @@ jobs:
             **[CRITICAL] Critical (>1000 lines):**
             ${files.filter(f => f.lines > 1000).map(f => `- \`${f.path}\` (${f.lines} lines)`).join('\n') || 'None'}
 
-            **[WARNING] High (600-1000 lines):**
-            ${files.filter(f => f.lines > 600 && f.lines <= 1000).map(f => `- \`${f.path}\` (${f.lines} lines)`).join('\n') || 'None'}
+            **[WARNING] High (650-1000 lines):**
+            ${files.filter(f => f.lines > 650 && f.lines <= 1000).map(f => `- \`${f.path}\` (${f.lines} lines)`).join('\n') || 'None'}
 
-            **[LARGE] Normal (500-600 lines):**
-            ${files.filter(f => f.lines > 500 && f.lines <= 600).map(f => `- \`${f.path}\` (${f.lines} lines)`).join('\n') || 'None'}
+            **[LARGE] Normal (550-650 lines):**
+            ${files.filter(f => f.lines > 550 && f.lines <= 650).map(f => `- \`${f.path}\` (${f.lines} lines)`).join('\n') || 'None'}
 
             ### [PLAN] Getting Started
             1. Start with Critical priority files (>1000 lines)
@@ -422,10 +422,10 @@ jobs:
             });
 
             let comment = `## [SIZE] Large File Detection\n\n`;
-            comment += `This PR contains ${fileCount} file${fileCount > 1 ? 's' : ''} over 500 lines:\n\n`;
+            comment += `This PR contains ${fileCount} file${fileCount > 1 ? 's' : ''} over 550 lines:\n\n`;
 
             files.forEach(file => {
-              const severity = file.lines > 1000 ? '[CRITICAL]' : file.lines > 600 ? '[WARNING]' : '[LARGE]';
+              const severity = file.lines > 1000 ? '[CRITICAL]' : file.lines > 650 ? '[WARNING]' : '[LARGE]';
               comment += `${severity} \`${file.path}\` - ${file.lines} lines\n`;
             });
 

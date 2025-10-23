@@ -7,9 +7,11 @@ from .blob_utils import (
     generate_articles_processed_blob_path,
 )
 from .cost_utils import calculate_openai_cost, get_model_pricing
+from .rate_limiter import AsyncLimiter  # type: ignore[import]
 from .timestamp_utils import get_utc_timestamp, get_utc_timestamp_str
 
 __all__ = [
+    "AsyncLimiter",
     "calculate_openai_cost",
     "get_model_pricing",
     "get_utc_timestamp",
