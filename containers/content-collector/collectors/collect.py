@@ -3,6 +3,11 @@ Pure async generator collection functions.
 
 collect_reddit() and collect_mastodon() are async generators that yield
 standardized items one at a time, with quality filtering and rate limiting.
+
+NOTE: Reddit collection is currently DISABLED pending OAuth implementation.
+Reddit's API policy requires OAuth authentication for all access as of 2023+.
+The collect_reddit() function is preserved for future OAuth implementation.
+Use collect_mastodon() for production content collection.
 """
 
 import asyncio
@@ -91,7 +96,22 @@ async def collect_reddit(
     """
     Stream Reddit posts one at a time from subreddits.
 
-    Uses public JSON API (no authentication required).
+    ⚠️  CURRENTLY DISABLED - REQUIRES OAuth IMPLEMENTATION
+
+    Reddit's API policy (2023+) requires OAuth authentication for all access.
+    This function uses unauthenticated public JSON endpoints which will be
+    blocked/throttled by Reddit. DO NOT USE in production until OAuth is added.
+
+    Preserved for future implementation with proper OAuth token management.
+    See: https://www.reddit.com/wiki/api (requires OAuth2)
+
+    TODO: Add OAuth authentication before enabling Reddit collection
+    - Implement OAuth token acquisition and refresh
+    - Add proper User-Agent headers
+    - Use https://oauth.reddit.com endpoints
+    - Reference: Previous PRAW implementation in git history
+
+    Uses public JSON API (no authentication - WILL BE BLOCKED).
     Yields standardized items: id, title, content, source, url, collected_at, metadata.
 
     Args:
@@ -105,6 +125,12 @@ async def collect_reddit(
     Yields:
         Standardized item dict
     """
+    logger.warning(
+        "⚠️  Reddit collection is DISABLED - requires OAuth implementation. "
+        "This function will be blocked by Reddit API. "
+        "Use collect_mastodon() instead for production content collection."
+    )
+
     from collectors.standardize import standardize_reddit_item
 
     items_yielded = 0

@@ -1,10 +1,13 @@
 # Content Collector - Streaming Pipeline
 
-A high-performance async streaming content collector for the AI Content Farm pipeline. Collects content from Reddit and Mastodon, validates quality in-stream, deduplicates, and sends to processing queue.
+A high-performance async streaming content collector for the AI Content Farm pipeline. Collects content from Mastodon (Reddit support coming soon with OAuth), validates quality in-stream, deduplicates, and sends to processing queue.
+
+> ⚠️ **Reddit Collection Currently Disabled**  
+> Reddit requires OAuth authentication as of 2023+ API policy changes. The `collect_reddit()` function is preserved but disabled pending OAuth implementation. Use Mastodon sources for production content collection.
 
 ## Overview
 
-**Content Collector** is a pure async streaming service that ingests content from multiple sources (Reddit, Mastodon) and processes items through a quality gate in real-time. Each item flows through the pipeline independently:
+**Content Collector** is a pure async streaming service that ingests content from multiple sources (currently Mastodon, Reddit pending OAuth) and processes items through a quality gate in real-time. Each item flows through the pipeline independently:
 
 ```
 Collection (async generators)
@@ -24,7 +27,7 @@ Queue Message (processor-ready format)
 
 The entire pipeline uses **pure functional async/await** patterns - no classes, no state mutation, no side effects beyond I/O:
 
-- **Collectors**: `collect.py` - Async generators for Reddit and Mastodon APIs
+- **Collectors**: `collect.py` - Async generators for Mastodon (Reddit preserved for future OAuth implementation)
 - **Quality**: `quality/review.py` - Item-level validation, readability, technical relevance
 - **Rate Limiting**: `pipeline/rate_limit.py` - Token bucket + exponential backoff
 - **Deduplication**: `pipeline/dedup.py` - 14-day blob window, SHA256 content hashing
@@ -45,8 +48,8 @@ The entire pipeline uses **pure functional async/await** patterns - no classes, 
 
 ### Core Collectors (210 lines)
 - `collectors/collect.py` (207 lines)
-  - `collect_reddit()` - Async generator for Reddit trending/subreddit topics
-  - `collect_mastodon()` - Async generator for Mastodon hashtags
+  - `collect_reddit()` - ⚠️ **DISABLED** - Requires OAuth (preserved for future implementation)
+  - `collect_mastodon()` - ✅ **ACTIVE** - Async generator for Mastodon hashtags
   - `rate_limited_get()` - Async context manager with rate limiting
 
 - `collectors/standardize.py` (140 lines)
@@ -423,15 +426,26 @@ async def collect_source_name(query, **kwargs):
 ## Status
 
 ✅ **Production Ready** (October 2025)
-- 294 tests passing
+- 248 tests passing (100% pass rate)
 - Pure async streaming architecture
 - Quality filtering in production
 - Deduplication working reliably
 - E2E integration tests validating full pipeline
 
+⚠️ **Reddit Collection Status**
+- **Disabled**: Requires OAuth authentication (Reddit API policy 2023+)
+- **Reason**: Reddit blocks unauthenticated requests to prevent scraping
+- **Plan**: Next phase will add OAuth via PRAW or direct token management
+- **Current**: Use Mastodon sources for production content collection
+- **Reference**: See `collect_reddit()` docstring for implementation TODOs
+
 ## Next Steps
 
-1. Monitor production metrics (collection rate, quality pass rate, dedup effectiveness)
-2. Tune quality gates based on content-processor feedback
-3. Extend to additional sources (RSS feeds, web scraping, Bluesky)
-4. Implement collection scheduling and webhook integration
+1. **Immediate**: Monitor Mastodon collection metrics (collection rate, quality pass rate)
+2. **Phase 2**: Implement Reddit OAuth authentication
+   - Add OAuth token acquisition and refresh logic
+   - Implement proper User-Agent headers
+   - Use `https://oauth.reddit.com` endpoints
+   - Test with Reddit API sandbox
+3. **Phase 3**: Extend to additional sources (RSS feeds, web scraping, Bluesky)
+4. **Future**: Collection scheduling and webhook integration
