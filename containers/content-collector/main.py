@@ -54,16 +54,106 @@ async def graceful_shutdown(exit_code: int = 0):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Application lifespan manager."""
-    logger.info("Content Womble starting up...")
-    logger.info(
-        "KEDA cron scaling configured - ready for scheduled collection triggers"
-    )
+    """Application lifespan manager with automatic startup collection via KEDA cron."""
+    logger.info("🚀 Content Womble starting up...")
+
+    # Check if we should run collection on startup (KEDA cron trigger)
+    should_collect = os.getenv("AUTO_COLLECT_ON_STARTUP", "true").lower() == "true"
+
+    if should_collect:
+        logger.info("⚡ KEDA cron startup detected - running scheduled collection...")
+        try:
+            import json
+            from datetime import datetime, timezone
+            from pathlib import Path
+
+            from collectors.collect import collect_mastodon
+            from pipeline.stream import stream_collection
+
+            from libs.blob_storage import BlobStorageClient
+            from libs.queue_client import get_queue_client
+
+            collection_id = f"keda_{datetime.now(timezone.utc).isoformat()[:19]}"
+            collection_blob = f"collections/keda/{collection_id}.json"
+
+            logger.info(f"Collection ID: {collection_id}")
+            logger.info(f"Collection Blob: {collection_blob}")
+
+            # Load quality-tech template for Mastodon sources
+            # Template determines which instances and how many items to collect
+            template_path = (
+                Path(__file__).parent.parent.parent
+                / "collection-templates"
+                / "quality-tech.json"
+            )
+            try:
+                with open(template_path) as f:
+                    template = json.load(f)
+                sources = template.get("sources", {}).get("mastodon", [])
+                logger.info(
+                    f"Loaded {len(sources)} Mastodon sources from quality-tech template"
+                )
+            except FileNotFoundError:
+                logger.warning(
+                    f"Template not found at {template_path}, using default Mastodon sources"
+                )
+                sources = [
+                    {"instance": "fosstodon.org", "max_items": 25},
+                    {"instance": "techhub.social", "max_items": 15},
+                ]
+
+            # Initialize clients for collection and deduplication
+            blob_client = BlobStorageClient()
+            async with get_queue_client("content-processor-requests") as queue_client:
+                # Create async generator for Mastodon sources from template
+                async def collect_from_template():
+                    """Collect from Mastodon instances configured in template."""
+                    for source in sources:
+                        instance = source.get("instance", "fosstodon.org")
+                        max_items = source.get("max_items", 25)
+                        delay = source.get("delay", 1.0)
+                        logger.info(
+                            f"Collecting from {instance} ({max_items} items)..."
+                        )
+                        async for item in collect_mastodon(
+                            instance=instance, delay=delay, max_items=max_items
+                        ):
+                            yield item
+
+                # Run streaming pipeline with proper blob client for deduplication
+                stats = await stream_collection(
+                    collector_fn=collect_from_template(),
+                    collection_id=collection_id,
+                    collection_blob=collection_blob,
+                    blob_client=blob_client,
+                    queue_client=queue_client,
+                )
+
+                logger.info(
+                    f"✅ KEDA startup collection complete - Stats: "
+                    f"collected={stats.get('collected', 0)}, "
+                    f"published={stats.get('published', 0)}, "
+                    f"rejected_quality={stats.get('rejected_quality', 0)}, "
+                    f"rejected_dedup={stats.get('rejected_dedup', 0)}"
+                )
+        except Exception as e:
+            logger.error(
+                f"❌ KEDA startup collection failed: {e}",
+                exc_info=True,
+            )
+            # Don't fail the entire container - continue to serve manual triggers
+            logger.info("Continuing to serve manual collection requests...")
+    else:
+        logger.info(
+            "⏭️  AUTO_COLLECT_ON_STARTUP disabled - container ready for manual triggers"
+        )
+
+    logger.info("📡 Content Womble HTTP API ready")
 
     try:
         yield
     finally:
-        logger.info("Content Womble shutting down...")
+        logger.info("🛑 Content Womble shutting down...")
 
 
 # Initialize FastAPI app

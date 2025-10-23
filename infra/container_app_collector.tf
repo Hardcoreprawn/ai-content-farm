@@ -104,6 +104,12 @@ resource "azurerm_container_app" "content_collector" {
         name  = "KEDA_CRON_TRIGGER"
         value = "true"
       }
+
+      # Enable automatic startup collection when KEDA scales container up
+      env {
+        name  = "AUTO_COLLECT_ON_STARTUP"
+        value = "true"
+      }
     }
 
     # Scale based on CRON schedule (0->1 at start time, 1->0 after end time)
