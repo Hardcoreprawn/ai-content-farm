@@ -76,9 +76,6 @@ async def lifespan(app: FastAPI):
             collection_id = f"keda_{datetime.now(timezone.utc).isoformat()[:19]}"
             collection_blob = f"collections/keda/{collection_id}.json"
 
-            logger.info(f"Collection ID: {collection_id}")
-            logger.info(f"Collection Blob: {collection_blob}")
-
             # Load collection template from environment variable
             # Defaults to quality-tech.json for Mastodon sources
             # Can be overridden by setting COLLECTION_TEMPLATE environment variable
