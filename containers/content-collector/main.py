@@ -82,48 +82,71 @@ async def lifespan(app: FastAPI):
             template_name = os.getenv("COLLECTION_TEMPLATE", "quality-tech.json")
             logger.info(f"Using collection template: {template_name}")
 
-            # Try multiple path locations for template file
-            # Path precedence: local dev → container /app → alternative mounts (devcontainer, CI/CD)
-            possible_paths = [
-                # Local development: relative to repo root
-                (
-                    Path(__file__).parent.parent.parent
-                    / "collection-templates"
-                    / template_name
-                ),
-                # Container deployment: /app is the working directory in Docker
-                Path("/app/collection-templates") / template_name,
-                # Alternative container mount: e.g., devcontainer or CI/CD pipeline
-                Path("/workspace/collection-templates") / template_name,
-            ]
+            # Initialize blob client early for template loading
+            blob_client = BlobStorageClient()
 
-            template_path = None
-            for path in possible_paths:
-                if path.exists():
-                    template_path = path
-                    break
+            # Try to load template from blob storage first (preferred)
+            template = None
+            sources = []
 
             try:
-                if template_path:
-                    with open(template_path) as f:
-                        template = json.load(f)
-                    sources = template.get("sources", {}).get("mastodon", [])
-                    logger.info(
-                        f"Loaded {len(sources)} Mastodon sources from {template_name}"
-                    )
-                else:
-                    raise FileNotFoundError(f"Template not found: {template_name}")
-            except FileNotFoundError:
+                # Attempt to load from blob storage (collection-templates container)
+                template = await blob_client.download_json(
+                    container_name="collection-templates",
+                    blob_name=template_name,
+                )
+                sources = template.get("sources", {}).get("mastodon", [])
+                logger.info(
+                    f"Loaded {len(sources)} Mastodon sources from blob storage template: {template_name}"
+                )
+            except Exception as blob_error:
                 logger.warning(
-                    f"Collection template '{template_name}' not found, using default Mastodon sources"
+                    f"Failed to load template from blob storage: {blob_error}"
+                )
+
+                # Fallback: Try filesystem paths for local dev/testing
+                # Path precedence: local dev → container /app → alternative mounts
+                possible_paths = [
+                    # Local development: relative to repo root
+                    (
+                        Path(__file__).parent.parent.parent
+                        / "collection-templates"
+                        / template_name
+                    ),
+                    # Container deployment: /app is the working directory in Docker
+                    Path("/app/collection-templates") / template_name,
+                    # Alternative container mount: e.g., devcontainer or CI/CD pipeline
+                    Path("/workspace/collection-templates") / template_name,
+                ]
+
+                template_path = None
+                for path in possible_paths:
+                    if path.exists():
+                        template_path = path
+                        break
+
+                if template_path:
+                    try:
+                        with open(template_path) as f:
+                            template = json.load(f)
+                        sources = template.get("sources", {}).get("mastodon", [])
+                        logger.info(
+                            f"Loaded {len(sources)} Mastodon sources from filesystem: {template_name}"
+                        )
+                    except Exception as fs_error:
+                        logger.warning(
+                            f"Failed to load template from filesystem: {fs_error}"
+                        )
+
+            # If template still not found, use hardcoded defaults
+            if not sources:
+                logger.warning(
+                    f"Collection template '{template_name}' not found in blob or filesystem, using default Mastodon sources"
                 )
                 sources = [
                     {"instance": "fosstodon.org", "max_items": 25},
                     {"instance": "techhub.social", "max_items": 15},
                 ]
-
-            # Initialize clients for collection and deduplication
-            blob_client = BlobStorageClient()
             async with get_queue_client("content-processor-requests") as queue_client:
                 # Create async generator for Mastodon sources from template
                 async def collect_from_template():
