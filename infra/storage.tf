@@ -191,31 +191,6 @@ resource "azurerm_storage_container" "web_backup" {
   }
 }
 
-# Container for collection templates - dynamically loaded by content-collector
-resource "azurerm_storage_container" "collection_templates" {
-  # checkov:skip=CKV2_AZURE_21: Logging not required for this use case
-  name                  = "collection-templates"
-  storage_account_id    = azurerm_storage_account.main.id
-  container_access_type = "private"
-
-  metadata = {
-    purpose     = "dynamic-collection-config"
-    description = "Collection templates for content-collector startup configuration"
-  }
-}
-
-# Upload collection template files to blob storage
-resource "azurerm_storage_blob" "template_files" {
-  for_each = fileset("${path.root}/../collection-templates", "*.json")
-
-  name                   = each.value
-  storage_account_name   = azurerm_storage_account.main.name
-  storage_container_name = azurerm_storage_container.collection_templates.name
-  type                   = "Block"
-  source                 = "${path.root}/../collection-templates/${each.value}"
-  content_type           = "application/json"
-}
-
 # Storage Queues for container service communication (replaces Service Bus)
 # Using Storage Queues to resolve Container Apps managed identity vs Service Bus connection string conflicts
 resource "azurerm_storage_queue" "content_collection_requests" {
