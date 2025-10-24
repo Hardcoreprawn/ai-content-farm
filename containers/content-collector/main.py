@@ -88,6 +88,7 @@ async def lifespan(app: FastAPI):
             # Try to load template from blob storage first (preferred)
             template = None
             sources = []
+            using_template = False  # Track if we're using actual template
 
             try:
                 # Attempt to load from blob storage (collection-templates container)
@@ -96,6 +97,7 @@ async def lifespan(app: FastAPI):
                     blob_name=template_name,
                 )
                 sources = template.get("sources", {}).get("mastodon", [])
+                using_template = len(sources) > 0
                 logger.info(
                     f"Loaded {len(sources)} Mastodon sources from blob storage template: {template_name}"
                 )
@@ -130,6 +132,7 @@ async def lifespan(app: FastAPI):
                         with open(template_path) as f:
                             template = json.load(f)
                         sources = template.get("sources", {}).get("mastodon", [])
+                        using_template = len(sources) > 0
                         logger.info(
                             f"Loaded {len(sources)} Mastodon sources from filesystem: {template_name}"
                         )
@@ -147,6 +150,7 @@ async def lifespan(app: FastAPI):
                     {"instance": "fosstodon.org", "max_items": 25},
                     {"instance": "techhub.social", "max_items": 15},
                 ]
+                using_template = False  # Mark as defaults, not template
             async with get_queue_client("content-processor-requests") as queue_client:
                 # Create async generator for Mastodon sources from template
                 async def collect_from_template():
@@ -164,12 +168,14 @@ async def lifespan(app: FastAPI):
                             yield item
 
                 # Run streaming pipeline with proper blob client for deduplication
+                # Use permissive quality checking if using default sources (not template)
                 stats = await stream_collection(
                     collector_fn=collect_from_template(),
                     collection_id=collection_id,
                     collection_blob=collection_blob,
                     blob_client=blob_client,
                     queue_client=queue_client,
+                    strict_quality_check=using_template,  # Strict only if using template
                 )
 
                 logger.info(

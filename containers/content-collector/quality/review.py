@@ -91,20 +91,31 @@ def check_readability(item: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
     return (True, None)
 
 
-def check_technical_relevance(item: Dict[str, Any]) -> Tuple[bool, Optional[str]]:
+def check_technical_relevance(
+    item: Dict[str, Any], strict_mode: bool = True
+) -> Tuple[bool, Optional[str]]:
     """
     Check if content is relevant to tech topics.
 
-    Filters:
-    - Missing technical keywords (code, software, development, tech, data, etc)
-    - Source is off-topic (funny, videos, nosleep)
+    In strict_mode:
+    - Requires technical keywords (code, software, development, tech, data, etc)
+    - Rejects obviously off-topic subreddits
+
+    In permissive_mode (strict_mode=False):
+    - Accepts any content that passes readability checks
+    - Used for default Mastodon sources as fallback
 
     Args:
         item: Standardized item dict
+        strict_mode: If False, skip keyword checking (permissive for defaults)
 
     Returns:
         (passes_check: bool, rejection_reason: Optional[str])
     """
+    if not strict_mode:
+        # Permissive mode for default sources - accept anything readable
+        return (True, None)
+
     title = item.get("title", "").lower()
     content = item.get("content", "").lower()
     source = item.get("source", "").lower()
@@ -159,7 +170,7 @@ def check_technical_relevance(item: Dict[str, Any]) -> Tuple[bool, Optional[str]
 
 
 def review_item(
-    item: Dict[str, Any], check_relevance: bool = True
+    item: Dict[str, Any], check_relevance: bool = True, strict_mode: bool = True
 ) -> Tuple[bool, Optional[str]]:
     """
     Review single item for quality.
@@ -167,11 +178,12 @@ def review_item(
     Pipeline:
     1. Validate required fields
     2. Check readability
-    3. Check technical relevance (optional)
+    3. Check technical relevance (optional, with strict/permissive modes)
 
     Args:
         item: Standardized item dict
         check_relevance: Whether to apply technical relevance filter
+        strict_mode: If False, permissive quality checking (for default sources)
 
     Returns:
         (passes_review: bool, rejection_reason: Optional[str])
@@ -210,7 +222,9 @@ def review_item(
 
     # Stage 3: Check technical relevance (optional)
     if check_relevance:
-        passes_relevance, reason = check_technical_relevance(item)
+        passes_relevance, reason = check_technical_relevance(
+            item, strict_mode=strict_mode
+        )
         if not passes_relevance:
             return (False, reason)
 

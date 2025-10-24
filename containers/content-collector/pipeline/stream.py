@@ -21,6 +21,7 @@ async def stream_collection(
     collection_blob: str,
     blob_client: Any,
     queue_client: Any,
+    strict_quality_check: bool = True,
 ) -> Dict[str, int]:
     """
     Stream items through quality pipeline: collect → review → dedupe → save → queue.
@@ -36,6 +37,7 @@ async def stream_collection(
         collection_blob: Blob path for storage
         blob_client: Azure Blob Storage client
         queue_client: Azure Storage Queue client
+        strict_quality_check: If False, use permissive quality checking (for default sources)
 
     Returns:
         Stats dict: collected, published, rejected_quality, rejected_dedup
@@ -56,8 +58,10 @@ async def stream_collection(
         stats["collected"] += 1
 
         try:
-            # Quality review (pure function)
-            passes_review, rejection_reason = review_item(item)
+            # Quality review (pure function) - use strict_mode parameter
+            passes_review, rejection_reason = review_item(
+                item, strict_mode=strict_quality_check
+            )
 
             if not passes_review:
                 stats["rejected_quality"] += 1
