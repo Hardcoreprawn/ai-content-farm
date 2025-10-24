@@ -90,6 +90,7 @@ async def lifespan(app: FastAPI):
             sources = []
             using_template = False  # Track if we're using actual template
             mastodon_criteria = {}  # Store template criteria
+            mastodon_timeline = "public"  # Default timeline
 
             try:
                 # Attempt to load from blob storage (collection-templates container)
@@ -107,6 +108,7 @@ async def lifespan(app: FastAPI):
                         mastodon_obj = mastodon_source_objs[0]
                         sources = mastodon_obj.get("instances", [])
                         mastodon_criteria = mastodon_obj.get("criteria", {})
+                        mastodon_timeline = mastodon_obj.get("timeline", "public")
                         using_template = len(sources) > 0
                         logger.info(
                             f"Loaded {len(sources)} Mastodon sources from blob storage template: {template_name}"
@@ -164,6 +166,9 @@ async def lifespan(app: FastAPI):
                                 mastodon_obj = mastodon_source_objs[0]
                                 sources = mastodon_obj.get("instances", [])
                                 mastodon_criteria = mastodon_obj.get("criteria", {})
+                                mastodon_timeline = mastodon_obj.get(
+                                    "timeline", "public"
+                                )
                                 using_template = len(sources) > 0
                                 logger.info(
                                     f"Loaded {len(sources)} Mastodon sources from filesystem: {template_name}"
@@ -221,6 +226,7 @@ async def lifespan(app: FastAPI):
                         min_favourites = mastodon_criteria.get("min_favorites", 10)
                         async for item in collect_mastodon(
                             instance=instance,
+                            timeline=mastodon_timeline,
                             delay=delay,
                             max_items=max_items,
                             min_boosts=min_boosts,

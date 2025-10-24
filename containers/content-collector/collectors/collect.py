@@ -185,8 +185,8 @@ async def collect_reddit(
 async def collect_mastodon(
     instance: str = "fosstodon.org",
     timeline: str = "public",
-    min_boosts: int = 5,
-    min_favourites: int = 10,
+    min_boosts: int = 0,
+    min_favourites: int = 0,
     max_items: int = 30,
     delay: float = 1.0,
 ) -> AsyncIterator[Dict[str, Any]]:
@@ -198,7 +198,7 @@ async def collect_mastodon(
 
     Args:
         instance: Mastodon instance domain (fosstodon.org, hachyderm.io, etc)
-        timeline: Timeline type (public, local)
+        timeline: Timeline type ('trending', 'public', 'local', etc)
         min_boosts: Minimum boost count to include
         min_favourites: Minimum favourite count to include
         max_items: Maximum total items to yield
@@ -260,4 +260,7 @@ async def collect_mastodon(
         )
 
     except Exception as e:
-        logger.warning(f"Error collecting from {instance}: {e}")
+        logger.error(
+            f"Error collecting from {instance}: {e}",
+            exc_info=True,
+        )
