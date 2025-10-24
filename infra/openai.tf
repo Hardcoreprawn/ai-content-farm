@@ -160,6 +160,11 @@ resource "azurerm_storage_blob" "collection_templates" {
   type                   = "Block"
   source                 = "${path.module}/../collection-templates/${each.value}"
   content_type           = "application/json"
+
+  # Force re-upload if file content changes (detected via MD5)
+  lifecycle {
+    replace_triggered_by = [filemd5("${path.module}/../collection-templates/${each.value}")]
+  }
 }
 
 # Container Configuration Files - Upload container-specific configuration to enable blob-based config management
