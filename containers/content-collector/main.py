@@ -233,12 +233,18 @@ async def lifespan(app: FastAPI):
                     strict_quality_check=using_template,  # Strict only if using template
                 )
 
+                rejection_reasons = stats.get("rejection_reasons", {})
+                reasons_detail = (
+                    f" | Reasons: {', '.join([f'{r}={c}' for r, c in rejection_reasons.items()])}"
+                    if rejection_reasons
+                    else ""
+                )
                 logger.info(
                     f"✅ KEDA startup collection complete - Stats: "
                     f"collected={stats.get('collected', 0)}, "
                     f"published={stats.get('published', 0)}, "
                     f"rejected_quality={stats.get('rejected_quality', 0)}, "
-                    f"rejected_dedup={stats.get('rejected_dedup', 0)}"
+                    f"rejected_dedup={stats.get('rejected_dedup', 0)}{reasons_detail}"
                 )
         except Exception as e:
             logger.error(

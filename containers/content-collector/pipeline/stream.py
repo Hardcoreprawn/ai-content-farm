@@ -50,6 +50,7 @@ async def stream_collection(
         "published": 0,
         "rejected_quality": 0,
         "rejected_dedup": 0,
+        "rejection_reasons": {},  # Track why items were rejected
     }
 
     seen_hashes = set()
@@ -65,7 +66,13 @@ async def stream_collection(
 
             if not passes_review:
                 stats["rejected_quality"] += 1
-                logger.debug(f"Quality rejected: {item.get('id')} - {rejection_reason}")
+                reason_str = rejection_reason or "unknown"
+                stats["rejection_reasons"][reason_str] = (
+                    stats["rejection_reasons"].get(reason_str, 0) + 1
+                )
+                logger.info(
+                    f"❌ Quality rejected: {item.get('id')} - Reason: {reason_str}"
+                )
                 continue
 
             # Deduplication check
@@ -78,7 +85,10 @@ async def stream_collection(
 
             if item_hash in seen_hashes or await is_seen(item_hash, blob_client):
                 stats["rejected_dedup"] += 1
-                logger.debug(f"Duplicate: {item.get('id')}")
+                stats["rejection_reasons"]["duplicate"] = (
+                    stats["rejection_reasons"].get("duplicate", 0) + 1
+                )
+                logger.info(f"🔄 Duplicate: {item.get('id')} (hash collision)")
                 continue
 
             seen_hashes.add(item_hash)
@@ -97,6 +107,14 @@ async def stream_collection(
         except Exception as e:
             logger.error(f"Error processing item {item.get('id')}: {e}")
             continue
+
+    # Log rejection summary before returning
+    rejection_reasons = stats.get("rejection_reasons", {})
+    if rejection_reasons:
+        reasons_summary = ", ".join(
+            [f"{reason}={count}" for reason, count in rejection_reasons.items()]
+        )
+        logger.info(f"📊 Rejection breakdown: {reasons_summary}")
 
     return stats
 
