@@ -89,6 +89,7 @@ async def lifespan(app: FastAPI):
             template = None
             sources = []
             using_template = False  # Track if we're using actual template
+            mastodon_criteria = {}  # Store template criteria
 
             try:
                 # Attempt to load from blob storage (collection-templates container)
@@ -99,18 +100,17 @@ async def lifespan(app: FastAPI):
                 # Extract mastodon sources from the template array
                 template_sources = template.get("sources", [])
                 if isinstance(template_sources, list):
-                    mastodon_sources = [
+                    mastodon_source_objs = [
                         s for s in template_sources if s.get("type") == "mastodon"
                     ]
-                    sources = (
-                        mastodon_sources[0].get("instances", [])
-                        if mastodon_sources
-                        else []
-                    )
-                    using_template = len(sources) > 0
-                    logger.info(
-                        f"Loaded {len(sources)} Mastodon sources from blob storage template: {template_name}"
-                    )
+                    if mastodon_source_objs:
+                        mastodon_obj = mastodon_source_objs[0]
+                        sources = mastodon_obj.get("instances", [])
+                        mastodon_criteria = mastodon_obj.get("criteria", {})
+                        using_template = len(sources) > 0
+                        logger.info(
+                            f"Loaded {len(sources)} Mastodon sources from blob storage template: {template_name}"
+                        )
                 else:
                     # Handle legacy format (dict-based sources)
                     sources = (
@@ -155,20 +155,19 @@ async def lifespan(app: FastAPI):
                         # Extract mastodon sources from the template array
                         template_sources = template.get("sources", [])
                         if isinstance(template_sources, list):
-                            mastodon_sources = [
+                            mastodon_source_objs = [
                                 s
                                 for s in template_sources
                                 if s.get("type") == "mastodon"
                             ]
-                            sources = (
-                                mastodon_sources[0].get("instances", [])
-                                if mastodon_sources
-                                else []
-                            )
-                            using_template = len(sources) > 0
-                            logger.info(
-                                f"Loaded {len(sources)} Mastodon sources from filesystem: {template_name}"
-                            )
+                            if mastodon_source_objs:
+                                mastodon_obj = mastodon_source_objs[0]
+                                sources = mastodon_obj.get("instances", [])
+                                mastodon_criteria = mastodon_obj.get("criteria", {})
+                                using_template = len(sources) > 0
+                                logger.info(
+                                    f"Loaded {len(sources)} Mastodon sources from filesystem: {template_name}"
+                                )
                         else:
                             # Handle legacy format (dict-based sources)
                             sources = (
@@ -217,8 +216,15 @@ async def lifespan(app: FastAPI):
                         logger.info(
                             f"Collecting from {instance} ({max_items} items)..."
                         )
+                        # Extract criteria from template, with sensible defaults
+                        min_boosts = mastodon_criteria.get("min_reblogs", 3)
+                        min_favourites = mastodon_criteria.get("min_favorites", 10)
                         async for item in collect_mastodon(
-                            instance=instance, delay=delay, max_items=max_items
+                            instance=instance,
+                            delay=delay,
+                            max_items=max_items,
+                            min_boosts=min_boosts,
+                            min_favourites=min_favourites,
                         ):
                             yield item
 
@@ -234,11 +240,14 @@ async def lifespan(app: FastAPI):
                 )
 
                 rejection_reasons = stats.get("rejection_reasons", {})
-                reasons_detail = (
-                    f" | Reasons: {', '.join([f'{r}={c}' for r, c in rejection_reasons.items()])}"
-                    if rejection_reasons
-                    else ""
-                )
+                if isinstance(rejection_reasons, dict):
+                    reasons_detail = (
+                        f" | Reasons: {', '.join([f'{r}={c}' for r, c in rejection_reasons.items()])}"
+                        if rejection_reasons
+                        else ""
+                    )
+                else:
+                    reasons_detail = ""
                 logger.info(
                     f"✅ KEDA startup collection complete - Stats: "
                     f"collected={stats.get('collected', 0)}, "
