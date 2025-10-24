@@ -97,8 +97,8 @@
             ],
             "limit": 15,
             "criteria": {
-                "min_favorites": 10,
-                "min_reblogs": 3,
+                "min_favorites": 0,
+                "min_reblogs": 0,
                 "published_within_hours": 48,
                 "language": "en",
                 "exclude_keywords": [

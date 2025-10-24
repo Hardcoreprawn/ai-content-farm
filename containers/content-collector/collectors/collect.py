@@ -212,7 +212,11 @@ async def collect_mastodon(
     items_yielded = 0
 
     try:
-        url = f"https://{instance}/api/v1/timelines/{timeline}"
+        # Build URL based on timeline type
+        if timeline == "trending":
+            url = f"https://{instance}/api/v1/trends/statuses"
+        else:
+            url = f"https://{instance}/api/v1/timelines/{timeline}"
         params = {"limit": max_items * 2}  # Over-fetch to account for filtering
 
         logger.debug(f"Fetching from {instance}: {url} (params: {params})")
