@@ -219,7 +219,7 @@ async def lifespan(app: FastAPI):
                             else 1.0
                         )
                         logger.info(
-                            f"Collecting from {instance} ({max_items} items)..."
+                            f"Collecting from {instance} ({max_items} items) via {mastodon_timeline} timeline..."
                         )
                         # Extract criteria from template, with sensible defaults
                         min_boosts = mastodon_criteria.get("min_reblogs", 3)
