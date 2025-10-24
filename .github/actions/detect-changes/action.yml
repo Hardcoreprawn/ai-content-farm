@@ -124,6 +124,12 @@ runs:
                 fi
               done
               ;;
+            collection-templates/*|container-config/*)
+              # Collection templates and container configs are managed by Terraform
+              infrastructure="true"
+              requires_terraform="true"
+              requires_full_pipeline="true"
+              ;;
             infra/*|*.tf|*.tfvars)
               infrastructure="true"
               requires_terraform="true"
