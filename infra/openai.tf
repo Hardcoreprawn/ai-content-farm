@@ -152,19 +152,20 @@ resource "azurerm_storage_container" "collection_templates" {
 # This uses fileset to discover all .json files and uploads them dynamically
 # Add new templates by simply creating .json files in collection-templates/ - no Terraform changes needed!
 resource "azurerm_storage_blob" "collection_templates" {
-  for_each = fileset("${path.module}/../collection-templates", "*.json")
+  for_each = {
+    for file in fileset("${path.module}/../collection-templates", "*.json") :
+    file => {
+      name     = file
+      md5_hash = filemd5("${path.module}/../collection-templates/${file}")
+    }
+  }
 
-  name                   = each.value
+  name                   = each.value.name
   storage_account_name   = azurerm_storage_account.main.name
   storage_container_name = azurerm_storage_container.collection_templates.name
   type                   = "Block"
-  source                 = "${path.module}/../collection-templates/${each.value}"
+  source                 = "${path.module}/../collection-templates/${each.value.name}"
   content_type           = "application/json"
-
-  # Force re-upload if file content changes (detected via MD5)
-  lifecycle {
-    replace_triggered_by = [filemd5("${path.module}/../collection-templates/${each.value}")]
-  }
 }
 
 # Container Configuration Files - Upload container-specific configuration to enable blob-based config management
