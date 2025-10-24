@@ -96,11 +96,32 @@ async def lifespan(app: FastAPI):
                     container_name="collection-templates",
                     blob_name=template_name,
                 )
-                sources = template.get("sources", {}).get("mastodon", [])
-                using_template = len(sources) > 0
-                logger.info(
-                    f"Loaded {len(sources)} Mastodon sources from blob storage template: {template_name}"
-                )
+                # Extract mastodon sources from the template array
+                template_sources = template.get("sources", [])
+                if isinstance(template_sources, list):
+                    mastodon_sources = [
+                        s for s in template_sources if s.get("type") == "mastodon"
+                    ]
+                    sources = (
+                        mastodon_sources[0].get("instances", [])
+                        if mastodon_sources
+                        else []
+                    )
+                    using_template = len(sources) > 0
+                    logger.info(
+                        f"Loaded {len(sources)} Mastodon sources from blob storage template: {template_name}"
+                    )
+                else:
+                    # Handle legacy format (dict-based sources)
+                    sources = (
+                        template_sources.get("mastodon", [])
+                        if isinstance(template_sources, dict)
+                        else []
+                    )
+                    using_template = len(sources) > 0
+                    logger.info(
+                        f"Loaded {len(sources)} Mastodon sources from blob storage template (legacy format): {template_name}"
+                    )
             except Exception as blob_error:
                 logger.warning(
                     f"Failed to load template from blob storage: {blob_error}"
@@ -131,11 +152,34 @@ async def lifespan(app: FastAPI):
                     try:
                         with open(template_path) as f:
                             template = json.load(f)
-                        sources = template.get("sources", {}).get("mastodon", [])
-                        using_template = len(sources) > 0
-                        logger.info(
-                            f"Loaded {len(sources)} Mastodon sources from filesystem: {template_name}"
-                        )
+                        # Extract mastodon sources from the template array
+                        template_sources = template.get("sources", [])
+                        if isinstance(template_sources, list):
+                            mastodon_sources = [
+                                s
+                                for s in template_sources
+                                if s.get("type") == "mastodon"
+                            ]
+                            sources = (
+                                mastodon_sources[0].get("instances", [])
+                                if mastodon_sources
+                                else []
+                            )
+                            using_template = len(sources) > 0
+                            logger.info(
+                                f"Loaded {len(sources)} Mastodon sources from filesystem: {template_name}"
+                            )
+                        else:
+                            # Handle legacy format (dict-based sources)
+                            sources = (
+                                template_sources.get("mastodon", [])
+                                if isinstance(template_sources, dict)
+                                else []
+                            )
+                            using_template = len(sources) > 0
+                            logger.info(
+                                f"Loaded {len(sources)} Mastodon sources from filesystem (legacy format): {template_name}"
+                            )
                     except Exception as fs_error:
                         logger.warning(
                             f"Failed to load template from filesystem: {fs_error}"
