@@ -82,7 +82,7 @@ jobs:
           steps.version-check.outputs.is-major == 'false' &&
           steps.change-analysis.outputs.is-pure-dependency == 'true'
         run: |
-          echo "⏳ Waiting for CI checks to complete..."
+          echo "Waiting for CI checks to complete..."
 
           max_wait=1800  # 30 minutes
           wait_time=0
@@ -106,14 +106,14 @@ jobs:
               echo "[PASS] All CI checks completed successfully!"
               break
             else
-              echo "⏳ $pending checks still running... (waited ${wait_time}s)"
+              echo "$pending checks still running... (waited ${wait_time}s)"
               sleep $check_interval
               wait_time=$((wait_time + check_interval))
             fi
           done
 
           if [ $wait_time -ge $max_wait ]; then
-            echo "⏰ Timeout waiting for CI checks"
+            echo "Timeout waiting for CI checks"
             exit 1
           fi
         env:
@@ -130,7 +130,7 @@ jobs:
           echo "[AUTO-MERGE] Enabling auto-merge for safe dependency update"
 
           # Add informative comment
-          gh pr comment "$PR_NUMBER" --body "## ✅ Auto-merge Enabled
+          gh pr comment "$PR_NUMBER" --body "## Auto-merge Enabled
 
           **Safe dependency update detected**
 
@@ -140,9 +140,9 @@ jobs:
           - Affected containers: \`${{ steps.change-analysis.outputs.affected-containers }}\`
 
           **Checks Passed:**
-          - ✅ Pure dependency update (no code changes)
-          - ✅ Non-major version update (patch/minor only)
-          - ✅ All CI checks passed
+          - Pure dependency update (no code changes)
+          - Non-major version update (patch/minor only)
+          - All CI checks passed
 
           **Action:** Auto-merge enabled - will merge when all checks pass."
 
@@ -166,7 +166,7 @@ jobs:
           fi
 
           echo "[REVIEW] $reason - manual review required"
-          gh pr comment "$PR_NUMBER" --body "## ⚠️ Manual Review Required
+          gh pr comment "$PR_NUMBER" --body "## Manual Review Required
 
           **Reason:** $reason
 
