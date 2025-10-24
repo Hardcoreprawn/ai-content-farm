@@ -215,13 +215,19 @@ async def collect_mastodon(
         url = f"https://{instance}/api/v1/timelines/{timeline}"
         params = {"limit": max_items * 2}  # Over-fetch to account for filtering
 
+        logger.debug(f"Fetching from {instance}: {url} (params: {params})")
+
         async with rate_limited_get(url, params=params, delay=delay) as resp:
             if resp.status != 200:
                 logger.warning(f"Mastodon {instance}: HTTP {resp.status}")
                 return
 
             statuses = await resp.json()
+            logger.debug(
+                f"Mastodon {instance}: Got {len(statuses)} statuses, filtering with min_boosts={min_boosts}, min_favourites={min_favourites}"
+            )
 
+        filtered_out = 0
         for status in statuses:
             if items_yielded >= max_items:
                 break
@@ -231,16 +237,27 @@ async def collect_mastodon(
             favourites = status.get("favourites_count", 0)
 
             if boosts < min_boosts or favourites < min_favourites:
+                filtered_out += 1
+                logger.debug(
+                    f"Mastodon {instance}: Filtered post (boosts={boosts}, favourites={favourites})"
+                )
                 continue
 
             # Skip replies
             if status.get("in_reply_to_id"):
+                filtered_out += 1
+                logger.debug(f"Mastodon {instance}: Skipped reply")
                 continue
 
             # Standardize and yield
             item = standardize_mastodon_item(status, instance=instance)
             items_yielded += 1
+            logger.debug(f"Mastodon {instance}: Yielded item {item.get('id')}")
             yield item
+
+        logger.info(
+            f"Mastodon {instance}: Complete - yielded {items_yielded}, filtered {filtered_out}"
+        )
 
     except Exception as e:
         logger.warning(f"Error collecting from {instance}: {e}")
