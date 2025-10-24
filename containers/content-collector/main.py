@@ -200,9 +200,20 @@ async def lifespan(app: FastAPI):
                 async def collect_from_template():
                     """Collect from Mastodon instances configured in template."""
                     for source in sources:
-                        instance = source.get("instance", "fosstodon.org")
-                        max_items = source.get("max_items", 25)
-                        delay = source.get("delay", 1.0)
+                        # Handle both string instances (from template) and dict format (legacy)
+                        if isinstance(source, str):
+                            # New template format: instances are strings
+                            instance = source
+                            max_items = 15  # Default from template
+                        else:
+                            # Legacy format: instances are dicts
+                            instance = source.get("instance", "fosstodon.org")
+                            max_items = source.get("max_items", 25)
+                        delay = (
+                            source.get("delay", 1.0)
+                            if isinstance(source, dict)
+                            else 1.0
+                        )
                         logger.info(
                             f"Collecting from {instance} ({max_items} items)..."
                         )
