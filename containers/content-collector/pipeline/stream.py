@@ -57,6 +57,7 @@ async def stream_collection(
 
     async for item in collector_fn:
         stats["collected"] += 1
+        logger.debug(f"Stream received item #{stats['collected']}: {item.get('id')}")
 
         try:
             # Quality review (pure function) - use strict_mode parameter
