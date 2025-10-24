@@ -2,6 +2,7 @@ resource "azurerm_cognitive_account" "openai" {
   # checkov:skip=CKV_AZURE_247: Data loss prevention requires complex configuration - using network ACLs for access control
   # checkov:skip=CKV2_AZURE_22: Customer-managed encryption requires complex setup - using Azure-managed encryption for development
   # checkov:skip=CKV_AZURE_134: Public network access required for Container Apps Consumption tier - secured with network ACLs
+  # Collection templates managed by Terraform fileset - auto-uploads all .json files from collection-templates/
   name                = "${local.resource_prefix}-openai"
   location            = "UK South" # OpenAI available in UK South for European compliance
   resource_group_name = azurerm_resource_group.main.name
