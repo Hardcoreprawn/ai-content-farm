@@ -90,4 +90,4 @@ freezegun~=1.5.1  # Time mocking for deterministic timestamp tests
 # ============================================================================
 # Monitoring & Telemetry
 # ============================================================================
-azure-monitor-opentelemetry~=1.6.4  # Application Insights integration
+azure-monitor-opentelemetry~=1.8.1  # Application Insights integration
