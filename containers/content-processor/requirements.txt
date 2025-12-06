@@ -8,7 +8,7 @@
 # ============================================================================
 fastapi~=0.118.2  # Web framework (updated from 0.115.6)
 httpx~=0.28.1  # HTTP client with HTTP/2 support (current)
-starlette~=0.48.0  # ASGI framework (updated from 0.47.2)
+starlette~=0.50.0  # ASGI framework (updated from 0.47.2)
 uvicorn~=0.37.0  # ASGI server for FastAPI (updated from 0.34.0)
 python-multipart~=0.0.20  # Form/file upload support (current)
 
